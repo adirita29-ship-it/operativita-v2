@@ -174,8 +174,6 @@ export default function App() {
   const [fatMese,setFatMese]=useState("Tutti");
   const importRef=useRef();
 
-  if(!utente) return <LoginPage onLogin={setUtente}/>;
-
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const mesi=useMemo(()=>Array.from(new Set(proposte.map(p=>p.dataProposta))).sort().reverse(),[proposte]);
   const anni=useMemo(()=>Array.from(new Set(proposte.map(p=>getAnno(p.dataProposta)))).sort().reverse(),[proposte]);
@@ -342,6 +340,8 @@ export default function App() {
   const MeseSel=({value,onChange,anno})=>(<select style={S.sel} value={value} onChange={e=>onChange(e.target.value)}><option value="Tutti">Tutti i mesi</option>{mesi.filter(m=>anno==="Tutti"||m.startsWith(anno)).map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</select>);
   const DashCard=({label,tot,sub,clr})=>(<div style={S.card(clr)}><p style={{fontSize:12,color:clr,margin:0,opacity:.85}}>{label}</p><p style={{fontSize:22,fontWeight:500,color:clr,margin:"3px 0 6px"}}>€ {fmt(tot)}</p>{sub.map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",padding:"2px 0",borderTop:`0.5px solid ${clr}22`,marginTop:2}}><span style={{fontSize:11,color:"#aaa"}}>{k}</span><span style={{fontSize:11,fontWeight:500,color:clr}}>€ {fmt(v)}</span></div>)}</div>);
   const ConfermaProvv=()=>(<div style={S.confBox}><p style={{fontSize:13,fontWeight:500,margin:"0 0 10px",color:"#1E8449"}}>Conferma prezzo e provvigioni</p><div style={S.g2}><div><label style={S.lbl}>Prezzo accettato (€)</label><input style={S.inp} type="number" value={avForm.prezzoAccettato||""} onChange={e=>hAvChange("prezzoAccettato",e.target.value)}/></div><div/><div><label style={S.lbl}>% Listing confermata</label><input style={S.inp} type="number" step="0.1" value={avForm.percListingConf??""} onChange={e=>hAvChange("percListingConf",e.target.value)}/></div><div><label style={S.lbl}>Provv. venditore (€)</label><input style={S.inp} type="number" value={avForm.provvVenditoreConf??""} onChange={e=>setAvForm({...avForm,provvVenditoreConf:e.target.value})}/></div><div><label style={S.lbl}>% Acquirente confermata</label><input style={S.inp} type="number" step="0.1" value={avForm.percAcquirenteConf??""} onChange={e=>hAvChange("percAcquirenteConf",e.target.value)}/></div><div><label style={S.lbl}>Provv. acquirente (€)</label><input style={S.inp} type="number" value={avForm.provvAcquirenteConf??""} onChange={e=>setAvForm({...avForm,provvAcquirenteConf:e.target.value})}/></div></div></div>);
+
+  if(!utente) return <LoginPage onLogin={setUtente}/>;
 
   return (
     <div style={S.wrap}>
