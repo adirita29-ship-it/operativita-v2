@@ -381,12 +381,76 @@ export default function App() {
               <BloccoFin titolo="INCASSATO" colore="#27AE60" emoji="✅" totale={dashIncassato} vArr={dashVendInc}/>
               <BloccoFin titolo="DA INCASSARE" colore="#E67E22" emoji="⏳" totale={dashDaIncassare} vArr={dashVendNoInc}/>
             </div>
+
+            {/* SOSPESI — provvigioni certe da incassare o parziali */}
+            {(()=>{
+              const sospesi=dashVend.filter(v=>v.statoIncasso==="Da incassare"||v.statoIncasso==="Parziale");
+              const righe=[];
+              sospesi.forEach(v=>{
+                const residuoV=Number(v.provvVenditore||0)-calcolaIncassatoV(v);
+                const residuoA=Number(v.provvAcquirente||0)-calcolaIncassatoA(v);
+                if(residuoV>0) righe.push({v,lato:"V",nominativo:v.nominativoVenditore,agente:nomAg(v.agenteListing||v.agenziaEsterna),giaInc:calcolaIncassatoV(v),dataInc:v.dataAcc1V||v.dataAcc2V||"",noteInc:[v.noteAcc1V,v.noteAcc2V].filter(Boolean).join(", "),residuo:residuoV,scadenza:v.scadenzaIncasso});
+                if(residuoA>0) righe.push({v,lato:"A",nominativo:v.nomeAcquirente,agente:nomAg(v.agenteAcquirente),giaInc:calcolaIncassatoA(v),dataInc:v.dataAcc1A||v.dataAcc2A||"",noteInc:[v.noteAcc1A,v.noteAcc2A].filter(Boolean).join(", "),residuo:residuoA,scadenza:v.scadenzaIncasso});
+              });
+              const totSospesi=righe.reduce((s,r)=>s+r.residuo,0);
+              if(righe.length===0) return null;
+              return(
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #E67E2244",overflow:"hidden",marginBottom:"1.25rem"}}>
+                  <div style={{background:"#FEF0E0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #E67E2233"}}>
+                    <div><span style={{fontSize:13,fontWeight:600,color:"#E67E22"}}>🕐 SOSPESI DA INCASSARE — Provvigioni maturate, da riscuotere</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Pratiche concluse con provvigioni ancora da incassare totalmente o parzialmente</p></div>
+                    <span style={{fontSize:20,fontWeight:700,color:"#E67E22",marginLeft:16}}>€ {fmt(totSospesi)}</span>
+                  </div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                    <thead><tr style={{background:"#fafaf8"}}>
+                      {["Lato","Agente","Nominativo","Immobile","Già incassato","Residuo","Scadenza"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 12px",borderBottom:"0.5px solid #eee",color:"#999",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>{righe.map((r,i)=>(
+                      <tr key={i} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                        <td style={{padding:"7px 12px"}}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:r.lato==="V"?"#EAF4FB":"#F5EEF8",color:r.lato==="V"?"#2980B9":"#8E44AD",fontWeight:500}}>{r.lato==="V"?"Venditore":"Acquirente"}</span></td>
+                        <td style={{padding:"7px 12px"}}>{r.agente}</td>
+                        <td style={{padding:"7px 12px",fontWeight:500}}>{r.nominativo}</td>
+                        <td style={{padding:"7px 12px"}}>{r.v.comuneImmobile} — {r.v.indirizzoImmobile}</td>
+                        <td style={{padding:"7px 12px",textAlign:"right",color:"#27AE60"}}>{r.giaInc>0?`€ ${fmt(r.giaInc)}`:<span style={{color:"#ccc"}}>—</span>}</td>
+                        <td style={{padding:"7px 12px",textAlign:"right",fontWeight:600,color:"#E67E22"}}>€ {fmt(r.residuo)}</td>
+                        <td style={{padding:"7px 12px",color:r.scadenza&&new Date(r.scadenza)<new Date()?"#E74C3C":"inherit"}}>{r.scadenza?fmtD(r.scadenza):"—"}</td>
+                      </tr>
+                    ))}</tbody>
+                    <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
+                      <td colSpan={4} style={{padding:"7px 12px"}}>Totale residuo ({righe.length} voci)</td>
+                      <td style={{padding:"7px 12px",textAlign:"right",color:"#27AE60"}}>€ {fmt(righe.reduce((s,r)=>s+r.giaInc,0))}</td>
+                      <td style={{padding:"7px 12px",textAlign:"right",color:"#E67E22"}}>€ {fmt(totSospesi)}</td>
+                      <td style={{padding:"7px 12px"}}/>
+                    </tfoot>
+                  </table>
+                </div>
+              );
+            })()}
+
+            {/* VINCOLATE — proposte con vincolo in attesa, previsione */}
             {dashSospeso>0&&(<div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
               <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
-                <div><span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>⚠️ SOSPESO — Proposte con vincolo in attesa di esito</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Queste provvigioni potrebbero non concretizzarsi se il vincolo non si risolve positivamente</p></div>
+                <div><span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>🔗 VINCOLATE — Proposte accettate con vincolo in attesa di esito</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni previste ma non certe: dipendono dall'esito del vincolo (es. mutuo)</p></div>
                 <span style={{fontSize:20,fontWeight:700,color:"#D4AC0D",marginLeft:16}}>€ {fmt(dashSospeso)}</span>
               </div>
-              <div style={{padding:"10px 16px"}}>{propVincolo.map(p=>(<div key={p.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid #f5f5f5",fontSize:13}}><span><strong>{p.nominativoVenditore}</strong> — {p.comuneImmobile} | Acq: {p.nomeAcquirente} | Vincolo: {p.tipoVincolo}</span><span style={{fontWeight:500,color:"#D4AC0D",marginLeft:12}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</span></div>))}</div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead><tr style={{background:"#fafaf8"}}>
+                  {["Venditore","Acquirente","Immobile","Vincolo","Scadenza vincolo","Provv. prevista"].map(h=><th key={h} style={{textAlign:"left",padding:"7px 12px",borderBottom:"0.5px solid #eee",color:"#999",fontWeight:500,whiteSpace:"nowrap"}}>{h}</th>)}
+                </tr></thead>
+                <tbody>{propVincolo.map(p=>(
+                  <tr key={p.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                    <td style={{padding:"7px 12px",fontWeight:500}}>{p.nominativoVenditore}</td>
+                    <td style={{padding:"7px 12px"}}>{p.nomeAcquirente}</td>
+                    <td style={{padding:"7px 12px"}}>{p.comuneImmobile} — {p.indirizzoImmobile}</td>
+                    <td style={{padding:"7px 12px"}}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF9E7",color:"#D4AC0D",fontWeight:500,border:"0.5px solid #D4AC0D44"}}>{p.tipoVincolo||"Generico"}</span></td>
+                    <td style={{padding:"7px 12px",color:p.termineSubordine&&new Date(p.termineSubordine)<new Date()?"#E74C3C":"inherit"}}>{p.termineSubordine?fmtD(p.termineSubordine):"—"}</td>
+                    <td style={{padding:"7px 12px",textAlign:"right",fontWeight:600,color:"#D4AC0D"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
+                  </tr>
+                ))}</tbody>
+                <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
+                  <td colSpan={5} style={{padding:"7px 12px"}}>Totale provvigioni vincolate ({propVincolo.length})</td>
+                  <td style={{padding:"7px 12px",textAlign:"right",color:"#D4AC0D"}}>€ {fmt(dashSospeso)}</td>
+                </tfoot>
+              </table>
             </div>)}
           </div>)}
 
