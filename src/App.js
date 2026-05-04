@@ -10,6 +10,7 @@ const TAB_CONFIG = [
   { id:"Report Agenti", icon:"📊", label:"Report Agenti" },
   { id:"Fatture Agenti",icon:"🧾", label:"Fatture Agenti" },
   { id:"Agenti",        icon:"👥", label:"Agenti" },
+  { id:"Costi & Break Even", icon:"📉", label:"Costi & Break Even" },
   { id:"Impostazioni",  icon:"⚙️", label:"Impostazioni" },
 ];
 const fmt  = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -68,6 +69,19 @@ const calcolaIncassatoV = v => Number(v.acc1V||0)+Number(v.acc2V||0)+Number(v.sa
 const calcolaIncassatoA = v => Number(v.acc1A||0)+Number(v.acc2A||0)+Number(v.saldoA||0);
 const calcolaStatoIncasso = v => { const t=Number(v.provvVenditore||0)+Number(v.provvAcquirente||0); const i=calcolaIncassatoV(v)+calcolaIncassatoA(v); if(i===0)return"Da incassare"; if(i>=t)return"Incassato"; return"Parziale"; };
 const calcolaQuotaAgente = (v,agId) => { let q=0; if(v.agenteListing===agId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100; if(v.agenteAcquirente===agId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100; if(v.buyerListing===agId&&v.agenteListing!==agId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100; if(v.buyer===agId&&v.agenteAcquirente!==agId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100; return q; };
+
+const VOCI_COSTO = [
+  "Locazione Ufficio","Spese Condominiali","Utenza Elettricita","Utenza GAS",
+  "Telefonia Fissa","Telefonia Cellulare","Pulizie","Assicurazione Ufficio",
+  "Imposte Pubblicitarie","Ufficio Multifunzione Canone","Commercialista SRL",
+  "Consulente Paghe","Compenso Amministratore","Stipendio Erica Guglielmana",
+  "Stipendi x collaborazioni","Tasse / Contributi x Dipendenti",
+  "Immobiliare.it","Idealista.it & Casa.it","Sponsorizzazioni Squadre",
+  "Gestim + Sito e Hosting","Software - Servizi Professionali","FIAIP",
+  "Assicurazioni Professionali","Altre Assicurazioni","Agente Strategico Abbonamento"
+];
+const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v,prevMensile:0,consuntivi:{}}));
+const MESI_KEYS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 
 // Proposte che bloccano nuove proposte sullo stesso incarico
 const STATI_BLOCCANTI = ["In attesa","Controproposta"];
@@ -290,6 +304,9 @@ export default function App() {
   const [proposte,setProposte]=useState(_ls?.proposte||INIT_PROPOSTE);
   const [venduti,setVenduti]=useState(_ls?.venduti||INIT_VENDUTI);
   const [archiviati,setArchiviati]=useState(_ls?.archiviati||[]);
+  const [costi,setCosti]=useState(_ls?.costi||{[annoCorrente]:mkCosti()});
+  const [costiAnno,setCostiAnno]=useState(annoCorrente);
+  const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [archiviatiProp,setArchiviatiProp]=useState(_ls?.archiviatiProp||[]);
   const [archiviatiVend,setArchiviatiVend]=useState(_ls?.archiviatiVend||[]);
   const [mostraArchiviatiProp,setMostraArchiviatiProp]=useState(false);
@@ -319,8 +336,8 @@ export default function App() {
 
   // Auto-salvataggio ad ogni modifica
   useEffect(()=>{
-    salvaLS({agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture});
-  },[agenti,incarichi,proposte,venduti,archiviati,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture]);
+    salvaLS({agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato});
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -1049,6 +1066,131 @@ export default function App() {
                 </div></td>
               </tr>))}</tbody>
             </table></div>
+          </div>)}
+
+          {/* COSTI & BREAK EVEN */}
+          {tab==="Costi & Break Even"&&(<div style={S.sec}>
+            {/* Anno selector + obiettivo */}
+            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center"}}>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <label style={{fontSize:13,color:"#888"}}>Anno:</label>
+                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);if(!costi[e.target.value])setCosti({...costi,[e.target.value]:mkCosti()});}}>
+                  {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                  <option value={String(Number(annoCorrente)+1)}>{Number(annoCorrente)+1}</option>
+                </select>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <label style={{fontSize:13,color:"#888"}}>Obiettivo fatturato annuo (EUR):</label>
+                <input style={{...S.inp,width:160,margin:0}} type="number" value={obiettivoFatturato||""} placeholder="0" onChange={e=>setObiettivoFatturato(Number(e.target.value))}/>
+              </div>
+            </div>
+
+            {/* KPI Break Even */}
+            {(()=>{
+              const vociAnno = costi[costiAnno]||mkCosti();
+              const totPrevMensile = vociAnno.reduce((s,v)=>s+Number(v.prevMensile||0),0);
+              const totPrevAnnuo = totPrevMensile*12;
+
+              // Fatturato reale dell'anno (provvigioni incassate)
+              const fatturatoReale = venduti.filter(v=>getAnno(v.dataAtto||v.dataVendita||"")===costiAnno)
+                .reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+
+              // Costi consuntivi totali inseriti
+              const totConsuntivo = vociAnno.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
+
+              const margine = fatturatoReale - totConsuntivo;
+              const breakEvenMensile = totPrevMensile;
+              const percRaggiungimento = obiettivoFatturato>0?(fatturatoReale/obiettivoFatturato*100).toFixed(1):null;
+              const percCopertura = totPrevAnnuo>0?(fatturatoReale/totPrevAnnuo*100).toFixed(1):null;
+
+              return(<>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  <div style={S.card("#27AE60")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Fatturato reale {costiAnno}</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(fatturatoReale)}</p>{percRaggiungimento&&<p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{percRaggiungimento}% dell obiettivo</p>}</div>
+                  <div style={S.card("#E74C3C")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsionali annui</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnnuo)}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(totPrevMensile)}/mese</p></div>
+                  <div style={S.card("#E67E22")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi consuntivi inseriti</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p>{percCopertura&&<p style={{fontSize:11,color:Number(percCopertura)>=100?"#27AE60":"#E74C3C",margin:"4px 0 0",fontWeight:500}}>{percCopertura}% copertura costi</p>}</div>
+                  <div style={S.card(margine>=0?"#27AE60":"#E74C3C")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Margine (fatturato - costi)</p><p style={{fontSize:22,fontWeight:600,margin:0,color:margine>=0?"#27AE60":"#E74C3C"}}>{margine>=0?"+":""}€ {fmt(margine)}</p></div>
+                </div>
+
+                {/* Barra avanzamento obiettivo */}
+                {obiettivoFatturato>0&&(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1.25rem"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontSize:13,fontWeight:500}}>Avanzamento verso obiettivo {costiAnno}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:fatturatoReale>=obiettivoFatturato?"#27AE60":BRAND.oro}}>€ {fmt(fatturatoReale)} / € {fmt(obiettivoFatturato)}</span>
+                  </div>
+                  <div style={{background:"#f0f0f0",borderRadius:8,height:16,overflow:"hidden"}}>
+                    <div style={{height:"100%",borderRadius:8,background:fatturatoReale>=obiettivoFatturato?"#27AE60":`linear-gradient(90deg,${BRAND.oro},#A8863A)`,width:`${Math.min(100,fatturatoReale/obiettivoFatturato*100)}%`,transition:"width 0.5s ease"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:"#aaa"}}>
+                    <span>Break Even mensile: € {fmt(breakEvenMensile)}</span>
+                    <span>{percRaggiungimento}% raggiunto</span>
+                    {fatturatoReale<obiettivoFatturato&&<span style={{color:"#E67E22"}}>Mancano € {fmt(obiettivoFatturato-fatturatoReale)}</span>}
+                    {fatturatoReale>=obiettivoFatturato&&<span style={{color:"#27AE60",fontWeight:500}}>Obiettivo raggiunto!</span>}
+                  </div>
+                </div>)}
+              </>);
+            })()}
+
+            {/* Tabella voci di costo */}
+            <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"auto"}}>
+              <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:13,fontWeight:500}}>Voci di costo — {costiAnno}</span>
+                <span style={{fontSize:11,color:"#aaa"}}>Inserisci importo previsionale mensile e consuntivi mese per mese</span>
+              </div>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:900}}>
+                <thead>
+                  <tr>
+                    <th style={{...S.th,minWidth:200,position:"sticky",left:0,background:"#fafaf8",zIndex:1}}>Voce di costo</th>
+                    <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Mensile</th>
+                    <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Annuo</th>
+                    {MESI_KEYS.map(m=><th key={m} style={{...S.th,textAlign:"right",minWidth:80}}>{MESI_NOMI[parseInt(m)]}</th>)}
+                    <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. Cons.</th>
+                    <th style={{...S.th,textAlign:"right"}}>Diff.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(costi[costiAnno]||mkCosti()).map((voce,idx)=>{
+                    const prevAnnuo=Number(voce.prevMensile||0)*12;
+                    const totCons=MESI_KEYS.reduce((s,m)=>s+Number(voce.consuntivi?.[m]||0),0);
+                    const diff=totCons-prevAnnuo;
+                    return(<tr key={voce.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
+                      <td style={{...S.td,fontWeight:500,fontSize:12,position:"sticky",left:0,background:idx%2===0?"#fff":"#fafafa",zIndex:1}}>{voce.voce}</td>
+                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>
+                        <input type="number" style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:4,border:"0.5px solid #ddd",textAlign:"right",background:"transparent"}}
+                          value={voce.prevMensile||""} placeholder="0"
+                          onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>
+                      </td>
+                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:BRAND.oroD,background:"#FDF6EC",fontSize:12}}>€ {fmt(prevAnnuo)}</td>
+                      {MESI_KEYS.map(m=>(
+                        <td key={m} style={{padding:"4px 4px",borderBottom:"0.5px solid #f5f5f5"}}>
+                          <input type="number" style={{width:"100%",fontSize:12,padding:"4px 5px",borderRadius:4,border:"0.5px solid #ddd",textAlign:"right"}}
+                            value={voce.consuntivi?.[m]||""} placeholder="0"
+                            onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],consuntivi:{...v[idx].consuntivi,[m]:Number(e.target.value)}};setCosti({...costi,[costiAnno]:v});}}/>
+                        </td>
+                      ))}
+                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:600,color:"#27AE60",fontSize:12}}>€ {fmt(totCons)}</td>
+                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa",fontSize:12}}>{diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
+                    </tr>);
+                  })}
+                </tbody>
+                <tfoot>
+                  {(()=>{
+                    const voci=costi[costiAnno]||mkCosti();
+                    const totPrevM=voci.reduce((s,v)=>s+Number(v.prevMensile||0),0);
+                    const totPrevA=totPrevM*12;
+                    const totConsTot=voci.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
+                    const mesiTot=MESI_KEYS.map(m=>voci.reduce((s,v)=>s+Number(v.consuntivi?.[m]||0),0));
+                    return(<tr style={{background:BRAND.beige,fontWeight:600,fontSize:12}}>
+                      <td style={{padding:"8px 12px"}}>TOTALE</td>
+                      <td style={{padding:"8px 8px",textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevM)}</td>
+                      <td style={{padding:"8px 8px",textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevA)}</td>
+                      {mesiTot.map((t,i)=><td key={i} style={{padding:"8px 4px",textAlign:"right",color:t>0?"#E67E22":"#ccc"}}>€ {fmt(t)}</td>)}
+                      <td style={{padding:"8px 8px",textAlign:"right",color:"#27AE60"}}>€ {fmt(totConsTot)}</td>
+                      <td style={{padding:"8px 8px",textAlign:"right",color:(totConsTot-totPrevA)>0?"#E74C3C":"#27AE60"}}>{totConsTot-totPrevA!==0?(totConsTot-totPrevA>0?"+":"")+fmt(totConsTot-totPrevA):"—"}</td>
+                    </tr>);
+                  })()}
+                </tfoot>
+              </table>
+            </div>
           </div>)}
 
           {/* IMPOSTAZIONI */}
