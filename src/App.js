@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 
 const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
 const MESI_NOMI = ["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
@@ -38,6 +38,11 @@ const STATI_INCASSO = {"Da incassare":{clr:"#E67E22",bg:"#FEF0E0"},"Parziale":{c
 const STATI_FATTURA = {"Da pagare":{clr:"#E67E22",bg:"#FEF0E0"},"Pagato parzialmente":{clr:"#D4AC0D",bg:"#FEF9E7"},"Pagato":{clr:"#27AE60",bg:"#E9F7EF"}};
 const bdg = cfg => ({display:"inline-flex",alignItems:"center",gap:4,padding:"3px 9px",borderRadius:5,fontSize:11,fontWeight:500,background:cfg?.bg||"#eee",color:cfg?.clr||"#333",border:`0.5px solid ${cfg?.clr||"#ccc"}`,whiteSpace:"nowrap"});
 const USERS = [{email:"adirita@casaimmobiliarevarese.it",password:"Dalmata1518",nome:"Antonello Di Rita",ruolo:"Broker"}];
+
+// LocalStorage helpers — salvataggio automatico
+const LS_KEY = "gestionale_casa_v1";
+const salvaLS = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e){} };
+const caricaLS = () => { try { const d=localStorage.getItem(LS_KEY); return d?JSON.parse(d):null; } catch(e){return null;} };
 
 const INIT_AGENTI = [
   {id:1,nome:"Antonello",cognome:"Di Rita",profilo:"Broker",tipo:"Interno",percListing:0,percAcquirente:0},
@@ -278,15 +283,17 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
 export default function App() {
   const [utente,setUtente]=useState(null);
   const [tab,setTab]=useState("Dashboard");
-  const [agenti,setAgenti]=useState(INIT_AGENTI);
-  const [incarichi,setIncarichi]=useState(INIT_INCARICHI);
-  const [proposte,setProposte]=useState(INIT_PROPOSTE);
-  const [venduti,setVenduti]=useState(INIT_VENDUTI);
-  const [archiviati,setArchiviati]=useState([]);
-  const [fonti,setFonti]=useState(["CP/CDI","Zona","Privati","Agenzia Esterna","Passaparola"]);
-  const [tipologie,setTipologie]=useState(["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
-  const [vincoli,setVincoli]=useState(["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
-  const [tipiNeg,setTipiNeg]=useState(["Mutuo negato","Pratica rifiutata","Rinuncia acquirente","Problemi catastali","Altro"]);
+  // Carica da localStorage se disponibile, altrimenti usa dati iniziali
+  const _ls = caricaLS();
+  const [agenti,setAgenti]=useState(_ls?.agenti||INIT_AGENTI);
+  const [incarichi,setIncarichi]=useState(_ls?.incarichi||INIT_INCARICHI);
+  const [proposte,setProposte]=useState(_ls?.proposte||INIT_PROPOSTE);
+  const [venduti,setVenduti]=useState(_ls?.venduti||INIT_VENDUTI);
+  const [archiviati,setArchiviati]=useState(_ls?.archiviati||[]);
+  const [fonti,setFonti]=useState(_ls?.fonti||["CP/CDI","Zona","Privati","Agenzia Esterna","Passaparola"]);
+  const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
+  const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
+  const [tipiNeg,setTipiNeg]=useState(_ls?.tipiNeg||["Mutuo negato","Pratica rifiutata","Rinuncia acquirente","Problemi catastali","Altro"]);
   const [nF,setNF]=useState(""); const [nT,setNT]=useState(""); const [nV,setNV]=useState(""); const [nN,setNN]=useState("");
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
@@ -302,9 +309,14 @@ export default function App() {
   const [showAgente,setShowAgente]=useState(null); const [formAgente,setFormAgente]=useState({});
   const [schedaAgente,setSchedaAgente]=useState(null);
   const [schedaIncarico,setSchedaIncarico]=useState(null);
-  const [pagamentiFatture,setPagamentiFatture]=useState({});
+  const [pagamentiFatture,setPagamentiFatture]=useState(_ls?.pagamentiFatture||{});
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const importRef=useRef();
+
+  // Auto-salvataggio ad ogni modifica
+  useEffect(()=>{
+    salvaLS({agenti,incarichi,proposte,venduti,archiviati,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture});
+  },[agenti,incarichi,proposte,venduti,archiviati,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -362,69 +374,68 @@ export default function App() {
     incassato:vendFiltrati.filter(v=>calcolaStatoIncasso(v)==="Incassato").length,
   }),[vendFiltrati]);
 
-  const dashVend=useMemo(()=>venduti.filter(v=>v.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(v.dataAtto||"")===dashAnno)),[venduti,dashAnno]);
+  const dashVend=useMemo(()=>venduti.filter(v=>{
+    if(v.categoria!=="vendita") return false;
+    if(dashAnno==="Tutti") return true;
+    // Usa dataAtto se disponibile, altrimenti dataVendita
+    const dataRif=v.dataAtto||v.dataVendita||"";
+    return getAnno(dataRif)===dashAnno;
+  }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{if(reportAnno!=="Tutti"&&getAnno(v.dataAtto||"")!==reportAnno)return false;if(reportMese!=="Tutti"&&getMese(v.dataAtto||"")!==reportMese)return false;return true;}),[venduti,reportAnno,reportMese]);
 
-  // Dashboard calcoli corretti
-  // INCASSATO = solo quello effettivamente incassato
-  const dashTotIncassatoV = dashVend.reduce((s,v)=>s+calcolaIncassatoV(v),0);
-  const dashTotIncassatoA = dashVend.reduce((s,v)=>s+calcolaIncassatoA(v),0);
-  const dashIncassato = dashTotIncassatoV + dashTotIncassatoA;
-  // DA INCASSARE = residuo su tutte le pratiche non saldato
-  const dashDaIncassare = dashVend.reduce((s,v)=>{
-    const residuoV=Number(v.provvVenditore||0)-calcolaIncassatoV(v);
-    const residuoA=Number(v.provvAcquirente||0)-calcolaIncassatoA(v);
-    return s+(residuoV>0?residuoV:0)+(residuoA>0?residuoA:0);
-  },0);
+  // Dashboard calcoli — tutti useMemo per aggiornamento in tempo reale
+  const dashCalcoli = useMemo(()=>{
+    const tuttiVendVendita = venduti.filter(v=>v.categoria==="vendita");
+    const nonBroker = agenti.filter(a=>a.profilo!=="Broker");
 
-  // Quote su incassato reale
-  const calcQAgSuInc = () => dashVend.reduce((s,v)=>{
-    const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
-    const provvV=Number(v.provvVenditore||0); const provvA=Number(v.provvAcquirente||0);
-    return s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
-      let q=0;
-      if(v.agenteListing===a.id&&provvV>0) q+=incV*(Number(v.percListing||0)/100);
-      if(v.agenteAcquirente===a.id&&provvA>0) q+=incA*(Number(v.percAcquirente||0)/100);
-      if(v.buyerListing===a.id&&v.agenteListing!==a.id&&provvV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
-      if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&provvA>0) q+=incA*(Number(v.percBuyer||0)/100);
-      return sa+q;
-    },0);
-  },0);
-  const calcQBuySuInc = () => dashVend.reduce((s,v)=>{
-    const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
-    const provvV=Number(v.provvVenditore||0); const provvA=Number(v.provvAcquirente||0);
-    let q=0;
-    if(v.buyerListing&&provvV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
-    if(v.buyer&&provvA>0) q+=incA*(Number(v.percBuyer||0)/100);
-    return s+q;
-  },0);
-  const qAgInc=calcQAgSuInc(); const qBuyInc=calcQBuySuInc(); const qAgenziaInc=dashIncassato-qAgInc-qBuyInc;
+    // INCASSATO = somma reale di tutti gli acconti e saldi registrati
+    let incassato=0, daIncassare=0;
+    let qAgInc=0, qBuyInc=0, qAgRes=0, qBuyRes=0;
 
-  // Quote su da incassare
-  const calcQAgSuRes = () => venduti.filter(v=>v.categoria==="vendita").reduce((s,v)=>{
-    const residuoV=Math.max(0,Number(v.provvVenditore||0)-calcolaIncassatoV(v));
-    const residuoA=Math.max(0,Number(v.provvAcquirente||0)-calcolaIncassatoA(v));
-    const provvV=Number(v.provvVenditore||0); const provvA=Number(v.provvAcquirente||0);
-    return s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
-      let q=0;
-      if(v.agenteListing===a.id&&provvV>0) q+=residuoV*(Number(v.percListing||0)/100);
-      if(v.agenteAcquirente===a.id&&provvA>0) q+=residuoA*(Number(v.percAcquirente||0)/100);
-      if(v.buyerListing===a.id&&v.agenteListing!==a.id&&provvV>0) q+=residuoV*(Number(v.percBuyerListing||0)/100);
-      if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&provvA>0) q+=residuoA*(Number(v.percBuyer||0)/100);
-      return sa+q;
-    },0);
-  },0);
-  const calcQBuySuRes = () => venduti.filter(v=>v.categoria==="vendita").reduce((s,v)=>{
-    const residuoV=Math.max(0,Number(v.provvVenditore||0)-calcolaIncassatoV(v));
-    const residuoA=Math.max(0,Number(v.provvAcquirente||0)-calcolaIncassatoA(v));
-    const provvV=Number(v.provvVenditore||0); const provvA=Number(v.provvAcquirente||0);
-    let q=0;
-    if(v.buyerListing&&provvV>0) q+=residuoV*(Number(v.percBuyerListing||0)/100);
-    if(v.buyer&&provvA>0) q+=residuoA*(Number(v.percBuyer||0)/100);
-    return s+q;
-  },0);
-  const qAgRes=calcQAgSuRes(); const qBuyRes=calcQBuySuRes(); const qAgenziaRes=dashDaIncassare-qAgRes-qBuyRes;
+    tuttiVendVendita.forEach(v=>{
+      const incV=calcolaIncassatoV(v);
+      const incA=calcolaIncassatoA(v);
+      const provvV=Number(v.provvVenditore||0);
+      const provvA=Number(v.provvAcquirente||0);
+      const residuoV=Math.max(0,provvV-incV);
+      const residuoA=Math.max(0,provvA-incA);
+
+      incassato += incV+incA;
+      daIncassare += residuoV+residuoA;
+
+      // Quote agenti su incassato
+      nonBroker.forEach(a=>{
+        if(v.agenteListing===a.id&&provvV>0) qAgInc+=incV*(Number(v.percListing||0)/100);
+        if(v.agenteAcquirente===a.id&&provvA>0) qAgInc+=incA*(Number(v.percAcquirente||0)/100);
+        if(v.buyerListing===a.id&&v.agenteListing!==a.id&&provvV>0) qAgInc+=incV*(Number(v.percBuyerListing||0)/100);
+        if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&provvA>0) qAgInc+=incA*(Number(v.percBuyer||0)/100);
+      });
+      // Quote buyer su incassato
+      if(v.buyerListing&&v.agenteListing!==v.buyerListing&&provvV>0) qBuyInc+=incV*(Number(v.percBuyerListing||0)/100);
+      if(v.buyer&&v.agenteAcquirente!==v.buyer&&provvA>0) qBuyInc+=incA*(Number(v.percBuyer||0)/100);
+
+      // Quote agenti su residuo
+      nonBroker.forEach(a=>{
+        if(v.agenteListing===a.id&&provvV>0) qAgRes+=residuoV*(Number(v.percListing||0)/100);
+        if(v.agenteAcquirente===a.id&&provvA>0) qAgRes+=residuoA*(Number(v.percAcquirente||0)/100);
+        if(v.buyerListing===a.id&&v.agenteListing!==a.id&&provvV>0) qAgRes+=residuoV*(Number(v.percBuyerListing||0)/100);
+        if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&provvA>0) qAgRes+=residuoA*(Number(v.percBuyer||0)/100);
+      });
+      // Quote buyer su residuo
+      if(v.buyerListing&&v.agenteListing!==v.buyerListing&&provvV>0) qBuyRes+=residuoV*(Number(v.percBuyerListing||0)/100);
+      if(v.buyer&&v.agenteAcquirente!==v.buyer&&provvA>0) qBuyRes+=residuoA*(Number(v.percBuyer||0)/100);
+    });
+
+    return {
+      incassato, daIncassare,
+      qAgInc, qBuyInc, qAgenziaInc: incassato-qAgInc-qBuyInc,
+      qAgRes, qBuyRes, qAgenziaRes: daIncassare-qAgRes-qBuyRes,
+    };
+  },[venduti,agenti]);
+
+  const {incassato:dashIncassato, daIncassare:dashDaIncassare,
+         qAgInc, qBuyInc, qAgenziaInc, qAgRes, qBuyRes, qAgenziaRes} = dashCalcoli;
 
   const propVincolo=proposte.filter(p=>["Accettata con Vincolo","In attesa / Vincolata"].includes(p.stato)&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
   const dashSospeso=propVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
@@ -963,7 +974,12 @@ export default function App() {
             <SettSec title="Tipi diniego vincolo" items={tipiNeg} setItems={setTipiNeg} val={nN} setVal={setNN} ph="Nuovo tipo diniego..."/>
             <div style={S.divider}/>
             <h3 style={{fontSize:14,fontWeight:500,margin:"0 0 8px"}}>Backup dati</h3>
-            <div style={{display:"flex",gap:8}}><button style={S.btnP} onClick={esporta}>Esporta JSON</button><button style={S.btn} onClick={()=>importRef.current.click()}>Importa JSON</button></div>
+            <p style={{fontSize:12,color:"#aaa",margin:"0 0 10px"}}>I dati vengono salvati automaticamente nel browser. Usa Esporta/Importa per backup esterni o per condividere i dati tra dispositivi.</p>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button style={S.btnP} onClick={esporta}>⬇ Esporta JSON</button>
+              <button style={S.btn} onClick={()=>importRef.current.click()}>⬆ Importa JSON</button>
+              <button style={{...S.btnD,marginLeft:"auto"}} onClick={()=>{if(window.confirm("Attenzione: questa operazione cancella TUTTI i dati dal browser e ripristina i dati di esempio. Sei sicuro?")){{localStorage.removeItem(LS_KEY);window.location.reload();}}}}>🗑 Azzera tutti i dati</button>
+            </div>
           </div>)}
 
         </div>
