@@ -290,6 +290,10 @@ export default function App() {
   const [proposte,setProposte]=useState(_ls?.proposte||INIT_PROPOSTE);
   const [venduti,setVenduti]=useState(_ls?.venduti||INIT_VENDUTI);
   const [archiviati,setArchiviati]=useState(_ls?.archiviati||[]);
+  const [archiviatiProp,setArchiviatiProp]=useState(_ls?.archiviatiProp||[]);
+  const [archiviatiVend,setArchiviatiVend]=useState(_ls?.archiviatiVend||[]);
+  const [mostraArchiviatiProp,setMostraArchiviatiProp]=useState(false);
+  const [mostraArchiviatiVend,setMostraArchiviatiVend]=useState(false);
   const [fonti,setFonti]=useState(_ls?.fonti||["CP/CDI","Zona","Privati","Agenzia Esterna","Passaparola"]);
   const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
   const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
@@ -315,7 +319,7 @@ export default function App() {
 
   // Auto-salvataggio ad ogni modifica
   useEffect(()=>{
-    salvaLS({agenti,incarichi,proposte,venduti,archiviati,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture});
+    salvaLS({agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture});
   },[agenti,incarichi,proposte,venduti,archiviati,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
@@ -520,6 +524,11 @@ export default function App() {
     setIncarichi([...incarichi,inc]);
     setArchiviati(archiviati.filter(i=>i.id!==id));
   };
+
+  const archiviaProp=(id)=>{const p=proposte.find(x=>x.id===id);if(!p)return;setArchiviatiProp([...archiviatiProp,{...p,dataArchiviazione:todayStr()}]);setProposte(proposte.filter(x=>x.id!==id));};
+  const ripristinaProp=(id)=>{const p=archiviatiProp.find(x=>x.id===id);if(!p)return;setProposte([...proposte,p]);setArchiviatiProp(archiviatiProp.filter(x=>x.id!==id));};
+  const archiviaVend=(id)=>{const v=venduti.find(x=>x.id===id);if(!v)return;setArchiviatiVend([...archiviatiVend,{...v,dataArchiviazione:todayStr()}]);setVenduti(venduti.filter(x=>x.id!==id));};
+  const ripristinaVend=(id)=>{const v=archiviatiVend.find(x=>x.id===id);if(!v)return;setVenduti([...venduti,v]);setArchiviatiVend(archiviatiVend.filter(x=>x.id!==id));};
 
   if(!utente) return <LoginPage onLogin={setUtente}/>;
 
@@ -827,13 +836,43 @@ export default function App() {
                   <td style={S.tdR}>€ {fmt(p.provvVenditore||0)}</td>
                   <td style={S.tdR}>€ {fmt(p.provvAcquirente||0)}</td>
                   <td style={S.td}><span style={bdg(cfg)}>{cfg.s} {cfg.label}</span></td>
-                  <td style={S.td}>{puoGestire?<button style={S.btnP} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:""});setShowGestProp(p);}}>Gestisci</button>:<span style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>{p.stato}</span>}</td>
+                  <td style={S.td}>
+                    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                      {puoGestire&&<button style={S.btnP} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:""});setShowGestProp(p);}}>Gestisci</button>}
+                      {!puoGestire&&<span style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>{p.stato}</span>}
+                      <button style={{...S.btnD,fontSize:11,padding:"3px 8px"}} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare la proposta per "${p.nomeAcquirente}"?`))archiviaProp(p.id);}}>📦</button>
+                    </div>
+                  </td>
                 </tr>);
               })}
               {propFiltrate.length===0&&<tr><td colSpan={15} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna proposta trovata</td></tr>}
               </tbody>
             </table></div>
           </div>)}
+            {/* Archivio Proposte */}
+            {tab==="Proposte"&&(<div style={{padding:"0 1.5rem 1rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer",color:BRAND.grigio}}>
+                  <input type="checkbox" checked={mostraArchiviatiProp} onChange={e=>setMostraArchiviatiProp(e.target.checked)}/> Mostra proposte archiviate ({archiviatiProp.length})
+                </label>
+                {mostraArchiviatiProp&&archiviatiProp.length>0&&<button style={{...S.btnD,fontSize:12,marginLeft:"auto"}} onClick={()=>{if(window.confirm("Svuotare tutto l archivio proposte?"))setArchiviatiProp([]);}}>Svuota archivio</button>}
+              </div>
+              {mostraArchiviatiProp&&archiviatiProp.length>0&&archiviatiProp.filter(p=>p.categoria===subProp).map(p=>(
+                <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",borderRadius:8,background:"#fff",border:"0.5px solid #eee",marginBottom:6,flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:500}}>{p.nomeAcquirente}</span>
+                    <span style={{fontSize:12,color:"#aaa",marginLeft:8}}>{p.comuneImmobile} — {p.indirizzoImmobile}</span>
+                    <span style={bdg(STATI_PROP[p.stato]||STATI_PROP["In attesa"])} style2={{marginLeft:8,fontSize:11}}> {p.stato}</span>
+                    <span style={{fontSize:11,color:"#ccc",marginLeft:8}}>Archiviata il {fmtD(p.dataArchiviazione)}</span>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button style={{...S.btn,fontSize:12,padding:"4px 10px",color:"#27AE60"}} onClick={()=>ripristinaProp(p.id)}>Ripristina</button>
+                    <button style={{...S.btnD,fontSize:12,padding:"4px 10px"}} onClick={()=>{if(window.confirm(`Eliminare definitivamente la proposta per "${p.nomeAcquirente}"?`))setArchiviatiProp(archiviatiProp.filter(x=>x.id!==p.id));}}>Elimina</button>
+                  </div>
+                </div>
+              ))}
+              {mostraArchiviatiProp&&archiviatiProp.length===0&&<p style={{fontSize:12,color:"#aaa"}}>Nessuna proposta archiviata</p>}
+            </div>)}
 
           {/* VENDUTI */}
           {tab==="Venduti"&&(<div style={S.sec}>
@@ -874,6 +913,7 @@ export default function App() {
                     <button style={{...S.btnP,fontSize:12,padding:"4px 8px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
                     <button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormVend({...v});setShowGestVend(v);}}>✏️</button></>}
                     <button title={v.bloccato?"Sblocca pratica":"Blocca pratica"} style={{...S.btn,fontSize:14,padding:"4px 8px",color:v.bloccato?"#27AE60":"#E67E22"}} onClick={()=>setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x))}>{v.bloccato?"🔓":"🔒"}</button>
+                    <button style={{...S.btnD,fontSize:11,padding:"3px 8px"}} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare "${v.nominativoVenditore} - ${v.nomeAcquirente}"?`))archiviaVend(v.id);}}>📦</button>
                   </div></td>
                 </tr>);
               })}
@@ -890,6 +930,32 @@ export default function App() {
               </tr></tfoot>}
             </table></div>
           </div>)}
+
+          {/* Archivio Venduti */}
+            {tab==="Venduti"&&(<div style={{padding:"0 1.5rem 1rem"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer",color:BRAND.grigio}}>
+                  <input type="checkbox" checked={mostraArchiviatiVend} onChange={e=>setMostraArchiviatiVend(e.target.checked)}/> Mostra venduti archiviati ({archiviatiVend.length})
+                </label>
+                {mostraArchiviatiVend&&archiviatiVend.length>0&&<button style={{...S.btnD,fontSize:12,marginLeft:"auto"}} onClick={()=>{if(window.confirm("Svuotare tutto l archivio venduti?"))setArchiviatiVend([]);}}>Svuota archivio</button>}
+              </div>
+              {mostraArchiviatiVend&&archiviatiVend.length>0&&archiviatiVend.filter(v=>v.categoria===subVend).map(v=>(
+                <div key={v.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",borderRadius:8,background:"#fff",border:"0.5px solid #eee",marginBottom:6,flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:500}}>{v.nominativoVenditore}</span>
+                    <span style={{fontSize:12,color:"#aaa",marginLeft:8}}>→ {v.nomeAcquirente}</span>
+                    <span style={{fontSize:12,color:"#aaa",marginLeft:8}}>{v.comuneImmobile} — {v.indirizzoImmobile}</span>
+                    <span style={{fontSize:12,fontWeight:500,color:BRAND.oroD,marginLeft:8}}>€ {fmt(Number(v.provvVenditore||0)+Number(v.provvAcquirente||0))}</span>
+                    <span style={{fontSize:11,color:"#ccc",marginLeft:8}}>Archiviato il {fmtD(v.dataArchiviazione)}</span>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button style={{...S.btn,fontSize:12,padding:"4px 10px",color:"#27AE60"}} onClick={()=>ripristinaVend(v.id)}>Ripristina</button>
+                    <button style={{...S.btnD,fontSize:12,padding:"4px 10px"}} onClick={()=>{if(window.confirm(`Eliminare definitivamente "${v.nominativoVenditore} - ${v.nomeAcquirente}"?`))setArchiviatiVend(archiviatiVend.filter(x=>x.id!==v.id));}}>Elimina</button>
+                  </div>
+                </div>
+              ))}
+              {mostraArchiviatiVend&&archiviatiVend.length===0&&<p style={{fontSize:12,color:"#aaa"}}>Nessun venduto archiviato</p>}
+            </div>)}
 
           {/* REPORT AGENTI */}
           {tab==="Report Agenti"&&(<div style={S.sec}>
