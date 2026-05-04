@@ -389,7 +389,11 @@ export default function App() {
 
             {/* SOSPESI — provvigioni certe maturate, da riscuotere */}
             {(()=>{
-              const sospesi=dashVend.filter(v=>v.statoIncasso==="Da incassare"||v.statoIncasso==="Parziale");
+              // Mostra tutti i venduti con residuo, indipendentemente da anno o statoIncasso memorizzato
+              const sospesi=venduti.filter(v=>{
+                if(v.categoria!=="vendita") return false;
+                return (Number(v.provvVenditore||0)-calcolaIncassatoV(v))>0||(Number(v.provvAcquirente||0)-calcolaIncassatoA(v))>0;
+              });
               const righe=[];
               sospesi.forEach(v=>{
                 const residuoV=Number(v.provvVenditore||0)-calcolaIncassatoV(v);
