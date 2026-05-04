@@ -410,7 +410,7 @@ export default function App() {
                   </div>
                   <table style={{width:"100%",borderCollapse:"collapse"}}>
                     <thead><tr>
-                      {["Lato","Agente","Nominativo","Immobile","Già incassato","Residuo","Scadenza"].map(h=><th key={h} style={S.thS}>{h}</th>)}
+                      {["Lato","Agente","Nominativo","Immobile","Già incassato","Residuo","Scadenza",""].map(h=><th key={h} style={S.thS}>{h}</th>)}
                     </tr></thead>
                     <tbody>{righe.map((r,i)=>(
                       <tr key={i}>
@@ -421,13 +421,14 @@ export default function App() {
                         <td style={{...S.tdRS,color:"#27AE60"}}>{r.giaInc>0?`€ ${fmt(r.giaInc)}`:"—"}</td>
                         <td style={{...S.tdRS,fontWeight:600,color:"#E67E22"}}>€ {fmt(r.residuo)}</td>
                         <td style={{...S.tdS,color:r.scadenza&&new Date(r.scadenza)<new Date()?"#E74C3C":"inherit"}}>{r.scadenza?fmtD(r.scadenza):"—"}</td>
+                        <td style={S.tdS}><button style={{...S.btnP,fontSize:11,padding:"3px 10px",background:r.lato==="V"?"#2980B9":"#8E44AD",borderColor:r.lato==="V"?"#2980B9":"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:r.v,lato:r.lato})}>💰 Gestisci</button></td>
                       </tr>
                     ))}</tbody>
                     <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
                       <td colSpan={4} style={S.tdS}>Totale residuo ({righe.length} {righe.length===1?"voce":"voci"})</td>
                       <td style={{...S.tdRS,color:"#27AE60"}}>€ {fmt(righe.reduce((s,r)=>s+r.giaInc,0))}</td>
                       <td style={{...S.tdRS,color:"#E67E22"}}>€ {fmt(totSospesi)}</td>
-                      <td style={S.tdS}/>
+                      <td colSpan={2} style={S.tdS}/>
                     </tr></tfoot>
                   </table>
                 </div>
@@ -445,7 +446,7 @@ export default function App() {
               </div>
               <table style={{width:"100%",borderCollapse:"collapse"}}>
                 <thead><tr>
-                  {["Venditore","Acquirente","Immobile","Vincolo","Scadenza vincolo","Provv. prevista"].map(h=><th key={h} style={S.thS}>{h}</th>)}
+                  {["Venditore","Acquirente","Immobile","Vincolo","Scadenza vincolo","Provv. prevista",""].map(h=><th key={h} style={S.thS}>{h}</th>)}
                 </tr></thead>
                 <tbody>{propVincolo.map(p=>(
                   <tr key={p.id}>
@@ -455,11 +456,13 @@ export default function App() {
                     <td style={S.tdS}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF9E7",color:"#A8863A",fontWeight:500,border:"0.5px solid #D4AC0D44"}}>{p.tipoVincolo||"Generico"}</span></td>
                     <td style={{...S.tdS,color:p.termineSubordine&&new Date(p.termineSubordine)<new Date()?"#E74C3C":"inherit"}}>{p.termineSubordine?fmtD(p.termineSubordine):"—"}</td>
                     <td style={{...S.tdRS,fontWeight:600,color:"#D4AC0D"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
+                    <td style={S.tdS}><button style={{...S.btnP,fontSize:11,padding:"3px 10px",background:"#D4AC0D",borderColor:"#D4AC0D"}} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:""});setShowGestProp(p);}}>🔗 Gestisci</button></td>
                   </tr>
                 ))}</tbody>
                 <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
                   <td colSpan={5} style={S.tdS}>Totale provvigioni vincolate ({propVincolo.length})</td>
                   <td style={{...S.tdRS,color:"#D4AC0D"}}>€ {fmt(dashSospeso)}</td>
+                  <td style={S.tdS}/>
                 </tr></tfoot>
               </table>
             </div>)}
