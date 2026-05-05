@@ -833,7 +833,7 @@ export default function App() {
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
                 <th style={S.th}>Tipo</th><th style={S.th}>Data</th><th style={S.th}>Comune</th><th style={S.th}>Indirizzo</th><th style={S.th}>Venditore</th><th style={S.th}>Acquirente</th>
-                <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={S.thA}>% Acq.</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>Buyer</th>
+                <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={S.thA}>% Acq.</th><th style={S.thA}>Buyer</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>% B</th>
                 <th style={S.th}>Prezzo</th><th style={S.th}>Vincolo</th><th style={S.th}>Provv.V.</th><th style={S.th}>Provv.A.</th><th style={S.th}>Stato</th><th style={S.th}>Azioni</th>
               </tr></thead>
               <tbody>{propFiltrate.map(p=>{
@@ -848,7 +848,8 @@ export default function App() {
                   <td style={S.td}>{p.nomeAcquirente}</td>
                   <td style={{...S.tdA,borderLeft:"2px solid #8E44AD22"}}>{nomAg(p.agenteAcquirente)}</td>
                   <td style={S.tdA}>{p.percAcquirente||0}%</td>
-                  <td style={{...S.tdA,borderRight:"2px solid #8E44AD22"}}>{p.buyer?nomAg(p.buyer):"—"}</td>
+                  <td style={S.tdA}>{p.buyer?nomAg(p.buyer):"—"}</td>
+                  <td style={{...S.tdA,borderRight:"2px solid #8E44AD22"}}>{p.buyer?`${p.percBuyer||0}%`:"—"}</td>
                   <td style={S.tdR}>€ {fmtN(p.prezzoOfferto)}</td>
                   <td style={S.td}>{p.vincolata?<span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>{p.tipoVincolo||"Si"}</span>:<span style={{color:"#ccc",fontSize:11}}>No</span>}</td>
                   <td style={S.tdR}>€ {fmt(p.provvVenditore||0)}</td>
