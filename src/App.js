@@ -80,8 +80,10 @@ const VOCI_COSTO = [
   "Gestim + Sito e Hosting","Software - Servizi Professionali","FIAIP",
   "Assicurazioni Professionali","Altre Assicurazioni","Agente Strategico Abbonamento"
 ];
-const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v,prevMensile:0,consuntivi:{}}));
+const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v,prevMensile:0,spese:[]}));
 const MESI_KEYS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
+const mesiNomi = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+const totSpeseVoce = voce => (voce.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
 
 // Proposte che bloccano nuove proposte sullo stesso incarico
 const STATI_BLOCCANTI = ["In attesa","Controproposta"];
@@ -312,6 +314,7 @@ export default function App() {
   const [mostraArchiviatiProp,setMostraArchiviatiProp]=useState(false);
   const [mostraArchiviatiVend,setMostraArchiviatiVend]=useState(false);
   const [modalCostoVoce,setModalCostoVoce]=useState(null);
+  const [formNuovaSpesa,setFormNuovaSpesa]=useState({data:todayStr(),importo:"",desc:""});
   const [fonti,setFonti]=useState(_ls?.fonti||["CP/CDI","Zona","Privati","Agenzia Esterna","Passaparola"]);
   const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
   const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
@@ -547,6 +550,16 @@ export default function App() {
   const ripristinaProp=(id)=>{const p=archiviatiProp.find(x=>x.id===id);if(!p)return;setProposte([...proposte,p]);setArchiviatiProp(archiviatiProp.filter(x=>x.id!==id));};
   const archiviaVend=(id)=>{const v=venduti.find(x=>x.id===id);if(!v)return;setArchiviatiVend([...archiviatiVend,{...v,dataArchiviazione:todayStr()}]);setVenduti(venduti.filter(x=>x.id!==id));};
   const ripristinaVend=(id)=>{const v=archiviatiVend.find(x=>x.id===id);if(!v)return;setVenduti([...venduti,v]);setArchiviatiVend(archiviatiVend.filter(x=>x.id!==id));};
+
+  const aggiungiSpesaVoce=()=>{
+    if(!modalCostoVoce||!formNuovaSpesa.importo) return;
+    const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
+    const nuovaSpesa={id:Date.now(),data:formNuovaSpesa.data,importo:Number(formNuovaSpesa.importo),desc:formNuovaSpesa.desc||"Spesa"};
+    voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],spese:[...(voci[modalCostoVoce.idx].spese||[]),nuovaSpesa]};
+    setCosti({...costi,[modalCostoVoce.anno]:voci});
+    setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
+    setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});
+  };
 
   if(!utente) return <LoginPage onLogin={setUtente}/>;
 
@@ -1120,9 +1133,9 @@ export default function App() {
               },0);
               const quotaAgenzia = fatturatoLordo - quotaAgenti - quotaBuyer;
 
-              // Costi consuntivi (somma mesi inseriti), se zero usa previsionali
-              const totConsuntivo = vociAnno.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
-              const costiRif = totConsuntivo>0?totConsuntivo:totPrevAnnuo; // usa consuntivi se inseriti, altrimenti previsionali
+              // Costi consuntivi = somma di tutte le spese inserite
+              const totConsuntivo = vociAnno.reduce((s,v)=>s+totSpeseVoce(v),0);
+              const costiRif = totConsuntivo>0?totConsuntivo:totPrevAnnuo;
 
               // Break Even: quota agenzia vs costi
               const margine = quotaAgenzia - costiRif;
@@ -1195,34 +1208,34 @@ export default function App() {
               </>);
             })()}
 
-            {/* Tabella voci di costo — versione compatta con modal mesi */}
+            {/* Tabella voci di costo — spese singole per categoria */}
             <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
               <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                 <span style={{fontSize:13,fontWeight:500}}>Voci di costo — {costiAnno}</span>
                 <button style={S.btnP} onClick={()=>{
-                  const nuovaVoce=window.prompt("Nome della nuova voce di costo:");
-                  if(!nuovaVoce||!nuovaVoce.trim()) return;
-                  const voci=[...(costi[costiAnno]||mkCosti())];
-                  voci.push({id:Date.now(),voce:nuovaVoce.trim(),prevMensile:0,consuntivi:{}});
-                  setCosti({...costi,[costiAnno]:voci});
+                  const n=window.prompt("Nome della nuova voce di costo:");
+                  if(!n||!n.trim()) return;
+                  const v=[...(costi[costiAnno]||mkCosti())];
+                  v.push({id:Date.now(),voce:n.trim(),prevMensile:0,spese:[]});
+                  setCosti({...costi,[costiAnno]:v});
                 }}>+ Aggiungi voce</button>
               </div>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                 <thead><tr>
                   <th style={{...S.th,minWidth:200}}>Voce di costo</th>
-                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Mensile</th>
-                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Annuo</th>
-                  <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. Consuntivo</th>
-                  <th style={{...S.th,textAlign:"right"}}>Diff. vs Prev.</th>
-                  <th style={{...S.th,textAlign:"center"}}>Mesi</th>
+                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. mensile</th>
+                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. annuo</th>
+                  <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. spese</th>
+                  <th style={{...S.th,textAlign:"right"}}>Diff. vs prev.</th>
+                  <th style={{...S.th,textAlign:"center"}}>Spese</th>
                   <th style={S.th}></th>
                 </tr></thead>
                 <tbody>
                   {(costi[costiAnno]||mkCosti()).map((voce,idx)=>{
                     const prevAnnuo=Number(voce.prevMensile||0)*12;
-                    const totCons=MESI_KEYS.reduce((s,m)=>s+Number(voce.consuntivi?.[m]||0),0);
-                    const diff=totCons-prevAnnuo;
-                    const mesiInseriti=MESI_KEYS.filter(m=>Number(voce.consuntivi?.[m]||0)>0).length;
+                    const tot=totSpeseVoce(voce);
+                    const diff=tot-prevAnnuo;
+                    const nSpese=(voce.spese||[]).length;
                     return(<tr key={voce.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
                       <td style={{...S.td,fontWeight:500}}>{voce.voce}</td>
                       <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>
@@ -1231,17 +1244,17 @@ export default function App() {
                           onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>
                       </td>
                       <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
-                      <td style={{...S.tdR,fontWeight:600,color:totCons>0?"#27AE60":"#ccc"}}>{totCons>0?`€ ${fmt(totCons)}`:"—"}</td>
-                      <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{totCons>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
-                      <td style={{...S.tdC}}>
-                        <button style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:`1px solid ${mesiInseriti>0?BRAND.oro:"#ddd"}`,background:mesiInseriti>0?`${BRAND.oro}22`:"transparent",color:mesiInseriti>0?BRAND.oroD:"#999",cursor:"pointer"}}
-                          onClick={()=>setModalCostoVoce({voce,idx,anno:costiAnno})}>
-                          {mesiInseriti>0?`${mesiInseriti}/12 mesi`:"Inserisci"}
+                      <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
+                      <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
+                      <td style={S.tdC}>
+                        <button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}}
+                          onClick={()=>{setModalCostoVoce({voce,idx,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>
+                          {nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}
                         </button>
                       </td>
                       <td style={S.tdC}>
-                        <button title="Elimina voce" style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}}
-                          onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...(costi[costiAnno]||mkCosti())];v.splice(idx,1);setCosti({...costi,[costiAnno]:v});}}}
+                        <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}}
+                          onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}" e tutte le sue spese?`)){const v=[...(costi[costiAnno]||mkCosti())];v.splice(idx,1);setCosti({...costi,[costiAnno]:v});}}}
                           onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
                       </td>
                     </tr>);
@@ -1251,14 +1264,14 @@ export default function App() {
                   const voci=costi[costiAnno]||mkCosti();
                   const totPrevM=voci.reduce((s,v)=>s+Number(v.prevMensile||0),0);
                   const totPrevA=totPrevM*12;
-                  const totConsTot=voci.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
-                  const diffTot=totConsTot-totPrevA;
+                  const totSpTot=voci.reduce((s,v)=>s+totSpeseVoce(v),0);
+                  const diffTot=totSpTot-totPrevA;
                   return(<tr style={{background:BRAND.beige,fontWeight:500,fontSize:13}}>
-                    <td style={{...S.td}}>TOTALE</td>
+                    <td style={S.td}>TOTALE</td>
                     <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevM)}/mese</td>
                     <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevA)}</td>
-                    <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totConsTot)}</td>
-                    <td style={{...S.tdR,color:diffTot>0?"#E74C3C":"#27AE60"}}>{totConsTot>0?(diffTot!==0?(diffTot>0?"+":"")+fmt(diffTot):"—"):"—"}</td>
+                    <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totSpTot)}</td>
+                    <td style={{...S.tdR,color:diffTot>0?"#E74C3C":diffTot<0?"#27AE60":"#aaa"}}>{totSpTot>0?(diffTot!==0?(diffTot>0?"+":"")+fmt(diffTot):"—"):"—"}</td>
                     <td colSpan={2}/>
                   </tr>);
                 })()}</tfoot>
@@ -1445,58 +1458,71 @@ export default function App() {
         </div>
       </div>)}
 
-      {/* MODAL CONSUNTIVI MESI */}
+      {/* MODAL SPESE VOCE */}
       {modalCostoVoce&&(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setModalCostoVoce(null)}>
-        <div style={{...S.modal,width:"min(96vw,480px)"}}>
+        <div style={{...S.modal,width:"min(96vw,520px)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
             <div>
               <h2 style={{fontSize:16,fontWeight:500,margin:"0 0 3px",color:BRAND.grigio}}>{modalCostoVoce.voce.voce}</h2>
-              <p style={{fontSize:12,color:"#aaa",margin:0}}>Inserisci il consuntivo mensile — Anno {modalCostoVoce.anno}</p>
+              <p style={{fontSize:12,color:"#aaa",margin:0}}>Previsionale mensile: <strong style={{color:BRAND.oroD}}>€ {fmt(modalCostoVoce.voce.prevMensile||0)}</strong> — Annuo: <strong style={{color:BRAND.oroD}}>€ {fmt((modalCostoVoce.voce.prevMensile||0)*12)}</strong></p>
             </div>
             <button onClick={()=>setModalCostoVoce(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>✕</button>
           </div>
-          <div style={{background:BRAND.beige,borderRadius:8,padding:"10px 14px",marginBottom:"1rem",display:"flex",justifyContent:"space-between",fontSize:13}}>
-            <span style={{color:"#888"}}>Previsionale mensile:</span>
-            <strong style={{color:BRAND.oroD}}>€ {fmt(modalCostoVoce.voce.prevMensile||0)}</strong>
+
+          {/* Form aggiungi spesa */}
+          <div style={{background:BRAND.beige,borderRadius:8,padding:"12px 14px",marginBottom:"1rem"}}>
+            <p style={{fontSize:12,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 10px"}}>Aggiungi spesa</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+              <div><label style={S.lbl}>Data</label><input style={S.inp} type="date" value={formNuovaSpesa.data} onChange={e=>setFormNuovaSpesa({...formNuovaSpesa,data:e.target.value})}/></div>
+              <div><label style={S.lbl}>Importo (€)</label><input style={S.inp} type="number" placeholder="0" value={formNuovaSpesa.importo} onChange={e=>setFormNuovaSpesa({...formNuovaSpesa,importo:e.target.value})}/></div>
+            </div>
+            <div style={{marginBottom:8}}><label style={S.lbl}>Descrizione</label><input style={S.inp} type="text" placeholder="es. Facebook Ads, Volantini, Abbonamento..." value={formNuovaSpesa.desc} onChange={e=>setFormNuovaSpesa({...formNuovaSpesa,desc:e.target.value})} onKeyDown={e=>{if(e.key==="Enter")aggiungiSpesaVoce();}}/></div>
+            <button style={{...S.btnP,width:"100%"}} onClick={aggiungiSpesaVoce}>+ Aggiungi spesa</button>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
-            {MESI_KEYS.map((m,i)=>{
-              const mesiNomi=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
-              const val=modalCostoVoce.voce.consuntivi?.[m]||"";
-              const prev=Number(modalCostoVoce.voce.prevMensile||0);
-              const cons=Number(val||0);
-              const diff=cons-prev;
-              return(
-                <div key={m} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"10px 12px"}}>
-                  <label style={{fontSize:12,color:"#888",display:"block",marginBottom:4,fontWeight:500}}>{mesiNomi[i]}</label>
-                  <input type="number" style={{...S.inp,textAlign:"right",marginBottom:4}} placeholder={prev>0?`Prev: ${fmtN(prev)}`:"0"} value={val}
-                    onChange={e=>{
-                      const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
-                      voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],consuntivi:{...voci[modalCostoVoce.idx].consuntivi,[m]:Number(e.target.value)||0}};
-                      setCosti({...costi,[modalCostoVoce.anno]:voci});
-                      setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
-                    }}/>
-                  {cons>0&&prev>0&&<p style={{fontSize:11,margin:0,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa",textAlign:"right"}}>{diff>0?"+":""}{fmtN(diff)} vs prev.</p>}
+
+          {/* Lista spese raggruppate per mese */}
+          {(()=>{
+            const spese=modalCostoVoce.voce.spese||[];
+            if(spese.length===0) return <p style={{textAlign:"center",color:"#bbb",fontSize:13,padding:"1rem 0"}}>Nessuna spesa inserita — aggiungi la prima qui sopra</p>;
+            const perMese={};
+            spese.forEach(s=>{const m=s.data?s.data.substring(0,7):"senza data";if(!perMese[m])perMese[m]=[];perMese[m].push(s);});
+            return Object.keys(perMese).sort().reverse().map(mese=>{
+              const spM=perMese[mese];
+              const totM=spM.reduce((s,x)=>s+Number(x.importo||0),0);
+              const [anno,mm]=mese.split("-");
+              const nomeM=mm?mesiNomi[parseInt(mm)-1]+" "+anno:mese;
+              return(<div key={mese} style={{marginBottom:"1rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                  <span style={{fontSize:12,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.06em"}}>{nomeM}</span>
+                  <span style={{fontSize:12,fontWeight:500,color:BRAND.grigio}}>€ {fmt(totM)}</span>
                 </div>
-              );
-            })}
-          </div>
-          <div style={{background:BRAND.beige,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:13,color:"#888"}}>Totale consuntivo:</span>
-            <strong style={{fontSize:16,color:"#27AE60"}}>€ {fmt(MESI_KEYS.reduce((s,m)=>s+Number(modalCostoVoce.voce.consuntivi?.[m]||0),0))}</strong>
-          </div>
-          <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem",alignItems:"center"}}>
-            <button style={{...S.btn,fontSize:12}} onClick={()=>{
-              if(window.confirm("Copiare il previsionale mensile in tutti i mesi non ancora compilati?")){{
-                const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
-                const prev=Number(modalCostoVoce.voce.prevMensile||0);
-                const nuoviCons={...voci[modalCostoVoce.idx].consuntivi};
-                MESI_KEYS.forEach(m=>{if(!nuoviCons[m])nuoviCons[m]=prev;});
-                voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],consuntivi:nuoviCons};
-                setCosti({...costi,[modalCostoVoce.anno]:voci});
-                setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
-              }}
-            }}>Copia prev. nei mesi vuoti</button>
+                {spM.map(s=>(
+                  <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#fff",borderRadius:6,border:"0.5px solid #e8e5e0",marginBottom:4}}>
+                    <span style={{fontSize:12,color:"#aaa",minWidth:78}}>{fmtD(s.data)}</span>
+                    <span style={{fontSize:13,flex:1,color:BRAND.grigio}}>{s.desc||"—"}</span>
+                    <span style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>€ {fmt(s.importo)}</span>
+                    <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1,padding:0,flexShrink:0}}
+                      onClick={()=>{
+                        const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
+                        voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],spese:voci[modalCostoVoce.idx].spese.filter(x=>x.id!==s.id)};
+                        setCosti({...costi,[modalCostoVoce.anno]:voci});
+                        setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
+                      }}
+                      onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+                  </div>
+                ))}
+              </div>);
+            });
+          })()}
+
+          {/* Totale */}
+          {(modalCostoVoce.voce.spese||[]).length>0&&(
+            <div style={{borderTop:"0.5px solid #eee",paddingTop:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:13,color:"#888"}}>{(modalCostoVoce.voce.spese||[]).length} {(modalCostoVoce.voce.spese||[]).length===1?"spesa":"spese"} totali</span>
+              <strong style={{fontSize:16,color:"#27AE60"}}>€ {fmt(totSpeseVoce(modalCostoVoce.voce))}</strong>
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}>
             <button style={S.btnP} onClick={()=>setModalCostoVoce(null)}>Chiudi</button>
           </div>
         </div>
