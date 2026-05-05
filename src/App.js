@@ -311,6 +311,7 @@ export default function App() {
   const [archiviatiVend,setArchiviatiVend]=useState(_ls?.archiviatiVend||[]);
   const [mostraArchiviatiProp,setMostraArchiviatiProp]=useState(false);
   const [mostraArchiviatiVend,setMostraArchiviatiVend]=useState(false);
+  const [modalCostoVoce,setModalCostoVoce]=useState(null);
   const [fonti,setFonti]=useState(_ls?.fonti||["CP/CDI","Zona","Privati","Agenzia Esterna","Passaparola"]);
   const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
   const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
@@ -1091,104 +1092,175 @@ export default function App() {
               const totPrevMensile = vociAnno.reduce((s,v)=>s+Number(v.prevMensile||0),0);
               const totPrevAnnuo = totPrevMensile*12;
 
-              // Fatturato reale dell'anno (provvigioni incassate)
-              const fatturatoReale = venduti.filter(v=>getAnno(v.dataAtto||v.dataVendita||"")===costiAnno)
-                .reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+              // Venduti dell'anno selezionato
+              const vendAnno = venduti.filter(v=>getAnno(v.dataAtto||v.dataVendita||"")===costiAnno);
 
-              // Costi consuntivi totali inseriti
+              // Fatturato lordo (tutto incassato)
+              const fatturatoLordo = vendAnno.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+
+              // Quota Agenzia = fatturato lordo - quote agenti - quote buyer (quello che resta in agenzia)
+              const quotaAgenti = vendAnno.reduce((s,v)=>s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
+                const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
+                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
+                let q=0;
+                if(v.agenteListing===a.id&&pV>0) q+=incV*(Number(v.percListing||0)/100);
+                if(v.agenteAcquirente===a.id&&pA>0) q+=incA*(Number(v.percAcquirente||0)/100);
+                if(v.buyerListing===a.id&&v.agenteListing!==a.id&&pV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
+                if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&pA>0) q+=incA*(Number(v.percBuyer||0)/100);
+                return sa+q;
+              },0),0);
+              const quotaBuyer = vendAnno.reduce((s,v)=>{
+                const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
+                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
+                let q=0;
+                if(v.buyerListing&&v.agenteListing!==v.buyerListing&&pV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
+                if(v.buyer&&v.agenteAcquirente!==v.buyer&&pA>0) q+=incA*(Number(v.percBuyer||0)/100);
+                return s+q;
+              },0);
+              const quotaAgenzia = fatturatoLordo - quotaAgenti - quotaBuyer;
+
+              // Costi consuntivi (somma mesi inseriti), se zero usa previsionali
               const totConsuntivo = vociAnno.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
+              const costiRif = totConsuntivo>0?totConsuntivo:totPrevAnnuo; // usa consuntivi se inseriti, altrimenti previsionali
 
-              const margine = fatturatoReale - totConsuntivo;
-              const breakEvenMensile = totPrevMensile;
-              const percRaggiungimento = obiettivoFatturato>0?(fatturatoReale/obiettivoFatturato*100).toFixed(1):null;
-              const percCopertura = totPrevAnnuo>0?(fatturatoReale/totPrevAnnuo*100).toFixed(1):null;
+              // Break Even: quota agenzia vs costi
+              const margine = quotaAgenzia - costiRif;
+              const percCopertura = totPrevAnnuo>0?(quotaAgenzia/totPrevAnnuo*100).toFixed(1):null;
+              const percObiettivo = obiettivoFatturato>0?(quotaAgenzia/obiettivoFatturato*100).toFixed(1):null;
 
               return(<>
+                {/* KPI 4 cards */}
                 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <div style={S.card("#27AE60")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Fatturato reale {costiAnno}</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(fatturatoReale)}</p>{percRaggiungimento&&<p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{percRaggiungimento}% dell obiettivo</p>}</div>
-                  <div style={S.card("#E74C3C")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsionali annui</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnnuo)}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(totPrevMensile)}/mese</p></div>
-                  <div style={S.card("#E67E22")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi consuntivi inseriti</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p>{percCopertura&&<p style={{fontSize:11,color:Number(percCopertura)>=100?"#27AE60":"#E74C3C",margin:"4px 0 0",fontWeight:500}}>{percCopertura}% copertura costi</p>}</div>
-                  <div style={S.card(margine>=0?"#27AE60":"#E74C3C")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Margine (fatturato - costi)</p><p style={{fontSize:22,fontWeight:600,margin:0,color:margine>=0?"#27AE60":"#E74C3C"}}>{margine>=0?"+":""}€ {fmt(margine)}</p></div>
+                  <div style={S.card("#27AE60")}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota Agenzia {costiAnno}</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>Lordo: € {fmt(fatturatoLordo)}</p>
+                  </div>
+                  <div style={S.card("#E74C3C")}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsionali annui</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnnuo)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(totPrevMensile)}/mese</p>
+                  </div>
+                  <div style={S.card("#E67E22")}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi consuntivi inseriti</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totConsuntivo===0?"Uso previsionali come riferimento":percCopertura+"% copertura costi"}</p>
+                  </div>
+                  <div style={S.card(margine>=0?"#27AE60":"#E74C3C")}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Margine agenzia</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:margine>=0?"#27AE60":"#E74C3C"}}>{margine>=0?"+":""}€ {fmt(margine)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totConsuntivo>0?"vs consuntivi":"vs previsionali"}</p>
+                  </div>
+                </div>
+
+                {/* Riepilogo quote */}
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1.25rem"}}>
+                  <p style={{fontSize:12,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 10px"}}>Composizione fatturato {costiAnno}</p>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                    <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
+                      <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenzia</p>
+                      <p style={{fontSize:16,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
+                      <p style={{fontSize:11,color:"#aaa",margin:"3px 0 0"}}>{fatturatoLordo>0?((quotaAgenzia/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                    </div>
+                    <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
+                      <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenti</p>
+                      <p style={{fontSize:16,fontWeight:600,margin:0,color:"#2980B9"}}>€ {fmt(quotaAgenti)}</p>
+                      <p style={{fontSize:11,color:"#aaa",margin:"3px 0 0"}}>{fatturatoLordo>0?((quotaAgenti/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                    </div>
+                    <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
+                      <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Buyer</p>
+                      <p style={{fontSize:16,fontWeight:600,margin:0,color:"#8E44AD"}}>€ {fmt(quotaBuyer)}</p>
+                      <p style={{fontSize:11,color:"#aaa",margin:"3px 0 0"}}>{fatturatoLordo>0?((quotaBuyer/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Barra avanzamento obiettivo */}
                 {obiettivoFatturato>0&&(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                    <span style={{fontSize:13,fontWeight:500}}>Avanzamento verso obiettivo {costiAnno}</span>
-                    <span style={{fontSize:13,fontWeight:600,color:fatturatoReale>=obiettivoFatturato?"#27AE60":BRAND.oro}}>€ {fmt(fatturatoReale)} / € {fmt(obiettivoFatturato)}</span>
+                    <span style={{fontSize:13,fontWeight:500}}>Quota agenzia vs obiettivo {costiAnno}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:quotaAgenzia>=obiettivoFatturato?"#27AE60":BRAND.oro}}>€ {fmt(quotaAgenzia)} / € {fmt(obiettivoFatturato)}</span>
                   </div>
                   <div style={{background:"#f0f0f0",borderRadius:8,height:16,overflow:"hidden"}}>
-                    <div style={{height:"100%",borderRadius:8,background:fatturatoReale>=obiettivoFatturato?"#27AE60":`linear-gradient(90deg,${BRAND.oro},#A8863A)`,width:`${Math.min(100,fatturatoReale/obiettivoFatturato*100)}%`,transition:"width 0.5s ease"}}/>
+                    <div style={{height:"100%",borderRadius:8,background:quotaAgenzia>=obiettivoFatturato?"#27AE60":`linear-gradient(90deg,${BRAND.oro},#A8863A)`,width:`${Math.min(100,obiettivoFatturato>0?quotaAgenzia/obiettivoFatturato*100:0)}%`,transition:"width 0.5s ease"}}/>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:"#aaa"}}>
-                    <span>Break Even mensile: € {fmt(breakEvenMensile)}</span>
-                    <span>{percRaggiungimento}% raggiunto</span>
-                    {fatturatoReale<obiettivoFatturato&&<span style={{color:"#E67E22"}}>Mancano € {fmt(obiettivoFatturato-fatturatoReale)}</span>}
-                    {fatturatoReale>=obiettivoFatturato&&<span style={{color:"#27AE60",fontWeight:500}}>Obiettivo raggiunto!</span>}
+                    <span>Break Even mensile: € {fmt(totPrevMensile)}</span>
+                    <span>{percObiettivo}% raggiunto</span>
+                    {quotaAgenzia<obiettivoFatturato&&<span style={{color:"#E67E22"}}>Mancano € {fmt(obiettivoFatturato-quotaAgenzia)}</span>}
+                    {quotaAgenzia>=obiettivoFatturato&&<span style={{color:"#27AE60",fontWeight:500}}>Obiettivo raggiunto!</span>}
                   </div>
                 </div>)}
               </>);
             })()}
 
-            {/* Tabella voci di costo */}
-            <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"auto"}}>
-              <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            {/* Tabella voci di costo — versione compatta con modal mesi */}
+            <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                 <span style={{fontSize:13,fontWeight:500}}>Voci di costo — {costiAnno}</span>
-                <span style={{fontSize:11,color:"#aaa"}}>Inserisci importo previsionale mensile e consuntivi mese per mese</span>
+                <button style={S.btnP} onClick={()=>{
+                  const nuovaVoce=window.prompt("Nome della nuova voce di costo:");
+                  if(!nuovaVoce||!nuovaVoce.trim()) return;
+                  const voci=[...(costi[costiAnno]||mkCosti())];
+                  voci.push({id:Date.now(),voce:nuovaVoce.trim(),prevMensile:0,consuntivi:{}});
+                  setCosti({...costi,[costiAnno]:voci});
+                }}>+ Aggiungi voce</button>
               </div>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:900}}>
-                <thead>
-                  <tr>
-                    <th style={{...S.th,minWidth:200,position:"sticky",left:0,background:"#fafaf8",zIndex:1}}>Voce di costo</th>
-                    <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Mensile</th>
-                    <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Annuo</th>
-                    {MESI_KEYS.map(m=><th key={m} style={{...S.th,textAlign:"right",minWidth:80}}>{MESI_NOMI[parseInt(m)]}</th>)}
-                    <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. Cons.</th>
-                    <th style={{...S.th,textAlign:"right"}}>Diff.</th>
-                  </tr>
-                </thead>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr>
+                  <th style={{...S.th,minWidth:200}}>Voce di costo</th>
+                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Mensile</th>
+                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. Annuo</th>
+                  <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. Consuntivo</th>
+                  <th style={{...S.th,textAlign:"right"}}>Diff. vs Prev.</th>
+                  <th style={{...S.th,textAlign:"center"}}>Mesi</th>
+                  <th style={S.th}></th>
+                </tr></thead>
                 <tbody>
                   {(costi[costiAnno]||mkCosti()).map((voce,idx)=>{
                     const prevAnnuo=Number(voce.prevMensile||0)*12;
                     const totCons=MESI_KEYS.reduce((s,m)=>s+Number(voce.consuntivi?.[m]||0),0);
                     const diff=totCons-prevAnnuo;
+                    const mesiInseriti=MESI_KEYS.filter(m=>Number(voce.consuntivi?.[m]||0)>0).length;
                     return(<tr key={voce.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
-                      <td style={{...S.td,fontWeight:500,fontSize:12,position:"sticky",left:0,background:idx%2===0?"#fff":"#fafafa",zIndex:1}}>{voce.voce}</td>
+                      <td style={{...S.td,fontWeight:500}}>{voce.voce}</td>
                       <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>
-                        <input type="number" style={{width:"100%",fontSize:12,padding:"4px 6px",borderRadius:4,border:"0.5px solid #ddd",textAlign:"right",background:"transparent"}}
+                        <input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}}
                           value={voce.prevMensile||""} placeholder="0"
                           onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>
                       </td>
-                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:BRAND.oroD,background:"#FDF6EC",fontSize:12}}>€ {fmt(prevAnnuo)}</td>
-                      {MESI_KEYS.map(m=>(
-                        <td key={m} style={{padding:"4px 4px",borderBottom:"0.5px solid #f5f5f5"}}>
-                          <input type="number" style={{width:"100%",fontSize:12,padding:"4px 5px",borderRadius:4,border:"0.5px solid #ddd",textAlign:"right"}}
-                            value={voce.consuntivi?.[m]||""} placeholder="0"
-                            onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],consuntivi:{...v[idx].consuntivi,[m]:Number(e.target.value)}};setCosti({...costi,[costiAnno]:v});}}/>
-                        </td>
-                      ))}
-                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:600,color:"#27AE60",fontSize:12}}>€ {fmt(totCons)}</td>
-                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa",fontSize:12}}>{diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
+                      <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
+                      <td style={{...S.tdR,fontWeight:600,color:totCons>0?"#27AE60":"#ccc"}}>{totCons>0?`€ ${fmt(totCons)}`:"—"}</td>
+                      <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{totCons>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
+                      <td style={{...S.tdC}}>
+                        <button style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:`1px solid ${mesiInseriti>0?BRAND.oro:"#ddd"}`,background:mesiInseriti>0?`${BRAND.oro}22`:"transparent",color:mesiInseriti>0?BRAND.oroD:"#999",cursor:"pointer"}}
+                          onClick={()=>setModalCostoVoce({voce,idx,anno:costiAnno})}>
+                          {mesiInseriti>0?`${mesiInseriti}/12 mesi`:"Inserisci"}
+                        </button>
+                      </td>
+                      <td style={S.tdC}>
+                        <button title="Elimina voce" style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}}
+                          onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...(costi[costiAnno]||mkCosti())];v.splice(idx,1);setCosti({...costi,[costiAnno]:v});}}}
+                          onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+                      </td>
                     </tr>);
                   })}
                 </tbody>
-                <tfoot>
-                  {(()=>{
-                    const voci=costi[costiAnno]||mkCosti();
-                    const totPrevM=voci.reduce((s,v)=>s+Number(v.prevMensile||0),0);
-                    const totPrevA=totPrevM*12;
-                    const totConsTot=voci.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
-                    const mesiTot=MESI_KEYS.map(m=>voci.reduce((s,v)=>s+Number(v.consuntivi?.[m]||0),0));
-                    return(<tr style={{background:BRAND.beige,fontWeight:600,fontSize:12}}>
-                      <td style={{padding:"8px 12px"}}>TOTALE</td>
-                      <td style={{padding:"8px 8px",textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevM)}</td>
-                      <td style={{padding:"8px 8px",textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevA)}</td>
-                      {mesiTot.map((t,i)=><td key={i} style={{padding:"8px 4px",textAlign:"right",color:t>0?"#E67E22":"#ccc"}}>€ {fmt(t)}</td>)}
-                      <td style={{padding:"8px 8px",textAlign:"right",color:"#27AE60"}}>€ {fmt(totConsTot)}</td>
-                      <td style={{padding:"8px 8px",textAlign:"right",color:(totConsTot-totPrevA)>0?"#E74C3C":"#27AE60"}}>{totConsTot-totPrevA!==0?(totConsTot-totPrevA>0?"+":"")+fmt(totConsTot-totPrevA):"—"}</td>
-                    </tr>);
-                  })()}
-                </tfoot>
+                <tfoot>{(()=>{
+                  const voci=costi[costiAnno]||mkCosti();
+                  const totPrevM=voci.reduce((s,v)=>s+Number(v.prevMensile||0),0);
+                  const totPrevA=totPrevM*12;
+                  const totConsTot=voci.reduce((s,v)=>s+MESI_KEYS.reduce((sm,m)=>sm+Number(v.consuntivi?.[m]||0),0),0);
+                  const diffTot=totConsTot-totPrevA;
+                  return(<tr style={{background:BRAND.beige,fontWeight:500,fontSize:13}}>
+                    <td style={{...S.td}}>TOTALE</td>
+                    <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevM)}/mese</td>
+                    <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevA)}</td>
+                    <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totConsTot)}</td>
+                    <td style={{...S.tdR,color:diffTot>0?"#E74C3C":"#27AE60"}}>{totConsTot>0?(diffTot!==0?(diffTot>0?"+":"")+fmt(diffTot):"—"):"—"}</td>
+                    <td colSpan={2}/>
+                  </tr>);
+                })()}</tfoot>
               </table>
             </div>
           </div>)}
@@ -1369,6 +1441,63 @@ export default function App() {
           <div style={S.g2}><div><label style={S.lbl}>Profilo</label><select style={S.inp} value={formAgente.profilo||"Consulente"} onChange={e=>setFormAgente({...formAgente,profilo:e.target.value,percListing:e.target.value==="Broker"?0:formAgente.percListing,percAcquirente:e.target.value==="Broker"?0:formAgente.percAcquirente})}><option>Broker</option><option>Consulente</option><option>Collaboratore</option></select></div><div><label style={S.lbl}>Tipo</label><select style={S.inp} value={formAgente.tipo||"Interno"} onChange={e=>setFormAgente({...formAgente,tipo:e.target.value})}><option>Interno</option><option>Esterno</option></select></div></div>
           {formAgente.profilo!=="Broker"&&(<div style={S.g2}><div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percListing||0} onChange={e=>setFormAgente({...formAgente,percListing:Number(e.target.value)})}/></div><div><label style={S.lbl}>% Provv. Acquirente</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percAcquirente||0} onChange={e=>setFormAgente({...formAgente,percAcquirente:Number(e.target.value)})}/></div></div>)}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now()}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id}:a));setShowAgente(null);}}>Salva</button></div>
+        </div>
+      </div>)}
+
+      {/* MODAL CONSUNTIVI MESI */}
+      {modalCostoVoce&&(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setModalCostoVoce(null)}>
+        <div style={{...S.modal,width:"min(96vw,480px)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
+            <div>
+              <h2 style={{fontSize:16,fontWeight:500,margin:"0 0 3px",color:BRAND.grigio}}>{modalCostoVoce.voce.voce}</h2>
+              <p style={{fontSize:12,color:"#aaa",margin:0}}>Inserisci il consuntivo mensile — Anno {modalCostoVoce.anno}</p>
+            </div>
+            <button onClick={()=>setModalCostoVoce(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>✕</button>
+          </div>
+          <div style={{background:BRAND.beige,borderRadius:8,padding:"10px 14px",marginBottom:"1rem",display:"flex",justifyContent:"space-between",fontSize:13}}>
+            <span style={{color:"#888"}}>Previsionale mensile:</span>
+            <strong style={{color:BRAND.oroD}}>€ {fmt(modalCostoVoce.voce.prevMensile||0)}</strong>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+            {MESI_KEYS.map((m,i)=>{
+              const mesiNomi=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+              const val=modalCostoVoce.voce.consuntivi?.[m]||"";
+              const prev=Number(modalCostoVoce.voce.prevMensile||0);
+              const cons=Number(val||0);
+              const diff=cons-prev;
+              return(
+                <div key={m} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"10px 12px"}}>
+                  <label style={{fontSize:12,color:"#888",display:"block",marginBottom:4,fontWeight:500}}>{mesiNomi[i]}</label>
+                  <input type="number" style={{...S.inp,textAlign:"right",marginBottom:4}} placeholder={prev>0?`Prev: ${fmtN(prev)}`:"0"} value={val}
+                    onChange={e=>{
+                      const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
+                      voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],consuntivi:{...voci[modalCostoVoce.idx].consuntivi,[m]:Number(e.target.value)||0}};
+                      setCosti({...costi,[modalCostoVoce.anno]:voci});
+                      setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
+                    }}/>
+                  {cons>0&&prev>0&&<p style={{fontSize:11,margin:0,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa",textAlign:"right"}}>{diff>0?"+":""}{fmtN(diff)} vs prev.</p>}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{background:BRAND.beige,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,color:"#888"}}>Totale consuntivo:</span>
+            <strong style={{fontSize:16,color:"#27AE60"}}>€ {fmt(MESI_KEYS.reduce((s,m)=>s+Number(modalCostoVoce.voce.consuntivi?.[m]||0),0))}</strong>
+          </div>
+          <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem",alignItems:"center"}}>
+            <button style={{...S.btn,fontSize:12}} onClick={()=>{
+              if(window.confirm("Copiare il previsionale mensile in tutti i mesi non ancora compilati?")){{
+                const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
+                const prev=Number(modalCostoVoce.voce.prevMensile||0);
+                const nuoviCons={...voci[modalCostoVoce.idx].consuntivi};
+                MESI_KEYS.forEach(m=>{if(!nuoviCons[m])nuoviCons[m]=prev;});
+                voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],consuntivi:nuoviCons};
+                setCosti({...costi,[modalCostoVoce.anno]:voci});
+                setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
+              }}
+            }}>Copia prev. nei mesi vuoti</button>
+            <button style={S.btnP} onClick={()=>setModalCostoVoce(null)}>Chiudi</button>
+          </div>
         </div>
       </div>)}
 
