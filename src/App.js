@@ -319,7 +319,7 @@ export default function App() {
   const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
   const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
   const [tipiNeg,setTipiNeg]=useState(_ls?.tipiNeg||["Mutuo negato","Pratica rifiutata","Rinuncia acquirente","Problemi catastali","Altro"]);
-  const [nF,setNF]=useState(""); const [nT,setNT]=useState(""); const [nV,setNV]=useState(""); const [nN,setNN]=useState("");
+  // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState("Tutti"); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
@@ -608,7 +608,18 @@ export default function App() {
 
   const Sel=({value,onChange,children})=>(<select style={S.sel} value={value} onChange={e=>onChange(e.target.value)}>{children}</select>);
   const SubTabs=({value,onChange,options})=>(<div style={{display:"flex",gap:8}}>{options.map(o=><button key={o.v} style={S.subTab(value===o.v)} onClick={()=>onChange(o.v)}>{o.l}</button>)}</div>);
-  const SettSec=({title,items,setItems,val,setVal,ph})=>(<div style={{marginBottom:"1.25rem"}}><h3 style={{fontSize:14,fontWeight:500,margin:"0 0 8px"}}>{title}</h3><div style={S.tagRow}>{items.map(v=><span key={v} style={S.tag}>{v}<button style={S.tagX} onClick={()=>setItems(items.filter(x=>x!==v))}>✕</button></span>)}</div><div style={{display:"flex",gap:8,maxWidth:380}}><input style={S.inp} placeholder={ph} value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&val.trim()){setItems([...items,val.trim()]);setVal("");}}} /><button style={S.btnP} onClick={()=>{if(val.trim()){setItems([...items,val.trim()]);setVal("");}}}>+</button></div></div>);
+  const SettSec=({title,items,setItems,ph})=>{
+    const [localVal,setLocalVal]=React.useState("");
+    const aggiungi=()=>{if(localVal.trim()){setItems([...items,localVal.trim()]);setLocalVal("");}};
+    return(<div style={{marginBottom:"1.25rem"}}>
+      <h3 style={{fontSize:14,fontWeight:500,margin:"0 0 8px"}}>{title}</h3>
+      <div style={S.tagRow}>{items.map(v=><span key={v} style={S.tag}>{v}<button style={S.tagX} onClick={()=>setItems(items.filter(x=>x!==v))}>✕</button></span>)}</div>
+      <div style={{display:"flex",gap:8,maxWidth:380}}>
+        <input style={S.inp} placeholder={ph} value={localVal} onChange={e=>setLocalVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")aggiungi();}}/>
+        <button style={S.btnP} onClick={aggiungi}>+</button>
+      </div>
+    </div>);
+  };
 
   const FiltriInc=()=>(<div style={S.fRow}>
     <Sel value={fIncAnno} onChange={v=>{setFIncAnno(v);setFIncMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniInc.map(a=><option key={a}>{a}</option>)}</Sel>
@@ -1281,13 +1292,13 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
-            <SettSec title="Fonti incarico" items={fonti} setItems={setFonti} val={nF} setVal={setNF} ph="Nuova fonte..."/>
+            <SettSec title="Fonti incarico" items={fonti} setItems={setFonti} ph="Nuova fonte..."/>
             <div style={S.divider}/>
-            <SettSec title="Tipologie immobile" items={tipologie} setItems={setTipologie} val={nT} setVal={setNT} ph="Nuova tipologia..."/>
+            <SettSec title="Tipologie immobile" items={tipologie} setItems={setTipologie} ph="Nuova tipologia..."/>
             <div style={S.divider}/>
-            <SettSec title="Tipi di vincolo" items={vincoli} setItems={setVincoli} val={nV} setVal={setNV} ph="Nuovo vincolo..."/>
+            <SettSec title="Tipi di vincolo" items={vincoli} setItems={setVincoli} ph="Nuovo vincolo..."/>
             <div style={S.divider}/>
-            <SettSec title="Tipi diniego vincolo" items={tipiNeg} setItems={setTipiNeg} val={nN} setVal={setNN} ph="Nuovo tipo diniego..."/>
+            <SettSec title="Tipi diniego vincolo" items={tipiNeg} setItems={setTipiNeg} ph="Nuovo tipo diniego..."/>
             <div style={S.divider}/>
             <h3 style={{fontSize:14,fontWeight:500,margin:"0 0 8px"}}>Backup dati</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 10px"}}>I dati vengono salvati automaticamente nel browser. Usa Esporta/Importa per backup esterni o per condividere i dati tra dispositivi.</p>
@@ -1320,9 +1331,10 @@ export default function App() {
             <div><label style={S.lbl}>Tipologia</label><select style={S.inp} value={formInc.tipologia||""} onChange={e=>setFormInc({...formInc,tipologia:e.target.value})}><option value="">Seleziona</option>{tipologie.map(t=><option key={t}>{t}</option>)}</select></div>
             <div><label style={S.lbl}>Data inizio</label><input style={S.inp} type="date" value={formInc.dataInizio||""} onChange={e=>setFormInc({...formInc,dataInizio:e.target.value})}/></div>
             <div><label style={S.lbl}>Scadenza</label><input style={S.inp} type="date" value={formInc.scadenza||""} onChange={e=>setFormInc({...formInc,scadenza:e.target.value})}/></div>
-            <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone mensile (EUR)":"Prezzo richiesto (EUR)"}</label><input style={S.inp} type="number" value={formInc.prezzoRichiesto||""} onChange={e=>setFormInc({...formInc,prezzoRichiesto:e.target.value})}/></div>
+            <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone mensile (EUR)":"Prezzo richiesto (EUR)"}</label><input style={S.inp} type="number" value={formInc.prezzoRichiesto||""} onChange={e=>{const pr=Number(e.target.value);const perc=Number(formInc.percProvv||0);setFormInc({...formInc,prezzoRichiesto:e.target.value,provvPrevista:perc>0&&pr>0?Math.round(pr*perc/100):formInc.provvPrevista});}}/></div>
             <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone reale (EUR)":"Prezzo reale stimato (EUR)"}</label><input style={S.inp} type="number" value={formInc.prezzoReale||""} onChange={e=>setFormInc({...formInc,prezzoReale:e.target.value})}/></div>
-            <div><label style={S.lbl}>Provvigione prevista (EUR)</label><input style={S.inp} type="number" value={formInc.provvPrevista||""} onChange={e=>setFormInc({...formInc,provvPrevista:e.target.value})}/></div>
+            <div><label style={S.lbl}>% Provvigione</label><input style={S.inp} type="number" step="0.1" placeholder="es. 3" value={formInc.percProvv||""} onChange={e=>{const perc=Number(e.target.value);const prezzo=Number(formInc.prezzoRichiesto||0);setFormInc({...formInc,percProvv:e.target.value,provvPrevista:prezzo>0?Math.round(prezzo*perc/100):formInc.provvPrevista});}}/></div>
+            <div><label style={S.lbl}>Provvigione prevista (EUR) — calcolata o manuale</label><input style={S.inp} type="number" value={formInc.provvPrevista||""} onChange={e=>setFormInc({...formInc,provvPrevista:e.target.value,percProvv:""})} placeholder="Calcolata automaticamente dalla %"/></div>
           </div>
           <div><label style={S.lbl}>Note</label><textarea style={{...S.inp,resize:"vertical",minHeight:60}} value={formInc.note||""} onChange={e=>setFormInc({...formInc,note:e.target.value})}/></div>
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem"}}>
