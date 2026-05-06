@@ -1,4 +1,34 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+
+// ── SUPABASE CONFIG ─────────────────────────────────────────────────────────
+const SUPA_URL = "https://ungozmmhdfbdctrhdoth.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZ296bW1oZGZiZGN0cmhkb3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzc1MjMsImV4cCI6MjA5MzYxMzUyM30.1i3cuKIP6gGdPr4H0nnIDNWUR5RcxdXG-dvKdjcSZ1g";
+
+const supaFetch = async (method, body=null) => {
+  const opts = {
+    method,
+    headers: {"Content-Type":"application/json","apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Prefer":"return=representation"},
+  };
+  if(body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main`, opts);
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+};
+
+const caricaDB = async () => {
+  try {
+    const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
+      {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+    const rows = await res.json();
+    return rows?.[0]?.data || null;
+  } catch(e){ return null; }
+};
+
+const salvaDB = async (data) => {
+  try {
+    await supaFetch("PATCH", {data, updated_at: new Date().toISOString()});
+  } catch(e){ console.error("Errore salvataggio Supabase:", e); }
+};
 
 const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
 const MESI_NOMI = ["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
@@ -40,7 +70,7 @@ const STATI_FATTURA = {"Da pagare":{clr:"#E67E22",bg:"#FEF0E0"},"Pagato parzialm
 const bdg = cfg => ({display:"inline-flex",alignItems:"center",gap:4,padding:"3px 9px",borderRadius:5,fontSize:11,fontWeight:500,background:cfg?.bg||"#eee",color:cfg?.clr||"#333",border:`0.5px solid ${cfg?.clr||"#ccc"}`,whiteSpace:"nowrap"});
 const USERS = [{email:"adirita@casaimmobiliarevarese.it",password:"Dalmata1518",nome:"Antonello Di Rita",ruolo:"Broker"}];
 
-// LocalStorage helpers — salvataggio automatico
+// LocalStorage come fallback offline
 const LS_KEY = "gestionale_casa_v1";
 const salvaLS = (data) => { try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e){} };
 const caricaLS = () => { try { const d=localStorage.getItem(LS_KEY); return d?JSON.parse(d):null; } catch(e){return null;} };
@@ -310,6 +340,8 @@ export default function App() {
   const [tab,setTab]=useState("Dashboard");
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
   const _ls = caricaLS();
+  const [dbLoaded,setDbLoaded]=useState(false);
+  const [dbSaving,setDbSaving]=useState(false);
   const [agenti,setAgenti]=useState(_ls?.agenti||INIT_AGENTI);
   const [incarichi,setIncarichi]=useState(_ls?.incarichi||INIT_INCARICHI);
   const [proposte,setProposte]=useState(_ls?.proposte||INIT_PROPOSTE);
@@ -349,10 +381,40 @@ export default function App() {
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const importRef=useRef();
 
-  // Auto-salvataggio ad ogni modifica
+  // Carica dati da Supabase all'avvio
   useEffect(()=>{
-    salvaLS({agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato});
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato]);
+    caricaDB().then(data=>{
+      if(data&&Object.keys(data).length>0){
+        if(data.agenti) setAgenti(data.agenti);
+        if(data.incarichi) setIncarichi(data.incarichi);
+        if(data.proposte) setProposte(data.proposte);
+        if(data.venduti) setVenduti(data.venduti);
+        if(data.archiviati) setArchiviati(data.archiviati);
+        if(data.archiviatiProp) setArchiviatiProp(data.archiviatiProp);
+        if(data.archiviatiVend) setArchiviatiVend(data.archiviatiVend);
+        if(data.fonti) setFonti(data.fonti);
+        if(data.tipologie) setTipologie(data.tipologie);
+        if(data.vincoli) setVincoli(data.vincoli);
+        if(data.tipiNeg) setTipiNeg(data.tipiNeg);
+        if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
+        if(data.costi) setCosti(data.costi);
+        if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
+      }
+      setDbLoaded(true);
+    });
+  },[]);
+
+  // Auto-salvataggio su Supabase + localStorage ad ogni modifica
+  useEffect(()=>{
+    if(!dbLoaded) return; // non salvare prima di aver caricato
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato};
+    salvaLS(payload); // salva anche in locale come backup
+    setDbSaving(true);
+    const t=setTimeout(()=>{
+      salvaDB(payload).finally(()=>setDbSaving(false));
+    },1500); // debounce 1.5s per non sovraccaricare
+    return ()=>clearTimeout(t);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -573,6 +635,15 @@ export default function App() {
   };
 
   if(!utente) return <LoginPage onLogin={setUtente}/>;
+  if(!dbLoaded) return(
+    <div style={{minHeight:"100vh",background:BRAND.beige,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+      <div style={{fontSize:32,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>a</span>sa</div>
+      <div style={{fontSize:14,color:"#aaa"}}>Caricamento dati in corso...</div>
+      <div style={{width:200,height:4,background:"#e8e5e0",borderRadius:4,overflow:"hidden"}}>
+        <div style={{height:"100%",borderRadius:4,background:BRAND.oro,animation:"loading 1.5s ease-in-out infinite",width:"60%"}}/>
+      </div>
+    </div>
+  );
 
   const S={
     sec:{padding:"1.5rem",flex:1,overflowY:"auto",minWidth:0},
@@ -674,7 +745,11 @@ export default function App() {
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{background:"#fff",borderBottom:"0.5px solid #e8e5e0",padding:"0.875rem 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{currentTabCfg?.icon}</span><h1 style={{fontSize:15,fontWeight:600,margin:0}}>{currentTabCfg?.label}</h1></div>
-          <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={()=>setUtente(null)}>Esci</button>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            {dbSaving&&<span style={{fontSize:11,color:"#aaa",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:BRAND.oro,display:"inline-block",animation:"pulse 1s infinite"}}></span>Salvataggio...</span>}
+            {!dbSaving&&dbLoaded&&<span style={{fontSize:11,color:"#27AE60"}}>✓ Sincronizzato</span>}
+            <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={()=>setUtente(null)}>Esci</button>
+          </div>
         </div>
         <div style={{flex:1,overflowY:"auto"}}>
 
