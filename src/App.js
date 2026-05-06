@@ -816,14 +816,13 @@ export default function App() {
                   <td style={S.tdA}>{vendCorr?`${vendCorr.percAcquirente}%`:"—"}</td>
                   <td style={S.tdA}>{vendCorr?.buyer?nomAg(vendCorr.buyer):"—"}</td>
                   <td style={{...S.tdA,borderRight:"2px solid #8E44AD22"}}>{vendCorr?.buyer?`${vendCorr.percBuyer}%`:"—"}</td>
-                  <td style={S.tdR}>
+                  <td style={{...S.tdR,lineHeight:1.6}}>
                     {(inc.storicoRibassi||[]).length>0?(
-                      <>
-                        <span style={{fontWeight:600,color:BRAND.oroD}}>€ {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span>
-                        <br/>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end"}}>
+                        <span style={{fontWeight:600,color:BRAND.oroD,fontSize:13}}>€ {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span>
                         <span style={{fontSize:11,color:"#bbb",textDecoration:"line-through"}}>€ {fmtN(inc.prezzoRichiesto)}</span>
-                      </>
-                    ):`€ ${fmtN(inc.prezzoRichiesto)}`}
+                      </div>
+                    ):<span>€ {fmtN(inc.prezzoRichiesto)}</span>}
                   </td>
                   <td style={S.tdR}>€ {fmt(inc.provvPrevista)}</td>
                   <td style={S.td}><span style={bdg(cfg)}>{s}</span></td>
