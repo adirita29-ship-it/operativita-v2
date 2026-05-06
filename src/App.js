@@ -817,8 +817,13 @@ export default function App() {
                   <td style={S.tdA}>{vendCorr?.buyer?nomAg(vendCorr.buyer):"—"}</td>
                   <td style={{...S.tdA,borderRight:"2px solid #8E44AD22"}}>{vendCorr?.buyer?`${vendCorr.percBuyer}%`:"—"}</td>
                   <td style={S.tdR}>
-                    € {fmtN(inc.prezzoRichiesto)}
-                    {(inc.storicoRibassi||[]).length>0&&<><br/><span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>↘ € {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span></>}
+                    {(inc.storicoRibassi||[]).length>0?(
+                      <>
+                        <span style={{fontWeight:600,color:BRAND.oroD}}>€ {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span>
+                        <br/>
+                        <span style={{fontSize:11,color:"#bbb",textDecoration:"line-through"}}>€ {fmtN(inc.prezzoRichiesto)}</span>
+                      </>
+                    ):`€ ${fmtN(inc.prezzoRichiesto)}`}
                   </td>
                   <td style={S.tdR}>€ {fmt(inc.provvPrevista)}</td>
                   <td style={S.td}><span style={bdg(cfg)}>{s}</span></td>
