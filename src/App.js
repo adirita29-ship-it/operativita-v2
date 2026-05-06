@@ -287,7 +287,12 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
   const prat=useMemo(()=>venduti.filter(v=>{const c=v.agenteListing===agente.id||v.agenteAcquirente===agente.id||v.buyerListing===agente.id||v.buyer===agente.id;if(!c)return false;if(fA!=="Tutti"&&getAnno(v.dataAtto||"")!==fA)return false;if(fM!=="Tutti"&&getMese(v.dataAtto||"")!==fM)return false;return true;}),[venduti,agente,fA,fM]);
   const incAcquisiti=incarichi.filter(i=>i.agenteListing===agente.id&&!i.archiviato).length;
   const totP=prat.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-  const totI=prat.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+  const totI=prat.reduce((s,v)=>{
+    let t=0;
+    if(v.agenteListing===agente.id) t+=calcolaIncassatoV(v);
+    if(v.agenteAcquirente===agente.id) t+=calcolaIncassatoA(v);
+    return s+t;
+  },0);
   const totQ=prat.reduce((s,v)=>s+calcolaQuotaAgente(v,agente.id),0);
   const Ss={th:{textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid #eee",color:"#999",fontWeight:500,fontSize:12,background:"#fafaf8"},td:{padding:"8px 12px",borderBottom:"0.5px solid #f5f5f5",verticalAlign:"middle",fontSize:13},tdR:{padding:"8px 12px",borderBottom:"0.5px solid #f5f5f5",verticalAlign:"middle",textAlign:"right",fontSize:13},sel:{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid #ccc",background:"#fff",color:BRAND.grigio}};
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
@@ -1140,8 +1145,18 @@ export default function App() {
               <tbody>{agenti.map(ag=>{
                 const vAg=vendReport.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
                 const incAg=incarichi.filter(i=>i.agenteListing===ag.id&&!i.archiviato).length;
-                const genTot=vAg.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-                const incTot=vAg.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+                const genTot=vAg.reduce((s,v)=>{
+                  let t=0;
+                  if(v.agenteListing===ag.id) t+=Number(v.provvVenditore||0);
+                  if(v.agenteAcquirente===ag.id) t+=Number(v.provvAcquirente||0);
+                  return s+t;
+                },0);
+                const incTot=vAg.reduce((s,v)=>{
+                  let t=0;
+                  if(v.agenteListing===ag.id) t+=calcolaIncassatoV(v);
+                  if(v.agenteAcquirente===ag.id) t+=calcolaIncassatoA(v);
+                  return s+t;
+                },0);
                 const quotaAg=vAg.reduce((s,v)=>s+calcolaQuotaAgente(v,ag.id),0);
                 const quotaBuy=vAg.reduce((s,v)=>{let q=0;if(v.buyerListing===ag.id&&v.agenteListing!==ag.id)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;return s+q;},0);
                 return(<tr key={ag.id} style={{cursor:"pointer"}}
