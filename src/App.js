@@ -92,7 +92,7 @@ const INIT_PROPOSTE = [
   {id:2,categoria:"vendita",tipo:"da_incarico",incaricoId:3,agenteListing:1,percListing:0,buyerListing:null,percBuyerListing:0,comuneImmobile:"Gazzada Schianno",indirizzoImmobile:"Via Carducci",tipologia:"Villa",nominativoVenditore:"Scala Domenico",agenziaEsterna:null,agenteAcquirente:2,percAcquirente:40,buyer:null,percBuyer:0,nomeAcquirente:"Roncari Leonardo",prezzoOfferto:270000,vincolata:true,tipoVincolo:"Mutuo",termineSubordine:"2026-05-01",scadenzaProposta:"2026-03-15",provvVenditore:1640,percProvvAcquirente:3,provvAcquirente:8000,stato:"In attesa / Vincolata",noteStato:"",dataStato:"2026-02-10",dataVendita:"",storico:[],controproposte:[]},
 ];
 const INIT_VENDUTI = [
-  {id:1,categoria:"vendita",propostaId:1,incaricoId:1,comuneImmobile:"Barasso",indirizzoImmobile:"Via Cassini 1",tipologia:"Villa",nominativoVenditore:"Tresoldi - Caretti",nomeAcquirente:"Armellini",agenteListing:1,percListing:0,buyerListing:3,percBuyerListing:10,agenteAcquirente:1,percAcquirente:0,buyer:3,percBuyer:20,prezzoVendita:180000,provvVenditore:5400,provvAcquirente:7200,tipoAtto:"Preliminare",dataAtto:"2026-01-05",dataVendita:"2025-12-10",acc1V:5400,dataAcc1V:"2026-01-05",noteAcc1V:"Acconto firma preliminare",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:3600,dataAcc1A:"2026-01-05",noteAcc1A:"Acconto firma preliminare",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",scadenzaIncasso:"2026-06-30",agenziaEsterna:null,note:"",bloccato:false},
+  {id:1,categoria:"vendita",propostaId:1,incaricoId:1,comuneImmobile:"Barasso",indirizzoImmobile:"Via Cassini 1",tipologia:"Villa",nominativoVenditore:"Tresoldi - Caretti",nomeAcquirente:"Armellini",agenteListing:1,percListing:0,buyerListing:3,percBuyerListing:10,agenteAcquirente:1,percAcquirente:0,buyer:3,percBuyer:20,prezzoVendita:180000,provvVenditore:5400,provvAcquirente:7200,tipoAtto:"Preliminare",dataAtto:"2026-01-05",dataVendita:"2025-12-10",acc1V:5400,dataAcc1V:"2026-01-05",noteAcc1V:"Acconto firma preliminare",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:3600,dataAcc1A:"2026-01-05",noteAcc1A:"Acconto firma preliminare",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",scadenzaIncasso:"2026-06-30",agenziaEsterna:null,note:"",bloccato:false,dataCompetenzaAgente:"",competenzaAgenteDiversa:false},
 ];
 
 const calcolaIncassatoV = v => Number(v.acc1V||0)+Number(v.acc2V||0)+Number(v.saldoV||0);
@@ -480,7 +480,12 @@ export default function App() {
     return getAnno(dataRif)===dashAnno;
   }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
-  const vendReport=useMemo(()=>venduti.filter(v=>{if(reportAnno!=="Tutti"&&getAnno(v.dataAtto||"")!==reportAnno)return false;if(reportMese!=="Tutti"&&getMese(v.dataAtto||"")!==reportMese)return false;return true;}),[venduti,reportAnno,reportMese]);
+  const vendReport=useMemo(()=>venduti.filter(v=>{
+    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:v.dataAtto||"";
+    if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
+    if(reportMese!=="Tutti"&&getMese(dataRif)!==reportMese)return false;
+    return true;
+  }),[venduti,reportAnno,reportMese]);
 
   // Dashboard calcoli — tutti useMemo per aggiornamento in tempo reale
   const dashCalcoli = useMemo(()=>{
@@ -547,8 +552,10 @@ export default function App() {
     return venduti.filter(v=>{
       const stato=calcolaStatoIncasso(v);
       if(stato==="Da incassare")return false;
-      if(fatAnno!=="Tutti"&&getAnno(v.dataAtto||"")!==fatAnno)return false;
-      if(fatMese!=="Tutti"&&getMese(v.dataAtto||"")!==fatMese)return false;
+      // Usa dataCompetenzaAgente se presente, altrimenti dataAtto
+      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:v.dataAtto||"";
+      if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
+      if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
     }).map(v=>{
       const righe=[];
@@ -593,7 +600,7 @@ export default function App() {
     setProposte(proposte.map(x=>x.id===p.id?upd:x));
     if(ns==="Accettata"||(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo")){
       const inc=incarichi.find(i=>i.id===p.incaricoId);const ag=agenti.find(a=>a.id===p.agenteAcquirente);
-      const nv={id:Date.now(),categoria:p.categoria,propostaId:p.id,incaricoId:p.incaricoId,comuneImmobile:p.comuneImmobile,indirizzoImmobile:p.indirizzoImmobile,tipologia:p.tipologia,nominativoVenditore:p.nominativoVenditore,nomeAcquirente:p.nomeAcquirente,agenteListing:p.agenteListing,percListing:Number(p.percListing||0),buyerListing:p.buyerListing,percBuyerListing:Number(p.percBuyerListing||0),agenteAcquirente:p.agenteAcquirente,percAcquirente:Number(p.percAcquirente||ag?.percAcquirente||0),buyer:p.buyer,percBuyer:Number(p.percBuyer||0),prezzoVendita:Number(p.prezzoOfferto),provvVenditore:Number(p.provvVenditore||inc?.provvPrevista||0),provvAcquirente:Number(p.provvAcquirente||0),tipoAtto:"Preliminare",dataAtto:"",dataVendita:oggi,statoIncasso:"Da incassare",acc1V:0,dataAcc1V:"",noteAcc1V:"",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:0,dataAcc1A:"",noteAcc1A:"",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",incassatoVenditore:0,incassatoAcquirente:0,scadenzaIncasso:"",agenziaEsterna:p.agenziaEsterna||null,note:"",bloccato:false};
+      const nv={id:Date.now(),categoria:p.categoria,propostaId:p.id,incaricoId:p.incaricoId,comuneImmobile:p.comuneImmobile,indirizzoImmobile:p.indirizzoImmobile,tipologia:p.tipologia,nominativoVenditore:p.nominativoVenditore,nomeAcquirente:p.nomeAcquirente,agenteListing:p.agenteListing,percListing:Number(p.percListing||0),buyerListing:p.buyerListing,percBuyerListing:Number(p.percBuyerListing||0),agenteAcquirente:p.agenteAcquirente,percAcquirente:Number(p.percAcquirente||ag?.percAcquirente||0),buyer:p.buyer,percBuyer:Number(p.percBuyer||0),prezzoVendita:Number(p.prezzoOfferto),provvVenditore:Number(p.provvVenditore||inc?.provvPrevista||0),provvAcquirente:Number(p.provvAcquirente||0),tipoAtto:"Preliminare",dataAtto:"",dataVendita:oggi,statoIncasso:"Da incassare",acc1V:0,dataAcc1V:"",noteAcc1V:"",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:0,dataAcc1A:"",noteAcc1A:"",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",incassatoVenditore:0,incassatoAcquirente:0,scadenzaIncasso:"",agenziaEsterna:p.agenziaEsterna||null,note:"",bloccato:false,dataCompetenzaAgente:"",competenzaAgenteDiversa:false};
       setVenduti([...venduti,nv]);
       if(p.incaricoId)setIncarichi(incarichi.map(i=>i.id===p.incaricoId?{...i,stato:p.categoria==="affitto"?"Locato":"Venduto"}:i));
     }
@@ -1039,7 +1046,13 @@ export default function App() {
                   <td style={{...S.tdA,borderRight:"2px solid #8E44AD22"}}>{v.buyer?`${v.percBuyer}%`:"—"}</td>
                   <td style={S.tdR}>€ {fmtN(v.prezzoVendita)}</td>
                   <td style={S.tdR}>€ {fmt(v.provvVenditore)}</td><td style={S.tdR}>€ {fmt(v.provvAcquirente)}</td>
-                  <td style={S.td}>{v.tipoAtto||"—"}</td><td style={S.td}>{v.dataAtto?fmtD(v.dataAtto):"—"}</td>
+                  <td style={S.td}>{v.tipoAtto||"—"}</td>
+                  <td style={S.td}>
+                    {v.dataAtto?fmtD(v.dataAtto):"—"}
+                    {v.competenzaAgenteDiversa&&v.dataCompetenzaAgente&&(
+                      <><br/><span style={{fontSize:10,color:"#8E44AD",fontStyle:"italic"}}>Ag: {fmtD(v.dataCompetenzaAgente)}</span></>
+                    )}
+                  </td>
                   <td style={S.tdR}>{calcolaIncassatoV(v)>0?`€ ${fmt(calcolaIncassatoV(v))}`:"—"}</td>
                   <td style={S.tdR}>{calcolaIncassatoA(v)>0?`€ ${fmt(calcolaIncassatoA(v))}`:"—"}</td>
                   <td style={S.td}>{v.scadenzaIncasso?fmtD(v.scadenzaIncasso):"—"}</td>
@@ -1616,6 +1629,19 @@ export default function App() {
           <div style={S.hl}><p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Provvigioni</p><div style={S.g2}><div><label style={S.lbl}>Provv. venditore (EUR)</label><input style={S.inp} type="number" value={formVend.provvVenditore||0} onChange={e=>setFormVend({...formVend,provvVenditore:Number(e.target.value)})}/></div><div><label style={S.lbl}>Provv. acquirente (EUR)</label><input style={S.inp} type="number" value={formVend.provvAcquirente||0} onChange={e=>setFormVend({...formVend,provvAcquirente:Number(e.target.value)})}/></div></div></div>
           <div style={S.g2}><div><label style={S.lbl}>Tipo atto</label><select style={S.inp} value={formVend.tipoAtto||"Preliminare"} onChange={e=>setFormVend({...formVend,tipoAtto:e.target.value})}><option>Preliminare</option><option>Rogito Diretto</option><option>Rogito</option></select></div><div><label style={S.lbl}>Data atto</label><input style={S.inp} type="date" value={formVend.dataAtto||""} onChange={e=>setFormVend({...formVend,dataAtto:e.target.value})}/></div></div>
           <div style={{marginBottom:"1rem"}}><label style={S.lbl}>Scadenza incasso</label><input style={{...S.inp,maxWidth:200}} type="date" value={formVend.scadenzaIncasso||""} onChange={e=>setFormVend({...formVend,scadenzaIncasso:e.target.value})}/></div>
+          <div style={{marginBottom:"1rem",padding:"10px 14px",background:BRAND.beige,borderRadius:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:formVend.competenzaAgenteDiversa?10:0}}>
+              <input type="checkbox" id="compDiv" checked={formVend.competenzaAgenteDiversa||false} onChange={e=>setFormVend({...formVend,competenzaAgenteDiversa:e.target.checked,dataCompetenzaAgente:e.target.checked?formVend.dataCompetenzaAgente:""})}/>
+              <label htmlFor="compDiv" style={{fontSize:13,cursor:"pointer"}}>Competenza agente diversa da data atto</label>
+            </div>
+            {formVend.competenzaAgenteDiversa&&(
+              <div style={{marginTop:8}}>
+                <label style={S.lbl}>Data competenza agente (per fatture agenti)</label>
+                <input style={{...S.inp,maxWidth:200}} type="date" value={formVend.dataCompetenzaAgente||""} onChange={e=>setFormVend({...formVend,dataCompetenzaAgente:e.target.value})}/>
+                <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>La dashboard agenzia usa sempre la data atto. Le fatture agenti useranno questa data.</p>
+              </div>
+            )}
+          </div>
           <p style={{fontSize:12,color:"#aaa",fontStyle:"italic",margin:"0 0 1rem"}}>Per acconti e saldo usa i pulsanti V / A nella tabella Venduti</p>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><button style={S.btn} onClick={()=>setShowGestVend(null)}>Annulla</button><button style={S.btnP} onClick={salvaVend}>Salva</button></div>
         </div>
