@@ -817,16 +817,11 @@ export default function App() {
                   <td style={S.tdA}>{vendCorr?.buyer?nomAg(vendCorr.buyer):"—"}</td>
                   <td style={{...S.tdA,borderRight:"2px solid #8E44AD22"}}>{vendCorr?.buyer?`${vendCorr.percBuyer}%`:"—"}</td>
                   <td style={S.tdR}>
-                    {(()=>{
-                      const ribassi=Array.isArray(inc.storicoRibassi)?inc.storicoRibassi:[];
-                      if(ribassi.length>0){
-                        return <div>
-                          <div style={{fontWeight:600,color:BRAND.oroD}}>€ {fmtN(ribassi[ribassi.length-1].prezzo)}</div>
-                          <div style={{fontSize:11,color:"#bbb",textDecoration:"line-through",marginTop:1}}>€ {fmtN(inc.prezzoRichiesto)}</div>
-                        </div>;
-                      }
-                      return <span>€ {fmtN(inc.prezzoRichiesto)}</span>;
-                    })()}
+                    {(inc.storicoRibassi||[]).length>0
+                      ? <span style={{color:"#bbb",textDecoration:"line-through",fontSize:12}}>€ {fmtN(inc.prezzoRichiesto)}</span>
+                      : <span>€ {fmtN(inc.prezzoRichiesto)}</span>
+                    }
+                    {(inc.storicoRibassi||[]).length>0&&<><br/><span style={{fontWeight:600,color:BRAND.oroD}}>€ {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span></>}
                   </td>
                   <td style={S.tdR}>€ {fmt(inc.provvPrevista)}</td>
                   <td style={S.td}><span style={bdg(cfg)}>{s}</span></td>
