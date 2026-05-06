@@ -116,7 +116,7 @@ const mesiNomi = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Lugli
 const totSpeseVoce = voce => (voce.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
 
 // Proposte che bloccano nuove proposte sullo stesso incarico
-const STATI_BLOCCANTI = ["In attesa","Controproposta"];
+const STATI_BLOCCANTI = ["In attesa","Controproposta","In attesa / Vincolata"];
 
 function LoginPage({onLogin}) {
   const [em,setEm]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [load,setLoad]=useState(false);
@@ -878,7 +878,9 @@ export default function App() {
                 const vendCorr=venduti.find(v=>v.incaricoId===inc.id);
                 const propCorr=proposte.find(p=>p.incaricoId===inc.id&&STATI_BLOCCANTI.includes(p.stato));
                 const hasPropAttiva=hasPropBloccante(inc.id);
-                return(<tr key={inc.id} style={{background:inc.archiviato?"#fafafa":"white",opacity:inc.archiviato?0.7:1}}>
+                const propAttivaVinc=proposte.some(p=>p.incaricoId===inc.id&&p.stato==="In attesa / Vincolata");
+                const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
+                return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1}}>
                   <td style={S.td}>{inc.fonte}</td>
                   <td style={S.td}>
                     {isVenduto?(
@@ -908,7 +910,10 @@ export default function App() {
                   <td style={S.tdR}>€ {fmt(inc.provvPrevista)}</td>
                   <td style={S.td}><span style={bdg(cfg)}>{s}</span></td>
                   <td style={S.tdC}>
-                    {hasPropAttiva&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF0E0",color:"#E67E22",fontWeight:500,border:"0.5px solid #E67E2244"}}>In proposta</span>}
+                    {hasPropAttiva&&(propAttivaVinc
+                      ? <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF9E7",color:"#D4AC0D",fontWeight:500,border:"0.5px solid #D4AC0D44"}}>🔗 In prop./Vinc.</span>
+                      : <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF0E0",color:"#E67E22",fontWeight:500,border:"0.5px solid #E67E2244"}}>📝 In proposta</span>
+                    )}
                   </td>
                   <td style={S.td}>
                     <div style={{display:"flex",gap:4}}>
