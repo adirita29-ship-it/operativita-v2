@@ -62,7 +62,7 @@ const STATI_PROP = {
   "Controproposta":{clr:"#E67E22",bg:"#FEF0E0",s:"🟡",label:"Controproposta"},
   "Rifiutata":{clr:"#C0392B",bg:"#FDECEA",s:"🔴",label:"Rifiutata"},
   "Mancata Chiusura":{clr:"#922B21",bg:"#FADBD8",s:"🔴",label:"Mancata Chiusura"},
-  "Accettata con Vincolo":{clr:"#27AE60",bg:"#E9F7EF",s:"🟢",label:"Acc. con Vincolo"},
+  "Accettata con Vincolo":{clr:"#D4AC0D",bg:"#FEF9E7",s:"🟡",label:"Acc. con Vincolo"},
   "Accettata":{clr:"#27AE60",bg:"#E9F7EF",s:"🟢",label:"Accettata"},
 };
 const STATI_INCASSO = {"Da incassare":{clr:"#E67E22",bg:"#FEF0E0"},"Parziale":{clr:"#D4AC0D",bg:"#FEF9E7"},"Incassato":{clr:"#27AE60",bg:"#E9F7EF"}};
@@ -209,6 +209,7 @@ function SchedaIncaricoVenduto({incarico, venduto, proposta, agenti, onClose}) {
           {proposta?.dataStato&&<div style={S2.row}><span style={S2.lbl}>Data proposta</span><span style={S2.val}>{fmtD(proposta.dataStato)}</span></div>}
           {proposta?.vincolata&&proposta?.termineSubordine&&<div style={S2.row}><span style={S2.lbl}>Termine vincolo</span><span style={{...S2.val,color:"#D4AC0D"}}>{fmtD(proposta.termineSubordine)} ({proposta.tipoVincolo||"Vincolo"})</span></div>}
           {proposta?.dataAccettazione&&<div style={S2.row}><span style={S2.lbl}>Data accettazione</span><span style={{...S2.val,color:"#27AE60"}}>{fmtD(proposta.dataAccettazione)}</span></div>}
+          {venduto?.dataAtto&&<div style={S2.row}><span style={S2.lbl}>Data {venduto?.tipoAtto||"Preliminare"}</span><span style={S2.val}>{fmtD(venduto.dataAtto)}</span></div>}
           <div style={S2.row}><span style={S2.lbl}>Data vendita</span><span style={S2.val}>{fmtD(venduto?.dataVendita||venduto?.dataAtto)}</span></div>
           <div style={S2.row}><span style={S2.lbl}>Giorni per vendere</span><span style={{...S2.val,color:BRAND.oro}}>{giorni!=null?`${giorni} giorni`:"—"}</span></div>
 
@@ -596,16 +597,26 @@ export default function App() {
     const p=showGestProp; const ns=formStatoProp.stato||p.stato;
     const oggi=todayStr();
     const upd={...p,...formStatoProp,stato:ns,storico:[...(p.storico||[]),{stato:ns,data:nowISO(),note:formStatoProp.noteStato||""}]};
-    // Se accettata (senza vincolo) → data vendita oggi
-    if(ns==="Accettata"){upd.dataVendita=oggi;upd.dataAccettazione=oggi;}
-    // Se vincolo positivo → data vendita oggi
-    if(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo"){upd.dataVendita=oggi;upd.dataAccettazione=oggi;}
+    // Se accettata → usa data dal form (non oggi automaticamente)
+    if(ns==="Accettata"){
+      upd.dataAccettazione=formStatoProp.dataAccettazione||"";
+      upd.dataVendita=formStatoProp.dataAccettazione||"";
+    }
+    // Se vincolo positivo → usa data esito vincolo dal form
+    if(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo"){
+      upd.dataAccettazione=formStatoProp.dataAccettazione||"";
+      upd.dataVendita=formStatoProp.dataEsitoVincolo||formStatoProp.dataAccettazione||"";
+    }
+    // Se accettata con vincolo (senza esito ancora) → salva data accettazione vincolo
+    if(ns==="Accettata con Vincolo"&&!formStatoProp.esitoVincolo){
+      upd.dataAccettazione=formStatoProp.dataAccettazione||"";
+    }
     setProposte(proposte.map(x=>x.id===p.id?upd:x));
     // Se esito vincolo positivo, stato diventa Accettata
     if(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo") upd.stato="Accettata";
     if(ns==="Accettata"||(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo")){
       const inc=incarichi.find(i=>i.id===p.incaricoId);const ag=agenti.find(a=>a.id===p.agenteAcquirente);
-      const nv={id:Date.now(),categoria:p.categoria,propostaId:p.id,incaricoId:p.incaricoId,comuneImmobile:p.comuneImmobile,indirizzoImmobile:p.indirizzoImmobile,tipologia:p.tipologia,nominativoVenditore:p.nominativoVenditore,nomeAcquirente:p.nomeAcquirente,agenteListing:p.agenteListing,percListing:Number(p.percListing||0),buyerListing:p.buyerListing,percBuyerListing:Number(p.percBuyerListing||0),agenteAcquirente:p.agenteAcquirente,percAcquirente:Number(p.percAcquirente||ag?.percAcquirente||0),buyer:p.buyer,percBuyer:Number(p.percBuyer||0),prezzoVendita:Number(p.prezzoOfferto),provvVenditore:Number(p.provvVenditore||inc?.provvPrevista||0),provvAcquirente:Number(p.provvAcquirente||0),tipoAtto:"Preliminare",dataAtto:"",dataVendita:oggi,statoIncasso:"Da incassare",acc1V:0,dataAcc1V:"",noteAcc1V:"",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:0,dataAcc1A:"",noteAcc1A:"",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",incassatoVenditore:0,incassatoAcquirente:0,scadenzaIncasso:"",agenziaEsterna:p.agenziaEsterna||null,note:"",bloccato:false,dataCompetenzaAgente:"",competenzaAgenteDiversa:false};
+      const nv={id:Date.now(),categoria:p.categoria,propostaId:p.id,incaricoId:p.incaricoId,comuneImmobile:p.comuneImmobile,indirizzoImmobile:p.indirizzoImmobile,tipologia:p.tipologia,nominativoVenditore:p.nominativoVenditore,nomeAcquirente:p.nomeAcquirente,agenteListing:p.agenteListing,percListing:Number(p.percListing||0),buyerListing:p.buyerListing,percBuyerListing:Number(p.percBuyerListing||0),agenteAcquirente:p.agenteAcquirente,percAcquirente:Number(p.percAcquirente||ag?.percAcquirente||0),buyer:p.buyer,percBuyer:Number(p.percBuyer||0),prezzoVendita:Number(p.prezzoOfferto),provvVenditore:Number(p.provvVenditore||inc?.provvPrevista||0),provvAcquirente:Number(p.provvAcquirente||0),tipoAtto:"Preliminare",dataAtto:"",dataVendita:formStatoProp.dataEsitoVincolo||formStatoProp.dataAccettazione||"",statoIncasso:"Da incassare",acc1V:0,dataAcc1V:"",noteAcc1V:"",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:0,dataAcc1A:"",noteAcc1A:"",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",incassatoVenditore:0,incassatoAcquirente:0,scadenzaIncasso:"",agenziaEsterna:p.agenziaEsterna||null,note:"",bloccato:false,dataCompetenzaAgente:"",competenzaAgenteDiversa:false};
       setVenduti([...venduti,nv]);
       if(p.incaricoId)setIncarichi(incarichi.map(i=>i.id===p.incaricoId?{...i,stato:p.categoria==="affitto"?"Locato":"Venduto"}:i));
     }
@@ -841,7 +852,7 @@ export default function App() {
                       <td style={S.tdS}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF9E7",color:"#A8863A",fontWeight:500,border:"0.5px solid #D4AC0D44"}}>{p.tipoVincolo||"Generico"}</span></td>
                       <td style={{...S.tdS,color:p.termineSubordine&&new Date(p.termineSubordine)<new Date()?"#E74C3C":"inherit"}}>{p.termineSubordine?fmtD(p.termineSubordine):"—"}</td>
                       <td style={{...S.tdRS,fontWeight:600,color:"#D4AC0D"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
-                      <td style={S.tdS}><button style={{...S.btnP,fontSize:11,padding:"3px 10px",background:"#D4AC0D",borderColor:"#D4AC0D"}} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",esitoVincolo:"",tipoNegazione:"",dataAccettazione:p.dataAccettazione||todayStr()});setShowGestProp(p);}}>Gestisci</button></td>
+                      <td style={S.tdS}><button style={{...S.btnP,fontSize:11,padding:"3px 10px",background:"#D4AC0D",borderColor:"#D4AC0D"}} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",esitoVincolo:"",tipoNegazione:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);}}>Gestisci</button></td>
                     </tr>
                   ))}</tbody>
                   <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
@@ -991,7 +1002,7 @@ export default function App() {
                   <td style={S.td}><span style={bdg(cfg)}>{cfg.s} {cfg.label}</span></td>
                   <td style={S.td}>
                     <div style={{display:"flex",gap:4,alignItems:"center"}}>
-                      {puoGestire&&<button style={S.btnP} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||todayStr()});setShowGestProp(p);}}>Gestisci</button>}
+                      {puoGestire&&<button style={S.btnP} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);}}>Gestisci</button>}
                       {!puoGestire&&["Accettata","Accettata con Vincolo"].includes(p.stato)&&<span style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:600,border:"0.5px solid #27AE6044"}}>✓ Conclusa</span>}
                       {!puoGestire&&!["Accettata","Accettata con Vincolo"].includes(p.stato)&&<span style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>{p.stato}</span>}
                       <button style={{...S.btnD,fontSize:11,padding:"3px 8px"}} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare la proposta per "${p.nomeAcquirente}"?`))archiviaProp(p.id);}}>📦</button>
@@ -1624,20 +1635,35 @@ export default function App() {
             <div><label style={S.lbl}>Note</label><input style={S.inp} value={formStatoProp.noteStato||""} onChange={e=>setFormStatoProp({...formStatoProp,noteStato:e.target.value})}/></div>
           </div>)}
           {["Rifiutata","Mancata Chiusura"].includes(formStatoProp.stato)&&(<div><label style={S.lbl}>Motivo</label><textarea style={{...S.inp,resize:"vertical",minHeight:64}} value={formStatoProp.noteStato||""} onChange={e=>setFormStatoProp({...formStatoProp,noteStato:e.target.value})}/></div>)}
-          {formStatoProp.stato==="Accettata con Vincolo"&&(<div style={S.warnBox}>
-            <p style={{fontSize:13,fontWeight:500,margin:"0 0 8px",color:"#D4AC0D"}}>Gestione vincolo</p>
-            <div style={S.g2}>
-              <div><label style={S.lbl}>Esito vincolo</label><select style={S.inp} value={formStatoProp.esitoVincolo||""} onChange={e=>setFormStatoProp({...formStatoProp,esitoVincolo:e.target.value})}><option value="">In attesa</option><option value="Positivo">Positivo — va in Venduti</option></select></div>
-            </div>
-            <p style={{fontSize:11,color:"#aaa",margin:"8px 0 0"}}>In caso di esito negativo, gestire manualmente cambiando lo stato della proposta in Rifiutata o Mancata Chiusura.</p>
-          </div>)}
-          {/* Data accettazione - mostrata quando si accetta */}
-          {(formStatoProp.stato==="Accettata"||(formStatoProp.stato==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo"))&&(
-            <div style={{marginBottom:12}}>
-              <label style={S.lbl}>Data accettazione</label>
-              <input style={{...S.inp,maxWidth:200}} type="date" value={formStatoProp.dataAccettazione||todayStr()} onChange={e=>setFormStatoProp({...formStatoProp,dataAccettazione:e.target.value})}/>
+          {/* Data accettazione - per proposta normale Accettata */}
+          {formStatoProp.stato==="Accettata"&&(
+            <div style={{marginBottom:12,padding:"10px 14px",background:"#E9F7EF",borderRadius:8,border:"0.5px solid #27AE6044"}}>
+              <label style={{...S.lbl,color:"#27AE60",fontWeight:500}}>Data accettazione</label>
+              <input style={{...S.inp,maxWidth:200}} type="date" value={formStatoProp.dataAccettazione||""} onChange={e=>setFormStatoProp({...formStatoProp,dataAccettazione:e.target.value})}/>
             </div>
           )}
+          {/* Gestione vincolo */}
+          {formStatoProp.stato==="Accettata con Vincolo"&&(<div style={S.warnBox}>
+            <p style={{fontSize:13,fontWeight:500,margin:"0 0 10px",color:"#D4AC0D"}}>Gestione vincolo</p>
+            <div style={{marginBottom:10}}>
+              <label style={S.lbl}>Data accettazione con vincolo</label>
+              <input style={{...S.inp,maxWidth:200}} type="date" value={formStatoProp.dataAccettazione||""} onChange={e=>setFormStatoProp({...formStatoProp,dataAccettazione:e.target.value})}/>
+            </div>
+            <div style={{marginBottom:10}}>
+              <label style={S.lbl}>Esito vincolo</label>
+              <select style={{...S.inp,maxWidth:300}} value={formStatoProp.esitoVincolo||""} onChange={e=>setFormStatoProp({...formStatoProp,esitoVincolo:e.target.value})}>
+                <option value="">In attesa</option>
+                <option value="Positivo">Positivo — va in Venduti</option>
+              </select>
+            </div>
+            {formStatoProp.esitoVincolo==="Positivo"&&(
+              <div style={{marginBottom:10}}>
+                <label style={S.lbl}>Data esito vincolo positivo</label>
+                <input style={{...S.inp,maxWidth:200}} type="date" value={formStatoProp.dataEsitoVincolo||""} onChange={e=>setFormStatoProp({...formStatoProp,dataEsitoVincolo:e.target.value})}/>
+              </div>
+            )}
+            <p style={{fontSize:11,color:"#aaa",margin:"8px 0 0"}}>In caso di esito negativo, gestire manualmente cambiando lo stato in Rifiutata o Mancata Chiusura.</p>
+          </div>)}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1rem"}}>
             <button style={S.btn} onClick={()=>setShowGestProp(null)}>Annulla</button>
             <button style={S.btnP} onClick={()=>{
