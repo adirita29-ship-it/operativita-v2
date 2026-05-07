@@ -286,7 +286,13 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
   const mesi=useMemo(()=>Array.from(new Set(venduti.filter(v=>fA==="Tutti"||getAnno(v.dataAtto||"")===fA).map(v=>getMese(v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,fA]);
   const prat=useMemo(()=>venduti.filter(v=>{const c=v.agenteListing===agente.id||v.agenteAcquirente===agente.id||v.buyerListing===agente.id||v.buyer===agente.id;if(!c)return false;if(fA!=="Tutti"&&getAnno(v.dataAtto||"")!==fA)return false;if(fM!=="Tutti"&&getMese(v.dataAtto||"")!==fM)return false;return true;}),[venduti,agente,fA,fM]);
   const incAcquisiti=incarichi.filter(i=>i.agenteListing===agente.id&&!i.archiviato).length;
-  const totP=prat.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+  // Provv. Agenzia = solo pratiche dove è Listing o Acquirente
+  const totP=prat.reduce((s,v)=>{
+    let p=0;
+    if(v.agenteListing===agente.id) p+=Number(v.provvVenditore||0);
+    if(v.agenteAcquirente===agente.id) p+=Number(v.provvAcquirente||0);
+    return s+p;
+  },0);
   const totI=prat.reduce((s,v)=>{
     let t=0;
     if(v.agenteListing===agente.id) t+=calcolaIncassatoV(v);
@@ -358,7 +364,9 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
                 <td style={Ss.td}>{fmtD(v.dataAtto)}</td>
                 <td style={Ss.td}><strong>{v.comuneImmobile}</strong> — {v.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
                 <td style={Ss.td}>{ruoli.map(r=><span key={r} style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#EAF4FB",color:"#2980B9",marginRight:4,fontWeight:500}}>{r}</span>)}</td>
-                <td style={Ss.tdR}>{provvAg>0?`€ ${fmt(provvAg)}`:"—"}</td>
+                <td style={{...Ss.tdR,color:"#aaa"}}>
+                  € {fmt(Number(v.provvVenditore||0)+Number(v.provvAcquirente||0))}
+                </td>
                 <td style={{...Ss.tdR,fontWeight:600,color:"#8E44AD"}}>{qAg>0?`€ ${fmt(qAg)}`:"—"}</td>
                 <td style={{...Ss.tdR,fontWeight:600,color:"#2980B9"}}>{qBuy>0?`€ ${fmt(qBuy)}`:"—"}</td>
                 <td style={Ss.td}><span style={bdg(cfg)}>{calcolaStatoIncasso(v)}</span></td>
@@ -366,7 +374,7 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
             })}
             {prat.length===0&&<tr><td colSpan={6} style={{...Ss.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna pratica nel periodo</td></tr>}
           </tbody>
-          {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}><td colSpan={3} style={Ss.td}>Totale</td><td style={Ss.tdR}>{totP>0?`€ ${fmt(totP)}`:"—"}</td><td style={{...Ss.tdR,color:"#8E44AD"}}>{totQ>0?`€ ${fmt(totQ)}`:"—"}</td><td style={{...Ss.tdR,color:"#2980B9"}}>{totQBuy>0?`€ ${fmt(totQBuy)}`:"—"}</td><td style={Ss.td}/></tr></tfoot>}
+          {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}><td colSpan={3} style={Ss.td}>Totale</td><td style={{...Ss.tdR,color:"#aaa"}}>€ {fmt(prat.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0))}</td><td style={{...Ss.tdR,color:"#8E44AD"}}>{totQ>0?`€ ${fmt(totQ)}`:"—"}</td><td style={{...Ss.tdR,color:"#2980B9"}}>{totQBuy>0?`€ ${fmt(totQBuy)}`:"—"}</td><td style={Ss.td}/></tr></tfoot>}
         </table>
       </div>
     </div>
