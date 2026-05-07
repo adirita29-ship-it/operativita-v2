@@ -423,7 +423,7 @@ export default function App() {
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState("Tutti"); const [fVendAg,setFVendAg]=useState("Tutti");
   const [dashAnno,setDashAnno]=useState(annoCorrente);
   const [reportAnno,setReportAnno]=useState(annoCorrente); const [reportMese,setReportMese]=useState("Tutti");
-  const [fatAgente,setFatAgente]=useState(""); const [fatAnno,setFatAnno]=useState(annoCorrente); const [fatMese,setFatMese]=useState("Tutti");
+  const [fatAgente,setFatAgente]=useState(""); const [fatAnno,setFatAnno]=useState(annoCorrente); const [fatMese,setFatMese]=useState("Tutti"); const [fatStatoIncasso,setFatStatoIncasso]=useState("Tutti");
   const [mostraArchiviati,setMostraArchiviati]=useState(false);
   const [showInc,setShowInc]=useState(null);
   const [showRibasso,setShowRibasso]=useState(null);
@@ -603,9 +603,10 @@ export default function App() {
     if(!ag||ag.profilo==="Broker") return [];
     return venduti.filter(v=>{
       const stato=calcolaStatoIncasso(v);
-      if(stato==="Da incassare")return false;
+      // Filtra per stato incasso se selezionato
+      if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
       // Usa dataCompetenzaAgente se presente, altrimenti dataAtto
-      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:v.dataAtto||"";
+      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataAtto||v.dataVendita||"");
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
       if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
@@ -620,7 +621,7 @@ export default function App() {
       const pag=pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:"",note:""};
       return{v,righe,totPratica,key,pag};
     }).filter(x=>x.righe.length>0);
-  },[agenti,venduti,fatAgente,fatAnno,fatMese,pagamentiFatture]);
+  },[agenti,venduti,fatAgente,fatAnno,fatMese,fatStatoIncasso,pagamentiFatture]);
   const totImponibile=fatturaDati.reduce((s,x)=>s+x.totPratica,0);
   const totPagato=fatturaDati.reduce((s,x)=>s+Number(x.pag.importoPagato||0),0);
 
@@ -1265,6 +1266,12 @@ export default function App() {
               <select style={S.sel} value={fatAgente} onChange={e=>setFatAgente(e.target.value)}><option value="">Seleziona agente...</option>{agentiFattura.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome} — {a.profilo}</option>)}</select>
               <Sel value={fatAnno} onChange={setFatAnno}><option value="Tutti">Tutti gli anni</option>{anniVend.map(a=><option key={a}>{a}</option>)}</Sel>
               <Sel value={fatMese} onChange={setFatMese}><option value="Tutti">Tutti i mesi</option>{mesiFat.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
+              <Sel value={fatStatoIncasso} onChange={setFatStatoIncasso}>
+                <option value="Tutti">Tutti gli stati</option>
+                <option value="Da incassare">Da incassare</option>
+                <option value="Parziale">Parziale</option>
+                <option value="Incassato">Incassato</option>
+              </Sel>
               <div style={{flex:1}}/>{fatturaDati.length>0&&<button style={S.btnP} onClick={()=>window.print()}>Stampa</button>}
             </div>
             {!fatAgente&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Seleziona un agente per visualizzare la nota provvigioni</div>}
