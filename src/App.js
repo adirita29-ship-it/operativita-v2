@@ -384,7 +384,7 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
             })}
             {prat.length===0&&<tr><td colSpan={6} style={{...Ss.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna pratica nel periodo</td></tr>}
           </tbody>
-          {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}><td colSpan={3} style={Ss.td}>Totale</td><td style={{...Ss.tdR,color:"#aaa"}}>€ {fmt(prat.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0))}</td><td style={{...Ss.tdR,color:"#8E44AD"}}>{totQ>0?`€ ${fmt(totQ)}`:"—"}</td><td style={{...Ss.tdR,color:"#2980B9"}}>{totQBuy>0?`€ ${fmt(totQBuy)}`:"—"}</td><td style={Ss.td}/></tr></tfoot>}
+          {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}><td colSpan={3} style={Ss.td}>Totale</td><td style={Ss.td}/><td style={{...Ss.tdR,color:"#8E44AD"}}>{totQ>0?`€ ${fmt(totQ)}`:"—"}</td><td style={{...Ss.tdR,color:"#2980B9"}}>{totQBuy>0?`€ ${fmt(totQBuy)}`:"—"}</td><td style={Ss.td}/></tr></tfoot>}
         </table>
       </div>
     </div>
