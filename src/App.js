@@ -121,10 +121,13 @@ const VOCI_COSTO = [
   "Gestim + Sito e Hosting","Software - Servizi Professionali","FIAIP",
   "Assicurazioni Professionali","Altre Assicurazioni","Agente Strategico Abbonamento"
 ];
-const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v,prevMensile:0,spese:[]}));
+const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v,prevMensile:0,frequenza:"mensile",spese:[]}));
 const MESI_KEYS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 const mesiNomi = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const totSpeseVoce = voce => (voce.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
+const freqMultiplier = f => ({mensile:12,trimestrale:4,semestrale:2,annuale:1}[f]||12);
+const prevAnnuoVoce = voce => Number(voce.prevMensile||0) * freqMultiplier(voce.frequenza||"mensile");
+const FREQ_LABELS = {mensile:"Mensile ×12",trimestrale:"Trimestrale ×4",semestrale:"Semestrale ×2",annuale:"Annuale ×1"};
 
 // Proposte che bloccano nuove proposte sullo stesso incarico
 const STATI_BLOCCANTI = ["In attesa","Controproposta","In attesa / Vincolata"];
@@ -1367,8 +1370,8 @@ export default function App() {
             {/* KPI Break Even */}
             {(()=>{
               const vociAnno = costi[costiAnno]||mkCosti();
-              const totPrevMensile = vociAnno.reduce((s,v)=>s+Number(v.prevMensile||0),0);
-              const totPrevAnnuo = totPrevMensile*12;
+              const totPrevAnnuo = vociAnno.reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totPrevMensile = totPrevAnnuo/12;
 
               // Venduti dell'anno selezionato
               const vendAnno = venduti.filter(v=>getAnno(v.dataAtto||v.dataVendita||"")===costiAnno);
@@ -1487,7 +1490,8 @@ export default function App() {
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                 <thead><tr>
                   <th style={{...S.th,minWidth:200}}>Voce di costo</th>
-                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. mensile</th>
+                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Importo rata</th>
+                  <th style={{...S.th,color:BRAND.oroD,background:"#FDF6EC"}}>Frequenza</th>
                   <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. annuo</th>
                   <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. spese</th>
                   <th style={{...S.th,textAlign:"right"}}>Diff. vs prev.</th>
@@ -1496,7 +1500,7 @@ export default function App() {
                 </tr></thead>
                 <tbody>
                   {(costi[costiAnno]||mkCosti()).map((voce,idx)=>{
-                    const prevAnnuo=Number(voce.prevMensile||0)*12;
+                    const prevAnnuo=prevAnnuoVoce(voce);
                     const tot=totSpeseVoce(voce);
                     const diff=tot-prevAnnuo;
                     const nSpese=(voce.spese||[]).length;
@@ -1507,7 +1511,17 @@ export default function App() {
                           value={voce.prevMensile||""} placeholder="0"
                           onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>
                       </td>
-                      <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
+                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>
+                        <select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}}
+                          value={voce.frequenza||"mensile"}
+                          onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}>
+                          <option value="mensile">Mensile ×12</option>
+                          <option value="trimestrale">Trimestrale ×4</option>
+                          <option value="semestrale">Semestrale ×2</option>
+                          <option value="annuale">Annuale ×1</option>
+                        </select>
+                      </td>
+                      <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuoVoce(voce))}</td>
                       <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                       <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
                       <td style={S.tdC}>
@@ -1526,13 +1540,12 @@ export default function App() {
                 </tbody>
                 <tfoot>{(()=>{
                   const voci=costi[costiAnno]||mkCosti();
-                  const totPrevM=voci.reduce((s,v)=>s+Number(v.prevMensile||0),0);
-                  const totPrevA=totPrevM*12;
+                  const totPrevA=voci.reduce((s,v)=>s+prevAnnuoVoce(v),0);
                   const totSpTot=voci.reduce((s,v)=>s+totSpeseVoce(v),0);
                   const diffTot=totSpTot-totPrevA;
                   return(<tr style={{background:BRAND.beige,fontWeight:500,fontSize:13}}>
                     <td style={S.td}>TOTALE</td>
-                    <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevM)}/mese</td>
+                    <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}} colSpan={2}></td>
                     <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevA)}</td>
                     <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totSpTot)}</td>
                     <td style={{...S.tdR,color:diffTot>0?"#E74C3C":diffTot<0?"#27AE60":"#aaa"}}>{totSpTot>0?(diffTot!==0?(diffTot>0?"+":"")+fmt(diffTot):"—"):"—"}</td>
