@@ -334,8 +334,8 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
           <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agente + Buyer</p>
           <p style={{fontSize:18,fontWeight:600,margin:0,color:"#8E44AD"}}>€ {fmt(totQTot)}</p>
           <div style={{marginTop:4,fontSize:11,color:"#aaa"}}>
-            {totQ>0&&<span style={{marginRight:8}}>Ag: € {fmt(totQ)}</span>}
-            {totQBuy>0&&<span style={{color:"#2980B9"}}>Buy: € {fmt(totQBuy)}</span>}
+            {totQ>0&&<span style={{marginRight:8}}>Agente: € {fmt(totQ)}</span>}
+            {totQBuy>0&&<span style={{color:"#2980B9"}}>Buyer: € {fmt(totQBuy)}</span>}
           </div>
         </div>
       </div>
