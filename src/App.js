@@ -537,7 +537,7 @@ export default function App() {
   }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{
-    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:v.dataAtto||"";
+    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataAtto||v.dataVendita||"");
     if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
     if(reportMese!=="Tutti"&&getMese(dataRif)!==reportMese)return false;
     return true;
@@ -883,6 +883,43 @@ export default function App() {
                 </div>
               );
             })()}
+            {/* IN ATTESA / CONTROPROPOSTA */}
+            {(()=>{
+              const propAttesa=proposte.filter(p=>["In attesa","Controproposta"].includes(p.stato)&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
+              const totAttesa=propAttesa.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
+              return(
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
+                  <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #4A90D933"}}>
+                    <div><span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Proposte attive in corso di trattativa</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni potenziali su proposte ancora aperte</p></div>
+                    <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16,whiteSpace:"nowrap"}}>{propAttesa.length>0?`€ ${fmt(totAttesa)}`:"—"}</span>
+                  </div>
+                  {propAttesa.length>0?(
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead><tr>{["Stato","Venditore","Acquirente","Immobile","Prezzo offerto","Provv. prevista","Agente Acq.",""].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <tbody>{propAttesa.map(p=>{
+                        const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
+                        return(<tr key={p.id}>
+                          <td style={S.tdS}><span style={bdg(cfg)}>{cfg.s} {cfg.label}</span></td>
+                          <td style={{...S.tdS,fontWeight:500}}>{p.nominativoVenditore}</td>
+                          <td style={S.tdS}>{p.nomeAcquirente}</td>
+                          <td style={S.tdS}>{p.comuneImmobile} — {p.indirizzoImmobile}</td>
+                          <td style={{...S.tdRS,fontWeight:500}}>€ {fmtN(p.prezzoOfferto)}</td>
+                          <td style={{...S.tdRS,fontWeight:600,color:"#2980B9"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
+                          <td style={S.tdS}>{nomAg(p.agenteAcquirente)}</td>
+                          <td style={S.tdS}><button style={{...S.btnP,fontSize:11,padding:"3px 10px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);setTab("Proposte");}}>Gestisci</button></td>
+                        </tr>);
+                      })}</tbody>
+                      <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
+                        <td colSpan={5} style={S.tdS}>Totale ({propAttesa.length} {propAttesa.length===1?"proposta":"proposte"})</td>
+                        <td style={{...S.tdRS,color:"#2980B9"}}>€ {fmt(totAttesa)}</td>
+                        <td colSpan={2} style={S.tdS}/>
+                      </tr></tfoot>
+                    </table>
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta in attesa</div>}
+                </div>
+              );
+            })()}
+
             {/* VINCOLATE */}
             <div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
               <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
@@ -1135,15 +1172,7 @@ export default function App() {
               })}
               {vendFiltrati.length===0&&<tr><td colSpan={16} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessun venduto trovato</td></tr>}
               </tbody>
-              {vendFiltrati.length>0&&<tfoot><tr style={S.totRow}>
-                <td colSpan={8} style={S.td}>Totale ({vendFiltrati.length})</td><td style={S.td}/>
-                <td style={S.tdR}>€ {fmt(vendFiltrati.reduce((s,v)=>s+Number(v.provvVenditore||0),0))}</td>
-                <td style={S.tdR}>€ {fmt(vendFiltrati.reduce((s,v)=>s+Number(v.provvAcquirente||0),0))}</td>
-                <td style={S.td}/><td style={S.td}/>
-                <td style={S.tdR}>€ {fmt(vendFiltrati.reduce((s,v)=>s+calcolaIncassatoV(v),0))}</td>
-                <td style={S.tdR}>€ {fmt(vendFiltrati.reduce((s,v)=>s+calcolaIncassatoA(v),0))}</td>
-                <td colSpan={3} style={S.td}/>
-              </tr></tfoot>}
+
             </table></div>
           </div>)}
 
@@ -1695,7 +1724,10 @@ export default function App() {
           {showGestProp.stato==="Controproposta"&&(<>
             <p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Risposta acquirente alla controproposta</p>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-              {["Accettata","Controproposta","Rifiutata"].map(s=>{const cfg=STATI_PROP[s];const sel=formStatoProp.rispostaAcquirente===s;return(<button key={s} onClick={()=>setFormStatoProp({...formStatoProp,rispostaAcquirente:s,stato:s})} style={{...S.btn,border:`1.5px solid ${sel?cfg?.clr:"#ddd"}`,background:sel?cfg?.bg:"#fff",color:sel?cfg?.clr:BRAND.grigio,fontWeight:sel?500:400}}>{cfg?.s} {s}</button>);})}
+              {(showGestProp.vincolata
+                ? ["Accettata con Vincolo","Controproposta","Rifiutata"]
+                : ["Accettata","Controproposta","Rifiutata"]
+              ).map(s=>{const cfg=STATI_PROP[s];const sel=formStatoProp.rispostaAcquirente===s;return(<button key={s} onClick={()=>setFormStatoProp({...formStatoProp,rispostaAcquirente:s,stato:s})} style={{...S.btn,border:`1.5px solid ${sel?cfg?.clr:"#ddd"}`,background:sel?cfg?.bg:"#fff",color:sel?cfg?.clr:BRAND.grigio,fontWeight:sel?500:400}}>{cfg?.s} {s}</button>);})}
             </div>
           </>)}
 
@@ -1739,7 +1771,8 @@ export default function App() {
               // Aggiunge controproposta allo storico se applicabile
               if(formStatoProp.stato==="Controproposta"&&formStatoProp.contropropostaPrezzo){
                 const cp={parte:showGestProp.stato==="Controproposta"?"Acquirente":"Venditore",prezzo:Number(formStatoProp.contropropostaPrezzo),note:formStatoProp.noteStato||"",data:todayStr()};
-                const upd={...showGestProp,stato:"Controproposta",controproposte:[...(showGestProp.controproposte||[]),cp],storico:[...(showGestProp.storico||[]),{stato:"Controproposta",data:nowISO()}]};
+                // Preserva vincolo originale nella controproposta
+                const upd={...showGestProp,stato:"Controproposta",vincolata:showGestProp.vincolata||false,tipoVincolo:showGestProp.tipoVincolo||"",termineSubordine:showGestProp.termineSubordine||"",controproposte:[...(showGestProp.controproposte||[]),cp],storico:[...(showGestProp.storico||[]),{stato:"Controproposta",data:nowISO()}]};
                 setProposte(proposte.map(x=>x.id===showGestProp.id?upd:x));
                 setShowGestProp(null);
               } else {
