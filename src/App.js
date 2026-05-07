@@ -929,7 +929,7 @@ export default function App() {
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead>
                 <tr>
-                  <th style={S.th}>Fonte</th><th style={S.th}>Nominativo</th><th style={S.th}>Comune</th><th style={S.th}>Indirizzo</th><th style={S.th}>Tipologia</th>
+                  <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Fonte</th><th style={{...S.th,position:"sticky",left:60,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Nominativo</th><th style={{...S.th,position:"sticky",left:180,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th><th style={{...S.th,position:"sticky",left:300,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th><th style={S.th}>Tipologia</th>
                   <th style={S.th}>Inizio</th><th style={S.th}>Scadenza</th>
                   <th style={{...S.thL,borderLeft:"2px solid #2980B944"}}>Ag. Listing</th><th style={S.thL}>% L</th><th style={S.thL}>Buyer L.</th><th style={{...S.thL,borderRight:"2px solid #2980B944"}}>% BL</th>
                   <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={S.thA}>% A</th><th style={S.thA}>Buyer</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>% B</th>
@@ -945,15 +945,15 @@ export default function App() {
                 const propAttivaVinc=proposte.some(p=>p.incaricoId===inc.id&&p.stato==="In attesa / Vincolata");
                 const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
                 return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1}}>
-                  <td style={S.td}>{inc.fonte}</td>
-                  <td style={S.td}>
+                  <td style={{...S.td,position:"sticky",left:0,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.fonte}</td>
+                  <td style={{...S.td,position:"sticky",left:60,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>
                     {isVenduto?(
                       <button style={{background:"none",border:"none",cursor:"pointer",color:BRAND.oroD,fontWeight:600,fontSize:13,padding:0,textDecoration:"underline"}} onClick={()=>setSchedaIncarico({incarico:inc,venduto:vendCorr,proposta:proposte.find(p=>p.incaricoId===inc.id&&p.stato==="Accettata")})}>
                         {inc.nominativo}
                       </button>
                     ):<strong>{inc.nominativo}</strong>}
                   </td>
-                  <td style={S.td}>{inc.comune}</td><td style={S.td}>{inc.indirizzo}</td><td style={S.td}>{inc.tipologia}</td>
+                  <td style={{...S.td,position:"sticky",left:180,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.comune}</td><td style={{...S.td,position:"sticky",left:300,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.indirizzo}</td><td style={S.td}>{inc.tipologia}</td>
                   <td style={S.td}>{fmtD(inc.dataInizio)}</td>
                   <td style={{...S.td,color:s==="Scaduto"?"#E74C3C":"inherit",fontWeight:s==="Scaduto"?500:400}}>{fmtD(inc.scadenza)}</td>
                   <td style={{...S.tdL,borderLeft:"2px solid #2980B922"}}>{nomAg(inc.agenteListing)}</td>
@@ -1025,7 +1025,7 @@ export default function App() {
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
-                <th style={S.th}>Tipo</th><th style={S.th}>Data</th><th style={S.th}>Comune</th><th style={S.th}>Indirizzo</th><th style={S.th}>Venditore</th><th style={S.th}>Acquirente</th>
+                <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Tipo</th><th style={{...S.th,position:"sticky",left:80,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Data</th><th style={{...S.th,position:"sticky",left:170,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th><th style={{...S.th,position:"sticky",left:270,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th><th style={S.th}>Venditore</th><th style={S.th}>Acquirente</th>
                 <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={S.thA}>% Acq.</th><th style={S.thA}>Buyer</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>% B</th>
                 <th style={S.th}>Prezzo</th><th style={S.th}>Vincolo</th><th style={S.th}>Provv.V.</th><th style={S.th}>Provv.A.</th><th style={S.th}>Stato</th><th style={S.th}>Azioni</th>
               </tr></thead>
@@ -1033,10 +1033,10 @@ export default function App() {
                 const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
                 const puoGestire=!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato);
                 return(<tr key={p.id}>
-                  <td style={S.td}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></td>
-                  <td style={S.td}>{fmtD(p.dataStato)}</td>
-                  <td style={S.td}>{p.comuneImmobile}</td>
-                  <td style={S.td}>{p.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{p.tipologia}</span></td>
+                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></td>
+                  <td style={{...S.td,position:"sticky",left:80,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{fmtD(p.dataStato)}</td>
+                  <td style={{...S.td,position:"sticky",left:170,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{p.comuneImmobile}</td>
+                  <td style={{...S.td,position:"sticky",left:270,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{p.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{p.tipologia}</span></td>
                   <td style={S.td}>{p.nominativoVenditore}</td>
                   <td style={S.td}>{p.nomeAcquirente}</td>
                   <td style={{...S.tdA,borderLeft:"2px solid #8E44AD22"}}>{nomAg(p.agenteAcquirente)}</td>
@@ -1094,7 +1094,7 @@ export default function App() {
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
-                <th style={S.th}>Comune</th><th style={S.th}>Indirizzo</th><th style={S.th}>Venditore</th><th style={S.th}>Acquirente</th>
+                <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th><th style={{...S.th,position:"sticky",left:90,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th><th style={{...S.th,position:"sticky",left:220,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Venditore</th><th style={{...S.th,position:"sticky",left:340,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Acquirente</th>
                 <th style={{...S.thL,borderLeft:"2px solid #2980B944"}}>Ag.L</th><th style={S.thL}>%L</th><th style={S.thL}>BuyerL</th><th style={{...S.thL,borderRight:"2px solid #2980B944"}}>%BL</th>
                 <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag.A</th><th style={S.thA}>%A</th><th style={S.thA}>Buyer</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>%B</th>
                 <th style={S.th}>Prezzo</th><th style={S.th}>Provv.V.</th><th style={S.th}>Provv.A.</th><th style={S.th}>Tipo atto</th><th style={S.th}>Data atto</th><th style={S.th}>Inc.V.</th><th style={S.th}>Inc.A.</th><th style={S.th}>Scad.</th><th style={S.th}>Stato</th><th style={S.th}>Azioni</th>
@@ -1103,9 +1103,9 @@ export default function App() {
                 const statoI=calcolaStatoIncasso(v);
                 const cfg=STATI_INCASSO[statoI]||STATI_INCASSO["Da incassare"];
                 return(<tr key={v.id} style={{opacity:v.bloccato?0.85:1}}>
-                  <td style={S.td}>{v.comuneImmobile}</td>
-                  <td style={S.td}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
-                  <td style={S.td}>{v.nominativoVenditore}</td><td style={S.td}>{v.nomeAcquirente}</td>
+                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{v.comuneImmobile}</td>
+                  <td style={{...S.td,position:"sticky",left:90,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
+                  <td style={{...S.td,position:"sticky",left:220,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{v.nominativoVenditore}</td><td style={{...S.td,position:"sticky",left:340,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{v.nomeAcquirente}</td>
                   <td style={{...S.tdL,borderLeft:"2px solid #2980B922"}}>{v.agenteListing?nomAg(v.agenteListing):<span style={{fontSize:11,color:BRAND.oroD}}>{v.agenziaEsterna||"Est."}</span>}</td>
                   <td style={S.tdL}>{v.percListing}%</td>
                   <td style={S.tdL}>{v.buyerListing?nomAg(v.buyerListing):"—"}</td>
@@ -1592,9 +1592,9 @@ export default function App() {
           <h2 style={{fontSize:17,fontWeight:500,margin:"0 0 1rem"}}>{showInc==="new"?"Nuovo":"Modifica"} incarico — {formInc.categoria==="affitto"?"Affitto":"Vendita"}</h2>
           <div style={S.g2}>
             <div><label style={S.lbl}>Agente Listing</label><select style={S.inp} value={formInc.agenteListing||""} onChange={e=>setFormInc({...formInc,agenteListing:e.target.value})}><option value="">Seleziona</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
-            <div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" step="0.1" value={formInc.percListing||0} onChange={e=>setFormInc({...formInc,percListing:e.target.value})}/></div>
+            <div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" step="0.1" value={formInc.percListing||""} onChange={e=>setFormInc({...formInc,percListing:e.target.value})}/></div>
             <div><label style={S.lbl}>Buyer Listing (opz.)</label><select style={S.inp} value={formInc.buyerListing||""} onChange={e=>setFormInc({...formInc,buyerListing:e.target.value})}><option value="">Nessuno</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
-            <div><label style={S.lbl}>% Buyer Listing</label><input style={S.inp} type="number" step="0.1" value={formInc.percBuyerListing||0} onChange={e=>setFormInc({...formInc,percBuyerListing:e.target.value})}/></div>
+            <div><label style={S.lbl}>% Buyer Listing</label><input style={S.inp} type="number" step="0.1" value={formInc.percBuyerListing||""} onChange={e=>setFormInc({...formInc,percBuyerListing:e.target.value})}/></div>
             <div><label style={S.lbl}>Fonte</label><select style={S.inp} value={formInc.fonte||""} onChange={e=>setFormInc({...formInc,fonte:e.target.value})}><option value="">Seleziona</option>{fonti.map(f=><option key={f}>{f}</option>)}</select></div>
             <div><label style={S.lbl}>Nominativo venditore</label><input style={S.inp} value={formInc.nominativo||""} onChange={e=>setFormInc({...formInc,nominativo:e.target.value})}/></div>
             <div><label style={S.lbl}>Comune</label><input style={S.inp} value={formInc.comune||""} onChange={e=>setFormInc({...formInc,comune:e.target.value})}/></div>
@@ -1602,10 +1602,10 @@ export default function App() {
             <div><label style={S.lbl}>Tipologia</label><select style={S.inp} value={formInc.tipologia||""} onChange={e=>setFormInc({...formInc,tipologia:e.target.value})}><option value="">Seleziona</option>{tipologie.map(t=><option key={t}>{t}</option>)}</select></div>
             <div><label style={S.lbl}>Data inizio</label><input style={S.inp} type="date" value={formInc.dataInizio||""} onChange={e=>setFormInc({...formInc,dataInizio:e.target.value})}/></div>
             <div><label style={S.lbl}>Scadenza</label><input style={S.inp} type="date" value={formInc.scadenza||""} onChange={e=>setFormInc({...formInc,scadenza:e.target.value})}/></div>
-            <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone mensile (EUR)":"Prezzo richiesto (EUR)"}</label><input style={S.inp} type="number" value={formInc.prezzoRichiesto||""} onChange={e=>{const pr=Number(e.target.value);const perc=Number(formInc.percProvv||0);setFormInc({...formInc,prezzoRichiesto:e.target.value,provvPrevista:perc>0&&pr>0?Math.round(pr*perc/100):formInc.provvPrevista});}}/></div>
+            <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone mensile (EUR)":"Prezzo richiesto (EUR)"}</label><div style={{position:"relative"}}><input style={S.inp} type="number" value={formInc.prezzoRichiesto||""} onChange={e=>{const pr=Number(e.target.value);const perc=Number(formInc.percProvv||0);setFormInc({...formInc,prezzoRichiesto:e.target.value,provvPrevista:perc>0&&pr>0?Math.round(pr*perc/100):formInc.provvPrevista});}}/>{formInc.prezzoRichiesto>0&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:11,color:BRAND.oroD,pointerEvents:"none",background:"#fff",paddingLeft:4}}>= € {fmtN(formInc.prezzoRichiesto)}</span>}</div></div>
             <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone reale (EUR)":"Prezzo reale stimato (EUR)"}</label><input style={S.inp} type="number" value={formInc.prezzoReale||""} onChange={e=>setFormInc({...formInc,prezzoReale:e.target.value})}/></div>
             <div><label style={S.lbl}>% Provvigione</label><input style={S.inp} type="number" step="0.1" placeholder="es. 3" value={formInc.percProvv||""} onChange={e=>{const perc=Number(e.target.value);const prezzo=Number(formInc.prezzoRichiesto||0);setFormInc({...formInc,percProvv:e.target.value,provvPrevista:prezzo>0?Math.round(prezzo*perc/100):formInc.provvPrevista});}}/></div>
-            <div><label style={S.lbl}>Provvigione prevista (EUR) — calcolata o manuale</label><input style={S.inp} type="number" value={formInc.provvPrevista||""} onChange={e=>setFormInc({...formInc,provvPrevista:e.target.value,percProvv:""})} placeholder="Calcolata automaticamente dalla %"/></div>
+            <div><label style={S.lbl}>Provvigione prevista (EUR) — calcolata o manuale</label><div style={{position:"relative"}}><input style={S.inp} type="number" value={formInc.provvPrevista||""} onChange={e=>setFormInc({...formInc,provvPrevista:e.target.value,percProvv:""})} placeholder="Calcolata automaticamente dalla %"/>{formInc.provvPrevista>0&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:11,color:BRAND.oroD,pointerEvents:"none",background:"#fff",paddingLeft:4}}>= € {fmtN(formInc.provvPrevista)}</span>}</div></div>
           </div>
           <div><label style={S.lbl}>Note</label><textarea style={{...S.inp,resize:"vertical",minHeight:60}} value={formInc.note||""} onChange={e=>setFormInc({...formInc,note:e.target.value})}/></div>
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem"}}>
@@ -1653,7 +1653,7 @@ export default function App() {
             <div><label style={S.lbl}>Agente Acquirente</label><select style={S.inp} value={formProp.agenteAcquirente||""} onChange={e=>setFormProp({...formProp,agenteAcquirente:e.target.value})}><option value="">Seleziona</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
             <div><label style={S.lbl}>% Provv. Agente Acquirente</label><input style={S.inp} type="number" step="0.1" placeholder="es. 40" value={formProp.percAcquirente||""} onChange={e=>setFormProp({...formProp,percAcquirente:e.target.value})}/></div>
             <div><label style={S.lbl}>Buyer (opzionale)</label><select style={S.inp} value={formProp.buyer||""} onChange={e=>setFormProp({...formProp,buyer:e.target.value})}><option value="">Nessuno</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
-            <div><label style={S.lbl}>% Provv. Buyer</label><input style={S.inp} type="number" step="0.1" value={formProp.percBuyer||0} onChange={e=>setFormProp({...formProp,percBuyer:e.target.value})}/></div>
+            <div><label style={S.lbl}>% Provv. Buyer</label><input style={S.inp} type="number" step="0.1" value={formProp.percBuyer||""} onChange={e=>setFormProp({...formProp,percBuyer:e.target.value})}/></div>
 
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,margin:"8px 0"}}><input type="checkbox" id="vinc" checked={formProp.vincolata||false} onChange={e=>setFormProp({...formProp,vincolata:e.target.checked})}/><label htmlFor="vinc" style={{fontSize:13}}>Proposta vincolata</label></div>
@@ -1758,7 +1758,7 @@ export default function App() {
         <div style={S.modal}>
           <h2 style={{fontSize:17,fontWeight:500,margin:"0 0 4px"}}>Modifica pratica</h2>
           <p style={{fontSize:13,color:"#aaa",margin:"0 0 1rem"}}>{showGestVend.comuneImmobile} — V: {showGestVend.nominativoVenditore} | A: {showGestVend.nomeAcquirente}</p>
-          <div style={S.hl}><p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Provvigioni</p><div style={S.g2}><div><label style={S.lbl}>Provv. venditore (EUR)</label><input style={S.inp} type="number" value={formVend.provvVenditore||0} onChange={e=>setFormVend({...formVend,provvVenditore:Number(e.target.value)})}/></div><div><label style={S.lbl}>Provv. acquirente (EUR)</label><input style={S.inp} type="number" value={formVend.provvAcquirente||0} onChange={e=>setFormVend({...formVend,provvAcquirente:Number(e.target.value)})}/></div></div></div>
+          <div style={S.hl}><p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Provvigioni</p><div style={S.g2}><div><label style={S.lbl}>Provv. venditore (EUR)</label><input style={S.inp} type="number" value={formVend.provvVenditore||""} onChange={e=>setFormVend({...formVend,provvVenditore:Number(e.target.value)})}/></div><div><label style={S.lbl}>Provv. acquirente (EUR)</label><input style={S.inp} type="number" value={formVend.provvAcquirente||""} onChange={e=>setFormVend({...formVend,provvAcquirente:Number(e.target.value)})}/></div></div></div>
           <div style={S.g2}><div><label style={S.lbl}>Tipo atto</label><select style={S.inp} value={formVend.tipoAtto||"Preliminare"} onChange={e=>setFormVend({...formVend,tipoAtto:e.target.value})}><option>Preliminare</option><option>Rogito Diretto</option><option>Rogito</option></select></div><div><label style={S.lbl}>Data atto</label><input style={S.inp} type="date" value={formVend.dataAtto||""} onChange={e=>setFormVend({...formVend,dataAtto:e.target.value})}/></div></div>
           <div style={{marginBottom:"1rem"}}><label style={S.lbl}>Scadenza incasso</label><input style={{...S.inp,maxWidth:200}} type="date" value={formVend.scadenzaIncasso||""} onChange={e=>setFormVend({...formVend,scadenzaIncasso:e.target.value})}/></div>
           <div style={{marginBottom:"1rem",padding:"10px 14px",background:BRAND.beige,borderRadius:8}}>
@@ -1787,7 +1787,7 @@ export default function App() {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem"}}><h2 style={{fontSize:17,fontWeight:500,margin:0}}>{showAgente==="new"?"Nuovo agente":"Modifica agente"}</h2><button onClick={()=>setShowAgente(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>x</button></div>
           <div style={S.g2}><div><label style={S.lbl}>Nome</label><input style={S.inp} value={formAgente.nome||""} onChange={e=>setFormAgente({...formAgente,nome:e.target.value})}/></div><div><label style={S.lbl}>Cognome</label><input style={S.inp} value={formAgente.cognome||""} onChange={e=>setFormAgente({...formAgente,cognome:e.target.value})}/></div></div>
           <div style={S.g2}><div><label style={S.lbl}>Profilo</label><select style={S.inp} value={formAgente.profilo||"Consulente"} onChange={e=>setFormAgente({...formAgente,profilo:e.target.value,percListing:e.target.value==="Broker"?0:formAgente.percListing,percAcquirente:e.target.value==="Broker"?0:formAgente.percAcquirente})}><option>Broker</option><option>Consulente</option><option>Collaboratore</option></select></div><div><label style={S.lbl}>Tipo</label><select style={S.inp} value={formAgente.tipo||"Interno"} onChange={e=>setFormAgente({...formAgente,tipo:e.target.value})}><option>Interno</option><option>Esterno</option></select></div></div>
-          {formAgente.profilo!=="Broker"&&(<div style={S.g2}><div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percListing||0} onChange={e=>setFormAgente({...formAgente,percListing:Number(e.target.value)})}/></div><div><label style={S.lbl}>% Provv. Cliente Acquirente (sul prezzo offerto)</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percAcquirente||0} onChange={e=>setFormAgente({...formAgente,percAcquirente:Number(e.target.value)})}/></div></div>)}
+          {formAgente.profilo!=="Broker"&&(<div style={S.g2}><div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percListing||""} onChange={e=>setFormAgente({...formAgente,percListing:Number(e.target.value)})}/></div><div><label style={S.lbl}>% Provv. Cliente Acquirente (sul prezzo offerto)</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percAcquirente||""} onChange={e=>setFormAgente({...formAgente,percAcquirente:Number(e.target.value)})}/></div></div>)}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now()}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id}:a));setShowAgente(null);}}>Salva</button></div>
         </div>
       </div>)}
