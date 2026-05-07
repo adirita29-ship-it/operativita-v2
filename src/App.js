@@ -1,5 +1,16 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 
+// ── RESPONSIVE HOOK ──────────────────────────────────────────────────────────
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return isMobile;
+};
+
 // ── SUPABASE CONFIG ─────────────────────────────────────────────────────────
 const SUPA_URL = "https://ungozmmhdfbdctrhdoth.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZ296bW1oZGZiZGN0cmhkb3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzc1MjMsImV4cCI6MjA5MzYxMzUyM30.1i3cuKIP6gGdPr4H0nnIDNWUR5RcxdXG-dvKdjcSZ1g";
@@ -332,7 +343,7 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
         <select style={Ss.sel} value={fA} onChange={e=>{setFA(e.target.value);setFM("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anni.map(a=><option key={a}>{a}</option>)}</select>
         <select style={Ss.sel} value={fM} onChange={e=>setFM(e.target.value)}><option value="Tutti">Tutti i mesi</option>{mesi.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</select>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:"1.25rem"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
         {[["Incarichi",incAcquisiti,"#4A90D9"],["Pratiche",prat.length,BRAND.oro]].map(([l,v,c])=>(
           <div key={l} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:`3px solid ${c}`}}><p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>{l}</p><p style={{fontSize:18,fontWeight:600,margin:0,color:c}}>{v}</p></div>
         ))}
@@ -392,6 +403,7 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
 }
 
 export default function App() {
+  const isMobile=useIsMobile();
   const [utente,setUtente]=useState(null);
   const [tab,setTab]=useState("Dashboard");
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
@@ -436,6 +448,7 @@ export default function App() {
   const [pagamentiFatture,setPagamentiFatture]=useState(_ls?.pagamentiFatture||{});
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const importRef=useRef();
+  const [showMobileMenu,setShowMobileMenu]=useState(false);
 
   // Carica dati da Supabase all'avvio
   useEffect(()=>{
@@ -718,10 +731,10 @@ export default function App() {
   );
 
   const S={
-    sec:{padding:"1.5rem",flex:1,overflowY:"auto",minWidth:0},
+    sec:{padding:isMobile?"0.75rem":"1.5rem",flex:1,overflowY:"auto",minWidth:0},
     g2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10},
     g4:{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"},
-    fRow:{display:"flex",gap:8,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"},
+    fRow:{display:"flex",gap:8,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center",fontSize:isMobile?12:13},
     sel:{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid #ccc",background:"#fff",color:BRAND.grigio},
     btn:{padding:"6px 12px",fontSize:13,borderRadius:6,border:"0.5px solid #ccc",background:"#fff",cursor:"pointer",color:BRAND.grigio},
     btnP:{padding:"7px 14px",fontSize:13,borderRadius:6,border:`1px solid ${BRAND.oro}`,background:BRAND.oro,cursor:"pointer",color:"#fff",fontWeight:500},
@@ -813,10 +826,17 @@ export default function App() {
 
   return(
     <div style={{display:"flex",height:"100vh",background:BRAND.beige,overflow:"hidden",fontFamily:"'Georgia',serif",color:BRAND.grigio}}>
-      <Sidebar tab={tab} setTab={setTab} utente={utente} onEsporta={esporta} onImporta={importa} importRef={importRef}/>
+      {(!isMobile||showMobileMenu)&&<div style={isMobile?{position:"fixed",inset:0,zIndex:500,display:"flex"}:{}}>
+        {isMobile&&<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.5)"}} onClick={()=>setShowMobileMenu(false)}/>}
+        <Sidebar tab={tab} setTab={v=>{setTab(v);setShowMobileMenu(false);}} utente={utente} onEsporta={esporta} onImporta={importa} importRef={importRef}/>
+      </div>}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <div style={{background:"#fff",borderBottom:"0.5px solid #e8e5e0",padding:"0.875rem 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{currentTabCfg?.icon}</span><h1 style={{fontSize:15,fontWeight:600,margin:0}}>{currentTabCfg?.label}</h1></div>
+        <div style={{background:"#fff",borderBottom:"0.5px solid #e8e5e0",padding:isMobile?"0.6rem 1rem":"0.875rem 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {isMobile&&<button onClick={()=>setShowMobileMenu(true)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:BRAND.grigio,padding:"0 8px 0 0",lineHeight:1}}>☰</button>}
+            <span style={{fontSize:18}}>{currentTabCfg?.icon}</span>
+            <h1 style={{fontSize:15,fontWeight:600,margin:0}}>{currentTabCfg?.label}</h1>
+          </div>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {dbSaving&&<span style={{fontSize:11,color:"#aaa",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:BRAND.oro,display:"inline-block",animation:"pulse 1s infinite"}}></span>Salvataggio...</span>}
             {!dbSaving&&dbLoaded&&<span style={{fontSize:11,color:"#27AE60"}}>✓ Sincronizzato</span>}
@@ -828,13 +848,13 @@ export default function App() {
           {/* DASHBOARD */}
           {tab==="Dashboard"&&(<div style={S.sec}>
             <div style={S.fRow}><Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel></div>
-            <div style={S.g4}>
+            <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
               <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
               <div style={S.card(STATI_INC.Scaduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi scaduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Scaduto.clr}}>{dashInc.filter(i=>statoInc(i)==="Scaduto").length}</p></div>
               <div style={S.card(STATI_INC.Venduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Venduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Venduto.clr}}>{dashVend.length}</p></div>
               <div style={S.card("#4A90D9")}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Proposte attive</p><p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{proposte.filter(p=>p.categoria==="vendita"&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length}</p></div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
               <BloccoFin titolo="INCASSATO" colore="#27AE60" emoji="✅" totale={dashIncassato} qAgenzia={qAgenziaInc} qAgenti={qAgInc} qBuyer={qBuyInc}/>
               <BloccoFin titolo="DA INCASSARE" colore="#E67E22" emoji="⏳" totale={dashDaIncassare} qAgenzia={qAgenziaRes} qAgenti={qAgRes} qBuyer={qBuyRes}/>
             </div>
@@ -859,7 +879,7 @@ export default function App() {
                     <span style={{fontSize:18,fontWeight:700,color:"#E67E22",marginLeft:16,whiteSpace:"nowrap"}}>{righe.length>0?`€ ${fmt(totSospesi)}`:"—"}</span>
                   </div>
                   {righe.length>0?(
-                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <div style={isMobile?{overflowX:"auto"}:{}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:isMobile?600:"100%"}}>
                       <thead><tr>{["Lato","Agente","Nominativo","Immobile","Gia incassato","Residuo","Scadenza",""].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{righe.map((r,i)=>(
                         <tr key={i}>
@@ -880,7 +900,7 @@ export default function App() {
                         <td colSpan={2} style={S.tdS}/>
                       </tr></tfoot>
                     </table>
-                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna provvigione in sospeso</div>}
+                  </div>):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna provvigione in sospeso</div>}
                 </div>
               );
             })()}
@@ -1210,7 +1230,7 @@ export default function App() {
               <Sel value={reportMese} onChange={setReportMese}><option value="Tutti">Tutti i mesi</option>{mesiReport.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
               <span style={{fontSize:12,color:"#aaa",marginLeft:4}}>Clicca su un agente per il dettaglio</span>
             </div>
-            <div style={S.tblWrap}><table style={{...S.tbl,minWidth:400}}>
+            <div style={{...S.tblWrap,overflowX:"auto"}}><table style={{...S.tbl,minWidth:isMobile?500:400}}>
               <thead><tr>{["Agente","Profilo","Incarichi","Pratiche","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer","Tot. Agente+Buyer"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
               <tbody>{agenti.map(ag=>{
                 const vAg=vendReport.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
@@ -1388,7 +1408,7 @@ export default function App() {
 
               return(<>
                 {/* KPI 4 cards */}
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                   <div style={S.card("#27AE60")}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota Agenzia {costiAnno}</p>
                     <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
@@ -1414,7 +1434,7 @@ export default function App() {
                 {/* Riepilogo quote */}
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1.25rem"}}>
                   <p style={{fontSize:12,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 10px"}}>Composizione fatturato {costiAnno}</p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10}}>
                     <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
                       <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenzia</p>
                       <p style={{fontSize:16,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
