@@ -293,7 +293,21 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
     if(v.agenteAcquirente===agente.id) t+=calcolaIncassatoA(v);
     return s+t;
   },0);
-  const totQ=prat.reduce((s,v)=>s+calcolaQuotaAgente(v,agente.id),0);
+  // Quota solo ruoli Listing/Acquirente
+  const totQ=prat.reduce((s,v)=>{
+    let q=0;
+    if(v.agenteListing===agente.id) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+    if(v.agenteAcquirente===agente.id) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+    return s+q;
+  },0);
+  // Quota solo ruolo Buyer
+  const totQBuy=prat.reduce((s,v)=>{
+    let q=0;
+    if(v.buyerListing===agente.id&&v.agenteListing!==agente.id) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+    if(v.buyer===agente.id&&v.agenteAcquirente!==agente.id) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+    return s+q;
+  },0);
+  const totQTot=totQ+totQBuy;
   const Ss={th:{textAlign:"left",padding:"8px 12px",borderBottom:"0.5px solid #eee",color:"#999",fontWeight:500,fontSize:12,background:"#fafaf8"},td:{padding:"8px 12px",borderBottom:"0.5px solid #f5f5f5",verticalAlign:"middle",fontSize:13},tdR:{padding:"8px 12px",borderBottom:"0.5px solid #f5f5f5",verticalAlign:"middle",textAlign:"right",fontSize:13},sel:{fontSize:13,padding:"5px 8px",borderRadius:6,border:"0.5px solid #ccc",background:"#fff",color:BRAND.grigio}};
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
     <div style={{background:"#fff",borderRadius:12,padding:"1.5rem",width:"min(96vw,900px)",maxHeight:"90vh",overflowY:"auto"}}>
@@ -313,31 +327,46 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
         <select style={Ss.sel} value={fM} onChange={e=>setFM(e.target.value)}><option value="Tutti">Tutti i mesi</option>{mesi.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</select>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:"1.25rem"}}>
-        {[["Incarichi",incAcquisiti,"#4A90D9"],["Pratiche",prat.length,BRAND.oro],["Provv. Agenzia","€ "+fmt(totP),"#27AE60"],["Incassato","€ "+fmt(totI),"#E67E22"],["Quota Agente","€ "+fmt(totQ),"#8E44AD"]].map(([l,v,c])=>(
+        {[["Incarichi",incAcquisiti,"#4A90D9"],["Pratiche",prat.length,BRAND.oro],["Provv. Agenzia","€ "+fmt(totP),"#27AE60"],["Incassato","€ "+fmt(totI),"#E67E22"]].map(([l,v,c])=>(
           <div key={l} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:`3px solid ${c}`}}><p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>{l}</p><p style={{fontSize:18,fontWeight:600,margin:0,color:c}}>{v}</p></div>
         ))}
+        <div style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:"3px solid #8E44AD"}}>
+          <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agente + Buyer</p>
+          <p style={{fontSize:18,fontWeight:600,margin:0,color:"#8E44AD"}}>€ {fmt(totQTot)}</p>
+          <div style={{marginTop:4,fontSize:11,color:"#aaa"}}>
+            {totQ>0&&<span style={{marginRight:8}}>Ag: € {fmt(totQ)}</span>}
+            {totQBuy>0&&<span style={{color:"#2980B9"}}>Buy: € {fmt(totQBuy)}</span>}
+          </div>
+        </div>
       </div>
       <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:600}}>
-          <thead><tr>{["Data atto","Immobile","Ruolo","Provv. Agenzia","Quota Agente","Stato"].map(h=><th key={h} style={Ss.th}>{h}</th>)}</tr></thead>
+          <thead><tr>{["Data atto","Immobile","Ruolo","Provv. Agenzia","Quota Agente","Quota Buyer","Stato"].map(h=><th key={h} style={Ss.th}>{h}</th>)}</tr></thead>
           <tbody>
             {prat.map(v=>{
               const ruoli=[];
               if(v.agenteListing===agente.id)ruoli.push("Listing");if(v.agenteAcquirente===agente.id)ruoli.push("Acquirente");
               if(v.buyerListing===agente.id&&v.agenteListing!==agente.id)ruoli.push("Buyer L.");if(v.buyer===agente.id&&v.agenteAcquirente!==agente.id)ruoli.push("Buyer");
-              const q=calcolaQuotaAgente(v,agente.id);const cfg=STATI_INCASSO[calcolaStatoIncasso(v)]||STATI_INCASSO["Da incassare"];
+              // Quota solo Listing/Acquirente
+              const qAg=(()=>{let q=0;if(v.agenteListing===agente.id)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;if(v.agenteAcquirente===agente.id)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;return q;})();
+              // Quota solo Buyer
+              const qBuy=(()=>{let q=0;if(v.buyerListing===agente.id&&v.agenteListing!==agente.id)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;if(v.buyer===agente.id&&v.agenteAcquirente!==agente.id)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;return q;})();
+              // Provv agenzia solo se ruolo Listing/Acquirente
+              const provvAg=(()=>{let p=0;if(v.agenteListing===agente.id)p+=Number(v.provvVenditore||0);if(v.agenteAcquirente===agente.id)p+=Number(v.provvAcquirente||0);return p;})();
+              const cfg=STATI_INCASSO[calcolaStatoIncasso(v)]||STATI_INCASSO["Da incassare"];
               return(<tr key={v.id}>
                 <td style={Ss.td}>{fmtD(v.dataAtto)}</td>
                 <td style={Ss.td}><strong>{v.comuneImmobile}</strong> — {v.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
                 <td style={Ss.td}>{ruoli.map(r=><span key={r} style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#EAF4FB",color:"#2980B9",marginRight:4,fontWeight:500}}>{r}</span>)}</td>
-                <td style={Ss.tdR}>€ {fmt(Number(v.provvVenditore||0)+Number(v.provvAcquirente||0))}</td>
-                <td style={{...Ss.tdR,fontWeight:600,color:"#8E44AD"}}>€ {fmt(q)}</td>
+                <td style={Ss.tdR}>{provvAg>0?`€ ${fmt(provvAg)}`:"—"}</td>
+                <td style={{...Ss.tdR,fontWeight:600,color:"#8E44AD"}}>{qAg>0?`€ ${fmt(qAg)}`:"—"}</td>
+                <td style={{...Ss.tdR,fontWeight:600,color:"#2980B9"}}>{qBuy>0?`€ ${fmt(qBuy)}`:"—"}</td>
                 <td style={Ss.td}><span style={bdg(cfg)}>{calcolaStatoIncasso(v)}</span></td>
               </tr>);
             })}
             {prat.length===0&&<tr><td colSpan={6} style={{...Ss.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna pratica nel periodo</td></tr>}
           </tbody>
-          {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}><td colSpan={3} style={Ss.td}>Totale</td><td style={Ss.tdR}>€ {fmt(totP)}</td><td style={{...Ss.tdR,color:"#8E44AD"}}>€ {fmt(totQ)}</td><td style={Ss.td}/></tr></tfoot>}
+          {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}><td colSpan={3} style={Ss.td}>Totale</td><td style={Ss.tdR}>{totP>0?`€ ${fmt(totP)}`:"—"}</td><td style={{...Ss.tdR,color:"#8E44AD"}}>{totQ>0?`€ ${fmt(totQ)}`:"—"}</td><td style={{...Ss.tdR,color:"#2980B9"}}>{totQBuy>0?`€ ${fmt(totQBuy)}`:"—"}</td><td style={Ss.td}/></tr></tfoot>}
         </table>
       </div>
     </div>
@@ -516,25 +545,21 @@ export default function App() {
       incassato += incV+incA;
       daIncassare += residuoV+residuoA;
 
-      // Quote agenti su incassato
+      // Quote AGENTI su incassato (solo ruolo Listing o Acquirente, NON Buyer)
       nonBroker.forEach(a=>{
         if(v.agenteListing===a.id&&provvV>0) qAgInc+=incV*(Number(v.percListing||0)/100);
         if(v.agenteAcquirente===a.id&&provvA>0) qAgInc+=incA*(Number(v.percAcquirente||0)/100);
-        if(v.buyerListing===a.id&&v.agenteListing!==a.id&&provvV>0) qAgInc+=incV*(Number(v.percBuyerListing||0)/100);
-        if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&provvA>0) qAgInc+=incA*(Number(v.percBuyer||0)/100);
       });
-      // Quote buyer su incassato
+      // Quote BUYER su incassato (solo ruolo Buyer, esclusi quelli già contati come Listing/Acquirente)
       if(v.buyerListing&&v.agenteListing!==v.buyerListing&&provvV>0) qBuyInc+=incV*(Number(v.percBuyerListing||0)/100);
       if(v.buyer&&v.agenteAcquirente!==v.buyer&&provvA>0) qBuyInc+=incA*(Number(v.percBuyer||0)/100);
 
-      // Quote agenti su residuo
+      // Quote AGENTI su residuo
       nonBroker.forEach(a=>{
         if(v.agenteListing===a.id&&provvV>0) qAgRes+=residuoV*(Number(v.percListing||0)/100);
         if(v.agenteAcquirente===a.id&&provvA>0) qAgRes+=residuoA*(Number(v.percAcquirente||0)/100);
-        if(v.buyerListing===a.id&&v.agenteListing!==a.id&&provvV>0) qAgRes+=residuoV*(Number(v.percBuyerListing||0)/100);
-        if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&provvA>0) qAgRes+=residuoA*(Number(v.percBuyer||0)/100);
       });
-      // Quote buyer su residuo
+      // Quote BUYER su residuo
       if(v.buyerListing&&v.agenteListing!==v.buyerListing&&provvV>0) qBuyRes+=residuoV*(Number(v.percBuyerListing||0)/100);
       if(v.buyer&&v.agenteAcquirente!==v.buyer&&provvA>0) qBuyRes+=residuoA*(Number(v.percBuyer||0)/100);
     });
@@ -1141,7 +1166,7 @@ export default function App() {
               <span style={{fontSize:12,color:"#aaa",marginLeft:4}}>Clicca su un agente per il dettaglio</span>
             </div>
             <div style={S.tblWrap}><table style={{...S.tbl,minWidth:400}}>
-              <thead><tr>{["Agente","Profilo","Incarichi","Pratiche","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{["Agente","Profilo","Incarichi","Pratiche","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer","Tot. Agente+Buyer"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
               <tbody>{agenti.map(ag=>{
                 const vAg=vendReport.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
                 const incAg=incarichi.filter(i=>i.agenteListing===ag.id&&!i.archiviato).length;
@@ -1157,8 +1182,21 @@ export default function App() {
                   if(v.agenteAcquirente===ag.id) t+=calcolaIncassatoA(v);
                   return s+t;
                 },0);
-                const quotaAg=vAg.reduce((s,v)=>s+calcolaQuotaAgente(v,ag.id),0);
-                const quotaBuy=vAg.reduce((s,v)=>{let q=0;if(v.buyerListing===ag.id&&v.agenteListing!==ag.id)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;return s+q;},0);
+                // Quota solo da ruoli Listing/Acquirente
+                const quotaAg=vAg.reduce((s,v)=>{
+                  let q=0;
+                  if(v.agenteListing===ag.id) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                  if(v.agenteAcquirente===ag.id) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                  return s+q;
+                },0);
+                // Quota solo da ruolo Buyer
+                const quotaBuy=vAg.reduce((s,v)=>{
+                  let q=0;
+                  if(v.buyerListing===ag.id&&v.agenteListing!==ag.id) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                  if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                  return s+q;
+                },0);
+                const quotaTot=quotaAg+quotaBuy;
                 return(<tr key={ag.id} style={{cursor:"pointer"}}
                   onMouseEnter={e=>e.currentTarget.style.background="#fafaf8"}
                   onMouseLeave={e=>e.currentTarget.style.background=""}
@@ -1169,8 +1207,9 @@ export default function App() {
                   <td style={S.tdC}>{vAg.length}</td>
                   <td style={S.tdR}>€ {fmt(genTot)}</td>
                   <td style={S.tdR}>€ {fmt(incTot)}</td>
-                  <td style={{...S.tdR,color:"#8E44AD",fontWeight:500}}>{ag.profilo==="Broker"?"—":`€ ${fmt(quotaAg)}`}</td>
+                  <td style={{...S.tdR,color:"#8E44AD",fontWeight:500}}>{ag.profilo==="Broker"?"—":quotaAg>0?`€ ${fmt(quotaAg)}`:"—"}</td>
                   <td style={{...S.tdR,color:"#2980B9",fontWeight:500}}>{quotaBuy>0?`€ ${fmt(quotaBuy)}`:"—"}</td>
+                  <td style={{...S.tdR,color:BRAND.oroD,fontWeight:600}}>{ag.profilo==="Broker"?"—":quotaTot>0?`€ ${fmt(quotaTot)}`:"—"}</td>
                 </tr>);
               })}</tbody>
             </table></div>
