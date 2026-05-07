@@ -727,7 +727,7 @@ export default function App() {
     btnG:{padding:"7px 14px",fontSize:13,borderRadius:6,border:"1px solid #27AE60",background:"#27AE60",cursor:"pointer",color:"#fff",fontWeight:500},
     btnD:{padding:"6px 12px",fontSize:13,borderRadius:6,border:"0.5px solid #E67E22",background:"#FEF0E0",cursor:"pointer",color:"#E67E22"},
     subTab:a=>({padding:"6px 14px",fontSize:13,cursor:"pointer",border:`1px solid ${a?BRAND.oro:"#ddd"}`,background:a?BRAND.oro:"#fff",color:a?"#fff":BRAND.grigio,borderRadius:6,fontWeight:a?500:400}),
-    tblWrap:{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"auto",marginBottom:"1rem"},
+    tblWrap:{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"auto",marginBottom:"1rem",maxHeight:"65vh"},
     tbl:{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700},
     th:{textAlign:"left",padding:"9px 12px",borderBottom:"0.5px solid #eee",color:"#999",fontWeight:500,fontSize:12,whiteSpace:"nowrap",background:"#fafaf8"},
     thC:{textAlign:"center",padding:"9px 12px",borderBottom:"0.5px solid #eee",color:"#999",fontWeight:500,fontSize:12,whiteSpace:"nowrap",background:"#fafaf8"},
@@ -929,7 +929,11 @@ export default function App() {
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead>
                 <tr>
-                  <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Nominativo</th><th style={{...S.th,position:"sticky",left:160,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th><th style={{...S.th,position:"sticky",left:260,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th><th style={S.th}>Tipologia</th>
+                  <th style={S.th}>Fonte</th>
+                  <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Nominativo</th>
+                  <th style={{...S.th,position:"sticky",left:160,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th>
+                  <th style={{...S.th,position:"sticky",left:260,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th>
+                  <th style={S.th}>Tipologia</th><th style={S.th}>Inizio</th><th style={S.th}>Scadenza</th>
                   <th style={{...S.thL,borderLeft:"2px solid #2980B944"}}>Ag. Listing</th><th style={S.thL}>Buyer L.</th><th style={{...S.thL,borderRight:"2px solid #2980B944"}}></th>
                   <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>Buyer</th>
                   <th style={S.th}>Prezzo rich.</th><th style={S.th}>Provv.</th><th style={S.th}>Stato</th><th style={S.th}>Proposta</th><th style={S.th}>Azioni</th>
@@ -944,6 +948,7 @@ export default function App() {
                 const propAttivaVinc=proposte.some(p=>p.incaricoId===inc.id&&p.stato==="In attesa / Vincolata");
                 const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
                 return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1}}>
+                  <td style={S.td}>{inc.fonte}</td>
                   <td style={{...S.td,position:"sticky",left:0,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>
                     {isVenduto?(
                       <button style={{background:"none",border:"none",cursor:"pointer",color:BRAND.oroD,fontWeight:600,fontSize:13,padding:0,textDecoration:"underline"}} onClick={()=>setSchedaIncarico({incarico:inc,venduto:vendCorr,proposta:proposte.find(p=>p.incaricoId===inc.id&&p.stato==="Accettata")})}>
@@ -952,6 +957,8 @@ export default function App() {
                     ):<strong>{inc.nominativo}</strong>}
                   </td>
                   <td style={{...S.td,position:"sticky",left:160,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.comune}</td><td style={{...S.td,position:"sticky",left:260,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.indirizzo}</td><td style={S.td}>{inc.tipologia}</td>
+                  <td style={S.td}>{fmtD(inc.dataInizio)}</td>
+                  <td style={{...S.td,color:s==="Scaduto"?"#E74C3C":"inherit",fontWeight:s==="Scaduto"?500:400}}>{fmtD(inc.scadenza)}</td>
 
                   <td style={{...S.tdL,borderLeft:"2px solid #2980B922"}}>{nomAg(inc.agenteListing)}</td>
                   <td style={S.tdL}>{inc.buyerListing?nomAg(inc.buyerListing):"—"}</td>
@@ -984,7 +991,7 @@ export default function App() {
                   </td>
                 </tr>);
               })}
-              {incFiltrati.length===0&&<tr><td colSpan={14} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessun incarico trovato</td></tr>}
+              {incFiltrati.length===0&&<tr><td colSpan={18} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessun incarico trovato</td></tr>}
               </tbody>
             </table></div>
             {archiviati.length>0&&!mostraArchiviati&&<p style={{fontSize:12,color:"#aaa",textAlign:"center"}}>{archiviati.length} incarichi archiviati — attiva "Mostra archiviati" per vederli</p>}
