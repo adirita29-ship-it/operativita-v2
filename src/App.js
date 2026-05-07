@@ -333,9 +333,19 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
         <select style={Ss.sel} value={fM} onChange={e=>setFM(e.target.value)}><option value="Tutti">Tutti i mesi</option>{mesi.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</select>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:"1.25rem"}}>
-        {[["Incarichi",incAcquisiti,"#4A90D9"],["Pratiche",prat.length,BRAND.oro],["Provv. Agenzia","€ "+fmt(totP),"#27AE60"],["Incassato","€ "+fmt(totI),"#E67E22"]].map(([l,v,c])=>(
+        {[["Incarichi",incAcquisiti,"#4A90D9"],["Pratiche",prat.length,BRAND.oro]].map(([l,v,c])=>(
           <div key={l} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:`3px solid ${c}`}}><p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>{l}</p><p style={{fontSize:18,fontWeight:600,margin:0,color:c}}>{v}</p></div>
         ))}
+        <div style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:"3px solid #27AE60"}}>
+          <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Produzione Agente</p>
+          <p style={{fontSize:18,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totP)}</p>
+          <p style={{fontSize:10,color:"#aaa",margin:"3px 0 0"}}>come Listing/Acq.</p>
+        </div>
+        <div style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:"3px solid #E67E22"}}>
+          <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Incassato</p>
+          <p style={{fontSize:18,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totI)}</p>
+          <p style={{fontSize:10,color:"#aaa",margin:"3px 0 0"}}>come Listing/Acq.</p>
+        </div>
         <div style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"12px 14px",borderLeft:"3px solid #8E44AD"}}>
           <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agente + Buyer</p>
           <p style={{fontSize:18,fontWeight:600,margin:0,color:"#8E44AD"}}>€ {fmt(totQTot)}</p>
