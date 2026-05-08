@@ -868,9 +868,10 @@ export default function App() {
               <div style={S.card(STATI_INC.Venduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Venduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Venduto.clr}}>{dashVend.length}</p></div>
               <div style={S.card("#4A90D9")}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Proposte attive</p><p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{proposte.filter(p=>p.categoria==="vendita"&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length}</p></div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
               <BloccoFin titolo="INCASSATO" colore="#27AE60" emoji="✅" totale={dashIncassato} qAgenzia={qAgenziaInc} qAgenti={qAgInc} qBuyer={qBuyInc}/>
               <BloccoFin titolo="DA INCASSARE" colore="#E67E22" emoji="⏳" totale={dashDaIncassare} qAgenzia={qAgenziaRes} qAgenti={qAgRes} qBuyer={qBuyRes}/>
+              <BloccoFin titolo="TOTALE FATTURATO" colore={BRAND.oroD} emoji="💰" totale={dashIncassato+dashDaIncassare} qAgenzia={qAgenziaInc+qAgenziaRes} qAgenti={qAgInc+qAgRes} qBuyer={qBuyInc+qBuyRes}/>
             </div>
             {/* SOSPESI */}
             {(()=>{
