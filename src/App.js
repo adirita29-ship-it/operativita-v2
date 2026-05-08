@@ -653,8 +653,12 @@ export default function App() {
   const salvaProp=()=>{
     if(!formProp.comuneImmobile||!formProp.nomeAcquirente)return;
     if(showProp==="edit"){
-      // Modifica proposta esistente
-      const upd={...formProp,prezzoOfferto:Number(formProp.prezzoOfferto),provvAcquirente:Number(formProp.provvAcquirente||0),provvVenditore:Number(formProp.provvVenditore||0),agenteAcquirente:Number(formProp.agenteAcquirente)||null,buyer:formProp.buyer?Number(formProp.buyer):null,percAcquirente:Number(formProp.percAcquirente||0)};
+      // Modifica proposta - aggiorna stato in base a vincolata
+      const statoAttuale=formProp.stato;
+      let nuovoStato=statoAttuale;
+      if(formProp.vincolata&&statoAttuale==="In attesa") nuovoStato="In attesa / Vincolata";
+      if(!formProp.vincolata&&statoAttuale==="In attesa / Vincolata") nuovoStato="In attesa";
+      const upd={...formProp,stato:nuovoStato,prezzoOfferto:Number(formProp.prezzoOfferto),provvAcquirente:Number(formProp.provvAcquirente||0),provvVenditore:Number(formProp.provvVenditore||0),agenteAcquirente:Number(formProp.agenteAcquirente)||null,buyer:formProp.buyer?Number(formProp.buyer):null,percAcquirente:Number(formProp.percAcquirente||0)};
       setProposte(proposte.map(x=>x.id===upd.id?upd:x));
       setShowProp(null);
       return;
