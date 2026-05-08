@@ -1052,10 +1052,16 @@ export default function App() {
                   <td style={S.tdR}>€ {fmt(inc.provvPrevista)}</td>
                   <td style={S.td}><span style={bdg(cfg)}>{s}</span></td>
                   <td style={S.tdC}>
-                    {hasPropAttiva&&(propAttivaVinc
-                      ? <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF9E7",color:"#D4AC0D",fontWeight:500,border:"0.5px solid #D4AC0D44"}}>🔗 In prop./Vinc.</span>
-                      : <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#FEF0E0",color:"#E67E22",fontWeight:500,border:"0.5px solid #E67E2244"}}>📝 In proposta</span>
-                    )}
+                    {(()=>{
+                      const propInc=proposte.filter(p=>p.incaricoId===inc.id&&!["Rifiutata","Mancata Chiusura"].includes(p.stato));
+                      if(propInc.length===0) return null;
+                      const priorita=["Accettata","Accettata con Vincolo","In attesa / Vincolata","Controproposta","In attesa"];
+                      const propOrd=[...propInc].sort((a,b)=>priorita.indexOf(a.stato)-priorita.indexOf(b.stato));
+                      return <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>{propOrd.map((p,i)=>{
+                        const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
+                        return <span key={i} style={bdg(cfg)}>{cfg.s} {cfg.label}</span>;
+                      })}</div>;
+                    })()}
                   </td>
                   <td style={S.td}>
                     <div style={{display:"flex",gap:4}}>
