@@ -990,14 +990,23 @@ export default function App() {
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead>
                 <tr>
-                  <th style={S.th}>Fonte</th>
-                  <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Nominativo</th>
-                  <th style={{...S.th,position:"sticky",left:160,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th>
-                  <th style={{...S.th,position:"sticky",left:260,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th>
-                  <th style={S.th}>Tipologia</th><th style={S.th}>Inizio</th><th style={S.th}>Scadenza</th>
-                  <th style={{...S.thL,borderLeft:"2px solid #2980B944"}}>Ag. Listing</th><th style={S.thL}>Buyer L.</th><th style={{...S.thL,borderRight:"2px solid #2980B944"}}></th>
-                  <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>Buyer</th>
-                  <th style={S.th}>Prezzo rich.</th><th style={S.th}>Provv.</th><th style={S.th}>Stato</th><th style={S.th}>Proposta</th><th style={S.th}>Azioni</th>
+                  <th style={{...S.th,minWidth:70}}>Fonte</th>
+                  <th style={{...S.th,minWidth:130}}>Nominativo</th>
+                  <th style={{...S.th,minWidth:90}}>Comune</th>
+                  <th style={{...S.th,minWidth:130}}>Indirizzo</th>
+                  <th style={{...S.th,minWidth:100}}>Tipologia</th>
+                  <th style={{...S.th,minWidth:85}}>Inizio</th>
+                  <th style={{...S.th,minWidth:85}}>Scadenza</th>
+                  <th style={{...S.thL,borderLeft:"2px solid #2980B944",minWidth:110}}>Ag. Listing</th>
+                  <th style={{...S.thL,minWidth:100}}>Buyer L.</th>
+                  <th style={{...S.thL,borderRight:"2px solid #2980B944",minWidth:20}}></th>
+                  <th style={{...S.thA,borderLeft:"2px solid #8E44AD44",minWidth:110}}>Ag. Acq.</th>
+                  <th style={{...S.thA,borderRight:"2px solid #8E44AD44",minWidth:100}}>Buyer</th>
+                  <th style={{...S.th,minWidth:100}}>Prezzo rich.</th>
+                  <th style={{...S.th,minWidth:90}}>Provv.</th>
+                  <th style={{...S.th,minWidth:80}}>Stato</th>
+                  <th style={{...S.th,minWidth:110}}>Proposta</th>
+                  <th style={{...S.th,minWidth:160}}>Azioni</th>
                 </tr>
               </thead>
               <tbody>{incFiltrati.map(inc=>{
@@ -1010,14 +1019,14 @@ export default function App() {
                 const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
                 return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1}}>
                   <td style={S.td}>{inc.fonte}</td>
-                  <td style={{...S.td,position:"sticky",left:0,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>
+                  <td style={S.td}>
                     {isVenduto?(
                       <button style={{background:"none",border:"none",cursor:"pointer",color:BRAND.oroD,fontWeight:600,fontSize:13,padding:0,textDecoration:"underline"}} onClick={()=>setSchedaIncarico({incarico:inc,venduto:vendCorr,proposta:proposte.find(p=>p.incaricoId===inc.id&&p.stato==="Accettata")})}>
                         {inc.nominativo}
                       </button>
                     ):<strong>{inc.nominativo}</strong>}
                   </td>
-                  <td style={{...S.td,position:"sticky",left:160,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.comune}</td><td style={{...S.td,position:"sticky",left:260,background:rowBg,zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{inc.indirizzo}</td><td style={S.td}>{inc.tipologia}</td>
+                  <td style={S.td}>{inc.comune}</td><td style={S.td}>{inc.indirizzo}</td><td style={S.td}>{inc.tipologia}</td>
                   <td style={S.td}>{fmtD(inc.dataInizio)}</td>
                   <td style={{...S.td,color:s==="Scaduto"?"#E74C3C":"inherit",fontWeight:s==="Scaduto"?500:400}}>{fmtD(inc.scadenza)}</td>
 
@@ -1087,7 +1096,11 @@ export default function App() {
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
-                <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Tipo</th><th style={{...S.th,position:"sticky",left:80,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Data</th><th style={{...S.th,position:"sticky",left:170,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th><th style={{...S.th,position:"sticky",left:270,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th><th style={S.th}>Venditore</th><th style={S.th}>Acquirente</th>
+                <th style={{...S.th,minWidth:80}}>Tipo</th>
+                <th style={{...S.th,minWidth:85}}>Data</th>
+                <th style={{...S.th,minWidth:90}}>Comune</th>
+                <th style={{...S.th,minWidth:130}}>Indirizzo</th>
+                <th style={{...S.th,minWidth:120}}>Venditore</th><th style={S.th}>Acquirente</th>
                 <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={S.thA}>Buyer</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}></th>
                 <th style={S.th}>Prezzo</th><th style={S.th}>Vincolo</th><th style={S.th}>Provv.V.</th><th style={S.th}>Provv.A.</th><th style={S.th}>Stato</th><th style={S.th}>Azioni</th>
               </tr></thead>
@@ -1095,10 +1108,10 @@ export default function App() {
                 const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
                 const puoGestire=!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato);
                 return(<tr key={p.id}>
-                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></td>
-                  <td style={{...S.td,position:"sticky",left:80,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{fmtD(p.dataStato)}</td>
-                  <td style={{...S.td,position:"sticky",left:170,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{p.comuneImmobile}</td>
-                  <td style={{...S.td,position:"sticky",left:270,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{p.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{p.tipologia}</span></td>
+                  <td style={S.td}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></td>
+                  <td style={S.td}>{fmtD(p.dataStato)}</td>
+                  <td style={S.td}>{p.comuneImmobile}</td>
+                  <td style={S.td}>{p.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{p.tipologia}</span></td>
                   <td style={S.td}>{p.nominativoVenditore}</td>
                   <td style={S.td}>{p.nomeAcquirente}</td>
                   <td style={{...S.tdA,borderLeft:"2px solid #8E44AD22"}}>{nomAg(p.agenteAcquirente)}</td>
@@ -1155,7 +1168,10 @@ export default function App() {
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
-                <th style={{...S.th,position:"sticky",left:0,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Comune</th><th style={{...S.th,position:"sticky",left:90,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Indirizzo</th><th style={{...S.th,position:"sticky",left:220,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Venditore</th><th style={{...S.th,position:"sticky",left:340,zIndex:2,boxShadow:"2px 0 4px rgba(0,0,0,0.06)"}}>Acquirente</th>
+                <th style={{...S.th,minWidth:90}}>Comune</th>
+                <th style={{...S.th,minWidth:130}}>Indirizzo</th>
+                <th style={{...S.th,minWidth:120}}>Venditore</th>
+                <th style={{...S.th,minWidth:120}}>Acquirente</th>
                 <th style={{...S.thL,borderLeft:"2px solid #2980B944"}}>Ag. Listing</th><th style={S.thL}>Buyer L.</th><th style={{...S.thL,borderRight:"2px solid #2980B944"}}></th>
                 <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>Buyer</th>
                 <th style={S.th}>Prezzo</th><th style={S.th}>Provv.V.</th><th style={S.th}>Provv.A.</th><th style={S.th}>Tipo atto</th><th style={S.th}>Data atto</th><th style={S.th}>Inc.V.</th><th style={S.th}>Inc.A.</th><th style={S.th}>Scad.</th><th style={S.th}>Stato</th><th style={S.th}>Azioni</th>
@@ -1164,9 +1180,10 @@ export default function App() {
                 const statoI=calcolaStatoIncasso(v);
                 const cfg=STATI_INCASSO[statoI]||STATI_INCASSO["Da incassare"];
                 return(<tr key={v.id} style={{opacity:v.bloccato?0.85:1}}>
-                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{v.comuneImmobile}</td>
-                  <td style={{...S.td,position:"sticky",left:90,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
-                  <td style={{...S.td,position:"sticky",left:220,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{v.nominativoVenditore}</td><td style={{...S.td,position:"sticky",left:340,background:"#fff",zIndex:1,boxShadow:"2px 0 4px rgba(0,0,0,0.04)"}}>{v.nomeAcquirente}</td>
+                  <td style={S.td}>{v.comuneImmobile}</td>
+                  <td style={S.td}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
+                  <td style={S.td}>{v.nominativoVenditore}</td>
+                  <td style={S.td}>{v.nomeAcquirente}</td>
                   <td style={{...S.tdL,borderLeft:"2px solid #2980B922"}}>{v.agenteListing?nomAg(v.agenteListing):<span style={{fontSize:11,color:BRAND.oroD}}>{v.agenziaEsterna||"Est."}</span>}</td>
                   <td style={S.tdL}>{v.buyerListing?nomAg(v.buyerListing):"—"}</td>
                   <td style={{...S.tdL,borderRight:"2px solid #2980B922"}}></td>
