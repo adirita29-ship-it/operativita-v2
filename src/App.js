@@ -44,16 +44,17 @@ const salvaDB = async (data) => {
 const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
 const MESI_NOMI = ["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const TAB_CONFIG = [
-  { id:"Dashboard",     icon:"⊞",  label:"Dashboard" },
-  { id:"Incarichi",     icon:"📋", label:"Incarichi" },
-  { id:"Proposte",      icon:"📝", label:"Proposte" },
-  { id:"Venduti",       icon:"🏠", label:"Venduti" },
-  { id:"Report Agenti", icon:"📊", label:"Report Agenti" },
-  { id:"Fatture Agenti",icon:"🧾", label:"Fatture Agenti" },
-  { id:"Agenti",        icon:"👥", label:"Agenti" },
+  { id:"Dashboard",       icon:"⊞",  label:"Dashboard" },
+  { id:"Incarichi",       icon:"📋", label:"Incarichi" },
+  { id:"Proposte",        icon:"📝", label:"Proposte" },
+  { id:"Venduti",         icon:"🏠", label:"Venduti" },
+  { id:"Il mio report",   icon:"📊", label:"Il mio report" },
+  { id:"Report Agenti",   icon:"📊", label:"Report Agenti" },
+  { id:"Fatture Agenti",  icon:"🧾", label:"Fatture Agenti" },
   { id:"Costi & Break Even", icon:"📉", label:"Costi & Break Even" },
-  { id:"Statistiche",       icon:"📈", label:"Statistiche" },
-  { id:"Impostazioni",  icon:"⚙️", label:"Impostazioni" },
+  { id:"Statistiche",     icon:"📈", label:"Statistiche" },
+  { id:"Agenti",          icon:"👥", label:"Agenti" },
+  { id:"Impostazioni",    icon:"⚙️", label:"Impostazioni" },
 ];
 const fmt  = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtN = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:0,maximumFractionDigits:0});
@@ -190,12 +191,15 @@ function LoginPage({onLogin}) {
 
 function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isBroker = utente?.ruolo==="Broker";
-  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Statistiche","Costi & Break Even"];
-  const tabsVisibili = isBroker ? TAB_CONFIG : TAB_CONFIG.filter(t=>TAB_AGENTE.includes(t.id));
+  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi & Break Even"];
+  const tabsVisibili = TAB_CONFIG.filter(t=>{
+    if(isBroker) return t.id !== "Il mio report"; // broker non vede "Il mio report"
+    return TAB_AGENTE.includes(t.id);
+  });
   return (
     <div style={{width:220,minWidth:220,background:"#2C2C2C",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,flexShrink:0}}>
       <div style={{padding:"1.5rem 1.25rem 1.25rem",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
-        <div style={{fontSize:28,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>a</span>sa</div>
+        <div style={{fontSize:28,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>à</span>sa</div>
         <div style={{fontSize:8,letterSpacing:"0.3em",color:"rgba(255,255,255,0.4)",borderTop:"1px solid rgba(255,255,255,0.2)",paddingTop:3,marginTop:3}}>IMMOBILIARE</div>
         <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>{isBroker?"Gestionale interno":"Area agente"}</div>
       </div>
@@ -483,6 +487,8 @@ export default function App() {
   const [showRibasso,setShowRibasso]=useState(null);
   const [formRibasso,setFormRibasso]=useState({data:todayStr(),prezzo:"",note:""}); const [showProp,setShowProp]=useState(null); const [showGestProp,setShowGestProp]=useState(null); const [showGestVend,setShowGestVend]=useState(null);
   const [formInc,setFormInc]=useState({}); const [formProp,setFormProp]=useState({}); const [formStatoProp,setFormStatoProp]=useState({}); const [formVend,setFormVend]=useState({});
+  const [showSelIncaricoAg,setShowSelIncaricoAg]=useState(false);
+  const [cercaIncAg,setCercaIncAg]=useState("");
   const [showIncassoLato,setShowIncassoLato]=useState(null);
   const [showAgente,setShowAgente]=useState(null); const [formAgente,setFormAgente]=useState({});
   const [schedaAgente,setSchedaAgente]=useState(null);
@@ -865,18 +871,18 @@ export default function App() {
     <Sel value={fIncAnno} onChange={v=>{setFIncAnno(v);setFIncMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniInc.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fIncMese} onChange={setFIncMese}><option value="Tutti">Tutti i mesi</option>{mesiInc.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fIncStato} onChange={setFIncStato}><option value="Tutti">Tutti gli stati</option>{["Attivo","Scaduto",subInc==="affitto"?"Locato":"Venduto"].map(s=><option key={s}>{s}</option>)}</Sel>
-    <Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>
+    {isBroker&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriProp=()=>(<div style={S.fRow}>
     <Sel value={fPropAnno} onChange={v=>{setFPropAnno(v);setFPropMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniProp.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fPropMese} onChange={setFPropMese}><option value="Tutti">Tutti i mesi</option>{mesiProp.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fPropStato} onChange={setFPropStato}><option value="Tutti">Tutti gli stati</option>{Object.keys(STATI_PROP).map(s=><option key={s}>{s}</option>)}</Sel>
-    <Sel value={fPropAg} onChange={setFPropAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>
+    {isBroker&&<Sel value={fPropAg} onChange={setFPropAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriVend=()=>(<div style={S.fRow}>
     <Sel value={fVendAnno} onChange={setFVendAnno}><option value="Tutti">Tutti gli anni</option>{anniVend.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fVendStato} onChange={setFVendStato}><option value="Tutti">Tutti gli stati</option>{Object.keys(STATI_INCASSO).map(s=><option key={s}>{s}</option>)}</Sel>
-    <Sel value={fVendAg} onChange={setFVendAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>
+    {isBroker&&<Sel value={fVendAg} onChange={setFVendAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
 
   const BloccoFin=({titolo,colore,emoji,totale,qAgenzia,qAgenti,qBuyer})=>(
@@ -924,88 +930,193 @@ export default function App() {
             {/* ── DASHBOARD AGENTE ── */}
             {!isBroker&&myAgentId&&(()=>{
               const ag = agenti.find(a=>a.id===myAgentId);
-              const myVend = venduti.filter(v=>v.categoria==="vendita"&&(Number(v.provvVenditore||0)>0||Number(v.provvAcquirente||0)>0)&&(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId));
-              const myVendAnno = myVend.filter(v=>getAnno(v.dataVendita||v.dataAtto||"")===annoCorrente);
-              const myInc = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId);
-              const myIncAnno = myInc.filter(i=>getAnno(i.dataInizio)===annoCorrente);
+
+              // Tutte le pratiche dove l'agente appare in qualsiasi ruolo
+              const myVendTutti = venduti.filter(v=>v.categoria==="vendita"&&(
+                Number(v.agenteListing)===myAgentId||
+                Number(v.agenteAcquirente)===myAgentId||
+                Number(v.buyerListing)===myAgentId||
+                Number(v.buyer)===myAgentId
+              ));
+
+              // Pratiche filtrate per anno selezionato
+              const myVendAnno = myVendTutti.filter(v=>dashAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===dashAnno);
+
+              // Ruolo in ogni pratica
+              const ruoloIn = v => {
+                const ruoli=[];
+                if(Number(v.agenteListing)===myAgentId) ruoli.push("Listing");
+                if(Number(v.agenteAcquirente)===myAgentId) ruoli.push("Acquirente");
+                if(Number(v.buyerListing)===myAgentId) ruoli.push("Buyer L");
+                if(Number(v.buyer)===myAgentId) ruoli.push("Buyer");
+                return ruoli;
+              };
+
+              // KPI
+              const myInc = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId&&!i.archiviato);
+              const myIncAnno = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno));
               const nTransV = myVendAnno.filter(v=>Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
               const nTransA = myVendAnno.filter(v=>Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0).length;
-              // Quota agente anno
-              const quotaAnno = myVendAnno.reduce((s,v)=>{
+
+              // Quota agente (Listing + Acquirente + BuyerL + Buyer)
+              const calcolaQuotaMia = (v, incassato=false) => {
+                const incV = incassato?calcolaIncassatoV(v):Number(v.provvVenditore||0);
+                const incA = incassato?calcolaIncassatoA(v):Number(v.provvAcquirente||0);
                 let q=0;
-                if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
-                if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
-                return s+q;
-              },0);
-              const quotaTot = myVend.reduce((s,v)=>{
-                let q=0;
-                if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                return s+q;
-              },0);
-              const quotaIncassata = myVend.reduce((s,v)=>{
-                let q=0;
-                if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
-                if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
-                return s+q;
-              },0);
-              // Proposte attive mie
-              const myPropAttive = proposte.filter(p=>p.categoria==="vendita"&&(Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId)&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length;
-              const sCard={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
+                if(Number(v.agenteListing)===myAgentId) q+=incV*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=incA*Number(v.percAcquirente||0)/100;
+                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=incV*Number(v.percBuyerListing||0)/100;
+                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=incA*Number(v.percBuyer||0)/100;
+                return q;
+              };
+              const myIncassato = myVendAnno.reduce((s,v)=>s+calcolaQuotaMia(v,true),0);
+              const myDaInc = myVendAnno.reduce((s,v)=>s+calcolaQuotaMia(v,false)-calcolaQuotaMia(v,true),0);
+              const myTot = myVendAnno.reduce((s,v)=>s+calcolaQuotaMia(v,false),0);
+
+              // Sospesi (pratiche con residuo a suo carico)
+              const sospesiRighe=[];
+              myVendTutti.forEach(v=>{
+                const ruoli=ruoloIn(v);
+                if(ruoli.includes("Listing")||ruoli.includes("Buyer L")){
+                  const resV=(Number(v.provvVenditore||0)-calcolaIncassatoV(v));
+                  if(resV>0){
+                    const quotaV=ruoli.includes("Listing")?Number(v.percListing||0)/100:Number(v.percBuyerListing||0)/100;
+                    sospesiRighe.push({v,lato:"V",ruolo:ruoli.includes("Listing")?"Listing":"Buyer L",nominativo:v.nominativoVenditore,residuo:resV,quotaMia:resV*quotaV,scadenza:v.scadenzaIncasso});
+                  }
+                }
+                if(ruoli.includes("Acquirente")||ruoli.includes("Buyer")){
+                  const resA=(Number(v.provvAcquirente||0)-calcolaIncassatoA(v));
+                  if(resA>0){
+                    const quotaA=ruoli.includes("Acquirente")?Number(v.percAcquirente||0)/100:Number(v.percBuyer||0)/100;
+                    sospesiRighe.push({v,lato:"A",ruolo:ruoli.includes("Acquirente")?"Acquirente":"Buyer",nominativo:v.nomeAcquirente,residuo:resA,quotaMia:resA*quotaA,scadenza:v.scadenzaIncasso});
+                  }
+                }
+              });
+
+              // Proposte attive dove interviene
+              const myPropAttive=proposte.filter(p=>p.categoria==="vendita"&&(
+                Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId
+              )&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato));
+
+              // Vincolate
+              const myPropVincolo=proposte.filter(p=>p.categoria==="vendita"&&(
+                Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId
+              )&&p.stato==="Accettata con Vincolo");
+
+              const colRuolo={Listing:"#2980B9",Acquirente:"#8E44AD","Buyer L":"#E67E22",Buyer:"#E74C3C"};
+
               return(<>
-                <div style={{marginBottom:"1rem"}}>
-                  <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>Benvenuto, {ag?.nome}!</h2>
-                  <p style={{fontSize:12,color:"#aaa",margin:0}}>La tua produzione — {annoCorrente}</p>
+                {/* Filtro anno */}
+                <div style={S.fRow}>
+                  <Sel value={dashAnno} onChange={setDashAnno}>
+                    <option value="Tutti">Tutti gli anni</option>
+                    {[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                  </Sel>
                 </div>
-                {/* KPI */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <div style={{...sCard,borderTop:`3px solid ${STATI_INC.Attivo.clr}`}}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p>
+
+                {/* KPI 4 box */}
+                <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
+                  <div style={S.card(STATI_INC.Attivo.clr)}>
+                    <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p>
                     <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{myInc.filter(i=>statoInc(i)==="Attivo").length}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{myIncAnno.length} acquisiti nel {annoCorrente}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{myIncAnno.length} acquisiti {dashAnno!=="Tutti"?`nel ${dashAnno}`:"(anno sel."}</p>
                   </div>
-                  <div style={{...sCard,borderTop:`3px solid ${BRAND.oroD}`}}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Transazioni {annoCorrente}</p>
-                    <p style={{fontSize:28,fontWeight:600,margin:0,color:BRAND.oroD}}>{nTransV+nTransA}</p>
+                  <div style={S.card(STATI_INC.Scaduto.clr)}>
+                    <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi scaduti</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Scaduto.clr}}>{myInc.filter(i=>statoInc(i)==="Scaduto").length}</p>
+                  </div>
+                  <div style={S.card(STATI_INC.Venduto.clr)}>
+                    <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Transazioni {dashAnno!=="Tutti"?dashAnno:"totali"}</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Venduto.clr}}>{nTransV+nTransA}</p>
                     <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{nTransV}V · {nTransA}A</p>
                   </div>
-                  <div style={{...sCard,borderTop:"3px solid #27AE60"}}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota incassata {annoCorrente}</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAnno)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>su € {fmt(quotaTot)} totale</p>
-                  </div>
-                  <div style={{...sCard,borderTop:"3px solid #4A90D9"}}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Proposte in trattativa</p>
-                    <p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{myPropAttive}</p>
+                  <div style={S.card("#4A90D9")}>
+                    <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Proposte in trattativa</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{myPropAttive.length}</p>
                     <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>attive ora</p>
                   </div>
                 </div>
-                {/* Riepilogo finanziario */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
-                  <div style={sCard}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 12px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Quota provvigioni — tutti gli anni</p>
-                    {[["Incassata",quotaIncassata,"#27AE60"],["Da incassare",quotaTot-quotaIncassata,"#E67E22"],["Totale maturata",quotaTot,BRAND.oroD]].map(([l,v,c])=>(
-                      <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"0.5px solid #f5f5f5",fontSize:13}}>
-                        <span style={{color:"#888"}}>{l}</span><span style={{fontWeight:500,color:c}}>€ {fmt(v)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={sCard}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 12px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Ultime pratiche concluse</p>
-                    {myVend.slice(0,4).map(v=>(
-                      <div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5",fontSize:12}}>
-                        <div>
-                          <span style={{fontWeight:500,color:BRAND.grigio}}>{v.comuneImmobile}</span>
-                          <span style={{color:"#aaa",marginLeft:6}}>{fmtD(v.dataVendita||v.dataAtto||"")}</span>
-                        </div>
-                        <span style={{color:BRAND.oroD,fontWeight:500}}>
-                          € {fmt((Number(v.agenteListing)===myAgentId?Number(v.provvVenditore||0)*Number(v.percListing||0)/100:0)+(Number(v.agenteAcquirente)===myAgentId?Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100:0))}
-                        </span>
-                      </div>
-                    ))}
-                    {myVend.length===0&&<p style={{fontSize:12,color:"#bbb",margin:0}}>Nessuna pratica conclusa</p>}
-                  </div>
+
+                {/* Blocchi finanziari */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                  <BloccoFin titolo="MIA QUOTA INCASSATA" colore="#27AE60" emoji="✅" totale={myIncassato} qAgenzia={0} qAgenti={myIncassato} qBuyer={0}/>
+                  <BloccoFin titolo="DA INCASSARE" colore="#E67E22" emoji="⏳" totale={Math.max(0,myDaInc)} qAgenzia={0} qAgenti={Math.max(0,myDaInc)} qBuyer={0}/>
+                  <BloccoFin titolo="TOTALE MATURATO" colore={BRAND.oroD} emoji="💰" totale={myTot} qAgenzia={0} qAgenti={myTot} qBuyer={0}/>
                 </div>
+
+                {/* SOSPESI con ruolo evidenziato */}
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #E67E2244",overflow:"hidden",marginBottom:"1.25rem"}}>
+                  <div style={{background:"#FEF0E0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #E67E2233"}}>
+                    <div><span style={{fontSize:13,fontWeight:600,color:"#E67E22"}}>🕐 SOSPESI DA INCASSARE — Tue pratiche con residuo</span>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Include tutte le pratiche dove intervieni (Listing, Acquirente, Buyer L, Buyer)</p></div>
+                    <span style={{fontSize:18,fontWeight:700,color:"#E67E22",marginLeft:16,whiteSpace:"nowrap"}}>{sospesiRighe.length>0?`€ ${fmt(sospesiRighe.reduce((s,r)=>s+r.quotaMia,0))}`:"—"}</span>
+                  </div>
+                  {sospesiRighe.length>0?(
+                    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+                      <thead><tr>{["Ruolo","Lato","Nominativo","Immobile","Residuo pratica","Tua quota","Scadenza"].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <tbody>{sospesiRighe.map((r,i)=>(
+                        <tr key={i} style={{background:["Buyer L","Buyer"].includes(r.ruolo)?"#FFF9F0":"#fff"}}>
+                          <td style={S.tdS}>
+                            <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${colRuolo[r.ruolo]}22`,color:colRuolo[r.ruolo],fontWeight:600,border:`0.5px solid ${colRuolo[r.ruolo]}44`}}>{r.ruolo}</span>
+                          </td>
+                          <td style={S.tdS}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:r.lato==="V"?"#EAF4FB":"#F5EEF8",color:r.lato==="V"?"#2980B9":"#8E44AD",fontWeight:500}}>{r.lato==="V"?"Venditore":"Acquirente"}</span></td>
+                          <td style={{...S.tdS,fontWeight:500}}>{r.nominativo}</td>
+                          <td style={S.tdS}>{r.v.comuneImmobile} — {r.v.indirizzoImmobile}</td>
+                          <td style={{...S.tdRS,color:"#E67E22",fontWeight:600}}>€ {fmt(r.residuo)}</td>
+                          <td style={{...S.tdRS,color:BRAND.oroD,fontWeight:700}}>€ {fmt(r.quotaMia)}</td>
+                          <td style={{...S.tdS,color:r.scadenza&&new Date(r.scadenza)<new Date()?"#E74C3C":"inherit"}}>{r.scadenza?fmtD(r.scadenza):"—"}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table></div>
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna provvigione in sospeso</div>}
+                </div>
+
+                {/* IN ATTESA / CONTROPROPOSTA */}
+                {myPropAttive.length>0&&(
+                  <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
+                    <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #4A90D933"}}>
+                      <div><span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Tue proposte attive</span></div>
+                      <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16}}>€ {fmt(myPropAttive.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</span>
+                    </div>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead><tr>{["Stato","Venditore","Acquirente","Immobile","Prezzo","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <tbody>{myPropAttive.map(p=>{
+                        const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
+                        return(<tr key={p.id}>
+                          <td style={S.tdS}><span style={bdg(cfg)}>{cfg.s} {cfg.label}</span></td>
+                          <td style={{...S.tdS,fontWeight:500}}>{p.nominativoVenditore}</td>
+                          <td style={S.tdS}>{p.nomeAcquirente}</td>
+                          <td style={S.tdS}>{p.comuneImmobile} — {p.indirizzoImmobile}</td>
+                          <td style={S.tdRS}>€ {fmtN(p.prezzoOfferto)}</td>
+                          <td style={{...S.tdRS,fontWeight:600,color:"#2980B9"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
+                        </tr>);
+                      })}</tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* VINCOLATE */}
+                {myPropVincolo.length>0&&(
+                  <div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
+                    <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Tue proposte con vincolo in attesa</span>
+                      <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",marginLeft:16}}>€ {fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</span>
+                    </div>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead><tr>{["Venditore","Acquirente","Immobile","Vincolo","Scadenza","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <tbody>{myPropVincolo.map(p=>(
+                        <tr key={p.id}>
+                          <td style={{...S.tdS,fontWeight:500}}>{p.nominativoVenditore}</td>
+                          <td style={S.tdS}>{p.nomeAcquirente}</td>
+                          <td style={S.tdS}>{p.comuneImmobile} — {p.indirizzoImmobile}</td>
+                          <td style={S.tdS}>{p.tipoVincolo||"Generico"}</td>
+                          <td style={{...S.tdS,color:p.termineSubordine&&new Date(p.termineSubordine)<new Date()?"#E74C3C":"inherit"}}>{p.termineSubordine?fmtD(p.termineSubordine):"—"}</td>
+                          <td style={{...S.tdRS,fontWeight:600,color:"#D4AC0D"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                )}
               </>);
             })()}
 
@@ -1280,7 +1391,13 @@ export default function App() {
 
           {/* PROPOSTE */}
           {tab==="Proposte"&&(<div style={S.sec}>
-            <div style={S.pageHdr}><SubTabs value={subProp} onChange={v=>{setSubProp(v);setFPropStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Affitti"}]}/><button style={S.btnP} onClick={()=>{setFormProp(emptyProp(subProp));setShowProp("new");}}>+ Nuova proposta (collab.)</button></div>
+            <div style={S.pageHdr}>
+              <SubTabs value={subProp} onChange={v=>{setSubProp(v);setFPropStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Affitti"}]}/>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button style={{...S.btnP,background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>{setCercaIncAg("");setShowSelIncaricoAg(true);}}>🏢 Proposta su immobile agenzia</button>
+                <button style={S.btnP} onClick={()=>{setFormProp(emptyProp(subProp));setShowProp("new");}}>+ Nuova proposta (collab.)</button>
+              </div>
+            </div>
             <FiltriProp/>
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
@@ -1887,6 +2004,105 @@ export default function App() {
             );
           })()}
 
+          {/* IL MIO REPORT (solo agente) */}
+          {tab==="Il mio report"&&!isBroker&&myAgentId&&(()=>{
+            const ag=agenti.find(a=>a.id===myAgentId);
+            if(!ag) return null;
+            const prat=vendReport.filter(v=>Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id||Number(v.buyerListing)===ag.id||Number(v.buyer)===ag.id);
+            const incAcq=incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===ag.id).length;
+            const calcolaQuotaAg=(v,a)=>{
+              const incV=calcolaIncassatoV(v);const incA=calcolaIncassatoA(v);
+              const pV=Number(v.provvVenditore||0);const pA=Number(v.provvAcquirente||0);
+              let q=0;
+              if(Number(v.agenteListing)===a.id&&pV>0)q+=incV*(Number(v.percListing||0)/100);
+              if(Number(v.agenteAcquirente)===a.id&&pA>0)q+=incA*(Number(v.percAcquirente||0)/100);
+              if(Number(v.buyerListing)===a.id&&Number(v.agenteListing)!==a.id&&pV>0)q+=incV*(Number(v.percBuyerListing||0)/100);
+              if(Number(v.buyer)===a.id&&Number(v.agenteAcquirente)!==a.id&&pA>0)q+=incA*(Number(v.percBuyer||0)/100);
+              return q;
+            };
+            const totFatAg=prat.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+            const totQuota=prat.reduce((s,v)=>s+calcolaQuotaAg(v,ag),0);
+            const colRuolo={"Listing":"#2980B9","Acquirente":"#8E44AD","Buyer L":"#E67E22","Buyer":"#E74C3C"};
+            const ruoloInV=v=>{
+              if(Number(v.agenteListing)===ag.id) return "Listing";
+              if(Number(v.agenteAcquirente)===ag.id) return "Acquirente";
+              if(Number(v.buyerListing)===ag.id) return "Buyer L";
+              if(Number(v.buyer)===ag.id) return "Buyer";
+              return "—";
+            };
+            return(
+              <div style={S.sec}>
+                <div style={{marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{width:48,height:48,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
+                  <div>
+                    <h2 style={{fontSize:17,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>{ag.nome} {ag.cognome}</h2>
+                    <p style={{fontSize:12,color:"#aaa",margin:0}}>{ag.profilo} · {ag.tipo||"Interno"} · {incAcq} incarichi acquisiti</p>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  {[
+                    {l:"Pratiche totali",v:prat.length,c:BRAND.oroD},
+                    {l:"Fatturato agenzia",v:`€ ${fmt(totFatAg)}`,c:"#27AE60"},
+                    {l:"Tua quota",v:`€ ${fmt(totQuota)}`,c:"#8E44AD"},
+                    {l:"% sul fatturato",v:totFatAg>0?`${(totQuota/totFatAg*100).toFixed(1)}%`:"—",c:"#E67E22"},
+                  ].map(({l,v,c})=>(
+                    <div key={l} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px",borderTop:`3px solid ${c}`}}>
+                      <p style={{fontSize:11,color:"#888",margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.06em"}}>{l}</p>
+                      <p style={{fontSize:20,fontWeight:700,color:c,margin:0}}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",borderBottom:"0.5px solid #eee"}}>
+                    <p style={{fontSize:13,fontWeight:500,color:BRAND.grigio,margin:0}}>Dettaglio pratiche</p>
+                  </div>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:620}}>
+                      <thead>
+                        <tr style={{background:"#fafaf8"}}>
+                          {["Ruolo","Data","Immobile","Venditore","Acquirente","Prezzo","Provv. agenzia","Tua quota","Incassato"].map(h=>(
+                            <th key={h} style={{...S.th,fontSize:11}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {prat.length===0&&<tr><td colSpan={9} style={{padding:"2rem",textAlign:"center",color:"#bbb"}}>Nessuna pratica nel periodo selezionato</td></tr>}
+                        {prat.map((v,idx)=>{
+                          const ruolo=ruoloInV(v);
+                          const quota=calcolaQuotaAg(v,ag);
+                          const incassato=calcolaIncassatoV(v)+calcolaIncassatoA(v);
+                          return(
+                            <tr key={v.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
+                              <td style={S.td}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${colRuolo[ruolo]||"#eee"}22`,color:colRuolo[ruolo]||"#666",fontWeight:600,border:`0.5px solid ${colRuolo[ruolo]||"#ccc"}44`}}>{ruolo}</span></td>
+                              <td style={{...S.td,color:"#888",whiteSpace:"nowrap"}}>{fmtD(v.dataVendita||v.dataAtto||"")}</td>
+                              <td style={S.td}><span style={{fontWeight:500}}>{v.comuneImmobile}</span><br/><span style={{fontSize:11,color:"#aaa"}}>{v.indirizzoImmobile}</span></td>
+                              <td style={S.td}>{v.nominativoVenditore||"—"}</td>
+                              <td style={S.td}>{v.nomeAcquirente||"—"}</td>
+                              <td style={{...S.td,textAlign:"right"}}>€ {fmtN(v.prezzoVendita)}</td>
+                              <td style={{...S.td,textAlign:"right",color:BRAND.oroD,fontWeight:500}}>€ {fmt(Number(v.provvVenditore||0)+Number(v.provvAcquirente||0))}</td>
+                              <td style={{...S.td,textAlign:"right",fontWeight:600,color:"#8E44AD"}}>{quota>0?`€ ${fmt(quota)}`:"—"}</td>
+                              <td style={{...S.td,textAlign:"right",color:"#27AE60"}}>€ {fmt(incassato)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      {prat.length>0&&(
+                        <tfoot>
+                          <tr style={{background:BRAND.beige,fontWeight:600,fontSize:12}}>
+                            <td colSpan={6} style={{padding:"9px 12px",color:BRAND.grigio}}>TOTALE ({prat.length} pratiche)</td>
+                            <td style={{padding:"9px 12px",textAlign:"right",color:BRAND.oroD}}>€ {fmt(totFatAg)}</td>
+                            <td style={{padding:"9px 12px",textAlign:"right",color:"#8E44AD"}}>€ {fmt(totQuota)}</td>
+                            <td style={{padding:"9px 12px",textAlign:"right",color:"#27AE60"}}>€ {fmt(prat.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0))}</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* STATISTICHE */}
           {tab==="Statistiche"&&(()=>{
             // ── helpers ──────────────────────────────────────────────────────
@@ -2350,6 +2566,70 @@ export default function App() {
       </div>
 
       {schedaAgente&&<SchedaAgente agente={schedaAgente} venduti={vendReport} incarichi={incarichi} onClose={()=>setSchedaAgente(null)}/>}
+
+      {/* MODAL SELEZIONE INCARICO AGENZIA PER PROPOSTA */}
+      {showSelIncaricoAg&&(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setShowSelIncaricoAg(false)}>
+        <div style={{...S.modal,width:"min(96vw,640px)",maxHeight:"80vh",display:"flex",flexDirection:"column"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexShrink:0}}>
+            <div>
+              <h2 style={{fontSize:17,fontWeight:500,margin:"0 0 3px",color:BRAND.grigio}}>🏢 Seleziona immobile agenzia</h2>
+              <p style={{fontSize:12,color:"#aaa",margin:0}}>Incarichi attivi di tutti gli agenti — scegli quello su cui creare la proposta</p>
+            </div>
+            <button onClick={()=>setShowSelIncaricoAg(false)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>✕</button>
+          </div>
+          {/* Ricerca */}
+          <input style={{...S.inp,marginBottom:12,flexShrink:0}} placeholder="Cerca per nominativo, comune, indirizzo, tipologia..." value={cercaIncAg} onChange={e=>setCercaIncAg(e.target.value)}/>
+          {/* Lista incarichi */}
+          <div style={{overflowY:"auto",flex:1}}>
+            {incarichi.filter(i=>{
+              if(i.categoria!==subProp) return false;
+              if(i.archiviato) return false;
+              const s=statoInc(i);
+              if(s==="Venduto"||s==="Locato") return false;
+              if(!cercaIncAg) return true;
+              const q=cercaIncAg.toLowerCase();
+              return (i.nominativo||"").toLowerCase().includes(q)||(i.comune||"").toLowerCase().includes(q)||(i.indirizzo||"").toLowerCase().includes(q)||(i.tipologia||"").toLowerCase().includes(q);
+            }).map(i=>{
+              const agListing=agenti.find(a=>a.id===Number(i.agenteListing));
+              const isCollega=agListing&&agListing.id!==myAgentId;
+              return(
+                <div key={i.id} style={{padding:"12px 14px",borderRadius:8,border:`1px solid ${isCollega?"#4A90D944":"#e8e5e0"}`,marginBottom:8,cursor:"pointer",background:isCollega?"#EAF4FB":"#fff",transition:"all 0.15s"}}
+                  onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,0.1)"}
+                  onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+                  onClick={()=>{
+                    setFormProp(emptyProp(subProp,i));
+                    // Pre-imposta agente acquirente con l'agente loggato se non broker
+                    if(!isBroker&&myAgentId) setFormProp(fp=>({...fp,...emptyProp(subProp,i),agenteAcquirente:myAgentId,percAcquirente:agenti.find(a=>a.id===myAgentId)?.percAcquirente||0}));
+                    setShowProp("new");
+                    setShowSelIncaricoAg(false);
+                  }}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                        <span style={{fontWeight:600,fontSize:13,color:BRAND.grigio}}>{i.comune} — {i.indirizzo}</span>
+                        <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#f0f0f0",color:"#666"}}>{i.tipologia}</span>
+                        {isCollega&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#2980B922",color:"#2980B9",fontWeight:500}}>📋 collega</span>}
+                      </div>
+                      <div style={{fontSize:12,color:"#888"}}>
+                        <span style={{marginRight:12}}>👤 {i.nominativo}</span>
+                        <span style={{marginRight:12}}>🏷️ {agListing?`${agListing.nome} ${agListing.cognome}`:"—"}</span>
+                        <span>📅 scad. {fmtD(i.scadenza)}</span>
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
+                      <div style={{fontSize:13,fontWeight:600,color:BRAND.oroD}}>€ {fmtN(i.prezzoRichiesto)}</div>
+                      <div style={{fontSize:11,color:"#aaa"}}>prezzo richiesto</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {incarichi.filter(i=>i.categoria===subProp&&!i.archiviato&&statoInc(i)!=="Venduto"&&statoInc(i)!=="Locato").length===0&&(
+              <p style={{textAlign:"center",color:"#bbb",fontSize:13,margin:"2rem 0"}}>Nessun incarico attivo</p>
+            )}
+          </div>
+        </div>
+      </div>)}
       {schedaIncarico&&<SchedaIncaricoVenduto {...schedaIncarico} agenti={agenti} onClose={()=>setSchedaIncarico(null)}/>}
 
       {/* MODAL RIBASSO PREZZO */}
