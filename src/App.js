@@ -453,6 +453,7 @@ export default function App() {
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
   const [statSubTab,setStatSubTab]=useState("generali");
+  const [statAnno,setStatAnno]=useState(annoCorrente);
   const importRef=useRef();
   const [showMobileMenu,setShowMobileMenu]=useState(false);
 
@@ -868,8 +869,21 @@ export default function App() {
             <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
               <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
               <div style={S.card(STATI_INC.Scaduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi scaduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Scaduto.clr}}>{dashInc.filter(i=>statoInc(i)==="Scaduto").length}</p></div>
-              <div style={S.card(STATI_INC.Venduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Venduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Venduto.clr}}>{dashVend.length}</p></div>
-              <div style={S.card("#4A90D9")}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Proposte attive</p><p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{proposte.filter(p=>p.categoria==="vendita"&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length}</p></div>
+              <div style={S.card(STATI_INC.Venduto.clr)}>
+                <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Transazioni totali</p>
+                <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Venduto.clr}}>{
+                  dashVend.filter(v=>Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length +
+                  dashVend.filter(v=>Number(v.provvAcquirente||0)>0).length
+                }</p>
+                <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>
+                  {dashVend.filter(v=>Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length}V · {dashVend.filter(v=>Number(v.provvAcquirente||0)>0).length}A
+                </p>
+              </div>
+              <div style={S.card("#4A90D9")}>
+                <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Proposte attive</p>
+                <p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{proposte.filter(p=>p.categoria==="vendita"&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length}</p>
+                <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>in trattativa ora</p>
+              </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
               <BloccoFin titolo="INCASSATO" colore="#27AE60" emoji="✅" totale={dashIncassato} qAgenzia={qAgenziaInc} qAgenti={qAgInc} qBuyer={qBuyInc}/>
@@ -1001,7 +1015,14 @@ export default function App() {
               </div>
             </div>
             <FiltriInc/>
-            <div style={S.cnt}>{[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
+            <div style={S.cnt}>
+              {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
+              <div style={{...S.cntBox(BRAND.oroD),marginLeft:"auto",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:110}}>
+                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente).length}</span>
+                <span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>Acquisiti {annoCorrente}</span>
+                <span style={{fontSize:10,color:"#aaa"}}>totali anno corrente</span>
+              </div>
+            </div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead>
                 <tr>
@@ -1636,7 +1657,7 @@ export default function App() {
             const anniIncStat = Array.from(new Set(incarichi.filter(i=>i.categoria==="vendita").map(i=>getAnno(i.dataInizio)).filter(Boolean))).sort().reverse();
             const tuttiAnni = Array.from(new Set([...anniStat,...anniIncStat,annoCorrente])).sort().reverse();
 
-            const [statAnno, setStatAnno] = React.useState(annoCorrente);
+            // statAnno e statSubTab sono gestiti a livello App
 
             // Vendite filtrate per anno (provv > 0 su almeno un lato, categoria vendita)
             const vendStat = venduti.filter(v=>{
