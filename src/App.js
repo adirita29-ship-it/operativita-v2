@@ -80,7 +80,20 @@ const STATI_PROP = {
 const STATI_INCASSO = {"Da incassare":{clr:"#E67E22",bg:"#FEF0E0"},"Parziale":{clr:"#D4AC0D",bg:"#FEF9E7"},"Incassato":{clr:"#27AE60",bg:"#E9F7EF"}};
 const STATI_FATTURA = {"Da pagare":{clr:"#E67E22",bg:"#FEF0E0"},"Pagato parzialmente":{clr:"#D4AC0D",bg:"#FEF9E7"},"Pagato":{clr:"#27AE60",bg:"#E9F7EF"}};
 const bdg = cfg => ({display:"inline-flex",alignItems:"center",gap:4,padding:"3px 9px",borderRadius:5,fontSize:11,fontWeight:500,background:cfg?.bg||"#eee",color:cfg?.clr||"#333",border:`0.5px solid ${cfg?.clr||"#ccc"}`,whiteSpace:"nowrap"});
-const USERS = [{email:"adirita@casaimmobiliarevarese.it",password:"Dalmata1518",nome:"Antonello Di Rita",ruolo:"Broker"}];
+
+// Kit spese personali agente (default)
+const VOCI_COSTO_AGENTE_DEFAULT = [
+  "Carburante","Telefono","Marketing personale","Formazione / Corsi",
+  "Pranzi e cene di lavoro","Abbonamenti professionali","Materiali promozionali","Altro"
+];
+const mkCostiAgente = () => VOCI_COSTO_AGENTE_DEFAULT.map((v,i)=>({id:i+1,voce:v,prevMensile:0,frequenza:"mensile",spese:[]}));
+
+const INIT_AGENTI = [
+  {id:1,nome:"Antonello",cognome:"Di Rita",profilo:"Broker",tipo:"Interno",percListing:0,percAcquirente:0,email:"adirita@casaimmobiliarevarese.it",password:"Dalmata1518",attivo:true},
+  {id:2,nome:"Luca",cognome:"Pagliara",profilo:"Consulente",tipo:"Interno",percListing:40,percAcquirente:40,email:"",password:"",attivo:true},
+  {id:3,nome:"Riccardo",cognome:"Di Rita",profilo:"Collaboratore",tipo:"Interno",percListing:20,percAcquirente:20,email:"",password:"",attivo:true},
+  {id:4,nome:"Fabio",cognome:"Portinaro",profilo:"Collaboratore",tipo:"Interno",percListing:40,percAcquirente:40,email:"",password:"",attivo:true},
+];
 
 // LocalStorage come fallback offline
 const LS_KEY = "gestionale_casa_v1";
@@ -135,7 +148,23 @@ const STATI_BLOCCANTI = ["In attesa","Controproposta","In attesa / Vincolata"];
 
 function LoginPage({onLogin}) {
   const [em,setEm]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [load,setLoad]=useState(false);
-  const go=()=>{setLoad(true);setTimeout(()=>{const u=USERS.find(u=>u.email===em&&u.password===pw);if(u)onLogin(u);else{setErr("Credenziali non corrette.");setLoad(false);}},600);};
+  const go=()=>{
+    setLoad(true);
+    setTimeout(async()=>{
+      // Carica agenti da DB per autenticazione
+      try {
+        const data = await caricaDB();
+        const agentiDB = data?.agenti || INIT_AGENTI;
+        const ag = agentiDB.find(a=>a.email&&a.email===em&&a.password&&a.password===pw);
+        if(ag){
+          if(ag.attivo===false){setErr("Account disabilitato. Contatta il responsabile.");setLoad(false);return;}
+          onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo:ag.profilo==="Broker"?"Broker":"Agente",agentId:ag.id});
+        } else {
+          setErr("Credenziali non corrette.");setLoad(false);
+        }
+      } catch(e){setErr("Errore di connessione.");setLoad(false);}
+    },600);
+  };
   return(
     <div style={{minHeight:"100vh",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
       <div style={{textAlign:"center",marginBottom:"2.5rem"}}>
@@ -156,15 +185,18 @@ function LoginPage({onLogin}) {
 }
 
 function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
+  const isBroker = utente?.ruolo==="Broker";
+  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Statistiche","Costi & Break Even"];
+  const tabsVisibili = isBroker ? TAB_CONFIG : TAB_CONFIG.filter(t=>TAB_AGENTE.includes(t.id));
   return (
     <div style={{width:220,minWidth:220,background:"#2C2C2C",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,flexShrink:0}}>
       <div style={{padding:"1.5rem 1.25rem 1.25rem",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
         <div style={{fontSize:28,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>a</span>sa</div>
         <div style={{fontSize:8,letterSpacing:"0.3em",color:"rgba(255,255,255,0.4)",borderTop:"1px solid rgba(255,255,255,0.2)",paddingTop:3,marginTop:3}}>IMMOBILIARE</div>
-        <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>Gestionale interno</div>
+        <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>{isBroker?"Gestionale interno":"Area agente"}</div>
       </div>
       <nav style={{flex:1,padding:"0.75rem 0",overflowY:"auto"}}>
-        {TAB_CONFIG.map(t=>{
+        {tabsVisibili.map(t=>{
           const active=tab===t.id;
           return(<button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 1.25rem",background:active?`${BRAND.oro}22`:"transparent",border:"none",borderLeft:active?`3px solid ${BRAND.oro}`:"3px solid transparent",color:active?BRAND.oro:"rgba(255,255,255,0.55)",fontSize:13,fontWeight:active?600:400,cursor:"pointer",textAlign:"left"}}
             onMouseEnter={e=>{if(!active){e.currentTarget.style.background="rgba(255,255,255,0.05)";e.currentTarget.style.color="rgba(255,255,255,0.85)";}}}
@@ -174,9 +206,11 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
       </nav>
       <div style={{borderTop:"1px solid rgba(255,255,255,0.08)",margin:"0 1.25rem"}}/>
       <div style={{padding:"0.75rem 1rem"}}>
-        <button onClick={onEsporta} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 10px",background:"transparent",border:`1px solid rgba(201,169,110,0.4)`,borderRadius:6,color:BRAND.oro,fontSize:12,cursor:"pointer",marginBottom:6}}>⬇ Esporta dati</button>
-        <button onClick={()=>importRef.current.click()} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 10px",background:"transparent",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"rgba(255,255,255,0.45)",fontSize:12,cursor:"pointer"}}>⬆ Importa dati</button>
-        <input ref={importRef} type="file" accept=".json" style={{display:"none"}} onChange={onImporta}/>
+        {isBroker&&<>
+          <button onClick={onEsporta} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 10px",background:"transparent",border:`1px solid rgba(201,169,110,0.4)`,borderRadius:6,color:BRAND.oro,fontSize:12,cursor:"pointer",marginBottom:6}}>⬇ Esporta dati</button>
+          <button onClick={()=>importRef.current.click()} style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"8px 10px",background:"transparent",border:"1px solid rgba(255,255,255,0.12)",borderRadius:6,color:"rgba(255,255,255,0.45)",fontSize:12,cursor:"pointer"}}>⬆ Importa dati</button>
+          <input ref={importRef} type="file" accept=".json" style={{display:"none"}} onChange={onImporta}/>
+        </>}
       </div>
       <div style={{padding:"1rem 1.25rem",borderTop:"1px solid rgba(255,255,255,0.08)",background:"rgba(0,0,0,0.2)"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -455,6 +489,15 @@ export default function App() {
   const [statSubTab,setStatSubTab]=useState("generali");
   const [statAnno,setStatAnno]=useState(annoCorrente);
   const [statShowSconti,setStatShowSconti]=useState(false);
+
+  const isBroker = utente?.ruolo==="Broker";
+  const myAgentId = utente?.agentId||null;
+
+  // Costi personali agente (per agente loggato)
+  const [costiAgente,setCostiAgente]=useState(_ls?.costiAgente||{});
+  const [costiAgenteAnno,setCostiAgenteAnno]=useState(annoCorrente);
+  const [modalCostoVoceAg,setModalCostoVoceAg]=useState(null);
+  const [formNuovaSpesaAg,setFormNuovaSpesaAg]=useState({data:todayStr(),importo:"",desc:""});
   const importRef=useRef();
   const [showMobileMenu,setShowMobileMenu]=useState(false);
 
@@ -477,6 +520,7 @@ export default function App() {
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
         if(data.provvStandard) setProvvStandard(data.provvStandard);
+        if(data.costiAgente) setCostiAgente(data.costiAgente);
       }
       setDbLoaded(true);
     });
@@ -485,14 +529,14 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,provvStandard};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,provvStandard,costiAgente};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
       salvaDB(payload).finally(()=>setDbSaving(false));
     },1500); // debounce 1.5s per non sovraccaricare
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,provvStandard,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,provvStandard,costiAgente,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -511,13 +555,15 @@ export default function App() {
   const incFiltrati=useMemo(()=>incarichi.filter(i=>{
     if(i.archiviato&&!mostraArchiviati) return false;
     if(i.categoria!==subInc) return false;
+    // Agente vede solo i propri incarichi
+    if(!isBroker&&myAgentId&&i.agenteListing!==myAgentId) return false;
     const s=statoInc(i);
     if(fIncStato!=="Tutti"&&s!==fIncStato) return false;
     if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno) return false;
     if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese) return false;
     if(fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg)) return false;
     return true;
-  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,mostraArchiviati]);
+  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,mostraArchiviati,isBroker,myAgentId]);
 
   const cntInc=useMemo(()=>{
     const b=incarichi.filter(i=>{if(i.archiviato)return false;if(i.categoria!==subInc)return false;if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno)return false;if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese)return false;if(fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg))return false;return true;});
@@ -526,23 +572,27 @@ export default function App() {
 
   const propFiltrate=useMemo(()=>proposte.filter(p=>{
     if(p.categoria!==subProp) return false;
+    // Agente vede solo le proprie proposte
+    if(!isBroker&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId) return false;
     if(fPropStato!=="Tutti"&&p.stato!==fPropStato) return false;
     if(fPropAnno!=="Tutti"&&getAnno(p.dataStato)!==fPropAnno) return false;
     if(fPropMese!=="Tutti"&&getMese(p.dataStato)!==fPropMese) return false;
     if(fPropAg!=="Tutti"&&Number(p.agenteAcquirente)!==Number(fPropAg)&&Number(p.agenteListing)!==Number(fPropAg)) return false;
     return true;
-  }),[proposte,subProp,fPropStato,fPropAnno,fPropMese,fPropAg]);
+  }),[proposte,subProp,fPropStato,fPropAnno,fPropMese,fPropAg,isBroker,myAgentId]);
 
   const cntProp=useMemo(()=>({attesa:propFiltrate.filter(p=>["In attesa","In attesa / Vincolata"].includes(p.stato)).length,vincolo:propFiltrate.filter(p=>p.stato==="Accettata con Vincolo").length,accettate:propFiltrate.filter(p=>p.stato==="Accettata").length,rifiutate:propFiltrate.filter(p=>["Rifiutata","Mancata Chiusura"].includes(p.stato)).length}),[propFiltrate]);
 
   const vendFiltrati=useMemo(()=>venduti.filter(v=>{
     if(v.categoria!==subVend) return false;
+    // Agente vede solo i propri venduti
+    if(!isBroker&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
     const stato=calcolaStatoIncasso(v);
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
     if(fVendAnno!=="Tutti"&&getAnno(v.dataVendita||v.dataAtto||"")!==fVendAnno) return false;
     if(fVendAg!=="Tutti"&&Number(v.agenteListing)!==Number(fVendAg)&&Number(v.agenteAcquirente)!==Number(fVendAg)) return false;
     return true;
-  }),[venduti,subVend,fVendStato,fVendAnno,fVendAg]);
+  }),[venduti,subVend,fVendStato,fVendAnno,fVendAg,isBroker,myAgentId]);
 
   const cntVend=useMemo(()=>({
     daIncassare:vendFiltrati.filter(v=>calcolaStatoIncasso(v)==="Da incassare").length,
@@ -866,6 +916,97 @@ export default function App() {
 
           {/* DASHBOARD */}
           {tab==="Dashboard"&&(<div style={S.sec}>
+
+            {/* ── DASHBOARD AGENTE ── */}
+            {!isBroker&&myAgentId&&(()=>{
+              const ag = agenti.find(a=>a.id===myAgentId);
+              const myVend = venduti.filter(v=>v.categoria==="vendita"&&(Number(v.provvVenditore||0)>0||Number(v.provvAcquirente||0)>0)&&(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId));
+              const myVendAnno = myVend.filter(v=>getAnno(v.dataVendita||v.dataAtto||"")===annoCorrente);
+              const myInc = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId);
+              const myIncAnno = myInc.filter(i=>getAnno(i.dataInizio)===annoCorrente);
+              const nTransV = myVendAnno.filter(v=>Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
+              const nTransA = myVendAnno.filter(v=>Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0).length;
+              // Quota agente anno
+              const quotaAnno = myVendAnno.reduce((s,v)=>{
+                let q=0;
+                if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
+                return s+q;
+              },0);
+              const quotaTot = myVend.reduce((s,v)=>{
+                let q=0;
+                if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                return s+q;
+              },0);
+              const quotaIncassata = myVend.reduce((s,v)=>{
+                let q=0;
+                if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
+                return s+q;
+              },0);
+              // Proposte attive mie
+              const myPropAttive = proposte.filter(p=>p.categoria==="vendita"&&(Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId)&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length;
+              const sCard={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
+              return(<>
+                <div style={{marginBottom:"1rem"}}>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>Benvenuto, {ag?.nome}!</h2>
+                  <p style={{fontSize:12,color:"#aaa",margin:0}}>La tua produzione — {annoCorrente}</p>
+                </div>
+                {/* KPI */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  <div style={{...sCard,borderTop:`3px solid ${STATI_INC.Attivo.clr}`}}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{myInc.filter(i=>statoInc(i)==="Attivo").length}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{myIncAnno.length} acquisiti nel {annoCorrente}</p>
+                  </div>
+                  <div style={{...sCard,borderTop:`3px solid ${BRAND.oroD}`}}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Transazioni {annoCorrente}</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:BRAND.oroD}}>{nTransV+nTransA}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{nTransV}V · {nTransA}A</p>
+                  </div>
+                  <div style={{...sCard,borderTop:"3px solid #27AE60"}}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota incassata {annoCorrente}</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAnno)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>su € {fmt(quotaTot)} totale</p>
+                  </div>
+                  <div style={{...sCard,borderTop:"3px solid #4A90D9"}}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Proposte in trattativa</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{myPropAttive}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>attive ora</p>
+                  </div>
+                </div>
+                {/* Riepilogo finanziario */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                  <div style={sCard}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 12px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Quota provvigioni — tutti gli anni</p>
+                    {[["Incassata",quotaIncassata,"#27AE60"],["Da incassare",quotaTot-quotaIncassata,"#E67E22"],["Totale maturata",quotaTot,BRAND.oroD]].map(([l,v,c])=>(
+                      <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"0.5px solid #f5f5f5",fontSize:13}}>
+                        <span style={{color:"#888"}}>{l}</span><span style={{fontWeight:500,color:c}}>€ {fmt(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={sCard}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 12px",textTransform:"uppercase",letterSpacing:"0.08em"}}>Ultime pratiche concluse</p>
+                    {myVend.slice(0,4).map(v=>(
+                      <div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5",fontSize:12}}>
+                        <div>
+                          <span style={{fontWeight:500,color:BRAND.grigio}}>{v.comuneImmobile}</span>
+                          <span style={{color:"#aaa",marginLeft:6}}>{fmtD(v.dataVendita||v.dataAtto||"")}</span>
+                        </div>
+                        <span style={{color:BRAND.oroD,fontWeight:500}}>
+                          € {fmt((Number(v.agenteListing)===myAgentId?Number(v.provvVenditore||0)*Number(v.percListing||0)/100:0)+(Number(v.agenteAcquirente)===myAgentId?Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100:0))}
+                        </span>
+                      </div>
+                    ))}
+                    {myVend.length===0&&<p style={{fontSize:12,color:"#bbb",margin:0}}>Nessuna pratica conclusa</p>}
+                  </div>
+                </div>
+              </>);
+            })()}
+
+            {/* ── DASHBOARD BROKER (invariata) ── */}
+            {isBroker&&(<>
             <div style={S.fRow}><Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel></div>
             <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
               <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
@@ -1002,6 +1143,7 @@ export default function App() {
                 </table>
               ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
             </div>
+            </>)}
           </div>)}
 
           {/* INCARICHI */}
@@ -1394,22 +1536,32 @@ export default function App() {
 
           {/* AGENTI */}
           {tab==="Agenti"&&(<div style={S.sec}>
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"1rem"}}><button style={S.btnP} onClick={()=>{setFormAgente({nome:"",cognome:"",profilo:"Consulente",tipo:"Interno",percListing:0,percAcquirente:0});setShowAgente("new");}}>+ Nuovo agente</button></div>
-            <div style={S.tblWrap}><table style={{...S.tbl,minWidth:400}}>
-              <thead><tr>{["Nome","Cognome","Profilo","Tipo","% Listing","% Acquirente","Azioni"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-              <tbody>{agenti.map(a=>(<tr key={a.id} style={{cursor:"pointer"}} onClick={()=>{setFormAgente({...a});setShowAgente(a);}}>
-                <td style={S.td}><strong>{a.nome}</strong></td><td style={S.td}>{a.cognome}</td>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"1rem"}}><button style={S.btnP} onClick={()=>{setFormAgente({nome:"",cognome:"",profilo:"Consulente",tipo:"Interno",percListing:0,percAcquirente:0,email:"",password:"",attivo:true});setShowAgente("new");}}>+ Nuovo agente</button></div>
+            <div style={S.tblWrap}><table style={{...S.tbl,minWidth:500}}>
+              <thead><tr>{["Nome","Profilo","Email accesso","Password","Stato","% L","% A","Azioni"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <tbody>{agenti.map(a=>(<tr key={a.id} style={{opacity:a.attivo===false?0.6:1}}>
+                <td style={S.td}><strong>{a.nome} {a.cognome}</strong></td>
                 <td style={S.td}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,fontWeight:500,background:a.profilo==="Broker"?`${BRAND.oro}22`:a.profilo==="Consulente"?"#EAF4FB":"#F0F0F0",color:a.profilo==="Broker"?BRAND.oroD:a.profilo==="Consulente"?"#2980B9":"#666"}}>{a.profilo}</span></td>
-                <td style={S.td}>{a.tipo||"Interno"}</td>
+                <td style={S.td}><span style={{fontSize:12,color:a.email?"#555":"#ccc"}}>{a.email||"—"}</span></td>
+                <td style={S.td}><span style={{fontSize:12,color:a.password?"#555":"#ccc",letterSpacing:a.password?"0.15em":"normal"}}>{a.password?"••••••••":"—"}</span></td>
+                <td style={S.tdC}>
+                  {a.profilo==="Broker"
+                    ? <span style={{fontSize:11,color:"#aaa"}}>—</span>
+                    : <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,fontWeight:500,background:a.attivo!==false?"#E9F7EF":"#FDECEA",color:a.attivo!==false?"#27AE60":"#E74C3C",border:`0.5px solid ${a.attivo!==false?"#27AE60":"#E74C3C"}`}}>{a.attivo!==false?"Attivo":"Bloccato"}</span>
+                  }
+                </td>
                 <td style={S.tdC}>{a.profilo==="Broker"?"—":`${a.percListing}%`}</td>
                 <td style={S.tdC}>{a.profilo==="Broker"?"—":`${a.percAcquirente}%`}</td>
                 <td style={S.td} onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}>
                   <button style={{...S.btnP,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormAgente({...a});setShowAgente(a);}}>Modifica</button>
+                  {a.profilo!=="Broker"&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:a.attivo!==false?"#E74C3C":"#27AE60",borderColor:a.attivo!==false?"#E74C3C":"#27AE60"}} onClick={()=>setAgenti(agenti.map(x=>x.id===a.id?{...x,attivo:a.attivo===false}:x))}>{a.attivo!==false?"🔒 Blocca":"🔓 Attiva"}</button>}
                   {a.profilo!=="Broker"&&<button style={S.btnD} onClick={()=>{if(window.confirm(`Eliminare ${a.nome} ${a.cognome}?`))setAgenti(agenti.filter(x=>x.id!==a.id));}}>Elimina</button>}
                 </div></td>
               </tr>))}</tbody>
             </table></div>
+            <p style={{fontSize:11,color:"#aaa",marginTop:8}}>💡 La password è visibile solo in modifica. Gli agenti bloccati non possono accedere ma i loro dati restano invariati.</p>
           </div>)}
+
 
           {/* COSTI & BREAK EVEN */}
           {tab==="Costi & Break Even"&&(<div style={S.sec}>
@@ -1617,6 +1769,120 @@ export default function App() {
             </div>
           </div>)}
 
+          {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
+          {tab==="Costi & Break Even"&&!isBroker&&myAgentId&&(()=>{
+            const ag = agenti.find(a=>a.id===myAgentId);
+            const mieVoci = costiAgente[myAgentId]?.[costiAgenteAnno] || mkCostiAgente();
+            const salvaMieVoci = (nuove) => setCostiAgente({...costiAgente,[myAgentId]:{...(costiAgente[myAgentId]||{}),[costiAgenteAnno]:nuove}});
+            const prevAnnuoVoceAg = v => {const p=Number(v.prevMensile||0);const f=v.frequenza||"mensile";return p*(f==="mensile"?12:f==="trimestrale"?4:f==="semestrale"?2:1);};
+            const totSpeseVoceAg = v => (v.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
+            const totPrevAnno = mieVoci.reduce((s,v)=>s+prevAnnuoVoceAg(v),0);
+            const totConsuntivo = mieVoci.reduce((s,v)=>s+totSpeseVoceAg(v),0);
+            return(
+              <div style={S.sec}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>💼 Le mie spese — {ag?.nome} {ag?.cognome}</h2>
+                    <p style={{fontSize:11,color:"#aaa",margin:0}}>Visibili solo a te. Gestisci le tue voci di costo personali.</p>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <label style={{fontSize:13,color:"#888"}}>Anno:</label>
+                    <select style={S.sel} value={costiAgenteAnno} onChange={e=>setCostiAgenteAnno(e.target.value)}>
+                      {[...new Set([annoCorrente,...Object.keys(costiAgente[myAgentId]||{})])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                      <option value={String(Number(annoCorrente)+1)}>{Number(annoCorrente)+1}</option>
+                    </select>
+                  </div>
+                </div>
+                {/* KPI */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  <div style={S.card("#E74C3C")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsti {costiAgenteAnno}</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnno)}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(Math.round(totPrevAnno/12))}/mese</p></div>
+                  <div style={S.card("#E67E22")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Spese inserite {costiAgenteAnno}</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{mieVoci.reduce((s,v)=>(v.spese||[]).length>0?s+(v.spese||[]).length:s,0)} spese registrate</p></div>
+                  <div style={S.card(totConsuntivo>totPrevAnno?"#E74C3C":"#27AE60")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Scostamento</p><p style={{fontSize:22,fontWeight:600,margin:0,color:totConsuntivo>totPrevAnno?"#E74C3C":"#27AE60"}}>{totConsuntivo>0?(totConsuntivo>totPrevAnno?"+":"")+`€ ${fmt(totConsuntivo-totPrevAnno)}`:"—"}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>consuntivo vs previsionale</p></div>
+                </div>
+                {/* Tabella voci */}
+                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden",marginBottom:"1rem"}}>
+                  <div style={{padding:"12px 16px",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <p style={{fontSize:13,fontWeight:500,color:BRAND.grigio,margin:0}}>Voci di costo</p>
+                    <button style={S.btnP} onClick={()=>{const nuove=[...mieVoci,{id:Date.now(),voce:"Nuova voce",prevMensile:0,frequenza:"mensile",spese:[]}];salvaMieVoci(nuove);}}>+ Aggiungi voce</button>
+                  </div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                    <thead><tr style={{background:"#fafaf8"}}>{["Voce","Freq.","Prev./periodo","Prev. annuo","Consuntivo","Scostamento","Spese",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+                    <tbody>
+                      {mieVoci.map((voce,idx)=>{
+                        const prevA=prevAnnuoVoceAg(voce);
+                        const tot=totSpeseVoceAg(voce);
+                        const diff=tot-prevA;
+                        const nSpese=(voce.spese||[]).length;
+                        return(<tr key={voce.id||idx}>
+                          <td style={S.td}><input style={{...S.inp,margin:0,fontSize:13,border:"none",background:"transparent",padding:"2px 0",width:"100%"}} value={voce.voce} onChange={e=>{const nuove=[...mieVoci];nuove[idx]={...nuove[idx],voce:e.target.value};salvaMieVoci(nuove);}}/></td>
+                          <td style={S.tdC}>
+                            <select style={{...S.inp,margin:0,fontSize:12,padding:"3px 6px"}} value={voce.frequenza||"mensile"} onChange={e=>{const nuove=[...mieVoci];nuove[idx]={...nuove[idx],frequenza:e.target.value};salvaMieVoci(nuove);}}>
+                              <option value="mensile">Mens. ×12</option><option value="trimestrale">Trim. ×4</option><option value="semestrale">Sem. ×2</option><option value="annuale">Ann. ×1</option>
+                            </select>
+                          </td>
+                          <td style={S.tdR}><input style={{...S.inp,margin:0,fontSize:13,textAlign:"right",border:"none",background:"transparent",padding:"2px 4px",width:80}} type="number" value={voce.prevMensile||""} placeholder="0" onChange={e=>{const nuove=[...mieVoci];nuove[idx]={...nuove[idx],prevMensile:Number(e.target.value)};salvaMieVoci(nuove);}}/></td>
+                          <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevA)}</td>
+                          <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
+                          <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0&&diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
+                          <td style={S.tdC}>
+                            <button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}}
+                              onClick={()=>{setModalCostoVoceAg({voce,idx,anno:costiAgenteAnno});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>
+                              {nSpese>0?`${nSpese} spese`:"Aggiungi"}
+                            </button>
+                          </td>
+                          <td style={S.tdC}>
+                            <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}}
+                              onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...mieVoci];nuove.splice(idx,1);salvaMieVoci(nuove);}}}
+                              onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+                          </td>
+                        </tr>);
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* MODAL SPESE VOCE AGENTE */}
+                {modalCostoVoceAg&&(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setModalCostoVoceAg(null)}>
+                  <div style={{...S.modal,width:"min(96vw,520px)"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem"}}>
+                      <div><h2 style={{fontSize:16,fontWeight:500,margin:"0 0 3px",color:BRAND.grigio}}>{modalCostoVoceAg.voce.voce}</h2><p style={{fontSize:12,color:"#aaa",margin:0}}>Previsionale annuo: <strong style={{color:BRAND.oroD}}>€ {fmt(prevAnnuoVoceAg(modalCostoVoceAg.voce))}</strong></p></div>
+                      <button onClick={()=>setModalCostoVoceAg(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>✕</button>
+                    </div>
+                    <div style={{background:BRAND.beige,borderRadius:8,padding:"12px 14px",marginBottom:"1rem"}}>
+                      <p style={{fontSize:12,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 10px"}}>Aggiungi spesa</p>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                        <div><label style={S.lbl}>Data</label><input style={S.inp} type="date" value={formNuovaSpesaAg.data} onChange={e=>setFormNuovaSpesaAg({...formNuovaSpesaAg,data:e.target.value})}/></div>
+                        <div><label style={S.lbl}>Importo (€)</label><input style={S.inp} type="number" placeholder="0" value={formNuovaSpesaAg.importo} onChange={e=>setFormNuovaSpesaAg({...formNuovaSpesaAg,importo:e.target.value})}/></div>
+                      </div>
+                      <div style={{marginBottom:8}}><label style={S.lbl}>Descrizione</label><input style={S.inp} type="text" placeholder="es. Carburante, Pranzo cliente..." value={formNuovaSpesaAg.desc} onChange={e=>setFormNuovaSpesaAg({...formNuovaSpesaAg,desc:e.target.value})} onKeyDown={e=>{if(e.key==="Enter"&&formNuovaSpesaAg.importo){const nuove=[...mieVoci];const idx=modalCostoVoceAg.idx;nuove[idx]={...nuove[idx],spese:[...(nuove[idx].spese||[]),{id:Date.now(),data:formNuovaSpesaAg.data,importo:Number(formNuovaSpesaAg.importo),desc:formNuovaSpesaAg.desc}]};salvaMieVoci(nuove);setModalCostoVoceAg({...modalCostoVoceAg,voce:nuove[idx]});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}}/></div>
+                      <button style={{...S.btnP,width:"100%"}} onClick={()=>{if(!formNuovaSpesaAg.importo)return;const nuove=[...mieVoci];const idx=modalCostoVoceAg.idx;nuove[idx]={...nuove[idx],spese:[...(nuove[idx].spese||[]),{id:Date.now(),data:formNuovaSpesaAg.data,importo:Number(formNuovaSpesaAg.importo),desc:formNuovaSpesaAg.desc}]};salvaMieVoci(nuove);setModalCostoVoceAg({...modalCostoVoceAg,voce:nuove[idx]});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>+ Aggiungi spesa</button>
+                    </div>
+                    <div style={{maxHeight:300,overflowY:"auto"}}>
+                      {(modalCostoVoceAg.voce.spese||[]).sort((a,b)=>b.data?.localeCompare(a.data||"")||0).map(s=>(
+                        <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#fff",borderRadius:6,border:"0.5px solid #e8e5e0",marginBottom:4}}>
+                          <span style={{fontSize:12,color:"#aaa",minWidth:78}}>{fmtD(s.data)}</span>
+                          <span style={{fontSize:13,flex:1,color:BRAND.grigio}}>{s.desc||"—"}</span>
+                          <span style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>€ {fmt(s.importo)}</span>
+                          <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1,padding:0,flexShrink:0}}
+                            onClick={()=>{const nuove=[...mieVoci];const idx=modalCostoVoceAg.idx;nuove[idx]={...nuove[idx],spese:nuove[idx].spese.filter(x=>x.id!==s.id)};salvaMieVoci(nuove);setModalCostoVoceAg({...modalCostoVoceAg,voce:nuove[idx]});}}
+                            onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+                        </div>
+                      ))}
+                      {(modalCostoVoceAg.voce.spese||[]).length===0&&<p style={{textAlign:"center",color:"#bbb",fontSize:13,margin:"1rem 0"}}>Nessuna spesa inserita</p>}
+                    </div>
+                    {(modalCostoVoceAg.voce.spese||[]).length>0&&(
+                      <div style={{borderTop:"0.5px solid #eee",paddingTop:12,marginTop:8,display:"flex",justifyContent:"space-between"}}>
+                        <span style={{fontSize:13,color:"#888"}}>{(modalCostoVoceAg.voce.spese||[]).length} spese</span>
+                        <strong style={{fontSize:15,color:"#27AE60"}}>€ {fmt(totSpeseVoceAg(modalCostoVoceAg.voce))}</strong>
+                      </div>
+                    )}
+                    <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}><button style={S.btnP} onClick={()=>setModalCostoVoceAg(null)}>Chiudi</button></div>
+                  </div>
+                </div>)}
+              </div>
+            );
+          })()}
+
           {/* STATISTICHE */}
           {tab==="Statistiche"&&(()=>{
             // ── helpers ──────────────────────────────────────────────────────
@@ -1666,12 +1932,14 @@ export default function App() {
               const pV=Number(v.provvVenditore||0);
               const pA=Number(v.provvAcquirente||0);
               if(pV===0&&pA===0) return false; // escludi provv €0
+              // Agente vede solo le proprie pratiche
+              if(!isBroker&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
               if(statAnno!=="Tutti"&&getAnno(dataRifVend(v))!==statAnno) return false;
               return true;
             });
 
-            // Incarichi acquisiti nell'anno
-            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno));
+            // Incarichi acquisiti nell'anno (filtrati per agente se non broker)
+            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno)&&(isBroker||!myAgentId||i.agenteListing===myAgentId));
 
             // Transazioni: venditore = provvVenditore>0 + NON collaborazione esterna; acquirente = provvAcquirente>0
             const transV = vendStat.filter(v=>Number(v.provvVenditore||0)>0&&!v.agenziaEsterna);
@@ -1761,7 +2029,7 @@ export default function App() {
 
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:8,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem"}}>
-                  {[{v:"generali",l:"Statistiche generali"},{v:"agenti",l:"Report agenti"}].map(o=>(
+                  {[{v:"generali",l:"Statistiche generali"},...(isBroker?[{v:"agenti",l:"Report agenti"}]:[])].map(o=>(
                     <button key={o.v} onClick={()=>setStatSubTab(o.v)} style={{
                       padding:"7px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",
                       borderBottom:`2px solid ${statSubTab===o.v?BRAND.oro:"transparent"}`,
@@ -2356,8 +2624,24 @@ export default function App() {
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem"}}><h2 style={{fontSize:17,fontWeight:500,margin:0}}>{showAgente==="new"?"Nuovo agente":"Modifica agente"}</h2><button onClick={()=>setShowAgente(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>x</button></div>
           <div style={S.g2}><div><label style={S.lbl}>Nome</label><input style={S.inp} value={formAgente.nome||""} onChange={e=>setFormAgente({...formAgente,nome:e.target.value})}/></div><div><label style={S.lbl}>Cognome</label><input style={S.inp} value={formAgente.cognome||""} onChange={e=>setFormAgente({...formAgente,cognome:e.target.value})}/></div></div>
           <div style={S.g2}><div><label style={S.lbl}>Profilo</label><select style={S.inp} value={formAgente.profilo||"Consulente"} onChange={e=>setFormAgente({...formAgente,profilo:e.target.value,percListing:e.target.value==="Broker"?0:formAgente.percListing,percAcquirente:e.target.value==="Broker"?0:formAgente.percAcquirente})}><option>Broker</option><option>Consulente</option><option>Collaboratore</option></select></div><div><label style={S.lbl}>Tipo</label><select style={S.inp} value={formAgente.tipo||"Interno"} onChange={e=>setFormAgente({...formAgente,tipo:e.target.value})}><option>Interno</option><option>Esterno</option></select></div></div>
-          {formAgente.profilo!=="Broker"&&(<div style={S.g2}><div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percListing||""} onChange={e=>setFormAgente({...formAgente,percListing:Number(e.target.value)})}/></div><div><label style={S.lbl}>% Provv. Cliente Acquirente (sul prezzo offerto)</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percAcquirente||""} onChange={e=>setFormAgente({...formAgente,percAcquirente:Number(e.target.value)})}/></div></div>)}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now()}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id}:a));setShowAgente(null);}}>Salva</button></div>
+          {formAgente.profilo!=="Broker"&&(<div style={S.g2}><div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percListing||""} onChange={e=>setFormAgente({...formAgente,percListing:Number(e.target.value)})}/></div><div><label style={S.lbl}>% Provv. Acquirente</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percAcquirente||""} onChange={e=>setFormAgente({...formAgente,percAcquirente:Number(e.target.value)})}/></div></div>)}
+          {/* Accesso al gestionale */}
+          {formAgente.profilo!=="Broker"&&(<>
+            <div style={{borderTop:"0.5px solid #eee",paddingTop:12,marginTop:4,marginBottom:10}}>
+              <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 10px"}}>Accesso al gestionale</p>
+              <div style={S.g2}>
+                <div><label style={S.lbl}>Email di accesso</label><input style={S.inp} type="email" placeholder="es. nome@email.it" value={formAgente.email||""} onChange={e=>setFormAgente({...formAgente,email:e.target.value})}/></div>
+                <div><label style={S.lbl}>Password</label><input style={S.inp} type="text" placeholder="imposta una password" value={formAgente.password||""} onChange={e=>setFormAgente({...formAgente,password:e.target.value})}/></div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+                <input type="checkbox" id="attivoChk" checked={formAgente.attivo!==false} onChange={e=>setFormAgente({...formAgente,attivo:e.target.checked})}/>
+                <label htmlFor="attivoChk" style={{fontSize:13,cursor:"pointer"}}>Accesso attivo</label>
+                {formAgente.attivo===false&&<span style={{fontSize:11,color:"#E74C3C",fontWeight:500}}>⚠ Agente bloccato — non può accedere</span>}
+              </div>
+              {(!formAgente.email||!formAgente.password)&&<p style={{fontSize:11,color:"#aaa",margin:"6px 0 0"}}>Senza email e password l'agente non può accedere al gestionale.</p>}
+            </div>
+          </>)}
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id}:a));setShowAgente(null);}}>Salva</button></div>
         </div>
       </div>)}
 
