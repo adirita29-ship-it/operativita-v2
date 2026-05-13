@@ -52,7 +52,7 @@ const TAB_CONFIG = [
   { id:"Fatture Agenti",icon:"🧾", label:"Fatture Agenti" },
   { id:"Agenti",        icon:"👥", label:"Agenti" },
   { id:"Costi & Break Even", icon:"📉", label:"Costi & Break Even" },
-  { id:"Statistiche",   icon:"📈", label:"Statistiche & Prestazioni" },
+  { id:"Statistiche",       icon:"📈", label:"Statistiche" },
   { id:"Impostazioni",  icon:"⚙️", label:"Impostazioni" },
 ];
 const fmt  = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -451,6 +451,8 @@ export default function App() {
   const [schedaIncarico,setSchedaIncarico]=useState(null);
   const [pagamentiFatture,setPagamentiFatture]=useState(_ls?.pagamentiFatture||{});
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
+  const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
+  const [statSubTab,setStatSubTab]=useState("generali");
   const importRef=useRef();
   const [showMobileMenu,setShowMobileMenu]=useState(false);
 
@@ -472,6 +474,7 @@ export default function App() {
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
+        if(data.provvStandard) setProvvStandard(data.provvStandard);
       }
       setDbLoaded(true);
     });
@@ -480,14 +483,14 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,provvStandard};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
       salvaDB(payload).finally(()=>setDbSaving(false));
     },1500); // debounce 1.5s per non sovraccaricare
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,provvStandard,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -497,11 +500,11 @@ export default function App() {
 
   const anniInc=useMemo(()=>Array.from(new Set(incarichi.map(i=>getAnno(i.dataInizio)).filter(Boolean))).sort().reverse(),[incarichi]);
   const anniProp=useMemo(()=>Array.from(new Set(proposte.map(p=>getAnno(p.dataStato)).filter(Boolean))).sort().reverse(),[proposte]);
-  const anniVend=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti]);
+  const anniVend=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti]);
   const mesiInc=useMemo(()=>Array.from(new Set(incarichi.filter(i=>fIncAnno==="Tutti"||getAnno(i.dataInizio)===fIncAnno).map(i=>getMese(i.dataInizio)).filter(Boolean))).sort().reverse(),[incarichi,fIncAnno]);
   const mesiProp=useMemo(()=>Array.from(new Set(proposte.filter(p=>fPropAnno==="Tutti"||getAnno(p.dataStato)===fPropAnno).map(p=>getMese(p.dataStato)).filter(Boolean))).sort().reverse(),[proposte,fPropAnno]);
-  const mesiFat=useMemo(()=>Array.from(new Set(venduti.filter(v=>fatAnno==="Tutti"||getAnno(v.dataAtto||"")===fatAnno).map(v=>getMese(v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,fatAnno]);
-  const mesiReport=useMemo(()=>Array.from(new Set(venduti.filter(v=>reportAnno==="Tutti"||getAnno(v.dataAtto||"")===reportAnno).map(v=>getMese(v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,reportAnno]);
+  const mesiFat=useMemo(()=>Array.from(new Set(venduti.filter(v=>fatAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===fatAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,fatAnno]);
+  const mesiReport=useMemo(()=>Array.from(new Set(venduti.filter(v=>reportAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===reportAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,reportAnno]);
 
   const incFiltrati=useMemo(()=>incarichi.filter(i=>{
     if(i.archiviato&&!mostraArchiviati) return false;
@@ -534,7 +537,7 @@ export default function App() {
     if(v.categoria!==subVend) return false;
     const stato=calcolaStatoIncasso(v);
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
-    if(fVendAnno!=="Tutti"&&getAnno(v.dataAtto||"")!==fVendAnno) return false;
+    if(fVendAnno!=="Tutti"&&getAnno(v.dataVendita||v.dataAtto||"")!==fVendAnno) return false;
     if(fVendAg!=="Tutti"&&Number(v.agenteListing)!==Number(fVendAg)&&Number(v.agenteAcquirente)!==Number(fVendAg)) return false;
     return true;
   }),[venduti,subVend,fVendStato,fVendAnno,fVendAg]);
@@ -548,13 +551,12 @@ export default function App() {
   const dashVend=useMemo(()=>venduti.filter(v=>{
     if(v.categoria!=="vendita") return false;
     if(dashAnno==="Tutti") return true;
-    // Usa dataAtto se disponibile, altrimenti dataVendita
-    const dataRif=v.dataAtto||v.dataVendita||"";
+    const dataRif=v.dataVendita||v.dataAtto||"";
     return getAnno(dataRif)===dashAnno;
   }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{
-    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataAtto||v.dataVendita||"");
+    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataVendita||v.dataAtto||"");
     if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
     if(reportMese!=="Tutti"&&getMese(dataRif)!==reportMese)return false;
     return true;
@@ -622,8 +624,8 @@ export default function App() {
       const stato=calcolaStatoIncasso(v);
       // Filtra per stato incasso se selezionato
       if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
-      // Usa dataCompetenzaAgente se presente, altrimenti dataAtto
-      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataAtto||v.dataVendita||"");
+      // Usa dataCompetenzaAgente se presente, altrimenti dataVendita
+      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataVendita||v.dataAtto||"");
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
       if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
@@ -1410,8 +1412,8 @@ export default function App() {
               const totPrevAnnuo = vociAnno.reduce((s,v)=>s+prevAnnuoVoce(v),0);
               const totPrevMensile = totPrevAnnuo/12;
 
-              // Venduti dell'anno selezionato
-              const vendAnno = venduti.filter(v=>getAnno(v.dataAtto||v.dataVendita||"")===costiAnno);
+              // Venduti dell'anno selezionato (per data vendita)
+              const vendAnno = venduti.filter(v=>getAnno(v.dataVendita||v.dataAtto||"")===costiAnno);
 
               // Fatturato lordo (tutto incassato)
               const fatturatoLordo = vendAnno.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
@@ -1593,186 +1595,327 @@ export default function App() {
             </div>
           </div>)}
 
-          {/* STATISTICHE & PRESTAZIONI */}
+          {/* STATISTICHE */}
           {tab==="Statistiche"&&(()=>{
-            const annoStat = annoCorrente;
-            // --- Dati base ---
-            const tuttiAnni = Array.from(new Set([
-              ...incarichi.map(i=>getAnno(i.dataInizio)),
-              ...venduti.map(v=>getAnno(v.dataAtto||v.dataVendita||"")),
-            ].filter(Boolean))).sort();
+            // ── helpers ──────────────────────────────────────────────────────
+            // Data di riferimento per le statistiche = dataVendita (quando la proposta è accettata)
+            const dataRifVend = v => v.dataVendita||v.dataAtto||"";
 
-            // Fatturato mensile anno corrente
-            const fatMensile = MESI_KEYS.map((mm,idx)=>{
-              const mesePeriodo = `${annoStat}-${mm}`;
-              const tot = venduti.filter(v=>getMese(v.dataAtto||v.dataVendita||"")===mesePeriodo&&v.categoria==="vendita")
-                .reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-              const incassato = venduti.filter(v=>getMese(v.dataAtto||v.dataVendita||"")===mesePeriodo&&v.categoria==="vendita")
-                .reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
-              return {mese:mesiNomi[idx].substring(0,3), meseKey:mesePeriodo, fatturato:tot, incassato};
+            // Calcola provvigione standard per un lato (venditore o acquirente)
+            const provvStd = (prezzo, lato) => {
+              const p = Number(prezzo||0);
+              if(p<=0) return 0;
+              const perc = lato==="V" ? Number(provvStandard.percVend||3)/100 : Number(provvStandard.percAcq||4)/100;
+              const minimo = p < Number(provvStandard.soglia||120000)
+                ? (lato==="V" ? Number(provvStandard.minVend||3500) : Number(provvStandard.minAcq||4000))
+                : 0;
+              return Math.max(p*perc, minimo);
+            };
+
+            // Calcola sconto su un venduto (differenza standard - reale, solo se provv > 0)
+            const calcolaSconto = v => {
+              const pV=Number(v.provvVenditore||0);
+              const pA=Number(v.provvAcquirente||0);
+              const prezzoV=Number(v.prezzoVendita||0);
+              // transazione venditore: conta solo se provvVenditore > 0 e NON è collaborazione esterna
+              const isTransV = pV>0 && !v.agenziaEsterna;
+              // transazione acquirente: conta solo se provvAcquirente > 0
+              const isTransA = pA>0;
+              const stdV = isTransV ? provvStd(prezzoV,"V") : 0;
+              const stdA = isTransA ? provvStd(prezzoV,"A") : 0;
+              return {
+                scontoV: isTransV ? Math.max(0, stdV-pV) : 0,
+                scontoA: isTransA ? Math.max(0, stdA-pA) : 0,
+                stdV, stdA, isTransV, isTransA,
+                prezzoV, pV, pA,
+              };
+            };
+
+            // Anno/anni disponibili basati su dataVendita
+            const anniStat = Array.from(new Set(venduti.filter(v=>v.categoria==="vendita").map(v=>getAnno(dataRifVend(v))).filter(Boolean))).sort().reverse();
+            const anniIncStat = Array.from(new Set(incarichi.filter(i=>i.categoria==="vendita").map(i=>getAnno(i.dataInizio)).filter(Boolean))).sort().reverse();
+            const tuttiAnni = Array.from(new Set([...anniStat,...anniIncStat,annoCorrente])).sort().reverse();
+
+            const [statAnno, setStatAnno] = React.useState(annoCorrente);
+
+            // Vendite filtrate per anno (provv > 0 su almeno un lato, categoria vendita)
+            const vendStat = venduti.filter(v=>{
+              if(v.categoria!=="vendita") return false;
+              const pV=Number(v.provvVenditore||0);
+              const pA=Number(v.provvAcquirente||0);
+              if(pV===0&&pA===0) return false; // escludi provv €0
+              if(statAnno!=="Tutti"&&getAnno(dataRifVend(v))!==statAnno) return false;
+              return true;
             });
-            const maxFat = Math.max(...fatMensile.map(m=>m.fatturato),1);
 
-            // Tasso conversione proposte → vendita
-            const totProposte = proposte.filter(p=>p.categoria==="vendita").length;
-            const propAccettate = proposte.filter(p=>p.categoria==="vendita"&&["Accettata"].includes(p.stato)).length;
-            const propRifiutate = proposte.filter(p=>p.categoria==="vendita"&&["Rifiutata","Mancata Chiusura"].includes(p.stato)).length;
-            const propAttesa = proposte.filter(p=>p.categoria==="vendita"&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length;
-            const propVincolate = proposte.filter(p=>p.categoria==="vendita"&&p.stato==="Accettata con Vincolo").length;
-            const tassoConversione = totProposte>0?(propAccettate/totProposte*100).toFixed(1):0;
+            // Incarichi acquisiti nell'anno
+            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno));
 
-            // Incarichi per fonte
+            // Transazioni: venditore = provvVenditore>0 + NON collaborazione esterna; acquirente = provvAcquirente>0
+            const transV = vendStat.filter(v=>Number(v.provvVenditore||0)>0&&!v.agenziaEsterna);
+            const transA = vendStat.filter(v=>Number(v.provvAcquirente||0)>0);
+            const nTransV = transV.length;
+            const nTransA = transA.length;
+            const nTransTot = nTransV + nTransA;
+
+            // Valore medio transazione venditore (provvigione media lato V)
+            const valMedioV = nTransV>0 ? transV.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/nTransV : 0;
+            // Valore medio transazione acquirente
+            const valMedioA = nTransA>0 ? transA.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/nTransA : 0;
+
+            // % media sul prezzo (solo transazioni con prezzo > 0)
+            const percMedioV = transV.filter(v=>v.prezzoVendita>0).length>0
+              ? transV.filter(v=>v.prezzoVendita>0).reduce((s,v)=>s+Number(v.provvVenditore||0)/Number(v.prezzoVendita)*100,0)/transV.filter(v=>v.prezzoVendita>0).length : 0;
+            const percMedioA = transA.filter(v=>v.prezzoVendita>0).length>0
+              ? transA.filter(v=>v.prezzoVendita>0).reduce((s,v)=>s+Number(v.provvAcquirente||0)/Number(v.prezzoVendita)*100,0)/transA.filter(v=>v.prezzoVendita>0).length : 0;
+
+            // Prezzo medio immobile (solo vendite con prezzo > 0)
+            const vendConPrezzo = vendStat.filter(v=>Number(v.prezzoVendita||0)>0);
+            const prezzoMedio = vendConPrezzo.length>0 ? vendConPrezzo.reduce((s,v)=>s+Number(v.prezzoVendita||0),0)/vendConPrezzo.length : 0;
+
+            // Sconto totale aggregato
+            const scontiAgg = vendStat.reduce((s,v)=>{const sc=calcolaSconto(v);return{scontoV:s.scontoV+sc.scontoV,scontoA:s.scontoA+sc.scontoA};},{scontoV:0,scontoA:0});
+            const scontoTot = scontiAgg.scontoV+scontiAgg.scontoA;
+
+            // Distribuzione per fonte (incarichi)
             const perFonte = {};
-            incarichi.filter(i=>i.categoria==="vendita").forEach(i=>{const f=i.fonte||"N/D"; perFonte[f]=(perFonte[f]||0)+1;});
+            incStat.forEach(i=>{const f=i.fonte||"N/D";perFonte[f]=(perFonte[f]||0)+1;});
             const fontiOrd = Object.entries(perFonte).sort((a,b)=>b[1]-a[1]);
             const maxFonte = Math.max(...fontiOrd.map(f=>f[1]),1);
 
-            // Incarichi per tipologia
-            const perTipologia = {};
-            incarichi.filter(i=>i.categoria==="vendita").forEach(i=>{const t=i.tipologia||"Altro"; perTipologia[t]=(perTipologia[t]||0)+1;});
-            const tipologieOrd = Object.entries(perTipologia).sort((a,b)=>b[1]-a[1]);
-            const maxTip = Math.max(...tipologieOrd.map(t=>t[1]),1);
+            // Distribuzione per tipologia (vendite)
+            const perTip = {};
+            vendStat.forEach(v=>{const t=v.tipologia||"Altro";perTip[t]=(perTip[t]||0)+1;});
+            const tipOrd = Object.entries(perTip).sort((a,b)=>b[1]-a[1]);
+            const maxTip = Math.max(...tipOrd.map(t=>t[1]),1);
 
-            // Prezzo medio venduto
-            const vendVendita = venduti.filter(v=>v.categoria==="vendita");
-            const prezzoMedioVend = vendVendita.length>0 ? vendVendita.reduce((s,v)=>s+Number(v.prezzoVendita||0),0)/vendVendita.length : 0;
-            const provvMediaVend = vendVendita.length>0 ? vendVendita.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0)/vendVendita.length : 0;
-
-            // Tempi medi incarico → vendita
-            const tempi = venduti.filter(v=>v.categoria==="vendita"&&v.dataVendita).map(v=>{
-              const inc = incarichi.find(i=>i.id===v.incaricoId) || archiviati.find(i=>i.id===v.incaricoId);
-              if(!inc||!inc.dataInizio) return null;
-              return diffGiorni(inc.dataInizio, v.dataVendita);
-            }).filter(t=>t!==null&&t>0);
-            const tempoMedio = tempi.length>0 ? Math.round(tempi.reduce((s,t)=>s+t,0)/tempi.length) : null;
-
-            // Performance agenti
-            const agentiPerf = agenti.map(ag=>{
-              const pratiche = venduti.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
-              const incAcq = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===ag.id).length;
-              const fatturato = pratiche.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-              const quota = pratiche.reduce((s,v)=>s+calcolaQuotaAgente(v,ag.id),0);
-              const incassatoAg = pratiche.reduce((s,v)=>{
+            // ── REPORT AGENTI ────────────────────────────────────────────────
+            const agentiReport = agenti.map(ag=>{
+              // Vendite dove l'agente è LISTING o ACQUIRENTE (non solo buyer)
+              const vendAg = vendStat.filter(v=>{
+                const isListing = v.agenteListing===ag.id && Number(v.provvVenditore||0)>0 && !v.agenziaEsterna;
+                const isAcq = v.agenteAcquirente===ag.id && Number(v.provvAcquirente||0)>0;
+                return isListing||isAcq;
+              });
+              const nTV = vendAg.filter(v=>v.agenteListing===ag.id&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
+              const nTA = vendAg.filter(v=>v.agenteAcquirente===ag.id&&Number(v.provvAcquirente||0)>0).length;
+              const prezziAg = vendAg.filter(v=>Number(v.prezzoVendita||0)>0).map(v=>Number(v.prezzoVendita||0));
+              const prezzoMedioAg = prezziAg.length>0?prezziAg.reduce((s,p)=>s+p,0)/prezziAg.length:0;
+              // Sconto agente: somma sconti su pratiche dove è listing o acquirente
+              const scontoAg = vendAg.reduce((s,v)=>{
+                const sc=calcolaSconto(v);
+                let tot=0;
+                if(v.agenteListing===ag.id&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna) tot+=sc.scontoV;
+                if(v.agenteAcquirente===ag.id&&Number(v.provvAcquirente||0)>0) tot+=sc.scontoA;
+                return s+tot;
+              },0);
+              // Quota agente (solo Listing/Acquirente, non Buyer)
+              const quotaAg = vendAg.reduce((s,v)=>{
                 let q=0;
-                const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
-                const provvV=Number(v.provvVenditore||0); const provvA=Number(v.provvAcquirente||0);
-                if(v.agenteListing===ag.id&&provvV>0) q+=incV*(Number(v.percListing||0)/100);
-                if(v.agenteAcquirente===ag.id&&provvA>0) q+=incA*(Number(v.percAcquirente||0)/100);
-                if(v.buyerListing===ag.id&&v.agenteListing!==ag.id&&provvV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
-                if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id&&provvA>0) q+=incA*(Number(v.percBuyer||0)/100);
+                if(v.agenteListing===ag.id) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(v.agenteAcquirente===ag.id) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
                 return s+q;
               },0);
-              return {ag, pratiche:pratiche.length, incAcq, fatturato, quota, incassatoAg};
-            }).sort((a,b)=>b.fatturato-a.fatturato);
-            const maxFatAg = Math.max(...agentiPerf.map(a=>a.fatturato),1);
+              return {ag, nTV, nTA, nTot:nTV+nTA, prezzoMedioAg, scontoAg, quotaAg, nPratiche:vendAg.length};
+            });
 
-            // KPI totali
-            const totFatturato = vendVendita.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-            const totIncassato = vendVendita.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
-            const incAttivi = incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)==="Attivo").length;
-
-            const colori=["#C9A96E","#4A90D9","#27AE60","#8E44AD","#E67E22","#E74C3C","#1ABC9C","#F39C12"];
+            const COLORI=["#C9A96E","#4A90D9","#27AE60","#8E44AD","#E67E22","#E74C3C","#1ABC9C","#F39C12"];
             const sCard={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
-            const sKpi={fontSize:26,fontWeight:700,margin:"4px 0 0",lineHeight:1.1};
-            const sLbl={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:0};
+            const sLbl={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 2px"};
 
             return(
               <div style={S.sec}>
-                <div style={{marginBottom:"1.25rem"}}>
-                  <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>📈 Statistiche & Prestazioni</h2>
-                  <p style={{fontSize:12,color:"#aaa",margin:0}}>Analisi complessiva — tutti gli anni disponibili</p>
+                {/* Header + filtro anno */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>📈 Statistiche & Prestazioni</h2>
+                    <p style={{fontSize:11,color:"#aaa",margin:0}}>Data riferimento: data accettazione proposta (non data atto) · Escluse provv. €0</p>
+                  </div>
+                  <select style={S.sel} value={statAnno} onChange={e=>setStatAnno(e.target.value)}>
+                    <option value="Tutti">Tutti gli anni</option>
+                    {tuttiAnni.map(a=><option key={a}>{a}</option>)}
+                  </select>
                 </div>
 
-                {/* KPI principali */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  {[
-                    {l:"Fatturato totale",v:`€ ${fmt(totFatturato)}`,c:"#27AE60",sub:`Incassato: € ${fmt(totIncassato)}`},
-                    {l:"Vendite concluse",v:vendVendita.length,c:BRAND.oroD,sub:`Prezzo medio: € ${fmtN(prezzoMedioVend)}`},
-                    {l:"Tasso conversione",v:`${tassoConversione}%`,c:"#4A90D9",sub:`${propAccettate} acc. / ${totProposte} proposte`},
-                    {l:"Incarichi attivi",v:incAttivi,c:"#E67E22",sub:tempoMedio?`Tempo medio: ${tempoMedio} gg`:"Tempo medio: n/d"},
-                  ].map(({l,v,c,sub})=>(
-                    <div key={l} style={{...sCard,borderTop:`3px solid ${c}`}}>
-                      <p style={sLbl}>{l}</p>
-                      <p style={{...sKpi,color:c}}>{v}</p>
-                      {sub&&<p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{sub}</p>}
-                    </div>
+                {/* Sotto-tab */}
+                <div style={{display:"flex",gap:8,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem"}}>
+                  {[{v:"generali",l:"Statistiche generali"},{v:"agenti",l:"Report agenti"}].map(o=>(
+                    <button key={o.v} onClick={()=>setStatSubTab(o.v)} style={{
+                      padding:"7px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",
+                      borderBottom:`2px solid ${statSubTab===o.v?BRAND.oro:"transparent"}`,
+                      color:statSubTab===o.v?BRAND.oroD:BRAND.grigio,fontWeight:statSubTab===o.v?600:400,
+                      fontFamily:"inherit",transition:"all 0.15s"
+                    }}>{o.l}</button>
                   ))}
                 </div>
 
-                {/* Grafico fatturato mensile + Proposte */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                {/* ── STATISTICHE GENERALI ── */}
+                {statSubTab==="generali"&&(<>
 
-                  {/* Fatturato mensile anno corrente */}
-                  <div style={sCard}>
-                    <p style={{...sLbl,marginBottom:12}}>Fatturato mensile {annoStat}</p>
-                    <div style={{display:"flex",alignItems:"flex-end",gap:4,height:110}}>
-                      {fatMensile.map(m=>{
-                        const h=m.fatturato>0?Math.max(8,Math.round(m.fatturato/maxFat*90)):0;
-                        const hI=m.incassato>0?Math.max(4,Math.round(m.incassato/maxFat*90)):0;
+                  {/* Sezione TRANSAZIONI */}
+                  <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Transazioni</p>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                    {/* Transazioni totali */}
+                    <div style={{...sCard,borderTop:`3px solid ${BRAND.oroD}`}}>
+                      <p style={sLbl}>Transazioni totali</p>
+                      <p style={{fontSize:32,fontWeight:700,color:BRAND.oroD,margin:"4px 0 2px"}}>{nTransTot}</p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>
+                        <span style={{color:"#2980B9",fontWeight:500}}>{nTransV} venditore</span>
+                        {" · "}
+                        <span style={{color:"#8E44AD",fontWeight:500}}>{nTransA} acquirente</span>
+                      </p>
+                    </div>
+                    {/* Valore medio trans Venditore */}
+                    <div style={{...sCard,borderTop:"3px solid #2980B9"}}>
+                      <p style={sLbl}>Valore medio trans. Venditore</p>
+                      <p style={{fontSize:22,fontWeight:700,color:"#2980B9",margin:"4px 0 2px"}}>€ {fmt(valMedioV)}</p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>{percMedioV>0?`${percMedioV.toFixed(2)}% sul prezzo`:"—"}</p>
+                    </div>
+                    {/* Valore medio trans Acquirente */}
+                    <div style={{...sCard,borderTop:"3px solid #8E44AD"}}>
+                      <p style={sLbl}>Valore medio trans. Acquirente</p>
+                      <p style={{fontSize:22,fontWeight:700,color:"#8E44AD",margin:"4px 0 2px"}}>€ {fmt(valMedioA)}</p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>{percMedioA>0?`${percMedioA.toFixed(2)}% sul prezzo`:"—"}</p>
+                    </div>
+                    {/* Incarichi acquisiti */}
+                    <div style={{...sCard,borderTop:"3px solid #27AE60"}}>
+                      <p style={sLbl}>Incarichi acquisiti</p>
+                      <p style={{fontSize:32,fontWeight:700,color:"#27AE60",margin:"4px 0 2px"}}>{incStat.length}</p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>vendite{statAnno!=="Tutti"?` nel ${statAnno}`:""}</p>
+                    </div>
+                  </div>
+
+                  {/* Sezione IMMOBILI */}
+                  <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Immobili</p>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                    <div style={{...sCard,borderTop:"3px solid #E67E22"}}>
+                      <p style={sLbl}>Prezzo medio compravendita</p>
+                      <p style={{fontSize:22,fontWeight:700,color:"#E67E22",margin:"4px 0 2px"}}>€ {fmtN(prezzoMedio)}</p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>{vendConPrezzo.length} immobili trattati</p>
+                    </div>
+                    <div style={{...sCard,borderTop:"3px solid #E74C3C"}}>
+                      <p style={sLbl}>Sconto totale applicato</p>
+                      <p style={{fontSize:22,fontWeight:700,color:"#E74C3C",margin:"4px 0 2px"}}>€ {fmt(scontoTot)}</p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>
+                        V: € {fmt(scontiAgg.scontoV)} · A: € {fmt(scontiAgg.scontoA)}
+                      </p>
+                    </div>
+                    <div style={{...sCard,borderTop:"3px solid #1ABC9C"}}>
+                      <p style={sLbl}>Fatturato lordo</p>
+                      <p style={{fontSize:22,fontWeight:700,color:"#1ABC9C",margin:"4px 0 2px"}}>
+                        € {fmt(vendStat.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0))}
+                      </p>
+                      <p style={{fontSize:11,color:"#888",margin:0}}>provv. V + A su {vendStat.length} vendite</p>
+                    </div>
+                  </div>
+
+                  {/* Dettaglio sconto per vendita */}
+                  {vendStat.some(v=>{const sc=calcolaSconto(v);return sc.scontoV>0||sc.scontoA>0;})&&(
+                    <div style={{...sCard,marginBottom:"1.25rem"}}>
+                      <p style={{...sLbl,marginBottom:12}}>Dettaglio sconti per vendita</p>
+                      <div style={{overflowX:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:560}}>
+                          <thead>
+                            <tr style={{background:"#fafaf8"}}>
+                              {["Data","Immobile","Prezzo","Provv.V reale","Provv.V std","Sconto V","Provv.A reale","Provv.A std","Sconto A","Tot. sconto"].map(h=>(
+                                <th key={h} style={{padding:"7px 10px",borderBottom:"0.5px solid #eee",color:"#888",fontWeight:500,fontSize:11,textAlign:"right",whiteSpace:"nowrap",":first-child":{textAlign:"left"}}}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {vendStat.map(v=>{
+                              const sc=calcolaSconto(v);
+                              const scTot=sc.scontoV+sc.scontoA;
+                              if(!sc.isTransV&&!sc.isTransA) return null;
+                              return(
+                                <tr key={v.id} style={{background:scTot>0?"#FEF9E7":"#fff"}}>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",color:"#888",whiteSpace:"nowrap"}}>{fmtD(dataRifVend(v))}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",fontWeight:500}}>{v.comuneImmobile} — {v.indirizzoImmobile}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right"}}>€ {fmtN(sc.prezzoV)}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#2980B9"}}>{sc.isTransV?`€ ${fmt(sc.pV)}`:"—"}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#aaa"}}>{sc.isTransV?`€ ${fmt(sc.stdV)}`:"—"}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:600,color:sc.scontoV>0?"#E74C3C":"#27AE60"}}>{sc.isTransV?(sc.scontoV>0?`-€ ${fmt(sc.scontoV)}`:"✓"):"—"}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#8E44AD"}}>{sc.isTransA?`€ ${fmt(sc.pA)}`:"—"}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#aaa"}}>{sc.isTransA?`€ ${fmt(sc.stdA)}`:"—"}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:600,color:sc.scontoA>0?"#E74C3C":"#27AE60"}}>{sc.isTransA?(sc.scontoA>0?`-€ ${fmt(sc.scontoA)}`:"✓"):"—"}</td>
+                                  <td style={{padding:"7px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:700,color:scTot>0?"#E74C3C":"#27AE60"}}>{scTot>0?`-€ ${fmt(scTot)}`:"✓"}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{background:BRAND.beige,fontWeight:600}}>
+                              <td colSpan={5} style={{padding:"8px 10px",fontSize:12}}>Totale sconti</td>
+                              <td style={{padding:"8px 10px",textAlign:"right",color:"#E74C3C"}}>-€ {fmt(scontiAgg.scontoV)}</td>
+                              <td colSpan={2} style={{padding:"8px 10px"}}/>
+                              <td style={{padding:"8px 10px",textAlign:"right",color:"#E74C3C"}}>-€ {fmt(scontiAgg.scontoA)}</td>
+                              <td style={{padding:"8px 10px",textAlign:"right",color:"#E74C3C"}}>-€ {fmt(scontoTot)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fonti + Tipologie */}
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                    <div style={sCard}>
+                      <p style={{...sLbl,marginBottom:12}}>Incarichi per fonte</p>
+                      {fontiOrd.length===0&&<p style={{color:"#bbb",fontSize:13,margin:0}}>Nessun dato</p>}
+                      {fontiOrd.map(([f,cnt],i)=>{
+                        const perc=cnt/maxFonte*100;
                         return(
-                          <div key={m.mese} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                            <div style={{width:"100%",display:"flex",flexDirection:"column",justifyContent:"flex-end",height:90,gap:1}}>
-                              {m.fatturato>0&&<div title={`Fatturato: € ${fmt(m.fatturato)}`} style={{width:"100%",height:h,background:`${BRAND.oro}55`,borderRadius:"3px 3px 0 0",position:"relative"}}>
-                                {hI>0&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:hI,background:BRAND.oro,borderRadius:"3px 3px 0 0"}}/>}
-                              </div>}
-                              {m.fatturato===0&&<div style={{width:"100%",height:2,background:"#f0f0f0",borderRadius:2,marginBottom:0}}/>}
+                          <div key={f} style={{marginBottom:9}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                              <span style={{color:"#555"}}>{f}</span>
+                              <span style={{fontWeight:500,color:COLORI[i%COLORI.length]}}>{cnt}</span>
                             </div>
-                            <span style={{fontSize:9,color:"#aaa",lineHeight:1}}>{m.mese}</span>
+                            <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${perc}%`,background:COLORI[i%COLORI.length],borderRadius:4}}/>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
-                    <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:"#888"}}>
-                      <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:`${BRAND.oro}55`,display:"inline-block"}}/> Fatturato</span>
-                      <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:BRAND.oro,display:"inline-block"}}/> Incassato</span>
+                    <div style={sCard}>
+                      <p style={{...sLbl,marginBottom:12}}>Vendite per tipologia immobile</p>
+                      {tipOrd.length===0&&<p style={{color:"#bbb",fontSize:13,margin:0}}>Nessun dato</p>}
+                      {tipOrd.map(([t,cnt],i)=>{
+                        const perc=cnt/maxTip*100;
+                        return(
+                          <div key={t} style={{marginBottom:9}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                              <span style={{color:"#555"}}>{t}</span>
+                              <span style={{fontWeight:500,color:COLORI[i%COLORI.length]}}>{cnt}</span>
+                            </div>
+                            <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${perc}%`,background:COLORI[i%COLORI.length],borderRadius:4}}/>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
+                </>)}
 
-                  {/* Stato proposte */}
-                  <div style={sCard}>
-                    <p style={{...sLbl,marginBottom:12}}>Stato proposte (vendite)</p>
-                    {[
-                      {l:"Accettate",v:propAccettate,c:"#27AE60",tot:totProposte},
-                      {l:"In attesa / Trattativa",v:propAttesa,c:"#4A90D9",tot:totProposte},
-                      {l:"Vincolate",v:propVincolate,c:"#D4AC0D",tot:totProposte},
-                      {l:"Rifiutate / Non concluse",v:propRifiutate,c:"#E74C3C",tot:totProposte},
-                    ].map(({l,v,c,tot})=>{
-                      const perc=tot>0?(v/tot*100):0;
-                      return(
-                        <div key={l} style={{marginBottom:10}}>
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
-                            <span style={{color:"#555"}}>{l}</span>
-                            <span style={{fontWeight:500,color:c}}>{v} <span style={{color:"#aaa",fontWeight:400}}>({perc.toFixed(0)}%)</span></span>
-                          </div>
-                          <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${perc}%`,background:c,borderRadius:4,transition:"width 0.4s"}}/>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div style={{borderTop:"0.5px solid #eee",paddingTop:8,marginTop:4,fontSize:12,color:"#aaa",display:"flex",justifyContent:"space-between"}}>
-                      <span>Totale proposte</span><span style={{fontWeight:500,color:BRAND.grigio}}>{totProposte}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Performance agenti */}
-                <div style={{...sCard,marginBottom:"1.25rem"}}>
-                  <p style={{...sLbl,marginBottom:14}}>Performance agenti</p>
-                  <div style={{overflowX:"auto"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:560}}>
-                      <thead>
-                        <tr style={{background:"#fafaf8"}}>
-                          {["Agente","Profilo","Incarichi","Pratiche","Fatturato agenzia","Quota agente","% sul fatturato"].map(h=>(
-                            <th key={h} style={{padding:"8px 10px",borderBottom:"0.5px solid #eee",color:"#888",fontWeight:500,fontSize:11,textAlign:h==="Agente"||h==="Profilo"?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {agentiPerf.map(({ag,pratiche,incAcq,fatturato,quota},idx)=>{
-                          const pBar=fatturato>0?fatturato/maxFatAg*100:0;
-                          const percQuota=fatturato>0?(quota/fatturato*100).toFixed(1):0;
-                          return(
+                {/* ── REPORT AGENTI ── */}
+                {statSubTab==="agenti"&&(<>
+                  <div style={{...sCard,marginBottom:"1.25rem"}}>
+                    <p style={{...sLbl,marginBottom:14}}>Performance agenti — transazioni, medie e sconti</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"0 0 14px"}}>
+                      Contano solo le pratiche dove l'agente è Listing (lato V) o Acquirente (lato A) con provvigione &gt; 0
+                    </p>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:620}}>
+                        <thead>
+                          <tr style={{background:"#fafaf8"}}>
+                            {["Agente","Profilo","Trans. V","Trans. A","Tot. Trans.","Prezzo medio immobile","Quota agente","Sconto applicato"].map(h=>(
+                              <th key={h} style={{padding:"9px 10px",borderBottom:"0.5px solid #eee",color:"#888",fontWeight:500,fontSize:11,textAlign:h==="Agente"||h==="Profilo"?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {agentiReport.map(({ag,nTV,nTA,nTot,prezzoMedioAg,scontoAg,quotaAg,nPratiche},idx)=>(
                             <tr key={ag.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
                               <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1781,110 +1924,110 @@ export default function App() {
                                 </div>
                               </td>
                               <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5"}}>
-                                <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:ag.profilo==="Broker"?`${BRAND.oro}22`:"#EAF4FB",color:ag.profilo==="Broker"?BRAND.oroD:"#2980B9",fontWeight:500}}>{ag.profilo}</span>
+                                <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:ag.profilo==="Broker"?`${BRAND.oro}22`:ag.profilo==="Consulente"?"#EAF4FB":"#F0F0F0",color:ag.profilo==="Broker"?BRAND.oroD:ag.profilo==="Consulente"?"#2980B9":"#666",fontWeight:500}}>{ag.profilo}</span>
                               </td>
-                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#555"}}>{incAcq}</td>
-                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#555"}}>{pratiche}</td>
                               <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right"}}>
-                                <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"flex-end"}}>
-                                  <div style={{width:60,height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
-                                    <div style={{height:"100%",width:`${pBar}%`,background:colori[idx%colori.length],borderRadius:3}}/>
-                                  </div>
-                                  <span style={{fontWeight:500,color:BRAND.grigio,minWidth:70,textAlign:"right"}}>€ {fmt(fatturato)}</span>
-                                </div>
+                                <span style={{fontWeight:600,color:"#2980B9"}}>{nTV}</span>
                               </td>
-                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:"#8E44AD"}}>
-                                {quota>0?`€ ${fmt(quota)}`:"—"}
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right"}}>
+                                <span style={{fontWeight:600,color:"#8E44AD"}}>{nTA}</span>
                               </td>
-                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontSize:12,color:quota>0?"#8E44AD":"#ccc"}}>
-                                {quota>0?`${percQuota}%`:"—"}
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right"}}>
+                                <span style={{fontWeight:700,color:BRAND.oroD}}>{nTot}</span>
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right"}}>
+                                {prezzoMedioAg>0?`€ ${fmtN(prezzoMedioAg)}`:"—"}
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:"#27AE60"}}>
+                                {quotaAg>0?`€ ${fmt(quotaAg)}`:"—"}
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:600,color:scontoAg>0?"#E74C3C":"#aaa"}}>
+                                {scontoAg>0?`-€ ${fmt(scontoAg)}`:"✓"}
                               </td>
                             </tr>
-                          );
-                        })}
-                        {agentiPerf.length===0&&<tr><td colSpan={7} style={{padding:"1.5rem",textAlign:"center",color:"#bbb"}}>Nessun dato disponibile</td></tr>}
-                      </tbody>
-                      {agentiPerf.some(a=>a.fatturato>0)&&(
-                        <tfoot>
-                          <tr style={{background:BRAND.beige,fontWeight:500,fontSize:13}}>
-                            <td colSpan={4} style={{padding:"9px 10px",color:BRAND.grigio}}>TOTALE</td>
-                            <td style={{padding:"9px 10px",textAlign:"right",color:BRAND.oroD}}>€ {fmt(agentiPerf.reduce((s,a)=>s+a.fatturato,0))}</td>
-                            <td style={{padding:"9px 10px",textAlign:"right",color:"#8E44AD"}}>€ {fmt(agentiPerf.reduce((s,a)=>s+a.quota,0))}</td>
-                            <td style={{padding:"9px 10px"}}/>
-                          </tr>
-                        </tfoot>
-                      )}
-                    </table>
+                          ))}
+                          {agentiReport.length===0&&<tr><td colSpan={8} style={{padding:"2rem",textAlign:"center",color:"#bbb"}}>Nessun dato per l'anno selezionato</td></tr>}
+                        </tbody>
+                        {agentiReport.some(a=>a.nTot>0)&&(
+                          <tfoot>
+                            <tr style={{background:BRAND.beige,fontWeight:600,fontSize:13}}>
+                              <td colSpan={2} style={{padding:"9px 10px",color:BRAND.grigio}}>TOTALE</td>
+                              <td style={{padding:"9px 10px",textAlign:"right",color:"#2980B9"}}>{agentiReport.reduce((s,a)=>s+a.nTV,0)}</td>
+                              <td style={{padding:"9px 10px",textAlign:"right",color:"#8E44AD"}}>{agentiReport.reduce((s,a)=>s+a.nTA,0)}</td>
+                              <td style={{padding:"9px 10px",textAlign:"right",color:BRAND.oroD}}>{agentiReport.reduce((s,a)=>s+a.nTot,0)}</td>
+                              <td style={{padding:"9px 10px"}}/>
+                              <td style={{padding:"9px 10px",textAlign:"right",color:"#27AE60"}}>€ {fmt(agentiReport.reduce((s,a)=>s+a.quotaAg,0))}</td>
+                              <td style={{padding:"9px 10px",textAlign:"right",color:"#E74C3C"}}>-€ {fmt(agentiReport.reduce((s,a)=>s+a.scontoAg,0))}</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    </div>
                   </div>
-                </div>
 
-                {/* Fonti + Tipologie */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
-
-                  {/* Fonti */}
-                  <div style={sCard}>
-                    <p style={{...sLbl,marginBottom:12}}>Incarichi per fonte</p>
-                    {fontiOrd.length===0&&<p style={{color:"#bbb",fontSize:13}}>Nessun dato</p>}
-                    {fontiOrd.map(([f,cnt],i)=>{
-                      const perc=cnt/maxFonte*100;
-                      return(
-                        <div key={f} style={{marginBottom:9}}>
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
-                            <span style={{color:"#555"}}>{f}</span>
-                            <span style={{fontWeight:500,color:colori[i%colori.length]}}>{cnt}</span>
+                  {/* Dettaglio sconto per agente */}
+                  {agentiReport.filter(a=>a.scontoAg>0).length>0&&(
+                    <div style={{...sCard,marginBottom:"1.25rem"}}>
+                      <p style={{...sLbl,marginBottom:12}}>Dettaglio sconto per agente</p>
+                      {agentiReport.filter(a=>a.scontoAg>0).map(({ag,scontoAg})=>(
+                        <div key={ag.id} style={{marginBottom:10}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:13,marginBottom:4}}>
+                            <span style={{fontWeight:500}}>{ag.nome} {ag.cognome}</span>
+                            <span style={{fontWeight:700,color:"#E74C3C"}}>-€ {fmt(scontoAg)}</span>
                           </div>
-                          <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${perc}%`,background:colori[i%colori.length],borderRadius:4}}/>
+                          {/* Mini barra: sconto rispetto al totale */}
+                          <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${Math.min(100,scontoAg/Math.max(scontoTot,1)*100)}%`,background:"#E74C3C",borderRadius:3}}/>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Tipologie */}
-                  <div style={sCard}>
-                    <p style={{...sLbl,marginBottom:12}}>Incarichi per tipologia immobile</p>
-                    {tipologieOrd.length===0&&<p style={{color:"#bbb",fontSize:13}}>Nessun dato</p>}
-                    {tipologieOrd.map(([t,cnt],i)=>{
-                      const perc=cnt/maxTip*100;
-                      return(
-                        <div key={t} style={{marginBottom:9}}>
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
-                            <span style={{color:"#555"}}>{t}</span>
-                            <span style={{fontWeight:500,color:colori[i%colori.length]}}>{cnt}</span>
-                          </div>
-                          <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${perc}%`,background:colori[i%colori.length],borderRadius:4}}/>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Riepilogo economico */}
-                <div style={sCard}>
-                  <p style={{...sLbl,marginBottom:14}}>Riepilogo economico vendite</p>
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10}}>
-                    {[
-                      {l:"Provv. media per vendita",v:`€ ${fmt(provvMediaVend)}`,c:BRAND.oroD},
-                      {l:"Prezzo medio venduto",v:`€ ${fmtN(prezzoMedioVend)}`,c:"#4A90D9"},
-                      {l:"Tempo medio incarico → vendita",v:tempoMedio?`${tempoMedio} giorni`:"n/d",c:"#27AE60"},
-                      {l:"Vendite incassate al 100%",v:vendVendita.filter(v=>calcolaStatoIncasso(v)==="Incassato").length,c:"#8E44AD"},
-                    ].map(({l,v,c})=>(
-                      <div key={l} style={{background:BRAND.beige,borderRadius:8,padding:"12px 14px"}}>
-                        <p style={{...sLbl,marginBottom:6}}>{l}</p>
-                        <p style={{fontSize:18,fontWeight:700,color:c,margin:0}}>{v}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                      ))}
+                    </div>
+                  )}
+                </>)}
               </div>
             );
           })()}
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
+            {/* PARAMETRI PROVVIGIONI STANDARD */}
+            <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
+            <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
+            <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"16px 20px",marginBottom:"1rem"}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:12}}>
+                <div>
+                  <label style={S.lbl}>% Standard Venditore</label>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <input style={S.inp} type="number" step="0.1" min="0" max="10" value={provvStandard.percVend} onChange={e=>setProvvStandard({...provvStandard,percVend:Number(e.target.value)})}/>
+                    <span style={{fontSize:12,color:"#888",flexShrink:0}}>%</span>
+                  </div>
+                </div>
+                <div>
+                  <label style={S.lbl}>% Standard Acquirente</label>
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <input style={S.inp} type="number" step="0.1" min="0" max="10" value={provvStandard.percAcq} onChange={e=>setProvvStandard({...provvStandard,percAcq:Number(e.target.value)})}/>
+                    <span style={{fontSize:12,color:"#888",flexShrink:0}}>%</span>
+                  </div>
+                </div>
+                <div>
+                  <label style={S.lbl}>Soglia prezzo (EUR)</label>
+                  <input style={S.inp} type="number" step="1000" min="0" value={provvStandard.soglia} onChange={e=>setProvvStandard({...provvStandard,soglia:Number(e.target.value)})}/>
+                </div>
+                <div>
+                  <label style={S.lbl}>Min. Venditore sotto soglia (€)</label>
+                  <input style={S.inp} type="number" step="100" min="0" value={provvStandard.minVend} onChange={e=>setProvvStandard({...provvStandard,minVend:Number(e.target.value)})}/>
+                </div>
+                <div>
+                  <label style={S.lbl}>Min. Acquirente sotto soglia (€)</label>
+                  <input style={S.inp} type="number" step="100" min="0" value={provvStandard.minAcq} onChange={e=>setProvvStandard({...provvStandard,minAcq:Number(e.target.value)})}/>
+                </div>
+              </div>
+              <div style={{marginTop:12,padding:"10px 12px",background:BRAND.beige,borderRadius:8,fontSize:12,color:"#666"}}>
+                <strong style={{color:BRAND.oroD}}>Come funziona:</strong> se il prezzo &lt; € {fmtN(provvStandard.soglia)}, lo standard è max(% × prezzo, minimo fisso). Altrimenti solo la percentuale.
+                Esempio sotto soglia: Venditore = max({provvStandard.percVend}% × prezzo, € {fmtN(provvStandard.minVend)}) · Acquirente = max({provvStandard.percAcq}% × prezzo, € {fmtN(provvStandard.minAcq)})
+              </div>
+            </div>
+            <div style={S.divider}/>
             <SettSec title="Fonti incarico" items={fonti} setItems={setFonti} ph="Nuova fonte..."/>
             <div style={S.divider}/>
             <SettSec title="Tipologie immobile" items={tipologie} setItems={setTipologie} ph="Nuova tipologia..."/>
