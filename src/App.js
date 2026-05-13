@@ -52,6 +52,7 @@ const TAB_CONFIG = [
   { id:"Fatture Agenti",icon:"🧾", label:"Fatture Agenti" },
   { id:"Agenti",        icon:"👥", label:"Agenti" },
   { id:"Costi & Break Even", icon:"📉", label:"Costi & Break Even" },
+  { id:"Statistiche",   icon:"📈", label:"Statistiche & Prestazioni" },
   { id:"Impostazioni",  icon:"⚙️", label:"Impostazioni" },
 ];
 const fmt  = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1591,6 +1592,296 @@ export default function App() {
               </table>
             </div>
           </div>)}
+
+          {/* STATISTICHE & PRESTAZIONI */}
+          {tab==="Statistiche"&&(()=>{
+            const annoStat = annoCorrente;
+            // --- Dati base ---
+            const tuttiAnni = Array.from(new Set([
+              ...incarichi.map(i=>getAnno(i.dataInizio)),
+              ...venduti.map(v=>getAnno(v.dataAtto||v.dataVendita||"")),
+            ].filter(Boolean))).sort();
+
+            // Fatturato mensile anno corrente
+            const fatMensile = MESI_KEYS.map((mm,idx)=>{
+              const mesePeriodo = `${annoStat}-${mm}`;
+              const tot = venduti.filter(v=>getMese(v.dataAtto||v.dataVendita||"")===mesePeriodo&&v.categoria==="vendita")
+                .reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+              const incassato = venduti.filter(v=>getMese(v.dataAtto||v.dataVendita||"")===mesePeriodo&&v.categoria==="vendita")
+                .reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+              return {mese:mesiNomi[idx].substring(0,3), meseKey:mesePeriodo, fatturato:tot, incassato};
+            });
+            const maxFat = Math.max(...fatMensile.map(m=>m.fatturato),1);
+
+            // Tasso conversione proposte → vendita
+            const totProposte = proposte.filter(p=>p.categoria==="vendita").length;
+            const propAccettate = proposte.filter(p=>p.categoria==="vendita"&&["Accettata"].includes(p.stato)).length;
+            const propRifiutate = proposte.filter(p=>p.categoria==="vendita"&&["Rifiutata","Mancata Chiusura"].includes(p.stato)).length;
+            const propAttesa = proposte.filter(p=>p.categoria==="vendita"&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)).length;
+            const propVincolate = proposte.filter(p=>p.categoria==="vendita"&&p.stato==="Accettata con Vincolo").length;
+            const tassoConversione = totProposte>0?(propAccettate/totProposte*100).toFixed(1):0;
+
+            // Incarichi per fonte
+            const perFonte = {};
+            incarichi.filter(i=>i.categoria==="vendita").forEach(i=>{const f=i.fonte||"N/D"; perFonte[f]=(perFonte[f]||0)+1;});
+            const fontiOrd = Object.entries(perFonte).sort((a,b)=>b[1]-a[1]);
+            const maxFonte = Math.max(...fontiOrd.map(f=>f[1]),1);
+
+            // Incarichi per tipologia
+            const perTipologia = {};
+            incarichi.filter(i=>i.categoria==="vendita").forEach(i=>{const t=i.tipologia||"Altro"; perTipologia[t]=(perTipologia[t]||0)+1;});
+            const tipologieOrd = Object.entries(perTipologia).sort((a,b)=>b[1]-a[1]);
+            const maxTip = Math.max(...tipologieOrd.map(t=>t[1]),1);
+
+            // Prezzo medio venduto
+            const vendVendita = venduti.filter(v=>v.categoria==="vendita");
+            const prezzoMedioVend = vendVendita.length>0 ? vendVendita.reduce((s,v)=>s+Number(v.prezzoVendita||0),0)/vendVendita.length : 0;
+            const provvMediaVend = vendVendita.length>0 ? vendVendita.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0)/vendVendita.length : 0;
+
+            // Tempi medi incarico → vendita
+            const tempi = venduti.filter(v=>v.categoria==="vendita"&&v.dataVendita).map(v=>{
+              const inc = incarichi.find(i=>i.id===v.incaricoId) || archiviati.find(i=>i.id===v.incaricoId);
+              if(!inc||!inc.dataInizio) return null;
+              return diffGiorni(inc.dataInizio, v.dataVendita);
+            }).filter(t=>t!==null&&t>0);
+            const tempoMedio = tempi.length>0 ? Math.round(tempi.reduce((s,t)=>s+t,0)/tempi.length) : null;
+
+            // Performance agenti
+            const agentiPerf = agenti.map(ag=>{
+              const pratiche = venduti.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
+              const incAcq = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===ag.id).length;
+              const fatturato = pratiche.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+              const quota = pratiche.reduce((s,v)=>s+calcolaQuotaAgente(v,ag.id),0);
+              const incassatoAg = pratiche.reduce((s,v)=>{
+                let q=0;
+                const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
+                const provvV=Number(v.provvVenditore||0); const provvA=Number(v.provvAcquirente||0);
+                if(v.agenteListing===ag.id&&provvV>0) q+=incV*(Number(v.percListing||0)/100);
+                if(v.agenteAcquirente===ag.id&&provvA>0) q+=incA*(Number(v.percAcquirente||0)/100);
+                if(v.buyerListing===ag.id&&v.agenteListing!==ag.id&&provvV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
+                if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id&&provvA>0) q+=incA*(Number(v.percBuyer||0)/100);
+                return s+q;
+              },0);
+              return {ag, pratiche:pratiche.length, incAcq, fatturato, quota, incassatoAg};
+            }).sort((a,b)=>b.fatturato-a.fatturato);
+            const maxFatAg = Math.max(...agentiPerf.map(a=>a.fatturato),1);
+
+            // KPI totali
+            const totFatturato = vendVendita.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+            const totIncassato = vendVendita.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+            const incAttivi = incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)==="Attivo").length;
+
+            const colori=["#C9A96E","#4A90D9","#27AE60","#8E44AD","#E67E22","#E74C3C","#1ABC9C","#F39C12"];
+            const sCard={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
+            const sKpi={fontSize:26,fontWeight:700,margin:"4px 0 0",lineHeight:1.1};
+            const sLbl={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:0};
+
+            return(
+              <div style={S.sec}>
+                <div style={{marginBottom:"1.25rem"}}>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>📈 Statistiche & Prestazioni</h2>
+                  <p style={{fontSize:12,color:"#aaa",margin:0}}>Analisi complessiva — tutti gli anni disponibili</p>
+                </div>
+
+                {/* KPI principali */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  {[
+                    {l:"Fatturato totale",v:`€ ${fmt(totFatturato)}`,c:"#27AE60",sub:`Incassato: € ${fmt(totIncassato)}`},
+                    {l:"Vendite concluse",v:vendVendita.length,c:BRAND.oroD,sub:`Prezzo medio: € ${fmtN(prezzoMedioVend)}`},
+                    {l:"Tasso conversione",v:`${tassoConversione}%`,c:"#4A90D9",sub:`${propAccettate} acc. / ${totProposte} proposte`},
+                    {l:"Incarichi attivi",v:incAttivi,c:"#E67E22",sub:tempoMedio?`Tempo medio: ${tempoMedio} gg`:"Tempo medio: n/d"},
+                  ].map(({l,v,c,sub})=>(
+                    <div key={l} style={{...sCard,borderTop:`3px solid ${c}`}}>
+                      <p style={sLbl}>{l}</p>
+                      <p style={{...sKpi,color:c}}>{v}</p>
+                      {sub&&<p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{sub}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Grafico fatturato mensile + Proposte */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+
+                  {/* Fatturato mensile anno corrente */}
+                  <div style={sCard}>
+                    <p style={{...sLbl,marginBottom:12}}>Fatturato mensile {annoStat}</p>
+                    <div style={{display:"flex",alignItems:"flex-end",gap:4,height:110}}>
+                      {fatMensile.map(m=>{
+                        const h=m.fatturato>0?Math.max(8,Math.round(m.fatturato/maxFat*90)):0;
+                        const hI=m.incassato>0?Math.max(4,Math.round(m.incassato/maxFat*90)):0;
+                        return(
+                          <div key={m.mese} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                            <div style={{width:"100%",display:"flex",flexDirection:"column",justifyContent:"flex-end",height:90,gap:1}}>
+                              {m.fatturato>0&&<div title={`Fatturato: € ${fmt(m.fatturato)}`} style={{width:"100%",height:h,background:`${BRAND.oro}55`,borderRadius:"3px 3px 0 0",position:"relative"}}>
+                                {hI>0&&<div style={{position:"absolute",bottom:0,left:0,right:0,height:hI,background:BRAND.oro,borderRadius:"3px 3px 0 0"}}/>}
+                              </div>}
+                              {m.fatturato===0&&<div style={{width:"100%",height:2,background:"#f0f0f0",borderRadius:2,marginBottom:0}}/>}
+                            </div>
+                            <span style={{fontSize:9,color:"#aaa",lineHeight:1}}>{m.mese}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{display:"flex",gap:12,marginTop:8,fontSize:11,color:"#888"}}>
+                      <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:`${BRAND.oro}55`,display:"inline-block"}}/> Fatturato</span>
+                      <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:10,height:10,borderRadius:2,background:BRAND.oro,display:"inline-block"}}/> Incassato</span>
+                    </div>
+                  </div>
+
+                  {/* Stato proposte */}
+                  <div style={sCard}>
+                    <p style={{...sLbl,marginBottom:12}}>Stato proposte (vendite)</p>
+                    {[
+                      {l:"Accettate",v:propAccettate,c:"#27AE60",tot:totProposte},
+                      {l:"In attesa / Trattativa",v:propAttesa,c:"#4A90D9",tot:totProposte},
+                      {l:"Vincolate",v:propVincolate,c:"#D4AC0D",tot:totProposte},
+                      {l:"Rifiutate / Non concluse",v:propRifiutate,c:"#E74C3C",tot:totProposte},
+                    ].map(({l,v,c,tot})=>{
+                      const perc=tot>0?(v/tot*100):0;
+                      return(
+                        <div key={l} style={{marginBottom:10}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                            <span style={{color:"#555"}}>{l}</span>
+                            <span style={{fontWeight:500,color:c}}>{v} <span style={{color:"#aaa",fontWeight:400}}>({perc.toFixed(0)}%)</span></span>
+                          </div>
+                          <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${perc}%`,background:c,borderRadius:4,transition:"width 0.4s"}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div style={{borderTop:"0.5px solid #eee",paddingTop:8,marginTop:4,fontSize:12,color:"#aaa",display:"flex",justifyContent:"space-between"}}>
+                      <span>Totale proposte</span><span style={{fontWeight:500,color:BRAND.grigio}}>{totProposte}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance agenti */}
+                <div style={{...sCard,marginBottom:"1.25rem"}}>
+                  <p style={{...sLbl,marginBottom:14}}>Performance agenti</p>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:560}}>
+                      <thead>
+                        <tr style={{background:"#fafaf8"}}>
+                          {["Agente","Profilo","Incarichi","Pratiche","Fatturato agenzia","Quota agente","% sul fatturato"].map(h=>(
+                            <th key={h} style={{padding:"8px 10px",borderBottom:"0.5px solid #eee",color:"#888",fontWeight:500,fontSize:11,textAlign:h==="Agente"||h==="Profilo"?"left":"right",whiteSpace:"nowrap"}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {agentiPerf.map(({ag,pratiche,incAcq,fatturato,quota},idx)=>{
+                          const pBar=fatturato>0?fatturato/maxFatAg*100:0;
+                          const percQuota=fatturato>0?(quota/fatturato*100).toFixed(1):0;
+                          return(
+                            <tr key={ag.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
+                                  <span style={{fontWeight:500}}>{ag.nome} {ag.cognome}</span>
+                                </div>
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5"}}>
+                                <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:ag.profilo==="Broker"?`${BRAND.oro}22`:"#EAF4FB",color:ag.profilo==="Broker"?BRAND.oroD:"#2980B9",fontWeight:500}}>{ag.profilo}</span>
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#555"}}>{incAcq}</td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",color:"#555"}}>{pratiche}</td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"flex-end"}}>
+                                  <div style={{width:60,height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                                    <div style={{height:"100%",width:`${pBar}%`,background:colori[idx%colori.length],borderRadius:3}}/>
+                                  </div>
+                                  <span style={{fontWeight:500,color:BRAND.grigio,minWidth:70,textAlign:"right"}}>€ {fmt(fatturato)}</span>
+                                </div>
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontWeight:500,color:"#8E44AD"}}>
+                                {quota>0?`€ ${fmt(quota)}`:"—"}
+                              </td>
+                              <td style={{padding:"10px 10px",borderBottom:"0.5px solid #f5f5f5",textAlign:"right",fontSize:12,color:quota>0?"#8E44AD":"#ccc"}}>
+                                {quota>0?`${percQuota}%`:"—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {agentiPerf.length===0&&<tr><td colSpan={7} style={{padding:"1.5rem",textAlign:"center",color:"#bbb"}}>Nessun dato disponibile</td></tr>}
+                      </tbody>
+                      {agentiPerf.some(a=>a.fatturato>0)&&(
+                        <tfoot>
+                          <tr style={{background:BRAND.beige,fontWeight:500,fontSize:13}}>
+                            <td colSpan={4} style={{padding:"9px 10px",color:BRAND.grigio}}>TOTALE</td>
+                            <td style={{padding:"9px 10px",textAlign:"right",color:BRAND.oroD}}>€ {fmt(agentiPerf.reduce((s,a)=>s+a.fatturato,0))}</td>
+                            <td style={{padding:"9px 10px",textAlign:"right",color:"#8E44AD"}}>€ {fmt(agentiPerf.reduce((s,a)=>s+a.quota,0))}</td>
+                            <td style={{padding:"9px 10px"}}/>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+
+                {/* Fonti + Tipologie */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+
+                  {/* Fonti */}
+                  <div style={sCard}>
+                    <p style={{...sLbl,marginBottom:12}}>Incarichi per fonte</p>
+                    {fontiOrd.length===0&&<p style={{color:"#bbb",fontSize:13}}>Nessun dato</p>}
+                    {fontiOrd.map(([f,cnt],i)=>{
+                      const perc=cnt/maxFonte*100;
+                      return(
+                        <div key={f} style={{marginBottom:9}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                            <span style={{color:"#555"}}>{f}</span>
+                            <span style={{fontWeight:500,color:colori[i%colori.length]}}>{cnt}</span>
+                          </div>
+                          <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${perc}%`,background:colori[i%colori.length],borderRadius:4}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tipologie */}
+                  <div style={sCard}>
+                    <p style={{...sLbl,marginBottom:12}}>Incarichi per tipologia immobile</p>
+                    {tipologieOrd.length===0&&<p style={{color:"#bbb",fontSize:13}}>Nessun dato</p>}
+                    {tipologieOrd.map(([t,cnt],i)=>{
+                      const perc=cnt/maxTip*100;
+                      return(
+                        <div key={t} style={{marginBottom:9}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}>
+                            <span style={{color:"#555"}}>{t}</span>
+                            <span style={{fontWeight:500,color:colori[i%colori.length]}}>{cnt}</span>
+                          </div>
+                          <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${perc}%`,background:colori[i%colori.length],borderRadius:4}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Riepilogo economico */}
+                <div style={sCard}>
+                  <p style={{...sLbl,marginBottom:14}}>Riepilogo economico vendite</p>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10}}>
+                    {[
+                      {l:"Provv. media per vendita",v:`€ ${fmt(provvMediaVend)}`,c:BRAND.oroD},
+                      {l:"Prezzo medio venduto",v:`€ ${fmtN(prezzoMedioVend)}`,c:"#4A90D9"},
+                      {l:"Tempo medio incarico → vendita",v:tempoMedio?`${tempoMedio} giorni`:"n/d",c:"#27AE60"},
+                      {l:"Vendite incassate al 100%",v:vendVendita.filter(v=>calcolaStatoIncasso(v)==="Incassato").length,c:"#8E44AD"},
+                    ].map(({l,v,c})=>(
+                      <div key={l} style={{background:BRAND.beige,borderRadius:8,padding:"12px 14px"}}>
+                        <p style={{...sLbl,marginBottom:6}}>{l}</p>
+                        <p style={{fontSize:18,fontWeight:700,color:c,margin:0}}>{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
