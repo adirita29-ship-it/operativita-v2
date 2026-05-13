@@ -145,11 +145,21 @@ function LoginPage({onLogin}) {
   const go=()=>{
     setLoad(true);
     setTimeout(async()=>{
-      // Carica agenti da DB per autenticazione
       try {
         const data = await caricaDB();
-        const agentiDB = data?.agenti || INIT_AGENTI;
-        const ag = agentiDB.find(a=>a.email&&a.email===em&&a.password&&a.password===pw);
+        // Merge agenti DB con INIT_AGENTI per recuperare email/password se mancanti nel DB
+        const agentiRaw = data?.agenti || INIT_AGENTI;
+        const agentiDB = agentiRaw.map(a=>{
+          const def = INIT_AGENTI.find(d=>d.id===a.id);
+          return {
+            ...a,
+            email: a.email || def?.email || "",
+            password: a.password || def?.password || "",
+            attivo: a.attivo !== undefined ? a.attivo : true,
+          };
+        });
+        const emTrim = em.trim().toLowerCase();
+        const ag = agentiDB.find(a=>a.email&&a.email.trim().toLowerCase()===emTrim&&a.password&&a.password===pw);
         if(ag){
           if(ag.attivo===false){setErr("Account disabilitato. Contatta il responsabile.");setLoad(false);return;}
           onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo:ag.profilo==="Broker"?"Broker":"Agente",agentId:ag.id});
