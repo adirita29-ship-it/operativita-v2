@@ -2036,8 +2036,12 @@ export default function App() {
                   <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                     <span style={{fontSize:13,fontWeight:500}}>Voci di costo — {costiAnno}</span>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-                      <span style={{fontSize:16,fontWeight:700,color:totSp>totPr&&totPr>0?"#E74C3C":totSp>0?"#27AE60":BRAND.oroD}}>€ {fmt(totSp)}</span>
-                      <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>Spese inserite{totPr>0?` · prev. € ${fmt(totPr)}`:""}</span>
+                      <span style={{fontSize:16,fontWeight:700,color:totSp>totPr&&totPr>0?"#E74C3C":totSp>0?"#27AE60":BRAND.oroD}}>
+                        {totSp>0?`€ ${fmt(totSp)} spese`:`€ ${fmt(totPr)} prev.`}
+                      </span>
+                      <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>
+                        {totSp>0?`Spese inserite · prev. € ${fmt(totPr)}`:"Previsionale annuo · nessuna spesa inserita"}
+                      </span>
                     </div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                       {haPrec&&vociAnno.length===0&&<button style={{...S.btn,fontSize:12,color:BRAND.oroD,borderColor:BRAND.oro}} onClick={copiaAnno}>📋 Copia da {annoPrec}</button>}
@@ -2300,8 +2304,12 @@ export default function App() {
                       <div style={{padding:"12px 16px",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                         <p style={{fontSize:13,fontWeight:500,color:BRAND.grigio,margin:0}}>Voci di costo</p>
                         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
-                          <span style={{fontSize:16,fontWeight:700,color:totConsuntivo>totPrevAnno&&totPrevAnno>0?"#E74C3C":totConsuntivo>0?"#27AE60":BRAND.oroD}}>€ {fmt(totConsuntivo)}</span>
-                          <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>Spese inserite{totPrevAnno>0?` · prev. € ${fmt(totPrevAnno)}`:""}</span>
+                          <span style={{fontSize:16,fontWeight:700,color:totConsuntivo>totPrevAnno&&totPrevAnno>0?"#E74C3C":totConsuntivo>0?"#27AE60":BRAND.oroD}}>
+                            {totConsuntivo>0?`€ ${fmt(totConsuntivo)} spese`:`€ ${fmt(totPrevAnno)} prev.`}
+                          </span>
+                          <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>
+                            {totConsuntivo>0?`Spese inserite · prev. € ${fmt(totPrevAnno)}`:"Previsionale annuo · nessuna spesa inserita"}
+                          </span>
                         </div>
                         <div style={{display:"flex",gap:8}}>
                           {haPrec&&<button style={{...S.btn,fontSize:12,color:BRAND.oroD,borderColor:BRAND.oro}} onClick={copiaAnnoAg}>📋 Copia da {annoPrec}</button>}
