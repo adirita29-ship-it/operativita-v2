@@ -194,7 +194,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isBroker = utente?.ruolo==="Broker";
   const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi & Break Even","Fatture Agente"];
   const tabsVisibili = TAB_CONFIG.filter(t=>{
-    if(isBroker) return t.id !== "Il mio report"; // broker non vede "Il mio report"
+    if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
     return TAB_AGENTE.includes(t.id);
   });
   return (
@@ -511,6 +511,9 @@ export default function App() {
   const [mioRepAnno,setMioRepAnno]=useState("Tutti");
   const [mioRepMese,setMioRepMese]=useState("Tutti");
   const [showMioTabella,setShowMioTabella]=useState(true);
+  const [mioFatAnno,setMioFatAnno]=useState("Tutti");
+  const [mioFatMese,setMioFatMese]=useState("Tutti");
+  const [mioFatStato,setMioFatStato]=useState("Tutti");
 
   const isBroker = utente?.ruolo==="Broker";
   const myAgentId = utente?.agentId||null;
@@ -1039,8 +1042,22 @@ export default function App() {
                 }
               });
 
-              const myPropAttive=proposte.filter(p=>p.categoria==="vendita"&&(Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId)&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato));
-              const myPropVincolo=proposte.filter(p=>p.categoria==="vendita"&&(Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId)&&p.stato==="Accettata con Vincolo");
+              const myPropAttive=proposte.filter(p=>p.categoria==="vendita"&&(
+                Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId||
+                Number(p.buyerListing)===myAgentId||Number(p.buyer)===myAgentId
+              )&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato));
+              const myPropVincolo=proposte.filter(p=>p.categoria==="vendita"&&(
+                Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId||
+                Number(p.buyerListing)===myAgentId||Number(p.buyer)===myAgentId
+              )&&p.stato==="Accettata con Vincolo");
+              // Ruolo agente in ogni proposta
+              const ruoloProp=p=>{
+                if(Number(p.agenteListing)===myAgentId) return "Listing";
+                if(Number(p.agenteAcquirente)===myAgentId) return "Acquirente";
+                if(Number(p.buyerListing)===myAgentId) return "Buyer L";
+                if(Number(p.buyer)===myAgentId) return "Buyer";
+                return "—";
+              };
               const colRuolo={Listing:"#2980B9",Acquirente:"#8E44AD","Buyer L":"#E67E22",Buyer:"#E74C3C"};
 
               const BF=({titolo,colore,emoji,totale,sub1L,sub1V,sub2L,sub2V})=>(
@@ -1078,9 +1095,9 @@ export default function App() {
                     <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{nTransV}V · {nTransA}A</p>
                   </div>
                   <div style={S.card("#4A90D9")}>
-                    <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Proposte in trattativa</p>
-                    <p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{myPropAttive.length}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>attive ora</p>
+                    <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi acquisiti {dashAnno!=="Tutti"?dashAnno:annoCorrente}</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:"#4A90D9"}}>{incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId&&!i.archiviato&&getAnno(i.dataInizio)===(dashAnno!=="Tutti"?dashAnno:annoCorrente)).length}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{myPropAttive.length} proposte attive</p>
                   </div>
                 </div>
                 {/* 4 blocchi finanziari */}
@@ -1128,11 +1145,13 @@ export default function App() {
                       <div><span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Tue proposte attive</span></div>
                       <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16}}>€ {fmt(myPropAttive.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</span>
                     </div>
-                    <table style={{width:"100%",borderCollapse:"collapse"}}>
-                      <thead><tr>{["Stato","Venditore","Acquirente","Immobile","Prezzo","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+                      <thead><tr>{["Ruolo","Stato","Venditore","Acquirente","Immobile","Prezzo","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{myPropAttive.map(p=>{
                         const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
-                        return(<tr key={p.id}>
+                        const rp=ruoloProp(p);
+                        return(<tr key={p.id} style={{background:["Buyer L","Buyer"].includes(rp)?"#FFF9F0":"#fff"}}>
+                          <td style={S.tdS}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${colRuolo[rp]||"#eee"}22`,color:colRuolo[rp]||"#666",fontWeight:600,border:`0.5px solid ${colRuolo[rp]||"#ccc"}44`}}>{rp}</span></td>
                           <td style={S.tdS}><span style={bdg(cfg)}>{cfg.s} {cfg.label}</span></td>
                           <td style={{...S.tdS,fontWeight:500}}>{p.nominativoVenditore}</td>
                           <td style={S.tdS}>{p.nomeAcquirente}</td>
@@ -1141,7 +1160,7 @@ export default function App() {
                           <td style={{...S.tdRS,fontWeight:600,color:"#2980B9"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
                         </tr>);
                       })}</tbody>
-                    </table>
+                    </table></div>
                   </div>
                 )}
 
@@ -1152,19 +1171,21 @@ export default function App() {
                       <span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Tue proposte con vincolo in attesa</span>
                       <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",marginLeft:16}}>€ {fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</span>
                     </div>
-                    <table style={{width:"100%",borderCollapse:"collapse"}}>
-                      <thead><tr>{["Venditore","Acquirente","Immobile","Vincolo","Scadenza","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
-                      <tbody>{myPropVincolo.map(p=>(
-                        <tr key={p.id}>
+                    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+                      <thead><tr>{["Ruolo","Venditore","Acquirente","Immobile","Vincolo","Scadenza","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <tbody>{myPropVincolo.map(p=>{
+                        const rp=ruoloProp(p);
+                        return(<tr key={p.id} style={{background:["Buyer L","Buyer"].includes(rp)?"#FFF9F0":"#fff"}}>
+                          <td style={S.tdS}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${colRuolo[rp]||"#eee"}22`,color:colRuolo[rp]||"#666",fontWeight:600,border:`0.5px solid ${colRuolo[rp]||"#ccc"}44`}}>{rp}</span></td>
                           <td style={{...S.tdS,fontWeight:500}}>{p.nominativoVenditore}</td>
                           <td style={S.tdS}>{p.nomeAcquirente}</td>
                           <td style={S.tdS}>{p.comuneImmobile} — {p.indirizzoImmobile}</td>
                           <td style={S.tdS}>{p.tipoVincolo||"Generico"}</td>
                           <td style={{...S.tdS,color:p.termineSubordine&&new Date(p.termineSubordine)<new Date()?"#E74C3C":"inherit"}}>{p.termineSubordine?fmtD(p.termineSubordine):"—"}</td>
                           <td style={{...S.tdRS,fontWeight:600,color:"#D4AC0D"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
-                        </tr>
-                      ))}</tbody>
-                    </table>
+                        </tr>);
+                      })}</tbody>
+                    </table></div>
                   </div>
                 )}
               </>);
@@ -1329,9 +1350,9 @@ export default function App() {
             <div style={S.cnt}>
               {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
               <div style={{...S.cntBox(BRAND.oroD),marginLeft:"auto",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:110}}>
-                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente).length}</span>
+                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente&&(isBroker||!myAgentId||i.agenteListing===myAgentId)).length}</span>
                 <span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>Acquisiti {annoCorrente}</span>
-                <span style={{fontSize:10,color:"#aaa"}}>totali anno corrente</span>
+                <span style={{fontSize:10,color:"#aaa"}}>{isBroker?"totali agenzia":"tuoi anno corrente"}</span>
               </div>
             </div>
             <div style={S.tblWrap}><table style={S.tbl}>
@@ -1740,7 +1761,7 @@ export default function App() {
 
 
           {/* COSTI & BREAK EVEN */}
-          {tab==="Costi & Break Even"&&(<div style={S.sec}>
+          {tab==="Costi & Break Even"&&isBroker&&(<div style={S.sec}>
             {/* Anno selector + obiettivo */}
             <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center"}}>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -2068,54 +2089,106 @@ export default function App() {
           {/* LE MIE FATTURE (solo agente) */}
           {tab==="Fatture Agente"&&!isBroker&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
-            // Filtra fatturaDati per l'agente loggato usando la stessa logica di Fatture Agenti
-            const myFatDati=venduti.filter(v=>{
-              const dataRif=v.dataVendita||v.dataAtto||"";
-              const hasRuolo=v.agenteListing===myAgentId||v.agenteAcquirente===myAgentId||v.buyerListing===myAgentId||v.buyer===myAgentId;
-              if(!hasRuolo)return false;
-              const incV=calcolaIncassatoV(v);const incA=calcolaIncassatoA(v);
-              if(incV===0&&incA===0)return false;
+            // Tutte le pratiche dove l'agente ha un ruolo e ha incassato qualcosa
+            const tuttiMiei=venduti.filter(v=>{
+              const hasRuolo=Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId;
+              if(!hasRuolo) return false;
               return true;
             }).sort((a,b)=>(b.dataVendita||b.dataAtto||"").localeCompare(a.dataVendita||a.dataAtto||""));
-            const totMia=myFatDati.reduce((s,v)=>{
+
+            const anniMioFat=Array.from(new Set(tuttiMiei.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
+            const mesiMioFat=Array.from(new Set(tuttiMiei.filter(v=>mioFatAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===mioFatAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
+
+            const myFatDati=tuttiMiei.filter(v=>{
+              const dataRif=v.dataVendita||v.dataAtto||"";
+              if(mioFatAnno!=="Tutti"&&getAnno(dataRif)!==mioFatAnno) return false;
+              if(mioFatMese!=="Tutti"&&getMese(dataRif)!==mioFatMese) return false;
+              const stato=calcolaStatoIncasso(v);
+              if(mioFatStato!=="Tutti"&&stato!==mioFatStato) return false;
+              return true;
+            });
+
+            const calcolaQuotaMiaV=(v)=>{
               let q=0;
-              if(v.agenteListing===myAgentId)q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
-              if(v.agenteAcquirente===myAgentId)q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
-              if(v.buyerListing===myAgentId&&v.agenteListing!==myAgentId)q+=calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100;
-              if(v.buyer===myAgentId&&v.agenteAcquirente!==myAgentId)q+=calcolaIncassatoA(v)*Number(v.percBuyer||0)/100;
-              return s+q;
-            },0);
+              if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
+              if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100;
+              if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
+              if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=calcolaIncassatoA(v)*Number(v.percBuyer||0)/100;
+              return q;
+            };
+            const totMia=myFatDati.reduce((s,v)=>s+calcolaQuotaMiaV(v),0);
+            const totTuttiMiei=tuttiMiei.reduce((s,v)=>s+calcolaQuotaMiaV(v),0);
+
+            // Stato pagamento agente (basato su pagamentiFatture)
+            const getPagAg=v=>{
+              const key=`${v.id}_${myAgentId}`;
+              return pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
+            };
+            const cfgStatoFat={
+              "Incassato":{bg:"#E9F7EF",clr:"#27AE60",s:"✅"},
+              "Parziale":{bg:"#FEF0E0",clr:"#E67E22",s:"⏳"},
+              "Da incassare":{bg:"#FDECEA",clr:"#E74C3C",s:"🔴"},
+              "Da pagare":{bg:"#F5F5F5",clr:"#888",s:"⏸"},
+            };
+
             return(
               <div style={S.sec}>
                 <div style={{marginBottom:"1rem"}}>
                   <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>🧾 Le mie fatture — {ag?.nome} {ag?.cognome}</h2>
-                  <p style={{fontSize:11,color:"#aaa",margin:0}}>Sola lettura — le pratiche dove hai maturato quota provvigionale incassata</p>
+                  <p style={{fontSize:11,color:"#aaa",margin:0}}>Sola lettura · quota provvigionale sulle pratiche dove intervieni</p>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(2,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <div style={S.card("#27AE60")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Totale quota maturata incassata</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totMia)}</p></div>
-                  <div style={S.card(BRAND.oroD)}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Pratiche con quota incassata</p><p style={{fontSize:22,fontWeight:600,margin:0,color:BRAND.oroD}}>{myFatDati.length}</p></div>
+                {/* Filtri */}
+                <div style={S.fRow}>
+                  <Sel value={mioFatAnno} onChange={v=>{setMioFatAnno(v);setMioFatMese("Tutti");}}>
+                    <option value="Tutti">Tutti gli anni</option>{anniMioFat.map(a=><option key={a}>{a}</option>)}
+                  </Sel>
+                  <Sel value={mioFatMese} onChange={setMioFatMese}>
+                    <option value="Tutti">Tutti i mesi</option>{mesiMioFat.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}
+                  </Sel>
+                  <Sel value={mioFatStato} onChange={setMioFatStato}>
+                    <option value="Tutti">Tutti gli stati</option>
+                    <option value="Da incassare">Da incassare</option>
+                    <option value="Parziale">Parziale</option>
+                    <option value="Incassato">Incassato</option>
+                  </Sel>
                 </div>
-                {myFatDati.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessuna pratica con quota incassata</div>}
+                {/* KPI */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  <div style={S.card("#27AE60")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota incassata (filtro)</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totMia)}</p></div>
+                  <div style={S.card(BRAND.oroD)}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Pratiche (filtro)</p><p style={{fontSize:22,fontWeight:600,margin:0,color:BRAND.oroD}}>{myFatDati.length}</p></div>
+                  <div style={S.card("#4A90D9")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Totale quota (tutti)</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#4A90D9"}}>€ {fmt(totTuttiMiei)}</p></div>
+                </div>
+                {myFatDati.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessuna pratica nel periodo</div>}
                 {myFatDati.map((v,i)=>{
                   const ruoli=[];
-                  if(v.agenteListing===myAgentId)ruoli.push({tipo:"Listing",provv:calcolaIncassatoV(v),perc:Number(v.percListing||0),quota:calcolaIncassatoV(v)*Number(v.percListing||0)/100,cliente:v.nominativoVenditore});
-                  if(v.agenteAcquirente===myAgentId)ruoli.push({tipo:"Acquirente",provv:calcolaIncassatoA(v),perc:Number(v.percAcquirente||0),quota:calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100,cliente:v.nomeAcquirente});
-                  if(v.buyerListing===myAgentId&&v.agenteListing!==myAgentId)ruoli.push({tipo:"Buyer L",provv:calcolaIncassatoV(v),perc:Number(v.percBuyerListing||0),quota:calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100,cliente:v.nominativoVenditore});
-                  if(v.buyer===myAgentId&&v.agenteAcquirente!==myAgentId)ruoli.push({tipo:"Buyer",provv:calcolaIncassatoA(v),perc:Number(v.percBuyer||0),quota:calcolaIncassatoA(v)*Number(v.percBuyer||0)/100,cliente:v.nomeAcquirente});
+                  if(Number(v.agenteListing)===myAgentId) ruoli.push({tipo:"Listing",provv:calcolaIncassatoV(v),perc:Number(v.percListing||0),quota:calcolaIncassatoV(v)*Number(v.percListing||0)/100,cliente:v.nominativoVenditore});
+                  if(Number(v.agenteAcquirente)===myAgentId) ruoli.push({tipo:"Acquirente",provv:calcolaIncassatoA(v),perc:Number(v.percAcquirente||0),quota:calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100,cliente:v.nomeAcquirente});
+                  if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) ruoli.push({tipo:"Buyer L",provv:calcolaIncassatoV(v),perc:Number(v.percBuyerListing||0),quota:calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100,cliente:v.nominativoVenditore});
+                  if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) ruoli.push({tipo:"Buyer",provv:calcolaIncassatoA(v),perc:Number(v.percBuyer||0),quota:calcolaIncassatoA(v)*Number(v.percBuyer||0)/100,cliente:v.nomeAcquirente});
                   const totPratica=ruoli.reduce((s,r)=>s+r.quota,0);
-                  if(totPratica===0)return null;
-                  return(<div key={v.id} style={{border:"0.5px solid #eee",borderRadius:8,padding:"1rem",marginBottom:"0.75rem",background:BRAND.beige}}>
-                    <div style={{marginBottom:8}}>
-                      <p style={{fontSize:14,fontWeight:500,margin:"0 0 2px"}}>{i+1}. {v.comuneImmobile} — {v.indirizzoImmobile}</p>
-                      <p style={{fontSize:12,color:"#aaa",margin:0}}>Rif.: {fmtD(v.dataVendita||v.dataAtto)} | Prezzo: <strong style={{color:BRAND.oroD}}>€ {fmtN(v.prezzoVendita)}</strong></p>
+                  const statoInc=calcolaStatoIncasso(v);
+                  const cfgInc=STATI_INCASSO[statoInc]||STATI_INCASSO["Da incassare"];
+                  const pag=getPagAg(v);
+                  const cfgPag=cfgStatoFat[pag.stato]||cfgStatoFat["Da pagare"];
+                  return(<div key={v.id} style={{border:`0.5px solid ${cfgInc.clr}33`,borderRadius:8,padding:"1rem",marginBottom:"0.75rem",background:"#fff"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                      <div>
+                        <p style={{fontSize:14,fontWeight:500,margin:"0 0 2px"}}>{i+1}. {v.comuneImmobile} — {v.indirizzoImmobile}</p>
+                        <p style={{fontSize:12,color:"#aaa",margin:0}}>Rif.: {fmtD(v.dataVendita||v.dataAtto)} | Prezzo: <strong style={{color:BRAND.oroD}}>€ {fmtN(v.prezzoVendita)}</strong></p>
+                      </div>
+                      <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                        <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgInc.bg,color:cfgInc.clr,fontWeight:500}}>Agenzia: {cfgInc.s} {statoInc}</span>
+                        <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgPag.bg,color:cfgPag.clr,fontWeight:500}}>{cfgPag.s} {pag.stato}</span>
+                        {pag.dataPagamento&&<span style={{fontSize:11,color:"#aaa"}}>Pagato {fmtD(pag.dataPagamento)}</span>}
+                      </div>
                     </div>
-                    {ruoli.filter(r=>r.quota>0).map((r,j)=>(<div key={j} style={{background:"#fff",borderRadius:6,border:"0.5px solid #ddd",padding:"8px 12px",marginBottom:6}}>
-                      <p style={{fontSize:11,fontWeight:500,color:BRAND.oro,textTransform:"uppercase",margin:"0 0 3px"}}>{r.tipo}</p>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}><span style={{color:"#888"}}>Cliente:</span><span style={{fontWeight:500}}>{r.cliente}</span></div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:2}}><span style={{color:"#888"}}>Provv. agenzia incassata:</span><span>€ {fmt(r.provv)}</span></div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span style={{color:"#888"}}>Tua quota ({r.perc}%):</span><span style={{fontWeight:500,color:BRAND.oroD}}>€ {fmt(r.quota)}</span></div>
+                    {ruoli.filter(r=>r.quota>0).map((r,j)=>(<div key={j} style={{background:BRAND.beige,borderRadius:6,border:"0.5px solid #e8e5e0",padding:"8px 12px",marginBottom:6}}>
+                      <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",margin:"0 0 4px"}}>{r.tipo}</p>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}><span style={{color:"#888"}}>Cliente</span><span style={{fontWeight:500}}>{r.cliente}</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}><span style={{color:"#888"}}>Provv. agenzia incassata</span><span>€ {fmt(r.provv)}</span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span style={{color:"#888"}}>Tua quota ({r.perc}%)</span><span style={{fontWeight:600,color:BRAND.oroD}}>€ {fmt(r.quota)}</span></div>
                     </div>))}
-                    <p style={{fontSize:13,fontWeight:500,color:BRAND.oroD,margin:"6px 0 0"}}>Subtotale: € {fmt(totPratica)}</p>
+                    <p style={{fontSize:13,fontWeight:600,color:BRAND.oroD,margin:"6px 0 0",textAlign:"right"}}>Subtotale: € {fmt(totPratica)}</p>
                   </div>);
                 })}
               </div>
