@@ -1138,15 +1138,18 @@ export default function App() {
                   ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna provvigione in sospeso</div>)}
                 </div>
 
-                {/* IN ATTESA / CONTROPROPOSTA */}
-                {myPropAttive.length>0&&(
-                  <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
-                    <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #4A90D933"}}>
-                      <div><span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Tue proposte attive</span></div>
-                      <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16}}>€ {fmt(myPropAttive.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</span>
+                {/* IN ATTESA / CONTROPROPOSTA — sempre visibile */}
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
+                  <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #4A90D933"}}>
+                    <div>
+                      <span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Proposte attive in corso di trattativa</span>
+                      <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni potenziali su proposte ancora aperte</p>
                     </div>
+                    <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16,whiteSpace:"nowrap"}}>{myPropAttive.length>0?`€ ${fmt(myPropAttive.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                  </div>
+                  {myPropAttive.length>0?(
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
-                      <thead><tr>{["Ruolo","Stato","Venditore","Acquirente","Immobile","Prezzo","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <thead><tr>{["Ruolo","Stato","Venditore","Acquirente","Immobile","Prezzo","Provv. prevista"].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{myPropAttive.map(p=>{
                         const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
                         const rp=ruoloProp(p);
@@ -1161,18 +1164,21 @@ export default function App() {
                         </tr>);
                       })}</tbody>
                     </table></div>
-                  </div>
-                )}
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta in attesa</div>}
+                </div>
 
-                {/* VINCOLATE */}
-                {myPropVincolo.length>0&&(
-                  <div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
-                    <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Tue proposte con vincolo in attesa</span>
-                      <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",marginLeft:16}}>€ {fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</span>
+                {/* VINCOLATE — sempre visibile */}
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
+                  <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
+                    <div>
+                      <span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Proposte accettate con vincolo in attesa di esito</span>
+                      <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni previste ma non certe: dipendono dall'esito del vincolo</p>
                     </div>
+                    <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",marginLeft:16,whiteSpace:"nowrap"}}>{myPropVincolo.length>0?`€ ${fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                  </div>
+                  {myPropVincolo.length>0?(
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
-                      <thead><tr>{["Ruolo","Venditore","Acquirente","Immobile","Vincolo","Scadenza","Provv."].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
+                      <thead><tr>{["Ruolo","Venditore","Acquirente","Immobile","Vincolo","Scadenza vincolo","Provv. prevista"].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{myPropVincolo.map(p=>{
                         const rp=ruoloProp(p);
                         return(<tr key={p.id} style={{background:["Buyer L","Buyer"].includes(rp)?"#FFF9F0":"#fff"}}>
@@ -1180,14 +1186,19 @@ export default function App() {
                           <td style={{...S.tdS,fontWeight:500}}>{p.nominativoVenditore}</td>
                           <td style={S.tdS}>{p.nomeAcquirente}</td>
                           <td style={S.tdS}>{p.comuneImmobile} — {p.indirizzoImmobile}</td>
-                          <td style={S.tdS}>{p.tipoVincolo||"Generico"}</td>
+                          <td style={S.tdS}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:"#f5f5f5",color:"#666"}}>{p.tipoVincolo||"Generico"}</span></td>
                           <td style={{...S.tdS,color:p.termineSubordine&&new Date(p.termineSubordine)<new Date()?"#E74C3C":"inherit"}}>{p.termineSubordine?fmtD(p.termineSubordine):"—"}</td>
                           <td style={{...S.tdRS,fontWeight:600,color:"#D4AC0D"}}>€ {fmt(Number(p.provvVenditore||0)+Number(p.provvAcquirente||0))}</td>
                         </tr>);
-                      })}</tbody>
+                      })}
+                      </tbody>
+                      <tfoot><tr style={{background:"#FEF9E7",fontWeight:500}}>
+                        <td colSpan={6} style={S.tdS}>Totale vincolate ({myPropVincolo.length})</td>
+                        <td style={{...S.tdRS,color:"#D4AC0D"}}>€ {fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</td>
+                      </tr></tfoot>
                     </table></div>
-                  </div>
-                )}
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
+                </div>
               </>);
             })()}
 
@@ -1980,10 +1991,11 @@ export default function App() {
             const totConsuntivo = mieVoci.reduce((s,v)=>s+totSpeseVoceAg(v),0);
             return(
               <div style={S.sec}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                {/* Header anno */}
+                <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
                   <div>
                     <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>💼 Le mie spese — {ag?.nome} {ag?.cognome}</h2>
-                    <p style={{fontSize:11,color:"#aaa",margin:0}}>Visibili solo a te. Gestisci le tue voci di costo personali.</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:0}}>Voci personali visibili solo a te</p>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <label style={{fontSize:13,color:"#888"}}>Anno:</label>
@@ -1993,7 +2005,48 @@ export default function App() {
                     </select>
                   </div>
                 </div>
-                {/* KPI */}
+
+                {/* KPI produzione agente vs costi — come broker */}
+                {(()=>{
+                  const vendAnnoAg=venduti.filter(v=>getAnno(v.dataVendita||v.dataAtto||"")===costiAgenteAnno&&(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId));
+                  const quotaAgAnno=vendAnnoAg.reduce((s,v)=>{
+                    let q=0;
+                    if(Number(v.agenteListing)===myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                    if(Number(v.agenteAcquirente)===myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                    if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                    if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                    return s+q;
+                  },0);
+                  const costiRif=totConsuntivo>0?totConsuntivo:totPrevAnno;
+                  const margine=quotaAgAnno-costiRif;
+                  const percCop=totPrevAnno>0?(quotaAgAnno/totPrevAnno*100).toFixed(1):null;
+                  return(<>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                      <div style={S.card("#27AE60")}>
+                        <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota Agente {costiAgenteAnno}</p>
+                        <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgAnno)}</p>
+                        <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>Ag.+Buyer, tutte le pratiche</p>
+                      </div>
+                      <div style={S.card("#E74C3C")}>
+                        <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsionali annui</p>
+                        <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnno)}</p>
+                        <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(Math.round(totPrevAnno/12))}/mese</p>
+                      </div>
+                      <div style={S.card("#E67E22")}>
+                        <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi consuntivi inseriti</p>
+                        <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p>
+                        <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totConsuntivo===0?"Uso previsionali come riferimento":percCop+"% copertura costi"}</p>
+                      </div>
+                      <div style={S.card(margine>=0?"#27AE60":"#E74C3C")}>
+                        <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Margine agente</p>
+                        <p style={{fontSize:22,fontWeight:600,margin:0,color:margine>=0?"#27AE60":"#E74C3C"}}>{margine>=0?"+":""}€ {fmt(margine)}</p>
+                        <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totConsuntivo>0?"vs consuntivi":"vs previsionali"}</p>
+                      </div>
+                    </div>
+                  </>);
+                })()}
+
+                {/* KPI spese personali */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
                   <div style={S.card("#E74C3C")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsti {costiAgenteAnno}</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnno)}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(Math.round(totPrevAnno/12))}/mese</p></div>
                   <div style={S.card("#E67E22")}><p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Spese inserite {costiAgenteAnno}</p><p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p><p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{mieVoci.reduce((s,v)=>(v.spese||[]).length>0?s+(v.spese||[]).length:s,0)} spese registrate</p></div>
