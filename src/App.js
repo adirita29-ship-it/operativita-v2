@@ -2012,6 +2012,7 @@ export default function App() {
               };
 
               const aggiornaTipo=(idx,tipo)=>{const v=[...vociConTipo];v[idx]={...v[idx],tipo};setCosti({...costi,[costiAnno]:v});};
+              const moveVoce=(idx,dir)=>{const v=[...vociConTipo];const to=idx+dir;if(to<0||to>=v.length)return;[v[idx],v[to]]=[v[to],v[idx]];setCosti({...costi,[costiAnno]:v});};
 
 
               const thTipo=(label,colore,bg)=>(
@@ -2074,7 +2075,7 @@ export default function App() {
                           <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                           <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
                           <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoce({voce,idx:idxGlobale,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}</button></td>
-                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Su" onClick={()=>moveVoce(idxGlobale,-1)}>▲</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Giù" onClick={()=>moveVoce(idxGlobale,1)}>▼</button></td>
                         </tr>);
                       })}{tfTipo(totPrevFissi,totSpFissi,"fissi","#2980B9")}</>}
                       {variabili.length>0&&<>{thTipo("📊 Costi Variabili","#E67E22","#FEF0E0")}{variabili.map((voce)=>{
@@ -2088,7 +2089,7 @@ export default function App() {
                           <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                           <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
                           <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoce({voce,idx:idxGlobale,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}</button></td>
-                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Su" onClick={()=>moveVoce(idxGlobale,-1)}>▲</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Giù" onClick={()=>moveVoce(idxGlobale,1)}>▼</button></td>
                         </tr>);
                       })}{tfTipo(totPrevVar,totSpVar,"variabili","#E67E22")}</>}
                     </tbody>
@@ -2283,6 +2284,7 @@ export default function App() {
                     salvaMieVoci(nuove);
                   };
                   const aggiornaTipoAg=(idx,tipo)=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],tipo};salvaMieVoci(nuove);};
+                  const moveVoceAg=(idx,dir)=>{const nuove=[...vociConTipoAg];const to=idx+dir;if(to<0||to>=nuove.length)return;[nuove[idx],nuove[to]]=[nuove[to],nuove[idx]];salvaMieVoci(nuove);};
 
 
                   const thTipoAg=(label,colore,bg)=>(<tr style={{background:bg}}><td colSpan={8} style={{padding:"7px 14px",fontSize:11,fontWeight:700,color:colore,textTransform:"uppercase",letterSpacing:"0.1em"}}>{label}</td></tr>);
@@ -2323,7 +2325,9 @@ export default function App() {
                               <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                               <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0&&diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
                               <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoceAg({voce,idx,anno:costiAgenteAnno});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} spese`:"Aggiungi"}</button></td>
-                              <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...vociConTipoAg];nuove.splice(idx,1);salvaMieVoci(nuove);}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                              <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...vociConTipoAg];nuove.splice(idx,1);salvaMieVoci(nuove);}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+                              <button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,padding:"0 2px"}} title="Sposta su" onClick={()=>moveVoceAg(idx,-1)}>▲</button>
+                              <button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,padding:"0 2px"}} title="Sposta giù" onClick={()=>moveVoceAg(idx,1)}>▼</button></td>
                             </tr>);
                           })}{tfTipoAg(totPrevFissiAg,totSpFissiAg,"fissi","#2980B9")}</>}
                           {variabiliAg.length>0&&<>{thTipoAg("📊 Costi Variabili","#E67E22","#FEF0E0")}{variabiliAg.map((voce)=>{
@@ -2336,7 +2340,9 @@ export default function App() {
                               <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                               <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0&&diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
                               <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoceAg({voce,idx,anno:costiAgenteAnno});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} spese`:"Aggiungi"}</button></td>
-                              <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...vociConTipoAg];nuove.splice(idx,1);salvaMieVoci(nuove);}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                              <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...vociConTipoAg];nuove.splice(idx,1);salvaMieVoci(nuove);}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
+                              <button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,padding:"0 2px"}} title="Sposta su" onClick={()=>moveVoceAg(idx,-1)}>▲</button>
+                              <button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:12,lineHeight:1,padding:"0 2px"}} title="Sposta giù" onClick={()=>moveVoceAg(idx,1)}>▼</button></td>
                             </tr>);
                           })}{tfTipoAg(totPrevVarAg,totSpVarAg,"variabili","#E67E22")}</>}
                         </tbody>
