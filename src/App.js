@@ -85,10 +85,12 @@ const bdg = cfg => ({display:"inline-flex",alignItems:"center",gap:4,padding:"3p
 
 // Kit spese personali agente (default)
 const VOCI_COSTO_AGENTE_DEFAULT = [
-  "Carburante","Telefono","Marketing personale","Formazione / Corsi",
-  "Pranzi e cene di lavoro","Abbonamenti professionali","Materiali promozionali","Altro"
+  {voce:"Carburante",tipo:"variabile"},{voce:"Telefono",tipo:"fisso"},
+  {voce:"Marketing personale",tipo:"variabile"},{voce:"Formazione / Corsi",tipo:"variabile"},
+  {voce:"Pranzi e cene di lavoro",tipo:"variabile"},{voce:"Abbonamenti professionali",tipo:"fisso"},
+  {voce:"Materiali promozionali",tipo:"variabile"},{voce:"Altro",tipo:"variabile"},
 ];
-const mkCostiAgente = () => VOCI_COSTO_AGENTE_DEFAULT.map((v,i)=>({id:i+1,voce:v,prevMensile:0,frequenza:"mensile",spese:[]}));
+const mkCostiAgente = () => VOCI_COSTO_AGENTE_DEFAULT.map((v,i)=>({id:i+1,voce:v.voce,tipo:v.tipo||"variabile",prevMensile:0,frequenza:"mensile",spese:[]}));
 
 const INIT_AGENTI = [
   {id:1,nome:"Antonello",cognome:"Di Rita",profilo:"Broker",tipo:"Interno",percListing:0,percAcquirente:0,email:"adirita@casaimmobiliarevarese.it",password:"Dalmata1518",attivo:true},
@@ -122,16 +124,19 @@ const calcolaStatoIncasso = v => { const t=Number(v.provvVenditore||0)+Number(v.
 const calcolaQuotaAgente = (v,agId) => { let q=0; if(v.agenteListing===agId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100; if(v.agenteAcquirente===agId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100; if(v.buyerListing===agId&&v.agenteListing!==agId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100; if(v.buyer===agId&&v.agenteAcquirente!==agId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100; return q; };
 
 const VOCI_COSTO = [
-  "Locazione Ufficio","Spese Condominiali","Utenza Elettricita","Utenza GAS",
-  "Telefonia Fissa","Telefonia Cellulare","Pulizie","Assicurazione Ufficio",
-  "Imposte Pubblicitarie","Ufficio Multifunzione Canone","Commercialista SRL",
-  "Consulente Paghe","Compenso Amministratore","Stipendio Erica Guglielmana",
-  "Stipendi x collaborazioni","Tasse / Contributi x Dipendenti",
-  "Immobiliare.it","Idealista.it & Casa.it","Sponsorizzazioni Squadre",
-  "Gestim + Sito e Hosting","Software - Servizi Professionali","FIAIP",
-  "Assicurazioni Professionali","Altre Assicurazioni","Agente Strategico Abbonamento"
+  {voce:"Locazione Ufficio",tipo:"fisso"},{voce:"Spese Condominiali",tipo:"fisso"},{voce:"Utenza Elettricita",tipo:"fisso"},
+  {voce:"Utenza GAS",tipo:"fisso"},{voce:"Telefonia Fissa",tipo:"fisso"},{voce:"Telefonia Cellulare",tipo:"fisso"},
+  {voce:"Pulizie",tipo:"fisso"},{voce:"Assicurazione Ufficio",tipo:"fisso"},{voce:"Imposte Pubblicitarie",tipo:"fisso"},
+  {voce:"Ufficio Multifunzione Canone",tipo:"fisso"},{voce:"Commercialista SRL",tipo:"fisso"},
+  {voce:"Consulente Paghe",tipo:"fisso"},{voce:"Compenso Amministratore",tipo:"fisso"},
+  {voce:"Stipendio Erica Guglielmana",tipo:"fisso"},{voce:"Stipendi x collaborazioni",tipo:"fisso"},
+  {voce:"Tasse / Contributi x Dipendenti",tipo:"fisso"},{voce:"Immobiliare.it",tipo:"fisso"},
+  {voce:"Idealista.it & Casa.it",tipo:"fisso"},{voce:"Sponsorizzazioni Squadre",tipo:"fisso"},
+  {voce:"Gestim + Sito e Hosting",tipo:"fisso"},{voce:"Software - Servizi Professionali",tipo:"fisso"},
+  {voce:"FIAIP",tipo:"fisso"},{voce:"Assicurazioni Professionali",tipo:"fisso"},
+  {voce:"Altre Assicurazioni",tipo:"fisso"},{voce:"Agente Strategico Abbonamento",tipo:"fisso"},
 ];
-const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v,prevMensile:0,frequenza:"mensile",spese:[]}));
+const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v.voce,tipo:v.tipo||"fisso",prevMensile:0,frequenza:"mensile",spese:[]}));
 const MESI_KEYS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 const mesiNomi = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const totSpeseVoce = voce => (voce.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
@@ -472,6 +477,8 @@ export default function App() {
   const [costiAnno,setCostiAnno]=useState(annoCorrente);
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
+  const [costiBreakevenMode,setCostiBreakevenMode]=useState("fissi+variabili");
+  const [costiAgenteBreakevenMode,setCostiAgenteBreakevenMode]=useState("fissi+variabili");
   const [archiviatiProp,setArchiviatiProp]=useState(_ls?.archiviatiProp||[]);
   const [archiviatiVend,setArchiviatiVend]=useState(_ls?.archiviatiVend||[]);
   const [mostraArchiviatiProp,setMostraArchiviatiProp]=useState(false);
@@ -1815,7 +1822,15 @@ export default function App() {
               },0);
               const quotaAgenzia = fatturatoLordo - quotaAgenti - quotaBuyer;
               const totConsuntivo = vociAnno.reduce((s,v)=>s+totSpeseVoce(v),0);
-              const costiRif = totConsuntivo>0?totConsuntivo:totPrevAnnuo;
+              // Break even mode: fissi soli o fissi+variabili
+              const vociConTipoKPI=vociAnno.map(v=>({...v,tipo:v.tipo||"fisso"}));
+              const totPrevFissiKPI=vociConTipoKPI.filter(v=>v.tipo==="fisso").reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totPrevVariabiliKPI=vociConTipoKPI.filter(v=>v.tipo==="variabile").reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totSpFissiKPI=vociConTipoKPI.filter(v=>v.tipo==="fisso").reduce((s,v)=>s+totSpeseVoce(v),0);
+              const totSpVariabiliKPI=vociConTipoKPI.filter(v=>v.tipo==="variabile").reduce((s,v)=>s+totSpeseVoce(v),0);
+              const costiPrevRif=costiBreakevenMode==="fissi"?totPrevFissiKPI:totPrevAnnuo;
+              const costiSpRif=costiBreakevenMode==="fissi"?totSpFissiKPI:totConsuntivo;
+              const costiRif = costiSpRif>0?costiSpRif:costiPrevRif;
               const margine = quotaAgenzia - costiRif;
               const percCopertura = totPrevAnnuo>0?(quotaAgenzia/totPrevAnnuo*100).toFixed(1):null;
 
@@ -1823,6 +1838,14 @@ export default function App() {
               const obFatAgenti = agenti.filter(a=>a.profilo!=="Broker").reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0);
 
               return(<>
+                {/* Toggle break even mode */}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"1rem",flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:"#888",fontWeight:500}}>Break Even su:</span>
+                  {[["fissi","🔒 Solo fissi"],["fissi+variabili","🔒+📊 Fissi + Variabili"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setCostiBreakevenMode(v)} style={{fontSize:12,padding:"5px 14px",borderRadius:6,border:`1px solid ${costiBreakevenMode===v?"#2980B9":"#ddd"}`,background:costiBreakevenMode===v?"#EAF4FB":"#fff",color:costiBreakevenMode===v?"#2980B9":"#888",cursor:"pointer",fontWeight:costiBreakevenMode===v?600:400}}>{l}</button>
+                  ))}
+                  {costiBreakevenMode==="fissi"&&totPrevVariabiliKPI>0&&<span style={{fontSize:11,color:"#E67E22",fontStyle:"italic"}}>+€ {fmt(totPrevVariabiliKPI)} variabili esclusi dal calcolo</span>}
+                </div>
                 {/* Obiettivi input — 2 campi */}
                 <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"14px 18px",marginBottom:"1.25rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Obiettivi anno {costiAnno}</p>
@@ -1867,9 +1890,9 @@ export default function App() {
                     <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(Math.round(totPrevMensile))}/mese</p>
                   </div>
                   <div style={S.card("#E67E22")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi consuntivi inseriti</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(totConsuntivo)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totConsuntivo===0?"Uso previsionali come riferimento":percCopertura+"% copertura costi"}</p>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi {costiBreakevenMode==="fissi"?"fissi":"totali"} {costiSpRif>0?"consuntivi":"previsionali"}</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(costiRif)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{costiBreakevenMode==="fissi"?`+€ ${fmt(totPrevVariabiliKPI)} var. esclusi`:`€ ${fmt(Math.round(costiRif/12))}/mese`}</p>
                   </div>
                   <div style={S.card(margine>=0?"#27AE60":"#E74C3C")}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Margine agenzia</p>
@@ -1956,88 +1979,134 @@ export default function App() {
               </>);
             })()}
 
-            {/* Tabella voci di costo — spese singole per categoria */}
-            <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-              <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                <div style={{display:"flex",alignItems:"center",gap:16}}>
-                  <span style={{fontSize:13,fontWeight:500}}>Voci di costo — {costiAnno}</span>
-                  {(()=>{const voci=costi[costiAnno]||mkCosti();const totSp=voci.reduce((s,v)=>s+totSpeseVoce(v),0);const totPr=voci.reduce((s,v)=>s+prevAnnuoVoce(v),0);return totSp>0&&(<span style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:500}}>Totale spese: € {fmt(totSp)} {totPr>0?`/ € ${fmt(totPr)} prev.`:""}</span>);})()}
+            {/* Tabella voci di costo — raggruppate per tipo */}
+            {(()=>{
+              const vociAnno=costi[costiAnno]||mkCosti();
+              // Migrazione: aggiungi tipo se mancante
+              const vociConTipo=vociAnno.map(v=>({...v,tipo:v.tipo||"fisso"}));
+              const fissi=vociConTipo.filter(v=>v.tipo==="fisso");
+              const variabili=vociConTipo.filter(v=>v.tipo==="variabile");
+              const totPrevFissi=fissi.reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totSpFissi=fissi.reduce((s,v)=>s+totSpeseVoce(v),0);
+              const totPrevVar=variabili.reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totSpVar=variabili.reduce((s,v)=>s+totSpeseVoce(v),0);
+              const totSp=vociConTipo.reduce((s,v)=>s+totSpeseVoce(v),0);
+              const totPr=vociConTipo.reduce((s,v)=>s+prevAnnuoVoce(v),0);
+
+              // Copia anno precedente
+              const annoPrec=String(Number(costiAnno)-1);
+              const haPrec=!!(costi[annoPrec]&&costi[annoPrec].length>0);
+              const copiaAnno=()=>{
+                const src=costi[annoPrec]||[];
+                const fissiPrec=src.filter(v=>(v.tipo||"fisso")==="fisso");
+                const varPrec=src.filter(v=>(v.tipo||"fisso")==="variabile");
+                // Fissi: copia sempre
+                let nuove=fissiPrec.map(v=>({...v,id:Date.now()+Math.random(),spese:[]}));
+                // Variabili: chiedi conferma
+                if(varPrec.length>0){
+                  if(window.confirm(`Copiare anche le ${varPrec.length} voci VARIABILI dall'anno ${annoPrec}?\n(Fissi copiati automaticamente, variabili richiedono conferma)`)){
+                    nuove=[...nuove,...varPrec.map(v=>({...v,id:Date.now()+Math.random(),spese:[]}))];
+                  }
+                }
+                setCosti({...costi,[costiAnno]:nuove});
+              };
+
+              const aggiornaTipo=(idx,tipo)=>{const v=[...vociConTipo];v[idx]={...v[idx],tipo};setCosti({...costi,[costiAnno]:v});};
+
+
+              const thTipo=(label,colore,bg)=>(
+                <tr style={{background:bg}}>
+                  <td colSpan={8} style={{padding:"7px 14px",fontSize:11,fontWeight:700,color:colore,textTransform:"uppercase",letterSpacing:"0.1em"}}>{label}</td>
+                </tr>
+              );
+              const tfTipo=(totPrev,totSp,label,colore)=>(
+                <tr style={{background:"#F8F8F8",fontWeight:600,fontSize:12,borderTop:`1px solid ${colore}33`}}>
+                  <td style={{...S.td,color:colore}}>Totale {label}</td>
+                  <td colSpan={2} style={{background:"#FDF6EC"}}/>
+                  <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrev)}</td>
+                  <td style={{...S.tdR,color:"#27AE60"}}>{totSp>0?`€ ${fmt(totSp)}`:"—"}</td>
+                  <td style={{...S.tdR,color:totSp>totPrev&&totPrev>0?"#E74C3C":totSp<totPrev?"#27AE60":"#aaa"}}>{totSp>0&&totPrev>0?((totSp>totPrev?"+":"")+fmt(totSp-totPrev)):"—"}</td>
+                  <td colSpan={2}/>
+                </tr>
+              );
+
+              return(
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                    <span style={{fontSize:13,fontWeight:500}}>Voci di costo — {costiAnno}</span>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                      <span style={{fontSize:16,fontWeight:700,color:totSp>totPr&&totPr>0?"#E74C3C":totSp>0?"#27AE60":BRAND.oroD}}>€ {fmt(totSp)}</span>
+                      <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>Spese inserite{totPr>0?` · prev. € ${fmt(totPr)}`:""}</span>
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {haPrec&&vociAnno.length===0&&<button style={{...S.btn,fontSize:12,color:BRAND.oroD,borderColor:BRAND.oro}} onClick={copiaAnno}>📋 Copia da {annoPrec}</button>}
+                      {haPrec&&vociAnno.length>0&&<button style={{...S.btn,fontSize:12,color:"#888"}} onClick={copiaAnno}>📋 Copia da {annoPrec}</button>}
+                      <button style={S.btnP} onClick={()=>{
+                        const n=window.prompt("Nome della nuova voce di costo:");
+                        if(!n||!n.trim()) return;
+                        const tipo=window.confirm(`"${n.trim()}" è una voce FISSA?\n\nOK = Fisso   Annulla = Variabile`)?"fisso":"variabile";
+                        const v=[...vociConTipo];
+                        v.push({id:Date.now(),voce:n.trim(),tipo,prevMensile:0,frequenza:"mensile",spese:[]});
+                        setCosti({...costi,[costiAnno]:v});
+                      }}>+ Aggiungi voce</button>
+                    </div>
+                  </div>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                    <thead><tr>
+                      <th style={{...S.th,minWidth:200}}>Voce di costo</th>
+                      <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Importo rata</th>
+                      <th style={{...S.th,color:BRAND.oroD,background:"#FDF6EC"}}>Frequenza</th>
+                      <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. annuo</th>
+                      <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. spese</th>
+                      <th style={{...S.th,textAlign:"right"}}>Diff. vs prev.</th>
+                      <th style={{...S.th,textAlign:"center"}}>Spese</th>
+                      <th style={S.th}></th>
+                    </tr></thead>
+                    <tbody>
+                      {fissi.length>0&&<>{thTipo("🔒 Costi Fissi","#2980B9","#EAF4FB")}{fissi.map((voce)=>{
+                        const idxGlobale=vociConTipo.findIndex(v=>v.id===voce.id);
+                        const prevAnnuo=prevAnnuoVoce(voce);const tot=totSpeseVoce(voce);const diff=tot-prevAnnuo;const nSpese=(voce.spese||[]).length;const isFisso=voce.tipo==="fisso";
+                        return(<tr key={voce.id} style={{background:"#fff"}}>
+                          <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"fisso"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #2980B9`,background:"#EAF4FB",color:"#2980B9",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span></div></td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/></td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}} value={voce.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">Mensile ×12</option><option value="trimestrale">Trimestrale ×4</option><option value="semestrale">Semestrale ×2</option><option value="annuale">Annuale ×1</option></select></td>
+                          <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
+                          <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
+                          <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
+                          <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoce({voce,idx:idxGlobale,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}</button></td>
+                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                        </tr>);
+                      })}{tfTipo(totPrevFissi,totSpFissi,"fissi","#2980B9")}</>}
+                      {variabili.length>0&&<>{thTipo("📊 Costi Variabili","#E67E22","#FEF0E0")}{variabili.map((voce)=>{
+                        const idxGlobale=vociConTipo.findIndex(v=>v.id===voce.id);
+                        const prevAnnuo=prevAnnuoVoce(voce);const tot=totSpeseVoce(voce);const diff=tot-prevAnnuo;const nSpese=(voce.spese||[]).length;
+                        return(<tr key={voce.id} style={{background:"#FEFDF8"}}>
+                          <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"variabile"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #E67E22`,background:"#FEF0E0",color:"#E67E22",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span></div></td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/></td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}} value={voce.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">Mensile ×12</option><option value="trimestrale">Trimestrale ×4</option><option value="semestrale">Semestrale ×2</option><option value="annuale">Annuale ×1</option></select></td>
+                          <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
+                          <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
+                          <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
+                          <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoce({voce,idx:idxGlobale,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}</button></td>
+                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                        </tr>);
+                      })}{tfTipo(totPrevVar,totSpVar,"variabili","#E67E22")}</>}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{background:BRAND.beige,fontWeight:700,fontSize:13}}>
+                        <td style={S.td}>TOTALE GENERALE</td>
+                        <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}} colSpan={2}></td>
+                        <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPr)}</td>
+                        <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totSp)}</td>
+                        <td style={{...S.tdR,color:totSp>totPr&&totPr>0?"#E74C3C":totSp<totPr?"#27AE60":"#aaa"}}>{totSp>0&&totPr>0?((totSp>totPr?"+":"")+fmt(totSp-totPr)):"—"}</td>
+                        <td colSpan={2}/>
+                      </tr>
+                    </tfoot>
+                  </table>
                 </div>
-                <button style={S.btnP} onClick={()=>{
-                  const n=window.prompt("Nome della nuova voce di costo:");
-                  if(!n||!n.trim()) return;
-                  const v=[...(costi[costiAnno]||mkCosti())];
-                  v.push({id:Date.now(),voce:n.trim(),prevMensile:0,spese:[]});
-                  setCosti({...costi,[costiAnno]:v});
-                }}>+ Aggiungi voce</button>
-              </div>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                <thead><tr>
-                  <th style={{...S.th,minWidth:200}}>Voce di costo</th>
-                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Importo rata</th>
-                  <th style={{...S.th,color:BRAND.oroD,background:"#FDF6EC"}}>Frequenza</th>
-                  <th style={{...S.th,textAlign:"right",color:BRAND.oroD,background:"#FDF6EC"}}>Prev. annuo</th>
-                  <th style={{...S.th,textAlign:"right",color:"#27AE60"}}>Tot. spese</th>
-                  <th style={{...S.th,textAlign:"right"}}>Diff. vs prev.</th>
-                  <th style={{...S.th,textAlign:"center"}}>Spese</th>
-                  <th style={S.th}></th>
-                </tr></thead>
-                <tbody>
-                  {(costi[costiAnno]||mkCosti()).map((voce,idx)=>{
-                    const prevAnnuo=prevAnnuoVoce(voce);
-                    const tot=totSpeseVoce(voce);
-                    const diff=tot-prevAnnuo;
-                    const nSpese=(voce.spese||[]).length;
-                    return(<tr key={voce.id} style={{background:idx%2===0?"#fff":"#fafafa"}}>
-                      <td style={{...S.td,fontWeight:500}}>{voce.voce}</td>
-                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>
-                        <input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}}
-                          value={voce.prevMensile||""} placeholder="0"
-                          onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>
-                      </td>
-                      <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>
-                        <select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}}
-                          value={voce.frequenza||"mensile"}
-                          onChange={e=>{const v=[...(costi[costiAnno]||mkCosti())];v[idx]={...v[idx],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}>
-                          <option value="mensile">Mensile ×12</option>
-                          <option value="trimestrale">Trimestrale ×4</option>
-                          <option value="semestrale">Semestrale ×2</option>
-                          <option value="annuale">Annuale ×1</option>
-                        </select>
-                      </td>
-                      <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuoVoce(voce))}</td>
-                      <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
-                      <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
-                      <td style={S.tdC}>
-                        <button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}}
-                          onClick={()=>{setModalCostoVoce({voce,idx,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>
-                          {nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}
-                        </button>
-                      </td>
-                      <td style={S.tdC}>
-                        <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}}
-                          onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}" e tutte le sue spese?`)){const v=[...(costi[costiAnno]||mkCosti())];v.splice(idx,1);setCosti({...costi,[costiAnno]:v});}}}
-                          onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
-                      </td>
-                    </tr>);
-                  })}
-                </tbody>
-                <tfoot>{(()=>{
-                  const voci=costi[costiAnno]||mkCosti();
-                  const totPrevA=voci.reduce((s,v)=>s+prevAnnuoVoce(v),0);
-                  const totSpTot=voci.reduce((s,v)=>s+totSpeseVoce(v),0);
-                  const diffTot=totSpTot-totPrevA;
-                  return(<tr style={{background:BRAND.beige,fontWeight:500,fontSize:13}}>
-                    <td style={S.td}>TOTALE</td>
-                    <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}} colSpan={2}></td>
-                    <td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevA)}</td>
-                    <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totSpTot)}</td>
-                    <td style={{...S.tdR,color:diffTot>0?"#E74C3C":diffTot<0?"#27AE60":"#aaa"}}>{totSpTot>0?(diffTot!==0?(diffTot>0?"+":"")+fmt(diffTot):"—"):"—"}</td>
-                    <td colSpan={2}/>
-                  </tr>);
-                })()}</tfoot>
-              </table>
-            </div>
+              );
+            })()}
+
           </div>)}
 
           {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
@@ -2183,50 +2252,104 @@ export default function App() {
                     <span style={{fontSize:12,color:"#888"}}>Spese: <strong style={{color:totConsuntivo>totPrevAnno&&totPrevAnno>0?"#E74C3C":"#27AE60"}}>€ {fmt(totConsuntivo)}</strong></span>
                   </div>
                 </div>
-                {/* Tabella voci */}
-                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden",marginBottom:"1rem"}}>
-                  <div style={{padding:"12px 16px",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                    <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <p style={{fontSize:13,fontWeight:500,color:BRAND.grigio,margin:0}}>Voci di costo</p>
-                      {totConsuntivo>0&&<span style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:500}}>Totale spese: € {fmt(totConsuntivo)}</span>}
-                    </div>
-                    <button style={S.btnP} onClick={()=>{const nuove=[...mieVoci,{id:Date.now(),voce:"Nuova voce",prevMensile:0,frequenza:"mensile",spese:[]}];salvaMieVoci(nuove);}}>+ Aggiungi voce</button>
-                  </div>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                    <thead><tr style={{background:"#fafaf8"}}>{["Voce","Freq.","Prev./periodo","Prev. annuo","Consuntivo","Scostamento","Spese",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-                    <tbody>
-                      {mieVoci.map((voce,idx)=>{
-                        const prevA=prevAnnuoVoceAg(voce);
-                        const tot=totSpeseVoceAg(voce);
-                        const diff=tot-prevA;
-                        const nSpese=(voce.spese||[]).length;
-                        return(<tr key={voce.id||idx}>
-                          <td style={S.td}><input style={{...S.inp,margin:0,fontSize:13,border:"none",background:"transparent",padding:"2px 0",width:"100%"}} value={voce.voce} onChange={e=>{const nuove=[...mieVoci];nuove[idx]={...nuove[idx],voce:e.target.value};salvaMieVoci(nuove);}}/></td>
-                          <td style={S.tdC}>
-                            <select style={{...S.inp,margin:0,fontSize:12,padding:"3px 6px"}} value={voce.frequenza||"mensile"} onChange={e=>{const nuove=[...mieVoci];nuove[idx]={...nuove[idx],frequenza:e.target.value};salvaMieVoci(nuove);}}>
-                              <option value="mensile">Mens. ×12</option><option value="trimestrale">Trim. ×4</option><option value="semestrale">Sem. ×2</option><option value="annuale">Ann. ×1</option>
-                            </select>
-                          </td>
-                          <td style={S.tdR}><input style={{...S.inp,margin:0,fontSize:13,textAlign:"right",border:"none",background:"transparent",padding:"2px 4px",width:80}} type="number" value={voce.prevMensile||""} placeholder="0" onChange={e=>{const nuove=[...mieVoci];nuove[idx]={...nuove[idx],prevMensile:Number(e.target.value)};salvaMieVoci(nuove);}}/></td>
-                          <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevA)}</td>
-                          <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
-                          <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0&&diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
-                          <td style={S.tdC}>
-                            <button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}}
-                              onClick={()=>{setModalCostoVoceAg({voce,idx,anno:costiAgenteAnno});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>
-                              {nSpese>0?`${nSpese} spese`:"Aggiungi"}
-                            </button>
-                          </td>
-                          <td style={S.tdC}>
-                            <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}}
-                              onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...mieVoci];nuove.splice(idx,1);salvaMieVoci(nuove);}}}
-                              onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
-                          </td>
-                        </tr>);
-                      })}
-                    </tbody>
-                  </table>
+                {/* Toggle break even agente */}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"1rem",flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:"#888",fontWeight:500}}>Break Even su:</span>
+                  {[["fissi","🔒 Solo fissi"],["fissi+variabili","🔒+📊 Fissi + Variabili"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setCostiAgenteBreakevenMode(v)} style={{fontSize:12,padding:"5px 14px",borderRadius:6,border:`1px solid ${costiAgenteBreakevenMode===v?"#2980B9":"#ddd"}`,background:costiAgenteBreakevenMode===v?"#EAF4FB":"#fff",color:costiAgenteBreakevenMode===v?"#2980B9":"#888",cursor:"pointer",fontWeight:costiAgenteBreakevenMode===v?600:400}}>{l}</button>
+                  ))}
                 </div>
+
+                {/* Tabella voci — gruppata fisso/variabile */}
+                {(()=>{
+                  const vociConTipoAg=mieVoci.map(v=>({...v,tipo:v.tipo||"variabile"}));
+                  const fissiAg=vociConTipoAg.filter(v=>v.tipo==="fisso");
+                  const variabiliAg=vociConTipoAg.filter(v=>v.tipo==="variabile");
+                  const totPrevFissiAg=fissiAg.reduce((s,v)=>s+prevAnnuoVoceAg(v),0);
+                  const totSpFissiAg=fissiAg.reduce((s,v)=>s+totSpeseVoceAg(v),0);
+                  const totPrevVarAg=variabiliAg.reduce((s,v)=>s+prevAnnuoVoceAg(v),0);
+                  const totSpVarAg=variabiliAg.reduce((s,v)=>s+totSpeseVoceAg(v),0);
+
+                  const annoPrec=String(Number(costiAgenteAnno)-1);
+                  const haPrec=!!(costiAgente[myAgentId]?.[annoPrec]?.length>0);
+                  const copiaAnnoAg=()=>{
+                    const src=costiAgente[myAgentId]?.[annoPrec]||[];
+                    const fissiSrc=src.filter(v=>(v.tipo||"variabile")==="fisso");
+                    const varSrc=src.filter(v=>(v.tipo||"variabile")==="variabile");
+                    let nuove=fissiSrc.map(v=>({...v,id:Date.now()+Math.random(),spese:[]}));
+                    if(varSrc.length>0&&window.confirm(`Copiare anche le ${varSrc.length} voci VARIABILI dall'anno ${annoPrec}?`)){
+                      nuove=[...nuove,...varSrc.map(v=>({...v,id:Date.now()+Math.random(),spese:[]}))];
+                    }
+                    salvaMieVoci(nuove);
+                  };
+                  const aggiornaTipoAg=(idx,tipo)=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],tipo};salvaMieVoci(nuove);};
+
+
+                  const thTipoAg=(label,colore,bg)=>(<tr style={{background:bg}}><td colSpan={8} style={{padding:"7px 14px",fontSize:11,fontWeight:700,color:colore,textTransform:"uppercase",letterSpacing:"0.1em"}}>{label}</td></tr>);
+                  const tfTipoAg=(totPrev,totSp,label,colore)=>(<tr style={{background:"#F8F8F8",fontWeight:600,fontSize:12,borderTop:`1px solid ${colore}33`}}>
+                    <td style={{...S.td,color:colore}}>Totale {label}</td><td colSpan={2}/><td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrev)}</td>
+                    <td style={{...S.tdR,color:"#27AE60"}}>{totSp>0?`€ ${fmt(totSp)}`:"—"}</td>
+                    <td style={{...S.tdR,color:totSp>totPrev&&totPrev>0?"#E74C3C":"#aaa"}}>{totSp>0&&totPrev>0?((totSp>totPrev?"+":"")+fmt(totSp-totPrev)):"—"}</td>
+                    <td colSpan={2}/>
+                  </tr>);
+
+                  return(
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden",marginBottom:"1rem"}}>
+                      <div style={{padding:"12px 16px",borderBottom:"0.5px solid #eee",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                        <p style={{fontSize:13,fontWeight:500,color:BRAND.grigio,margin:0}}>Voci di costo</p>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:1}}>
+                          <span style={{fontSize:16,fontWeight:700,color:totConsuntivo>totPrevAnno&&totPrevAnno>0?"#E74C3C":totConsuntivo>0?"#27AE60":BRAND.oroD}}>€ {fmt(totConsuntivo)}</span>
+                          <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>Spese inserite{totPrevAnno>0?` · prev. € ${fmt(totPrevAnno)}`:""}</span>
+                        </div>
+                        <div style={{display:"flex",gap:8}}>
+                          {haPrec&&<button style={{...S.btn,fontSize:12,color:BRAND.oroD,borderColor:BRAND.oro}} onClick={copiaAnnoAg}>📋 Copia da {annoPrec}</button>}
+                          <button style={S.btnP} onClick={()=>{
+                            const n=window.prompt("Nome nuova voce:");if(!n||!n.trim())return;
+                            const tipo=window.confirm(`"${n.trim()}" è FISSA?\nOK=Fisso  Annulla=Variabile`)?"fisso":"variabile";
+                            salvaMieVoci([...vociConTipoAg,{id:Date.now(),voce:n.trim(),tipo,prevMensile:0,frequenza:"mensile",spese:[]}]);
+                          }}>+ Aggiungi voce</button>
+                        </div>
+                      </div>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                        <thead><tr style={{background:"#fafaf8"}}>{["Voce","Freq.","Prev./periodo","Prev. annuo","Consuntivo","Scostamento","Spese",""].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {fissiAg.length>0&&<>{thTipoAg("🔒 Costi Fissi","#2980B9","#EAF4FB")}{fissiAg.map((voce)=>{
+                            const idx=vociConTipoAg.findIndex(v=>v.id===voce.id);const prevA=prevAnnuoVoceAg(voce);const tot=totSpeseVoceAg(voce);const diff=tot-prevA;const nSpese=(voce.spese||[]).length;
+                            return(<tr key={voce.id||idx} style={{background:"#fff"}}>
+                              <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><select value="fisso" onChange={e=>aggiornaTipoAg(idx,e.target.value)} style={{fontSize:10,padding:"2px 4px",borderRadius:4,border:"0.5px solid #2980B9",background:"#EAF4FB",color:"#2980B9",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><input style={{...S.inp,margin:0,fontSize:13,border:"none",background:"transparent",padding:"2px 0",flex:1}} value={voce.voce} onChange={e=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],voce:e.target.value};salvaMieVoci(nuove);}}/></div></td>
+                              <td style={S.tdC}><select style={{...S.inp,margin:0,fontSize:12,padding:"3px 6px"}} value={voce.frequenza||"mensile"} onChange={e=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],frequenza:e.target.value};salvaMieVoci(nuove);}}><option value="mensile">Mens. ×12</option><option value="trimestrale">Trim. ×4</option><option value="semestrale">Sem. ×2</option><option value="annuale">Ann. ×1</option></select></td>
+                              <td style={S.tdR}><input style={{...S.inp,margin:0,fontSize:13,textAlign:"right",border:"none",background:"transparent",padding:"2px 4px",width:80}} type="number" value={voce.prevMensile||""} placeholder="0" onChange={e=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],prevMensile:Number(e.target.value)};salvaMieVoci(nuove);}}/></td>
+                              <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevA)}</td>
+                              <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
+                              <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0&&diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
+                              <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoceAg({voce,idx,anno:costiAgenteAnno});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} spese`:"Aggiungi"}</button></td>
+                              <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...vociConTipoAg];nuove.splice(idx,1);salvaMieVoci(nuove);}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                            </tr>);
+                          })}{tfTipoAg(totPrevFissiAg,totSpFissiAg,"fissi","#2980B9")}</>}
+                          {variabiliAg.length>0&&<>{thTipoAg("📊 Costi Variabili","#E67E22","#FEF0E0")}{variabiliAg.map((voce)=>{
+                            const idx=vociConTipoAg.findIndex(v=>v.id===voce.id);const prevA=prevAnnuoVoceAg(voce);const tot=totSpeseVoceAg(voce);const diff=tot-prevA;const nSpese=(voce.spese||[]).length;
+                            return(<tr key={voce.id||idx} style={{background:"#FEFDF8"}}>
+                              <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><select value="variabile" onChange={e=>aggiornaTipoAg(idx,e.target.value)} style={{fontSize:10,padding:"2px 4px",borderRadius:4,border:"0.5px solid #E67E22",background:"#FEF0E0",color:"#E67E22",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><input style={{...S.inp,margin:0,fontSize:13,border:"none",background:"transparent",padding:"2px 0",flex:1}} value={voce.voce} onChange={e=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],voce:e.target.value};salvaMieVoci(nuove);}}/></div></td>
+                              <td style={S.tdC}><select style={{...S.inp,margin:0,fontSize:12,padding:"3px 6px"}} value={voce.frequenza||"mensile"} onChange={e=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],frequenza:e.target.value};salvaMieVoci(nuove);}}><option value="mensile">Mens. ×12</option><option value="trimestrale">Trim. ×4</option><option value="semestrale">Sem. ×2</option><option value="annuale">Ann. ×1</option></select></td>
+                              <td style={S.tdR}><input style={{...S.inp,margin:0,fontSize:13,textAlign:"right",border:"none",background:"transparent",padding:"2px 4px",width:80}} type="number" value={voce.prevMensile||""} placeholder="0" onChange={e=>{const nuove=[...vociConTipoAg];nuove[idx]={...nuove[idx],prevMensile:Number(e.target.value)};salvaMieVoci(nuove);}}/></td>
+                              <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevA)}</td>
+                              <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
+                              <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0&&diff!==0?(diff>0?"+":"")+fmt(diff):"—"}</td>
+                              <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoceAg({voce,idx,anno:costiAgenteAnno});setFormNuovaSpesaAg({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} spese`:"Aggiungi"}</button></td>
+                              <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const nuove=[...vociConTipoAg];nuove.splice(idx,1);salvaMieVoci(nuove);}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button></td>
+                            </tr>);
+                          })}{tfTipoAg(totPrevVarAg,totSpVarAg,"variabili","#E67E22")}</>}
+                        </tbody>
+                        <tfoot><tr style={{background:BRAND.beige,fontWeight:700,fontSize:13}}>
+                          <td style={S.td}>TOTALE</td><td colSpan={2}/><td style={{...S.tdR,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(totPrevAnno)}</td>
+                          <td style={{...S.tdR,color:"#27AE60"}}>€ {fmt(totConsuntivo)}</td>
+                          <td style={{...S.tdR,color:totConsuntivo>totPrevAnno&&totPrevAnno>0?"#E74C3C":"#aaa"}}>{totConsuntivo>0&&totPrevAnno>0?((totConsuntivo>totPrevAnno?"+":"")+fmt(totConsuntivo-totPrevAnno)):"—"}</td>
+                          <td colSpan={2}/>
+                        </tr></tfoot>
+                      </table>
+                    </div>
+                  );
+                })()}
 
                 {/* MODAL SPESE VOCE AGENTE */}
                 {modalCostoVoceAg&&(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setModalCostoVoceAg(null)}>
