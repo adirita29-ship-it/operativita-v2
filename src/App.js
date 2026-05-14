@@ -506,6 +506,11 @@ export default function App() {
   const [statSubTab,setStatSubTab]=useState("generali");
   const [statAnno,setStatAnno]=useState(annoCorrente);
   const [statShowSconti,setStatShowSconti]=useState(false);
+  const [showSospesi,setShowSospesi]=useState(false);
+  const [showSospesiAg,setShowSospesiAg]=useState(false);
+  const [mioRepAnno,setMioRepAnno]=useState("Tutti");
+  const [mioRepMese,setMioRepMese]=useState("Tutti");
+  const [showMioTabella,setShowMioTabella]=useState(true);
 
   const isBroker = utente?.ruolo==="Broker";
   const myAgentId = utente?.agentId||null;
@@ -1037,7 +1042,6 @@ export default function App() {
               const myPropAttive=proposte.filter(p=>p.categoria==="vendita"&&(Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId)&&["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato));
               const myPropVincolo=proposte.filter(p=>p.categoria==="vendita"&&(Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId)&&p.stato==="Accettata con Vincolo");
               const colRuolo={Listing:"#2980B9",Acquirente:"#8E44AD","Buyer L":"#E67E22",Buyer:"#E74C3C"};
-              const [showSospesiAg,setShowSospesiAg]=React.useState(false);
 
               const BF=({titolo,colore,emoji,totale,sub1L,sub1V,sub2L,sub2V})=>(
                 <div style={{background:"#fff",borderRadius:10,border:`0.5px solid ${colore}44`,padding:"14px 16px",borderTop:`3px solid ${colore}`}}>
@@ -1195,7 +1199,6 @@ export default function App() {
             </div>
             {/* SOSPESI */}
             {(()=>{
-              const [showSospesi,setShowSospesi]=React.useState(false);
               const sospesi=venduti.filter(v=>{
                 if(v.categoria!=="vendita") return false;
                 return (Number(v.provvVenditore||0)-calcolaIncassatoV(v))>0||(Number(v.provvAcquirente||0)-calcolaIncassatoA(v))>0;
@@ -2123,11 +2126,8 @@ export default function App() {
           {tab==="Il mio report"&&!isBroker&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
             if(!ag) return null;
-            const [mioRepAnno,setMioRepAnno]=React.useState("Tutti");
-            const [mioRepMese,setMioRepMese]=React.useState("Tutti");
-            const [showMioTabella,setShowMioTabella]=React.useState(true);
-            const anniMio=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti]);
-            const mesiMio=useMemo(()=>Array.from(new Set(venduti.filter(v=>mioRepAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===mioRepAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,mioRepAnno]);
+            const anniMio=Array.from(new Set(venduti.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
+            const mesiMio=Array.from(new Set(venduti.filter(v=>mioRepAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===mioRepAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
             const prat=venduti.filter(v=>{
               if(!(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id||Number(v.buyerListing)===ag.id||Number(v.buyer)===ag.id))return false;
               if(mioRepAnno!=="Tutti"&&getAnno(v.dataVendita||v.dataAtto||"")!==mioRepAnno)return false;
