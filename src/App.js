@@ -2296,7 +2296,7 @@ export default function App() {
               return true;
             });
 
-            // Quota TOTALE maturata (su provv totale, non solo incassata)
+            // Quota TOTALE maturata (su provv totale — quello che spetta all'agente)
             const calcolaQuotaMiaTot=(v)=>{
               let q=0;
               if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
@@ -2305,22 +2305,23 @@ export default function App() {
               if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
               return q;
             };
-            // Quota INCASSATA (solo sulla parte già incassata dall'agenzia)
-            const calcolaQuotaMiaInc=(v)=>{
-              let q=0;
-              if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
-              if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100;
-              if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
-              if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=calcolaIncassatoA(v)*Number(v.percBuyer||0)/100;
-              return q;
-            };
 
-            // KPI globali (tutti, senza filtri)
+            // KPI basati su pagamento AGENZIA → AGENTE (pagamentiFatture)
+            // "Pagato" = agenzia ha già pagato l'agente
             const totFatture=tuttiMiei.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0);
-            const totIncassato=tuttiMiei.reduce((s,v)=>s+calcolaQuotaMiaInc(v),0);
-            const totDaInc=totFatture-totIncassato;
 
-            // Per la lista filtrata usiamo la quota totale maturata
+            // Già pagato dall'agenzia all'agente
+            const totPagatoAgente=tuttiMiei.reduce((s,v)=>{
+              const key=`${v.id}_${myAgentId}`;
+              const pag=pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0};
+              // Se stato "Pagato" usa la quota totale, se "Parziale" usa importoPagato, se "Da pagare" = 0
+              if(pag.stato==="Pagato") return s+calcolaQuotaMiaTot(v);
+              if(pag.stato==="Parziale") return s+Number(pag.importoPagato||0);
+              return s;
+            },0);
+            const totDaPagare=totFatture-totPagatoAgente;
+
+            // Per la lista filtrata
             const calcolaQuotaMiaV=(v)=>calcolaQuotaMiaTot(v);
             const totMia=myFatDati.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0);
 
@@ -2339,7 +2340,7 @@ export default function App() {
               <div style={S.sec}>
                 <div style={{marginBottom:"1rem"}}>
                   <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>🧾 Le mie fatture — {ag?.nome} {ag?.cognome}</h2>
-                  <p style={{fontSize:11,color:"#aaa",margin:0}}>Sola lettura · quota provvigionale sulle pratiche dove intervieni</p>
+                  <p style={{fontSize:11,color:"#aaa",margin:0}}>Quota provvigionale maturata · stato pagamento <strong>Agenzia → Agente</strong></p>
                 </div>
                 {/* Filtri */}
                 <div style={S.fRow}>
@@ -2350,28 +2351,28 @@ export default function App() {
                     <option value="Tutti">Tutti i mesi</option>{mesiMioFat.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}
                   </Sel>
                   <Sel value={mioFatStato} onChange={setMioFatStato}>
-                    <option value="Tutti">Tutti gli stati pagamento</option>
-                    <option value="Da pagare">Da pagare</option>
-                    <option value="Parziale">Pagato parzialmente</option>
-                    <option value="Pagato">Pagato</option>
+                    <option value="Tutti">Tutti gli stati</option>
+                    <option value="Da pagare">🔴 Da pagare</option>
+                    <option value="Parziale">⏳ Pagato parzialmente</option>
+                    <option value="Pagato">✅ Pagato</option>
                   </Sel>
                 </div>
-                {/* KPI — 3 box corretti */}
+                {/* KPI — 3 box: Agenzia→Agente */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
                   <div style={S.card(BRAND.oroD)}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Totale fatture maturate</p>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota totale maturata</p>
                     <p style={{fontSize:22,fontWeight:600,margin:0,color:BRAND.oroD}}>€ {fmt(totFatture)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.length} pratiche totali</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.length} pratiche · ciò che ti spetta</p>
                   </div>
                   <div style={S.card("#27AE60")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Incassato</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totIncassato)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>quota già ricevuta</p>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Pagato dall'agenzia</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totPagatoAgente)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>{const k=`${v.id}_${myAgentId}`;const p=pagamentiFatture[k]||{stato:"Da pagare"};return p.stato==="Pagato"||p.stato==="Parziale";}).length} pratiche pagate/parziali</p>
                   </div>
-                  <div style={S.card(totDaInc>0?"#E67E22":"#27AE60")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Da incassare</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:totDaInc>0?"#E67E22":"#27AE60"}}>€ {fmt(totDaInc)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>quota in attesa</p>
+                  <div style={S.card(totDaPagare>0?"#E74C3C":"#27AE60")}>
+                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Da pagare dall'agenzia</p>
+                    <p style={{fontSize:22,fontWeight:600,margin:0,color:totDaPagare>0?"#E74C3C":"#27AE60"}}>€ {fmt(totDaPagare)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>{const k=`${v.id}_${myAgentId}`;const p=pagamentiFatture[k]||{stato:"Da pagare"};return p.stato==="Da pagare";}).length} pratiche in attesa</p>
                   </div>
                 </div>
                 {myFatDati.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessuna pratica nel periodo</div>}
