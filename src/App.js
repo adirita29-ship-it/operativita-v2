@@ -347,7 +347,7 @@ function ModalIncassoLato({vend,lato,onSave,onClose}) {
 }
 
 function SchedaAgente({agente,venduti,incarichi,onClose}) {
-  const [fA,setFA]=useState("Tutti"); const [fM,setFM]=useState("Tutti");
+  const [fA,setFA]=useState(annoCorrente); const [fM,setFM]=useState("Tutti");
   const [showTabella,setShowTabella]=useState(true);
   const anni=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti]);
   const mesi=useMemo(()=>Array.from(new Set(venduti.filter(v=>fA==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===fA).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,fA]);
@@ -494,9 +494,9 @@ export default function App() {
   const [tipiNeg,setTipiNeg]=useState(_ls?.tipiNeg||["Mutuo negato","Pratica rifiutata","Rinuncia acquirente","Problemi catastali","Altro"]);
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
-  const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
-  const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState("Tutti"); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
-  const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState("Tutti"); const [fVendAg,setFVendAg]=useState("Tutti");
+  const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
+  const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
+  const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
   const [dashAnno,setDashAnno]=useState(annoCorrente);
   const [reportAnno,setReportAnno]=useState(annoCorrente); const [reportMese,setReportMese]=useState("Tutti");
   const [fatAgente,setFatAgente]=useState(""); const [fatAnno,setFatAnno]=useState(annoCorrente); const [fatMese,setFatMese]=useState("Tutti"); const [fatStatoIncasso,setFatStatoIncasso]=useState("Tutti");
@@ -519,10 +519,10 @@ export default function App() {
   const [statShowSconti,setStatShowSconti]=useState(false);
   const [showSospesi,setShowSospesi]=useState(false);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
-  const [mioRepAnno,setMioRepAnno]=useState("Tutti");
+  const [mioRepAnno,setMioRepAnno]=useState(annoCorrente);
   const [mioRepMese,setMioRepMese]=useState("Tutti");
   const [showMioTabella,setShowMioTabella]=useState(true);
-  const [mioFatAnno,setMioFatAnno]=useState("Tutti");
+  const [mioFatAnno,setMioFatAnno]=useState(annoCorrente);
   const [mioFatMese,setMioFatMese]=useState("Tutti");
   const [mioFatStato,setMioFatStato]=useState("Tutti");
 
@@ -2425,14 +2425,19 @@ export default function App() {
             const anniMioFat=Array.from(new Set(tuttiMiei.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
             const mesiMioFat=Array.from(new Set(tuttiMiei.filter(v=>mioFatAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===mioFatAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
 
+            // Stato pagamento agente — cerca con chiave numerica e stringa
+            const getPagAg=v=>{
+              const key=`${v.id}_${myAgentId}`;
+              const keyStr=`${v.id}_${String(myAgentId)}`;
+              return pagamentiFatture[key]||pagamentiFatture[keyStr]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
+            };
+
             const myFatDati=tuttiMiei.filter(v=>{
-              const dataRif=v.dataVendita||v.dataAtto||"";
+              const dataRif=dataCompAgenzia(v);
               if(mioFatAnno!=="Tutti"&&getAnno(dataRif)!==mioFatAnno) return false;
               if(mioFatMese!=="Tutti"&&getMese(dataRif)!==mioFatMese) return false;
               if(mioFatStato!=="Tutti"){
-                // Filtro su stato pagamento Agenzia→Agente
-                const key=`${v.id}_${myAgentId}`;
-                const pag=pagamentiFatture[key]||{stato:"Da pagare"};
+                const pag=getPagAg(v);
                 if(pag.stato!==mioFatStato) return false;
               }
               return true;
@@ -2452,26 +2457,22 @@ export default function App() {
             // "Pagato" = agenzia ha già pagato l'agente
             const totFatture=tuttiMiei.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0);
 
-            // Già pagato dall'agenzia all'agente
+            // Già pagato dall'agenzia all'agente (usa getPagAg)
             const totPagatoAgente=tuttiMiei.reduce((s,v)=>{
-              const key=`${v.id}_${myAgentId}`;
-              const pag=pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0};
-              // Se stato "Pagato" usa la quota totale, se "Parziale" usa importoPagato, se "Da pagare" = 0
+              const pag=getPagAg(v);
               if(pag.stato==="Pagato") return s+calcolaQuotaMiaTot(v);
               if(pag.stato==="Parziale") return s+Number(pag.importoPagato||0);
               return s;
             },0);
-            const totDaPagare=totFatture-totPagatoAgente;
-
-            // Per la lista filtrata
-            const calcolaQuotaMiaV=(v)=>calcolaQuotaMiaTot(v);
-            const totMia=myFatDati.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0);
-
-            // Stato pagamento agente (basato su pagamentiFatture)
-            const getPagAg=v=>{
-              const key=`${v.id}_${myAgentId}`;
-              return pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
-            };
+            const totDaPagare=Math.max(0,totFatture-totPagatoAgente);
+            const totTransazioni=tuttiMiei.reduce((s,v)=>{
+              let n=0;
+              if(Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna) n++;
+              if(Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0) n++;
+              if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.provvVenditore||0)>0) n++;
+              if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId&&Number(v.provvAcquirente||0)>0) n++;
+              return s+n;
+            },0);
             const cfgStatoFat={
               "Pagato":{bg:"#E9F7EF",clr:"#27AE60",s:"✅"},
               "Parziale":{bg:"#FEF0E0",clr:"#E67E22",s:"⏳"},
@@ -2504,20 +2505,21 @@ export default function App() {
                   <div style={S.card(BRAND.oroD)}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota totale maturata</p>
                     <p style={{fontSize:22,fontWeight:600,margin:0,color:BRAND.oroD}}>€ {fmt(totFatture)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.length} pratiche · ciò che ti spetta</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totTransazioni} transazioni · ciò che ti spetta</p>
                   </div>
                   <div style={S.card("#27AE60")}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Pagato dall'agenzia</p>
                     <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totPagatoAgente)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>{const k=`${v.id}_${myAgentId}`;const p=pagamentiFatture[k]||{stato:"Da pagare"};return p.stato==="Pagato"||p.stato==="Parziale";}).length} pratiche pagate/parziali</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>{const p=getPagAg(v);return p.stato==="Pagato"||p.stato==="Parziale";}).length} trans. pagate/parziali</p>
                   </div>
                   <div style={S.card(totDaPagare>0?"#E74C3C":"#27AE60")}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Da pagare dall'agenzia</p>
                     <p style={{fontSize:22,fontWeight:600,margin:0,color:totDaPagare>0?"#E74C3C":"#27AE60"}}>€ {fmt(totDaPagare)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>{const k=`${v.id}_${myAgentId}`;const p=pagamentiFatture[k]||{stato:"Da pagare"};return p.stato==="Da pagare";}).length} pratiche in attesa</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>getPagAg(v).stato==="Da pagare").length} trans. in attesa</p>
                   </div>
                 </div>
-                {myFatDati.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessuna pratica nel periodo</div>}
+                {(mioFatAnno!=="Tutti"||mioFatMese!=="Tutti"||mioFatStato!=="Tutti")&&<div style={{fontSize:12,color:"#888",marginBottom:"0.75rem",padding:"6px 12px",background:"#f5f5f5",borderRadius:6}}>Filtro attivo · {myFatDati.length} transazioni · <strong style={{color:BRAND.oroD}}>€ {fmt(myFatDati.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0))}</strong></div>}
+                {myFatDati.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessuna pratica nel periodo / stato selezionato</div>}
                 {myFatDati.map((v,i)=>{
                   const ruoli=[];
                   if(Number(v.agenteListing)===myAgentId) ruoli.push({tipo:"Listing",provvTot:Number(v.provvVenditore||0),provvInc:calcolaIncassatoV(v),perc:Number(v.percListing||0),quotaTot:Number(v.provvVenditore||0)*Number(v.percListing||0)/100,quotaInc:calcolaIncassatoV(v)*Number(v.percListing||0)/100,cliente:v.nominativoVenditore});
@@ -2535,10 +2537,10 @@ export default function App() {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:6}}>
                       <div>
                         <p style={{fontSize:14,fontWeight:500,margin:"0 0 2px"}}>{i+1}. {v.comuneImmobile} — {v.indirizzoImmobile}</p>
-                        <p style={{fontSize:12,color:"#aaa",margin:0}}>Rif.: {fmtD(v.dataVendita||v.dataAtto)} | Prezzo: <strong style={{color:BRAND.oroD}}>€ {fmtN(v.prezzoVendita)}</strong></p>
+                        <p style={{fontSize:12,color:"#aaa",margin:0}}>Competenza: <strong style={{color:BRAND.oroD}}>{fmtD(dataCompAgenzia(v))}</strong>{v.dataAtto?` · Rogito: ${fmtD(v.dataAtto)}`:""} · Prezzo: <strong style={{color:BRAND.oroD}}>€ {fmtN(v.prezzoVendita)}</strong></p>
                       </div>
                       <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
-                        <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgInc.bg,color:cfgInc.clr,fontWeight:500}}>Agenzia: {cfgInc.s} {statoInc}</span>
+                        <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgInc.bg,color:cfgInc.clr,fontWeight:500}}>🏢 {cfgInc.s} {calcolaStatoIncasso(v)}</span>
                         <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgPag.bg,color:cfgPag.clr,fontWeight:500}}>{cfgPag.s} {pag.stato}</span>
                         {pag.dataPagamento&&<span style={{fontSize:11,color:"#aaa"}}>Pagato {fmtD(pag.dataPagamento)}</span>}
                       </div>
