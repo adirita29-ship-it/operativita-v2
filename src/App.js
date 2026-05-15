@@ -730,8 +730,11 @@ export default function App() {
       const stato=calcolaStatoIncasso(v);
       // Filtra per stato incasso se selezionato
       if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
-      // Fatture agenti: filtra sempre per competenza AGENZIA
-      const dataRif=dataCompAgenzia(v);
+      // Fatture agenti: usa dataCompetenzaAgente se impostata (quando l'agente deve ricevere),
+      // altrimenti dataCompAgenzia
+      const dataRif=(v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente
+        ?v.dataCompetenzaAgente
+        :dataCompAgenzia(v);
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
       if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
