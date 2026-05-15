@@ -655,7 +655,10 @@ export default function App() {
   }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{
-    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:dataCompAgenzia(v);
+    // Report Agenti filtra per competenza AGENTE (dataCompetenzaAgente se impostata, altrimenti dataCompAgenzia)
+    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente
+      ?v.dataCompetenzaAgente
+      :dataCompAgenzia(v);
     if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
     if(reportMese!=="Tutti"&&getMese(dataRif)!==reportMese)return false;
     return true;
@@ -723,8 +726,10 @@ export default function App() {
       const stato=calcolaStatoIncasso(v);
       // Filtra per stato incasso se selezionato
       if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
-      // Usa dataCompetenzaAgente se diversa, altrimenti competenza agenzia
-      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:dataCompAgenzia(v);
+      // Per le fatture agenti usa: dataCompetenzaAgente se impostata, altrimenti dataCompAgenzia
+      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente
+        ?v.dataCompetenzaAgente
+        :dataCompAgenzia(v);
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
       if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
@@ -2428,19 +2433,11 @@ export default function App() {
 
             // Stato pagamento agente — cerca con chiave numerica e stringa
             const getPagAg=v=>{
-              // Cerca la chiave in tutte le varianti: ${v.id}_${myAgentId}
-              // Sia con id numerico che stringa, sia con agentId numerico che stringa
-              const vId=v.id;
-              const agId=myAgentId;
-              // Cerca prima la corrispondenza esatta, poi cerca tutte le chiavi che iniziano con vId_
-              const exact = pagamentiFatture[`${vId}_${agId}`]
-                         || pagamentiFatture[`${vId}_${Number(agId)}`];
-              if(exact) return exact;
-              // Cerca tra tutte le chiavi quelle che matchano questo venduto
-              const prefix = `${vId}_`;
-              const found = Object.keys(pagamentiFatture).find(k=>k.startsWith(prefix));
-              if(found) return pagamentiFatture[found];
-              return {stato:"Da pagare",importoPagato:0,dataPagamento:""};
+              // La chiave in fatturaDati (broker) è sempre `${v.id}_${ag.id}`
+              // ag.id è sempre un numero (es. 3 per Riccardo)
+              // myAgentId viene dal login utente — deve corrispondere esattamente
+              const key=`${v.id}_${Number(myAgentId)}`;
+              return pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
             };
 
             const myFatDati=tuttiMiei.filter(v=>{
