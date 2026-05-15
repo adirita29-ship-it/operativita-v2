@@ -66,7 +66,9 @@ const getAnno = d => d ? String(d).substring(0,4) : "";
 const getMese = d => d ? String(d).substring(0,7) : "";
 // Data di competenza per fatturato AGENZIA
 // Se competenzaAgenziaDiversa=true → usa dataCompetenzaAgenzia, altrimenti dataVendita
-const dataCompAgenzia = v => v.competenzaAgenziaDiversa&&v.dataCompetenzaAgenzia ? v.dataCompetenzaAgenzia : (v.dataVendita||v.dataAtto||"");
+const dataCompAgenzia = v => (v.competenzaAgenziaDiversa===true||v.competenzaAgenziaDiversa==="true")&&v.dataCompetenzaAgenzia ? v.dataCompetenzaAgenzia : (v.dataVendita||v.dataAtto||"");
+// Normalizza stato pagamento: "Pagato parzialmente" → "Parziale" per retrocompatibilità
+const normStatoPag = s => s==="Pagato parzialmente"?"Parziale":s||"Da pagare";
 const fmtMese = m => { if(!m) return m; const p=m.split("-"); return MESI_NOMI[parseInt(p[1])]+" "+p[0]; };
 const isScad = s => s && new Date(s) < new Date();
 const annoCorrente = String(new Date().getFullYear());
@@ -656,7 +658,7 @@ export default function App() {
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{
     // Report Agenti filtra per competenza AGENTE (dataCompetenzaAgente se impostata, altrimenti dataCompAgenzia)
-    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente
+    const dataRif=(v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente
       ?v.dataCompetenzaAgente
       :dataCompAgenzia(v);
     if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
@@ -727,7 +729,7 @@ export default function App() {
       // Filtra per stato incasso se selezionato
       if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
       // Per le fatture agenti usa: dataCompetenzaAgente se impostata, altrimenti dataCompAgenzia
-      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente
+      const dataRif=(v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente
         ?v.dataCompetenzaAgente
         :dataCompAgenzia(v);
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
@@ -2433,11 +2435,10 @@ export default function App() {
 
             // Stato pagamento agente — cerca con chiave numerica e stringa
             const getPagAg=v=>{
-              // La chiave in fatturaDati (broker) è sempre `${v.id}_${ag.id}`
-              // ag.id è sempre un numero (es. 3 per Riccardo)
-              // myAgentId viene dal login utente — deve corrispondere esattamente
               const key=`${v.id}_${Number(myAgentId)}`;
-              return pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
+              const raw=pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
+              // Normalizza "Pagato parzialmente" → "Parziale"
+              return {...raw, stato:normStatoPag(raw.stato)};
             };
 
             const myFatDati=tuttiMiei.filter(v=>{
@@ -2445,7 +2446,7 @@ export default function App() {
               if(mioFatAnno!=="Tutti"&&getAnno(dataRif)!==mioFatAnno) return false;
               if(mioFatMese!=="Tutti"&&getMese(dataRif)!==mioFatMese) return false;
               if(mioFatStato!=="Tutti"){
-                const pag=getPagAg(v);
+                const pag=getPagAg(v); // già normalizzato da normStatoPag
                 if(pag.stato!==mioFatStato) return false;
               }
               return true;
@@ -2484,6 +2485,7 @@ export default function App() {
             const cfgStatoFat={
               "Pagato":{bg:"#E9F7EF",clr:"#27AE60",s:"✅"},
               "Parziale":{bg:"#FEF0E0",clr:"#E67E22",s:"⏳"},
+              "Pagato parzialmente":{bg:"#FEF0E0",clr:"#E67E22",s:"⏳"},
               "Da pagare":{bg:"#FDECEA",clr:"#E74C3C",s:"🔴"},
             };
 
@@ -3070,27 +3072,6 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
-            {/* DEBUG PANEL — temporaneo */}
-            {isBroker&&(()=>{
-              const maconi=venduti.filter(v=>(v.nominativoVenditore||"").toLowerCase().includes("maconi")||(v.nomeAcquirente||"").toLowerCase().includes("generali"));
-              const pagKeys=Object.keys(pagamentiFatture).slice(0,10);
-              return(<div style={{background:"#FEF9E7",border:"1px solid #D4AC0D",borderRadius:8,padding:"1rem",marginBottom:"1rem",fontSize:12,fontFamily:"monospace"}}>
-                <strong style={{color:"#D4AC0D"}}>🔍 DEBUG — rimuovere dopo verifica</strong>
-                <p style={{margin:"8px 0 4px",color:"#555"}}>Pratiche Maconi/Generali trovate: {maconi.length}</p>
-                {maconi.map(v=><div key={v.id} style={{background:"#fff",padding:"6px",borderRadius:4,marginBottom:4}}>
-                  <div>ID: <strong>{v.id}</strong> | nominativo: {v.nominativoVenditore} | acquirente: {v.nomeAcquirente}</div>
-                  <div>dataVendita: {v.dataVendita} | dataAtto: {v.dataAtto}</div>
-                  <div>competenzaAgenziaDiversa: <strong style={{color:v.competenzaAgenziaDiversa?"#27AE60":"#E74C3C"}}>{String(v.competenzaAgenziaDiversa)}</strong> | dataCompetenzaAgenzia: <strong>{v.dataCompetenzaAgenzia||"vuota"}</strong></div>
-                  <div>competenzaAgenteDiversa: {String(v.competenzaAgenteDiversa)} | dataCompetenzaAgente: {v.dataCompetenzaAgente||"vuota"}</div>
-                  <div>agenteListing: {v.agenteListing} | agenteAcquirente: {v.agenteAcquirente}</div>
-                  <div>provvV: {v.provvVenditore} | provvA: {v.provvAcquirente}</div>
-                  <div>dataCompAgenzia calcolata: <strong style={{color:"#2980B9"}}>{dataCompAgenzia(v)}</strong></div>
-                </div>)}
-                <p style={{margin:"8px 0 4px",color:"#555"}}>Prime 10 chiavi pagamentiFatture:</p>
-                {pagKeys.map(k=><div key={k}>{k}: {JSON.stringify(pagamentiFatture[k])}</div>)}
-                <p style={{margin:"8px 0 4px",color:"#555"}}>myAgentId (se loggato come agente): {myAgentId||"broker"}</p>
-              </div>);
-            })()}
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
