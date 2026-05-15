@@ -64,6 +64,9 @@ const nowISO = () => new Date().toISOString();
 const todayStr = () => new Date().toISOString().slice(0,10);
 const getAnno = d => d ? String(d).substring(0,4) : "";
 const getMese = d => d ? String(d).substring(0,7) : "";
+// Data di competenza per fatturato AGENZIA
+// Se competenzaAgenziaDiversa=true → usa dataCompetenzaAgenzia, altrimenti dataVendita
+const dataCompAgenzia = v => v.competenzaAgenziaDiversa&&v.dataCompetenzaAgenzia ? v.dataCompetenzaAgenzia : (v.dataVendita||v.dataAtto||"");
 const fmtMese = m => { if(!m) return m; const p=m.split("-"); return MESI_NOMI[parseInt(p[1])]+" "+p[0]; };
 const isScad = s => s && new Date(s) < new Date();
 const annoCorrente = String(new Date().getFullYear());
@@ -582,11 +585,11 @@ export default function App() {
 
   const anniInc=useMemo(()=>Array.from(new Set(incarichi.map(i=>getAnno(i.dataInizio)).filter(Boolean))).sort().reverse(),[incarichi]);
   const anniProp=useMemo(()=>Array.from(new Set(proposte.map(p=>getAnno(p.dataStato)).filter(Boolean))).sort().reverse(),[proposte]);
-  const anniVend=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti]);
+  const anniVend=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(dataCompAgenzia(v))).filter(Boolean))).sort().reverse(),[venduti]);
   const mesiInc=useMemo(()=>Array.from(new Set(incarichi.filter(i=>fIncAnno==="Tutti"||getAnno(i.dataInizio)===fIncAnno).map(i=>getMese(i.dataInizio)).filter(Boolean))).sort().reverse(),[incarichi,fIncAnno]);
   const mesiProp=useMemo(()=>Array.from(new Set(proposte.filter(p=>fPropAnno==="Tutti"||getAnno(p.dataStato)===fPropAnno).map(p=>getMese(p.dataStato)).filter(Boolean))).sort().reverse(),[proposte,fPropAnno]);
-  const mesiFat=useMemo(()=>Array.from(new Set(venduti.filter(v=>fatAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===fatAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,fatAnno]);
-  const mesiReport=useMemo(()=>Array.from(new Set(venduti.filter(v=>reportAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===reportAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti,reportAnno]);
+  const mesiFat=useMemo(()=>Array.from(new Set(venduti.filter(v=>fatAnno==="Tutti"||getAnno(dataCompAgenzia(v))===fatAnno).map(v=>getMese(dataCompAgenzia(v))).filter(Boolean))).sort().reverse(),[venduti,fatAnno]);
+  const mesiReport=useMemo(()=>Array.from(new Set(venduti.filter(v=>reportAnno==="Tutti"||getAnno(dataCompAgenzia(v))===reportAnno).map(v=>getMese(dataCompAgenzia(v))).filter(Boolean))).sort().reverse(),[venduti,reportAnno]);
 
   const incFiltrati=useMemo(()=>incarichi.filter(i=>{
     if(i.archiviato&&!mostraArchiviati) return false;
@@ -634,7 +637,7 @@ export default function App() {
     if(!isBroker&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
     const stato=calcolaStatoIncasso(v);
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
-    if(fVendAnno!=="Tutti"&&getAnno(v.dataVendita||v.dataAtto||"")!==fVendAnno) return false;
+    if(fVendAnno!=="Tutti"&&getAnno(dataCompAgenzia(v))!==fVendAnno) return false;
     if(fVendAg!=="Tutti"&&Number(v.agenteListing)!==Number(fVendAg)&&Number(v.agenteAcquirente)!==Number(fVendAg)) return false;
     return true;
   }),[venduti,subVend,fVendStato,fVendAnno,fVendAg,isBroker,myAgentId]);
@@ -648,12 +651,11 @@ export default function App() {
   const dashVend=useMemo(()=>venduti.filter(v=>{
     if(v.categoria!=="vendita") return false;
     if(dashAnno==="Tutti") return true;
-    const dataRif=v.dataVendita||v.dataAtto||"";
-    return getAnno(dataRif)===dashAnno;
+    return getAnno(dataCompAgenzia(v))===dashAnno;
   }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{
-    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataVendita||v.dataAtto||"");
+    const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:dataCompAgenzia(v);
     if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
     if(reportMese!=="Tutti"&&getMese(dataRif)!==reportMese)return false;
     return true;
@@ -721,8 +723,8 @@ export default function App() {
       const stato=calcolaStatoIncasso(v);
       // Filtra per stato incasso se selezionato
       if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
-      // Usa dataCompetenzaAgente se presente, altrimenti dataVendita
-      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:(v.dataVendita||v.dataAtto||"");
+      // Usa dataCompetenzaAgente se diversa, altrimenti competenza agenzia
+      const dataRif=v.competenzaAgenteDiversa&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:dataCompAgenzia(v);
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
       if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
@@ -792,7 +794,7 @@ export default function App() {
     if(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo") upd.stato="Accettata";
     if(ns==="Accettata"||(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Positivo")){
       const inc=incarichi.find(i=>i.id===p.incaricoId);const ag=agenti.find(a=>a.id===p.agenteAcquirente);
-      const nv={id:Date.now(),categoria:p.categoria,propostaId:p.id,incaricoId:p.incaricoId,comuneImmobile:p.comuneImmobile,indirizzoImmobile:p.indirizzoImmobile,tipologia:p.tipologia,nominativoVenditore:p.nominativoVenditore,nomeAcquirente:p.nomeAcquirente,agenteListing:p.agenteListing,percListing:Number(p.percListing||0),buyerListing:p.buyerListing,percBuyerListing:Number(p.percBuyerListing||0),agenteAcquirente:p.agenteAcquirente,percAcquirente:Number(p.percAcquirente||ag?.percAcquirente||0),buyer:p.buyer,percBuyer:Number(p.percBuyer||0),prezzoVendita:Number(p.prezzoOfferto),provvVenditore:Number(p.provvVenditore||inc?.provvPrevista||0),provvAcquirente:Number(p.provvAcquirente||0),tipoAtto:"Preliminare",dataAtto:"",dataVendita:formStatoProp.dataEsitoVincolo||formStatoProp.dataAccettazione||"",statoIncasso:"Da incassare",acc1V:0,dataAcc1V:"",noteAcc1V:"",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:0,dataAcc1A:"",noteAcc1A:"",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",incassatoVenditore:0,incassatoAcquirente:0,scadenzaIncasso:"",agenziaEsterna:p.agenziaEsterna||null,note:"",bloccato:false,dataCompetenzaAgente:"",competenzaAgenteDiversa:false};
+      const nv={id:Date.now(),categoria:p.categoria,propostaId:p.id,incaricoId:p.incaricoId,comuneImmobile:p.comuneImmobile,indirizzoImmobile:p.indirizzoImmobile,tipologia:p.tipologia,nominativoVenditore:p.nominativoVenditore,nomeAcquirente:p.nomeAcquirente,agenteListing:p.agenteListing,percListing:Number(p.percListing||0),buyerListing:p.buyerListing,percBuyerListing:Number(p.percBuyerListing||0),agenteAcquirente:p.agenteAcquirente,percAcquirente:Number(p.percAcquirente||ag?.percAcquirente||0),buyer:p.buyer,percBuyer:Number(p.percBuyer||0),prezzoVendita:Number(p.prezzoOfferto),provvVenditore:Number(p.provvVenditore||inc?.provvPrevista||0),provvAcquirente:Number(p.provvAcquirente||0),tipoAtto:"Preliminare",dataAtto:"",dataVendita:formStatoProp.dataEsitoVincolo||formStatoProp.dataAccettazione||"",statoIncasso:"Da incassare",acc1V:0,dataAcc1V:"",noteAcc1V:"",acc2V:0,dataAcc2V:"",noteAcc2V:"",saldoV:0,dataSaldoV:"",noteSaldoV:"",acc1A:0,dataAcc1A:"",noteAcc1A:"",acc2A:0,dataAcc2A:"",noteAcc2A:"",saldoA:0,dataSaldoA:"",noteSaldoA:"",incassatoVenditore:0,incassatoAcquirente:0,scadenzaIncasso:"",agenziaEsterna:p.agenziaEsterna||null,note:"",bloccato:false,dataCompetenzaAgente:"",competenzaAgenteDiversa:false,dataCompetenzaAgenzia:"",competenzaAgenziaDiversa:false};
       setVenduti([...venduti,nv]);
       if(p.incaricoId)setIncarichi(incarichi.map(i=>i.id===p.incaricoId?{...i,stato:p.categoria==="affitto"?"Locato":"Venduto"}:i));
     }
@@ -975,7 +977,7 @@ export default function App() {
               ));
 
               // Pratiche filtrate per anno selezionato
-              const myVendAnno = myVendTutti.filter(v=>dashAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===dashAnno);
+              const myVendAnno = myVendTutti.filter(v=>dashAnno==="Tutti"||getAnno(dataCompAgenzia(v))===dashAnno);
 
               // Ruolo in ogni pratica
               const ruoloIn = v => {
@@ -1597,8 +1599,11 @@ export default function App() {
                   <td style={S.td}>{v.tipoAtto||"—"}</td>
                   <td style={S.td}>
                     {v.dataAtto?fmtD(v.dataAtto):"—"}
+                    {v.competenzaAgenziaDiversa&&v.dataCompetenzaAgenzia&&(
+                      <><br/><span style={{fontSize:10,color:"#2980B9",fontStyle:"italic",fontWeight:500}}>🏢 {fmtD(v.dataCompetenzaAgenzia)}</span></>
+                    )}
                     {v.competenzaAgenteDiversa&&v.dataCompetenzaAgente&&(
-                      <><br/><span style={{fontSize:10,color:"#8E44AD",fontStyle:"italic"}}>Ag: {fmtD(v.dataCompetenzaAgente)}</span></>
+                      <><br/><span style={{fontSize:10,color:"#8E44AD",fontStyle:"italic"}}>👤 {fmtD(v.dataCompetenzaAgente)}</span></>
                     )}
                   </td>
                   <td style={S.tdR}>{calcolaIncassatoV(v)>0?`€ ${fmt(calcolaIncassatoV(v))}`:"—"}</td>
@@ -1800,7 +1805,7 @@ export default function App() {
               const vociAnno = costi[costiAnno]||mkCosti();
               const totPrevAnnuo = vociAnno.reduce((s,v)=>s+prevAnnuoVoce(v),0);
               const totPrevMensile = totPrevAnnuo/12;
-              const vendAnno = venduti.filter(v=>getAnno(v.dataVendita||v.dataAtto||"")===costiAnno);
+              const vendAnno = venduti.filter(v=>getAnno(dataCompAgenzia(v))===costiAnno);
               const fatturatoLordo = vendAnno.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
               const quotaAgenti = vendAnno.reduce((s,v)=>s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
                 const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
@@ -2142,7 +2147,7 @@ export default function App() {
 
                 {/* KPI produzione agente vs costi — come broker */}
                 {(()=>{
-                  const vendAnnoAg=venduti.filter(v=>getAnno(v.dataVendita||v.dataAtto||"")===costiAgenteAnno&&(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId));
+                  const vendAnnoAg=venduti.filter(v=>getAnno(dataCompAgenzia(v))===costiAgenteAnno&&(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId));
                   // Produzione agente = provv agenzia lato listing+acquirente (non buyer)
                   const produzione=vendAnnoAg.reduce((s,v)=>{
                     let p=0;
@@ -2655,7 +2660,7 @@ export default function App() {
           {tab==="Statistiche"&&(()=>{
             // ── helpers ──────────────────────────────────────────────────────
             // Data di riferimento per le statistiche = dataVendita (quando la proposta è accettata)
-            const dataRifVend = v => v.dataVendita||v.dataAtto||"";
+            const dataRifVend = v => dataCompAgenzia(v);
 
             // Calcola provvigione standard per un lato (venditore o acquirente)
             const provvStd = (prezzo, lato) => {
@@ -3430,16 +3435,32 @@ export default function App() {
           <div style={S.hl}><p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Provvigioni</p><div style={S.g2}><div><label style={S.lbl}>Provv. venditore (EUR)</label><input style={S.inp} type="number" value={formVend.provvVenditore||""} onChange={e=>setFormVend({...formVend,provvVenditore:Number(e.target.value)})}/></div><div><label style={S.lbl}>Provv. acquirente (EUR)</label><input style={S.inp} type="number" value={formVend.provvAcquirente||""} onChange={e=>setFormVend({...formVend,provvAcquirente:Number(e.target.value)})}/></div></div></div>
           <div style={S.g2}><div><label style={S.lbl}>Tipo atto</label><select style={S.inp} value={formVend.tipoAtto||"Preliminare"} onChange={e=>setFormVend({...formVend,tipoAtto:e.target.value})}><option>Preliminare</option><option>Rogito Diretto</option><option>Rogito</option></select></div><div><label style={S.lbl}>Data atto</label><input style={S.inp} type="date" value={formVend.dataAtto||""} onChange={e=>setFormVend({...formVend,dataAtto:e.target.value})}/></div></div>
           <div style={{marginBottom:"1rem"}}><label style={S.lbl}>Scadenza incasso</label><input style={{...S.inp,maxWidth:200}} type="date" value={formVend.scadenzaIncasso||""} onChange={e=>setFormVend({...formVend,scadenzaIncasso:e.target.value})}/></div>
+          <div style={{marginBottom:"1rem",padding:"10px 14px",background:"#EAF4FB",borderRadius:8,borderLeft:"3px solid #2980B9"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:formVend.competenzaAgenziaDiversa?10:0}}>
+              <input type="checkbox" id="compAgDiv" checked={formVend.competenzaAgenziaDiversa||false} onChange={e=>setFormVend({...formVend,competenzaAgenziaDiversa:e.target.checked,dataCompetenzaAgenzia:e.target.checked?formVend.dataCompetenzaAgenzia:""})}/>
+              <label htmlFor="compAgDiv" style={{fontSize:13,cursor:"pointer",fontWeight:500,color:"#2980B9"}}>📅 Competenza agenzia diversa da data proposta</label>
+            </div>
+            {formVend.competenzaAgenziaDiversa&&(
+              <div style={{marginTop:8}}>
+                <label style={S.lbl}>Data competenza agenzia (fatturato, statistiche, break even)</label>
+                <input style={{...S.inp,maxWidth:200}} type="date" value={formVend.dataCompetenzaAgenzia||""} onChange={e=>setFormVend({...formVend,dataCompetenzaAgenzia:e.target.value})}/>
+                <p style={{fontSize:11,color:"#2980B9",margin:"4px 0 0"}}>💡 Usa questa opzione per pratiche a cavallo d'anno: il fatturato agenzia verrà imputato all'anno/mese indicato (es. 2025) anche se l'incasso avviene nel 2026.</p>
+              </div>
+            )}
+            {!formVend.competenzaAgenziaDiversa&&(
+              <p style={{fontSize:11,color:"#888",margin:"4px 0 0"}}>Default: usa la data di accettazione proposta ({fmtD(showGestVend?.dataVendita||"")})</p>
+            )}
+          </div>
           <div style={{marginBottom:"1rem",padding:"10px 14px",background:BRAND.beige,borderRadius:8}}>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:formVend.competenzaAgenteDiversa?10:0}}>
               <input type="checkbox" id="compDiv" checked={formVend.competenzaAgenteDiversa||false} onChange={e=>setFormVend({...formVend,competenzaAgenteDiversa:e.target.checked,dataCompetenzaAgente:e.target.checked?formVend.dataCompetenzaAgente:""})}/>
-              <label htmlFor="compDiv" style={{fontSize:13,cursor:"pointer"}}>Competenza agente diversa da data atto</label>
+              <label htmlFor="compDiv" style={{fontSize:13,cursor:"pointer",fontWeight:500}}>📅 Competenza agente diversa (quota provvigionale)</label>
             </div>
             {formVend.competenzaAgenteDiversa&&(
               <div style={{marginTop:8}}>
-                <label style={S.lbl}>Data competenza agente (per fatture agenti)</label>
+                <label style={S.lbl}>Data competenza agente (per fatture agenti e quota incassata)</label>
                 <input style={{...S.inp,maxWidth:200}} type="date" value={formVend.dataCompetenzaAgente||""} onChange={e=>setFormVend({...formVend,dataCompetenzaAgente:e.target.value})}/>
-                <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>La dashboard agenzia usa sempre la data atto. Le fatture agenti useranno questa data.</p>
+                <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>💡 La quota agente verrà imputata a questa data (es. 2026 se pagata nel 2026). Indipendente dalla competenza agenzia.</p>
               </div>
             )}
           </div>
