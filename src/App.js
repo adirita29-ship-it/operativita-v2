@@ -657,10 +657,8 @@ export default function App() {
   }),[venduti,dashAnno]);
   const dashInc=useMemo(()=>incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno)),[incarichi,dashAnno]);
   const vendReport=useMemo(()=>venduti.filter(v=>{
-    // Report Agenti filtra per competenza AGENTE (dataCompetenzaAgente se impostata, altrimenti dataCompAgenzia)
-    const dataRif=(v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente
-      ?v.dataCompetenzaAgente
-      :dataCompAgenzia(v);
+    // Report Agenti filtra SEMPRE per competenza AGENZIA
+    const dataRif=dataCompAgenzia(v);
     if(reportAnno!=="Tutti"&&getAnno(dataRif)!==reportAnno)return false;
     if(reportMese!=="Tutti"&&getMese(dataRif)!==reportMese)return false;
     return true;
@@ -732,10 +730,8 @@ export default function App() {
       const stato=calcolaStatoIncasso(v);
       // Filtra per stato incasso se selezionato
       if(fatStatoIncasso!=="Tutti"&&stato!==fatStatoIncasso) return false;
-      // Per le fatture agenti usa: dataCompetenzaAgente se impostata, altrimenti dataCompAgenzia
-      const dataRif=(v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente
-        ?v.dataCompetenzaAgente
-        :dataCompAgenzia(v);
+      // Fatture agenti: filtra sempre per competenza AGENZIA
+      const dataRif=dataCompAgenzia(v);
       if(fatAnno!=="Tutti"&&getAnno(dataRif)!==fatAnno)return false;
       if(fatMese!=="Tutti"&&getMese(dataRif)!==fatMese)return false;
       return v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id;
