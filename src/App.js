@@ -3070,6 +3070,27 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
+            {/* DEBUG PANEL — temporaneo */}
+            {isBroker&&(()=>{
+              const maconi=venduti.filter(v=>(v.nominativoVenditore||"").toLowerCase().includes("maconi")||(v.nomeAcquirente||"").toLowerCase().includes("generali"));
+              const pagKeys=Object.keys(pagamentiFatture).slice(0,10);
+              return(<div style={{background:"#FEF9E7",border:"1px solid #D4AC0D",borderRadius:8,padding:"1rem",marginBottom:"1rem",fontSize:12,fontFamily:"monospace"}}>
+                <strong style={{color:"#D4AC0D"}}>🔍 DEBUG — rimuovere dopo verifica</strong>
+                <p style={{margin:"8px 0 4px",color:"#555"}}>Pratiche Maconi/Generali trovate: {maconi.length}</p>
+                {maconi.map(v=><div key={v.id} style={{background:"#fff",padding:"6px",borderRadius:4,marginBottom:4}}>
+                  <div>ID: <strong>{v.id}</strong> | nominativo: {v.nominativoVenditore} | acquirente: {v.nomeAcquirente}</div>
+                  <div>dataVendita: {v.dataVendita} | dataAtto: {v.dataAtto}</div>
+                  <div>competenzaAgenziaDiversa: <strong style={{color:v.competenzaAgenziaDiversa?"#27AE60":"#E74C3C"}}>{String(v.competenzaAgenziaDiversa)}</strong> | dataCompetenzaAgenzia: <strong>{v.dataCompetenzaAgenzia||"vuota"}</strong></div>
+                  <div>competenzaAgenteDiversa: {String(v.competenzaAgenteDiversa)} | dataCompetenzaAgente: {v.dataCompetenzaAgente||"vuota"}</div>
+                  <div>agenteListing: {v.agenteListing} | agenteAcquirente: {v.agenteAcquirente}</div>
+                  <div>provvV: {v.provvVenditore} | provvA: {v.provvAcquirente}</div>
+                  <div>dataCompAgenzia calcolata: <strong style={{color:"#2980B9"}}>{dataCompAgenzia(v)}</strong></div>
+                </div>)}
+                <p style={{margin:"8px 0 4px",color:"#555"}}>Prime 10 chiavi pagamentiFatture:</p>
+                {pagKeys.map(k=><div key={k}>{k}: {JSON.stringify(pagamentiFatture[k])}</div>)}
+                <p style={{margin:"8px 0 4px",color:"#555"}}>myAgentId (se loggato come agente): {myAgentId||"broker"}</p>
+              </div>);
+            })()}
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
