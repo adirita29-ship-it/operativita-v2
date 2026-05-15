@@ -1658,6 +1658,7 @@ export default function App() {
               <Sel value={reportMese} onChange={setReportMese}><option value="Tutti">Tutti i mesi</option>{mesiReport.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
               <span style={{fontSize:12,color:"#aaa",marginLeft:4}}>Clicca su un agente per il dettaglio</span>
             </div>
+            {reportAnno!=="Tutti"&&<p style={{fontSize:11,color:"#888",margin:"0 0 12px",padding:"6px 10px",background:"#FEF9E7",borderRadius:6,borderLeft:"3px solid #D4AC0D"}}>📅 Filtro per <strong>data di competenza agenzia</strong> — le pratiche con competenza impostata manualmente seguono quella data, non la data atto</p>}
             <div style={{...S.tblWrap,overflowX:"auto"}}><table style={{...S.tbl,minWidth:isMobile?500:400}}>
               <thead><tr>{["Agente","Profilo","Incarichi","N° Trans.","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer","Tot. Agente+Buyer"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
               <tbody>{agenti.map(ag=>{
@@ -2422,14 +2423,24 @@ export default function App() {
               return true;
             }).sort((a,b)=>(b.dataVendita||b.dataAtto||"").localeCompare(a.dataVendita||a.dataAtto||""));
 
-            const anniMioFat=Array.from(new Set(tuttiMiei.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
-            const mesiMioFat=Array.from(new Set(tuttiMiei.filter(v=>mioFatAnno==="Tutti"||getAnno(v.dataVendita||v.dataAtto||"")===mioFatAnno).map(v=>getMese(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse();
+            const anniMioFat=Array.from(new Set(tuttiMiei.map(v=>getAnno(dataCompAgenzia(v))).filter(Boolean))).sort().reverse();
+            const mesiMioFat=Array.from(new Set(tuttiMiei.filter(v=>mioFatAnno==="Tutti"||getAnno(dataCompAgenzia(v))===mioFatAnno).map(v=>getMese(dataCompAgenzia(v))).filter(Boolean))).sort().reverse();
 
             // Stato pagamento agente — cerca con chiave numerica e stringa
             const getPagAg=v=>{
-              const key=`${v.id}_${myAgentId}`;
-              const keyStr=`${v.id}_${String(myAgentId)}`;
-              return pagamentiFatture[key]||pagamentiFatture[keyStr]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
+              // Cerca la chiave in tutte le varianti: ${v.id}_${myAgentId}
+              // Sia con id numerico che stringa, sia con agentId numerico che stringa
+              const vId=v.id;
+              const agId=myAgentId;
+              // Cerca prima la corrispondenza esatta, poi cerca tutte le chiavi che iniziano con vId_
+              const exact = pagamentiFatture[`${vId}_${agId}`]
+                         || pagamentiFatture[`${vId}_${Number(agId)}`];
+              if(exact) return exact;
+              // Cerca tra tutte le chiavi quelle che matchano questo venduto
+              const prefix = `${vId}_`;
+              const found = Object.keys(pagamentiFatture).find(k=>k.startsWith(prefix));
+              if(found) return pagamentiFatture[found];
+              return {stato:"Da pagare",importoPagato:0,dataPagamento:""};
             };
 
             const myFatDati=tuttiMiei.filter(v=>{
