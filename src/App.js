@@ -1224,6 +1224,14 @@ export default function App() {
 
             {/* ── DASHBOARD BROKER (invariata) ── */}
             {isBroker&&(<>
+            {/* DEBUG INLINE */}
+            {(()=>{
+              const m=venduti.find(v=>(v.nominativoVenditore||"").toLowerCase().includes("maconi"));
+              if(!m) return <div style={{background:"#fee",padding:"8px",borderRadius:6,fontSize:11,marginBottom:8}}>⚠ Pratica Maconi NON trovata in venduti</div>;
+              return <div style={{background:"#FEF9E7",border:"1px solid #D4AC0D",padding:"8px 12px",borderRadius:6,fontSize:11,fontFamily:"monospace",marginBottom:8}}>
+                <strong>DEBUG Maconi</strong> | id:{m.id} | compAgenziaDiversa:<strong style={{color:m.competenzaAgenziaDiversa?"green":"red"}}>{JSON.stringify(m.competenzaAgenziaDiversa)}</strong> | dataCompAgenzia:<strong>{m.dataCompetenzaAgenzia||"vuota"}</strong> | calcolata:<strong style={{color:"blue"}}>{dataCompAgenzia(m)}</strong>
+              </div>;
+            })()}
             <div style={S.fRow}><Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel></div>
             <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
               <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
