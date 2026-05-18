@@ -48,6 +48,7 @@ const TAB_CONFIG = [
   { id:"Incarichi",       icon:"📋", label:"Incarichi" },
   { id:"Proposte",        icon:"📝", label:"Proposte" },
   { id:"Venduti",         icon:"🏠", label:"Venduti" },
+  { id:"Operatività",     icon:"📅", label:"Operatività" },
   { id:"Il mio report",   icon:"📊", label:"Il mio report" },
   { id:"Report Agenti",   icon:"📊", label:"Report Agenti" },
   { id:"Fatture Agenti",  icon:"🧾", label:"Fatture Agenti" },
@@ -202,7 +203,7 @@ function LoginPage({onLogin}) {
 
 function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isBroker = utente?.ruolo==="Broker";
-  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi & Break Even","Fatture Agente"];
+  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Il mio report","Statistiche","Costi & Break Even","Fatture Agente"];
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
     return TAB_AGENTE.includes(t.id);
@@ -494,6 +495,16 @@ export default function App() {
   const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
   const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
   const [tipiNeg,setTipiNeg]=useState(_ls?.tipiNeg||["Mutuo negato","Pratica rifiutata","Rinuncia acquirente","Problemi catastali","Altro"]);
+  const [tipiVolantino,setTipiVolantino]=useState(_ls?.tipiVolantino||["Lettera acquisizione zona","Lettera OH","Volantino Venduto","Flyer immobile","Lettera AMV"]);
+  const [tipiSviluppo,setTipiSviluppo]=useState(_ls?.tipiSviluppo||["Riunione","Corso","Programmazione settimana","Formazione online","One-to-one con broker","Altro"]);
+  // Operatività: {agentId: {"2026-05-15": {dati giornata...}}}
+  const [operativita,setOperativita]=useState(_ls?.operativita||{});
+  // Obiettivi operatività: {agentId: {"2026-05": {obiettivi mese...}}}
+  const [obiettiviOp,setObiettiviOp]=useState(_ls?.obiettiviOp||{});
+  const [opSubTab,setOpSubTab]=useState("settimana");
+  const [opDataSel,setOpDataSel]=useState(todayStr());
+  const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
+  const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
@@ -555,6 +566,10 @@ export default function App() {
         if(data.tipologie) setTipologie(data.tipologie);
         if(data.vincoli) setVincoli(data.vincoli);
         if(data.tipiNeg) setTipiNeg(data.tipiNeg);
+        if(data.tipiVolantino) setTipiVolantino(data.tipiVolantino);
+        if(data.tipiSviluppo) setTipiSviluppo(data.tipiSviluppo);
+        if(data.operativita) setOperativita(data.operativita);
+        if(data.obiettiviOp) setObiettiviOp(data.obiettiviOp);
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
@@ -570,14 +585,14 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
       salvaDB(payload).finally(()=>setDbSaving(false));
     },1500); // debounce 1.5s per non sovraccaricare
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -2575,6 +2590,573 @@ export default function App() {
             );
           })()}
 
+          {/* OPERATIVITÀ */}
+          {tab==="Operatività"&&(()=>{
+            // Agente corrente (broker vede tutti, agente vede solo sé)
+            const agentiVisibili = isBroker ? agenti : agenti.filter(a=>a.id===myAgentId);
+            const agIdSel = isBroker ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel)) : myAgentId;
+
+            // Helper: ottieni/salva giornata
+            const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
+            const salvaGiornata = (agId,data,dati) => {
+              setOperativita(prev=>({...prev,[agId]:{...(prev[agId]||{}),[data]:{...(getGiornata(agId,data)),...dati}}}));
+            };
+
+            // Helper: ottieni obiettivi mese
+            const getObiettivi = (agId,mese) => (obiettiviOp[agId]||{})[mese]||{proposti:{},approvati:{},stato:"bozza"};
+            const salvaObiettivi = (agId,mese,dati) => setObiettiviOp(prev=>({...prev,[agId]:{...(prev[agId]||{}),[mese]:dati}}));
+
+            // Colori per categoria
+            const CAT_CFG = {
+              ricerca:{lbl:"Ricerca / acquisizione",clr:"#185FA5",bg:"#E6F1FB"},
+              oh:{lbl:"Open House",clr:"#D85A30",bg:"#FAECE7"},
+              immobile:{lbl:"Attività immobile",clr:"#085041",bg:"#E1F5EE"},
+              operativo:{lbl:"Operativo / vendite",clr:"#633806",bg:"#FAEEDA"},
+              sviluppo:{lbl:"Sviluppo",clr:"#3C3489",bg:"#EEEDFE"},
+              marketing:{lbl:"Marketing / social",clr:"#3B6D11",bg:"#EAF3DE"},
+              amm:{lbl:"Amministrativo",clr:"#444441",bg:"#F1EFE8"},
+            };
+
+            // Settimana corrente: lunedì→sabato
+            const getSettimana = (dataRef) => {
+              const d = new Date(dataRef);
+              const dow = d.getDay()===0?6:d.getDay()-1; // 0=lun..5=sab
+              const lun = new Date(d); lun.setDate(d.getDate()-dow);
+              return Array.from({length:6},(_,i)=>{const x=new Date(lun);x.setDate(lun.getDate()+i);return x.toISOString().slice(0,10);});
+            };
+            const settimana = getSettimana(opDataSel);
+            const lunedi = settimana[0];
+            const sabato = settimana[5];
+            const fmtGg = iso => {const d=new Date(iso);return ["Lun","Mar","Mer","Gio","Ven","Sab"][d.getDay()===0?6:d.getDay()-1]+" "+d.getDate();};
+
+            // Conta attività giornata (per heatmap)
+            const intensita = (agId,data) => {
+              const g = getGiornata(agId,data);
+              let tot = 0;
+              tot += Number(g.chiamate||0)*2 + Number(g.appuntamenti||0)*5 + Number(g.acquisizioni||0)*10;
+              tot += Number(g.oreRicerca||0)*3 + Number(g.oreSviluppo||0)*2 + Number(g.oreMarketing||0)*2;
+              tot += (g.ohImmobili||[]).reduce((s,oh)=>s+Number(oh.visite||0)*3,0);
+              if(tot===0) return "vuoto";
+              if(tot<10) return "basso";
+              if(tot<25) return "medio";
+              return "alto";
+            };
+            const INT_CFG = {vuoto:{bg:"var(--color-background-secondary)",clr:"var(--color-text-tertiary)"},basso:{bg:"#E1F5EE",clr:"#085041"},medio:{bg:"#9FE1CB",clr:"#04342C"},alto:{bg:"#1D9E75",clr:"#fff"}};
+
+            // Auto-compila dati da gestionale (opzione 3 - misto)
+            const autoCompila = (agId,data) => {
+              const existing = getGiornata(agId,data);
+              // Proposte presentate in questa data
+              const propPres = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&p.dataStato===data).length;
+              // Proposte accettate
+              const propAcc = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&p.dataStato===data&&p.stato==="Accettata").length;
+              // Preliminari firmati (venduti con dataVendita=data e tipoAtto=Preliminare)
+              const prelim = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&v.dataVendita===data&&v.tipoAtto==="Preliminare").length;
+              // Rogiti
+              const rogiti = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&v.dataAtto===data).length;
+              return {...existing, propPresentate:propPres||existing.propPresentate||0, propAccettate:propAcc||existing.propAccettate||0, preliminari:prelim||existing.preliminari||0, rogiti:rogiti||existing.rogiti||0};
+            };
+
+            // Incarichi visibili all'agente per attività immobile
+            const incarichiAgente = (agId) => incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(i.agenteListing===agId||i.buyerListing===agId||i.buyer===agId));
+
+            // Form giornata per un agente
+            const FormGiornata = ({agId, data}) => {
+              const g = autoCompila(agId, data);
+              const isSabato = new Date(data).getDay()===6;
+              const upd = (k,v) => salvaGiornata(agId, data, {[k]:v});
+              const updOh = (idx,k,v) => {
+                const ohArr = [...(g.ohImmobili||[])];
+                if(!ohArr[idx]) ohArr[idx]={};
+                ohArr[idx]={...ohArr[idx],[k]:v};
+                salvaGiornata(agId, data, {ohImmobili:ohArr});
+              };
+              const addImmobile = () => salvaGiornata(agId, data, {attImm:[...(g.attImm||[]),{incId:"",cartello:false,lettAMV:false,lettOH:false,volVend:false,tipoVol:"",modalita:"",copie:0}]});
+              const updImm = (idx,k,v) => {
+                const arr=[...(g.attImm||[])];
+                arr[idx]={...arr[idx],[k]:v};
+                salvaGiornata(agId, data, {attImm:arr});
+              };
+              const addOH = () => salvaGiornata(agId, data, {ohImmobili:[...(g.ohImmobili||[]),{incId:"",visite:0,richieste:0,proposte:0,ore:2}]});
+
+              const sCard={background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px",marginBottom:8};
+              const g2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:8};
+              const g3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8};
+              const lbl={fontSize:11,color:"#888",display:"block",marginBottom:3};
+              const inp={...S.inp,margin:0,fontSize:12};
+
+              return(<div>
+                {/* RICERCA / ACQUISIZIONE */}
+                <div style={sCard}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#0C447C",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Ricerca / acquisizione</p>
+                  <div style={g3}>
+                    <div><label style={lbl}>Chiamate</label><input style={inp} type="number" min="0" value={g.chiamate||""} placeholder="0" onChange={e=>upd("chiamate",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Appuntamenti fissati</label><input style={inp} type="number" min="0" value={g.appuntamenti||""} placeholder="0" onChange={e=>upd("appuntamenti",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Centri influenza</label><input style={inp} type="number" min="0" value={g.centri||""} placeholder="0" onChange={e=>upd("centri",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Privati contattati</label><input style={inp} type="number" min="0" value={g.privati||""} placeholder="0" onChange={e=>upd("privati",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Ricerca zona (ore)</label><input style={inp} type="number" min="0" step="0.5" value={g.oreRicerca||""} placeholder="0" onChange={e=>upd("oreRicerca",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Acquisizioni</label><input style={inp} type="number" min="0" value={g.acquisizioni||""} placeholder="0" onChange={e=>upd("acquisizioni",Number(e.target.value))}/></div>
+                  </div>
+                </div>
+
+                {/* OPERATIVO / VENDITE */}
+                <div style={{...sCard,borderLeft:"3px solid #BA7517"}}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#633806",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Operativo / vendite <span style={{fontSize:10,color:"#aaa",fontWeight:400}}>— dati pre-compilati dal gestionale</span></p>
+                  <div style={g3}>
+                    <div><label style={lbl}>Immobili visitati</label><input style={inp} type="number" min="0" value={g.immVisitati||""} placeholder="0" onChange={e=>upd("immVisitati",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Appt. venditori</label><input style={inp} type="number" min="0" value={g.apptVend||""} placeholder="0" onChange={e=>upd("apptVend",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Appt. acquirenti</label><input style={inp} type="number" min="0" value={g.apptAcq||""} placeholder="0" onChange={e=>upd("apptAcq",Number(e.target.value))}/></div>
+                    <div>
+                      <label style={lbl}>Proposte presentate</label>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <input style={{...inp,flex:1}} type="number" min="0" value={g.propPresentate||""} placeholder="0" onChange={e=>upd("propPresentate",Number(e.target.value))}/>
+                        {g.propPresentate>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={lbl}>Proposte accettate</label>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <input style={{...inp,flex:1}} type="number" min="0" value={g.propAccettate||""} placeholder="0" onChange={e=>upd("propAccettate",Number(e.target.value))}/>
+                        {g.propAccettate>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={lbl}>Preliminari firmati</label>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <input style={{...inp,flex:1}} type="number" min="0" value={g.preliminari||""} placeholder="0" onChange={e=>upd("preliminari",Number(e.target.value))}/>
+                        {g.preliminari>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={lbl}>Rogiti</label>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <input style={{...inp,flex:1}} type="number" min="0" value={g.rogiti||""} placeholder="0" onChange={e=>upd("rogiti",Number(e.target.value))}/>
+                        {g.rogiti>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
+                      </div>
+                    </div>
+                    <div><label style={lbl}>Valutazioni effettuate</label><input style={inp} type="number" min="0" value={g.valutazioni||""} placeholder="0" onChange={e=>upd("valutazioni",Number(e.target.value))}/></div>
+                  </div>
+                </div>
+
+                {/* OPEN HOUSE — sabato in evidenza */}
+                <div style={{...sCard,background:isSabato?"#FDF6EC":"var(--color-background-secondary)",border:isSabato?"1px solid #C9A96E":"0.5px solid transparent"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <p style={{fontSize:11,fontWeight:600,color:"#D85A30",textTransform:"uppercase",letterSpacing:"0.08em",margin:0}}>Open House {isSabato?"🏠 sabato":""}</p>
+                    <button style={{...S.btnP,fontSize:11,padding:"3px 10px"}} onClick={addOH}>+ Aggiungi OH</button>
+                  </div>
+                  {(g.ohImmobili||[]).length===0&&<p style={{fontSize:12,color:"#aaa",margin:0}}>Nessun Open House oggi. Clicca + per aggiungerne uno.</p>}
+                  {(g.ohImmobili||[]).map((oh,idx)=>(
+                    <div key={idx} style={{background:"#fff",borderRadius:6,padding:"10px 12px",marginBottom:6,border:"0.5px solid #e8e5e0"}}>
+                      <div style={{marginBottom:8}}>
+                        <label style={lbl}>Immobile (incarico)</label>
+                        <select style={inp} value={oh.incId||""} onChange={e=>updOh(idx,"incId",e.target.value)}>
+                          <option value="">— seleziona —</option>
+                          {incarichiAgente(agId).map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
+                        </select>
+                      </div>
+                      <div style={g3}>
+                        <div><label style={lbl}>N° visite</label><input style={inp} type="number" min="0" value={oh.visite||""} placeholder="0" onChange={e=>updOh(idx,"visite",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Richieste info</label><input style={inp} type="number" min="0" value={oh.richieste||""} placeholder="0" onChange={e=>updOh(idx,"richieste",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Proposte raccolte</label><input style={inp} type="number" min="0" value={oh.proposte||""} placeholder="0" onChange={e=>updOh(idx,"proposte",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Durata (ore)</label><input style={inp} type="number" min="0" step="0.5" value={oh.ore||""} placeholder="2" onChange={e=>updOh(idx,"ore",Number(e.target.value))}/></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ATTIVITÀ IMMOBILE */}
+                <div style={sCard}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <p style={{fontSize:11,fontWeight:600,color:"#085041",textTransform:"uppercase",letterSpacing:"0.08em",margin:0}}>Attività collegate all'immobile</p>
+                    <button style={{...S.btnP,fontSize:11,padding:"3px 10px"}} onClick={addImmobile}>+ Aggiungi immobile</button>
+                  </div>
+                  {(g.attImm||[]).length===0&&<p style={{fontSize:12,color:"#aaa",margin:0}}>Nessuna attività su immobile oggi.</p>}
+                  {(g.attImm||[]).map((att,idx)=>(
+                    <div key={idx} style={{background:"#fff",borderRadius:6,padding:"10px 12px",marginBottom:6,border:"0.5px solid #e8e5e0"}}>
+                      <div style={{marginBottom:8}}>
+                        <label style={lbl}>Immobile</label>
+                        <select style={inp} value={att.incId||""} onChange={e=>updImm(idx,"incId",e.target.value)}>
+                          <option value="">— seleziona incarico —</option>
+                          {incarichiAgente(agId).map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
+                        </select>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6,marginBottom:8}}>
+                        {[["cartello","Cartello AMV affisso"],["lettAMV","Lettera AMV distribuita"],["lettOH","Lettera OH distribuita"],["volVend","Volantino Venduto"]].map(([k,lb])=>(
+                          <label key={k} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",padding:"6px 8px",background:"var(--color-background-secondary)",borderRadius:5}}>
+                            <input type="checkbox" checked={att[k]||false} onChange={e=>updImm(idx,k,e.target.checked)}/>{lb}
+                          </label>
+                        ))}
+                      </div>
+                      <div style={g3}>
+                        <div><label style={lbl}>Tipo volantino</label><select style={inp} value={att.tipoVol||""} onChange={e=>updImm(idx,"tipoVol",e.target.value)}><option value="">—</option>{tipiVolantino.map(v=><option key={v}>{v}</option>)}</select></div>
+                        <div><label style={lbl}>Modalità</label><select style={inp} value={att.modalita||""} onChange={e=>updImm(idx,"modalita",e.target.value)}><option value="">—</option><option>Di persona</option><option>Distributore</option></select></div>
+                        <div><label style={lbl}>N° copie</label><input style={inp} type="number" min="0" value={att.copie||""} placeholder="0" onChange={e=>updImm(idx,"copie",Number(e.target.value))}/></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* SVILUPPO */}
+                <div style={g2}>
+                  <div style={sCard}>
+                    <p style={{fontSize:11,fontWeight:600,color:"#3C3489",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Sviluppo</p>
+                    <div><label style={lbl}>Tipo attività</label><select style={inp} value={g.tipoSviluppo||""} onChange={e=>upd("tipoSviluppo",e.target.value)}><option value="">—</option>{tipiSviluppo.map(v=><option key={v}>{v}</option>)}</select></div>
+                    <div style={{marginTop:6}}><label style={lbl}>Ore</label><input style={inp} type="number" min="0" step="0.5" value={g.oreSviluppo||""} placeholder="0" onChange={e=>upd("oreSviluppo",Number(e.target.value))}/></div>
+                  </div>
+                  <div style={sCard}>
+                    <p style={{fontSize:11,fontWeight:600,color:"#3B6D11",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Marketing / social</p>
+                    <div style={g2}>
+                      <div><label style={lbl}>Post social</label><input style={inp} type="number" min="0" value={g.postSocial||""} placeholder="0" onChange={e=>upd("postSocial",Number(e.target.value))}/></div>
+                      <div><label style={lbl}>Video</label><input style={inp} type="number" min="0" value={g.video||""} placeholder="0" onChange={e=>upd("video",Number(e.target.value))}/></div>
+                      <div><label style={lbl}>Ore marketing</label><input style={inp} type="number" min="0" step="0.5" value={g.oreMarketing||""} placeholder="0" onChange={e=>upd("oreMarketing",Number(e.target.value))}/></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AMMINISTRATIVO */}
+                <div style={sCard}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#444441",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Amministrativo</p>
+                  <div style={g2}>
+                    <div><label style={lbl}>Ore back-office</label><input style={inp} type="number" min="0" step="0.5" value={g.oreAmm||""} placeholder="0" onChange={e=>upd("oreAmm",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Note</label><input style={{...inp,width:"100%"}} type="text" value={g.noteAmm||""} placeholder="es. pratica Rossi..." onChange={e=>upd("noteAmm",e.target.value)}/></div>
+                  </div>
+                </div>
+
+                {/* NOTE GIORNATA */}
+                <div style={{marginTop:4}}>
+                  <label style={{...lbl,fontSize:12}}>Note giornata (opzionale)</label>
+                  <textarea style={{...S.inp,width:"100%",minHeight:60,resize:"vertical",fontSize:12}} value={g.note||""} placeholder="Annotazioni libere per la giornata..." onChange={e=>upd("note",e.target.value)}/>
+                </div>
+              </div>);
+            };
+
+            // ── CALCOLI REPORT MENSILE ──────────────────────────────────────
+            const calcReport = (agId, mese) => {
+              const giorni = Object.entries(operativita[agId]||{}).filter(([d])=>d.startsWith(mese));
+              const sum = (k) => giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
+              const sumArr = (arr,k) => giorni.reduce((s,[,g])=>s+(g[arr]||[]).reduce((a,x)=>a+Number(x[k]||0),0),0);
+              const ohVisite = sumArr("ohImmobili","visite");
+              const ohNum = giorni.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
+              const giorniCompilati = giorni.filter(([,g])=>Object.keys(g).some(k=>Number(g[k]||0)>0||g[k]===true)).length;
+              // Vendite auto dal gestionale
+              const vendMese = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&dataCompAgenzia(v).startsWith(mese));
+              const propMese = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"").startsWith(mese));
+              return {
+                giorniCompilati, chiamate:sum("chiamate"), appuntamenti:sum("appuntamenti"),
+                centri:sum("centri"), privati:sum("privati"), acquisizioni:sum("acquisizioni"),
+                immVisitati:sum("immVisitati"), valutazioni:sum("valutazioni"),
+                propPresentate:Math.max(sum("propPresentate"),propMese.length),
+                propAccettate:Math.max(sum("propAccettate"),propMese.filter(p=>p.stato==="Accettata"||p.stato==="Accettata con Vincolo").length),
+                preliminari:Math.max(sum("preliminari"),vendMese.filter(v=>v.tipoAtto==="Preliminare").length),
+                rogiti:vendMese.filter(v=>v.dataAtto).length,
+                ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"),
+                oreMarketing:sum("oreMarketing"), oreSviluppo:sum("oreSviluppo"),
+                oreAmm:sum("oreAmm"), oreRicerca:sum("oreRicerca"),
+              };
+            };
+
+            const obMese = getObiettivi(agIdSel||myAgentId||agenti[0]?.id, opMeseSel);
+            const ob = obMese.approvati && Object.keys(obMese.approvati).length>0 ? obMese.approvati : obMese.proposti;
+            const rep = agIdSel ? calcReport(agIdSel, opMeseSel) : null;
+
+            const S2 = {
+              card:{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem",marginBottom:"1rem"},
+              sec:{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"},
+              kpi:{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px"},
+              bar:(perc,clr)=><div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginTop:4}}><div style={{height:"100%",width:`${Math.min(100,perc)}%`,background:clr,borderRadius:3,transition:"width 0.4s"}}/></div>,
+            };
+
+            return(
+              <div style={S.sec}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📅 Operatività</h2>
+                </div>
+
+                {/* Sotto-tab */}
+                <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
+                  {[{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
+                    <button key={o.v} onClick={()=>setOpSubTab(o.v)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${opSubTab===o.v?"#A8863A":"transparent"}`,color:opSubTab===o.v?"#A8863A":"#666",fontWeight:opSubTab===o.v?600:400,fontFamily:"inherit"}}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── VISTA SETTIMANA ── */}
+                {opSubTab==="settimana"&&(<>
+                  <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                    <input type="date" style={{...S.sel}} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
+                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      <option value="Tutti">Tutti gli agenti</option>
+                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>}
+                    <span style={{fontSize:12,color:"#aaa"}}>{fmtD(lunedi)} – {fmtD(sabato)}</span>
+                  </div>
+
+                  {/* Vista agente singolo */}
+                  {(opAgenteSel!=="Tutti"||!isBroker)&&(()=>{
+                    const agId = isBroker?Number(opAgenteSel):myAgentId;
+                    const ag = agenti.find(a=>a.id===agId);
+                    if(!ag) return <p style={{color:"#aaa"}}>Seleziona un agente</p>;
+                    return(<>
+                      <div style={{...S2.card,marginBottom:"1rem"}}>
+                        <p style={S2.sec}>Settimana — {ag.nome} {ag.cognome}</p>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6}}>
+                          {settimana.map((d,i)=>{
+                            const g=getGiornata(agId,d);
+                            const int=intensita(agId,d);
+                            const cfg=INT_CFG[int];
+                            const isSab=i===5;
+                            const isOggi=d===todayStr();
+                            return(<div key={d} style={{background:cfg.bg,borderRadius:8,padding:"8px 10px",border:isOggi?"2px solid #A8863A":isSab?"1.5px solid #D85A30":"0.5px solid #e8e5e0",cursor:"pointer"}} onClick={()=>{setOpDataSel(d);setOpSubTab("inserimento");}}>
+                              <div style={{fontSize:10,fontWeight:600,color:isSab?"#D85A30":isOggi?"#A8863A":cfg.clr,marginBottom:4}}>{fmtGg(d)}{isSab?" 🏠":""}</div>
+                              {int==="vuoto"?<span style={{fontSize:10,color:"#ccc",fontStyle:"italic"}}>vuoto</span>:(<>
+                                {g.chiamate>0&&<div style={{fontSize:10,color:cfg.clr}}>📞 {g.chiamate}</div>}
+                                {g.appuntamenti>0&&<div style={{fontSize:10,color:cfg.clr}}>🤝 {g.appuntamenti}</div>}
+                                {(g.ohImmobili||[]).length>0&&<div style={{fontSize:10,color:"#D85A30"}}>🏠 OH</div>}
+                              </>)}
+                            </div>);
+                          })}
+                        </div>
+                      </div>
+                    </>);
+                  })()}
+
+                  {/* Vista team (broker - tutti) */}
+                  {isBroker&&opAgenteSel==="Tutti"&&(<div style={S2.card}>
+                    <p style={S2.sec}>Team — settimana {fmtD(lunedi)} / {fmtD(sabato)}</p>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
+                        <thead><tr style={{background:"#fafaf8"}}>
+                          {["Agente","Giorni","Chiamate","Appt.","OH","Acquisiz.","Post"].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>{agenti.map(ag=>{
+                          const totGiorni = settimana.filter(d=>intensita(ag.id,d)!=="vuoto").length;
+                          const sum = k => settimana.reduce((s,d)=>s+Number(getGiornata(ag.id,d)[k]||0),0);
+                          const ohN = settimana.reduce((s,d)=>s+(getGiornata(ag.id,d).ohImmobili||[]).length,0);
+                          const clrGg = totGiorni===6?"#27AE60":totGiorni>=4?"#D4AC0D":"#E74C3C";
+                          return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                            <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#C9A96E,#A8863A)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div>{ag.nome} {ag.cognome}</div></td>
+                            <td style={{...S.tdC}}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:clrGg+"22",color:clrGg,fontWeight:600}}>{totGiorni}/6</span></td>
+                            <td style={{...S.tdC,fontWeight:500,color:"#185FA5"}}>{sum("chiamate")||"—"}</td>
+                            <td style={{...S.tdC,color:"#633806"}}>{sum("appuntamenti")||"—"}</td>
+                            <td style={{...S.tdC,color:"#D85A30"}}>{ohN||"—"}</td>
+                            <td style={{...S.tdC,color:"#533AB7"}}>{sum("acquisizioni")||"—"}</td>
+                            <td style={{...S.tdC,color:"#3B6D11"}}>{sum("postSocial")||"—"}</td>
+                          </tr>);
+                        })}</tbody>
+                      </table>
+                    </div>
+                  </div>)}
+                </>)}
+
+                {/* ── INSERIMENTO GIORNATA ── */}
+                {opSubTab==="inserimento"&&(<>
+                  <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                    <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
+                    {isBroker&&<select style={S.sel} value={opAgenteSel==="Tutti"?String(agenti[0]?.id||""):opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>}
+                    <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FEF9E7",color:"#A8863A",border:"0.5px solid #C9A96E"}}>
+                      {fmtD(opDataSel)}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
+                    </span>
+                  </div>
+                  {(()=>{
+                    const agId=isBroker?(Number(opAgenteSel)||agenti[0]?.id):myAgentId;
+                    if(!agId) return null;
+                    return <FormGiornata agId={agId} data={opDataSel}/>;
+                  })()}
+                </>)}
+
+                {/* ── REPORT MENSILE ── */}
+                {opSubTab==="report"&&(<>
+                  <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                    <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
+                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      <option value="Tutti">Tutti gli agenti</option>
+                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>}
+                  </div>
+
+                  {/* Report agente singolo */}
+                  {opAgenteSel!=="Tutti"&&(()=>{
+                    const agId=isBroker?Number(opAgenteSel):myAgentId;
+                    const ag=agenti.find(a=>a.id===agId);
+                    const r=calcReport(agId,opMeseSel);
+                    const ob=(getObiettivi(agId,opMeseSel).approvati||getObiettivi(agId,opMeseSel).proposti)||{};
+                    const perc=(v,k)=>ob[k]>0?Math.min(100,Math.round(v/ob[k]*100)):null;
+                    const KpiOb=({lbl,val,obk,clr})=>{
+                      const p=perc(val,obk);
+                      return(<div style={S2.kpi}>
+                        <div style={{fontSize:10,color:"#888"}}>{lbl}</div>
+                        <div style={{fontSize:18,fontWeight:500,color:clr,margin:"2px 0"}}>{val}</div>
+                        {p!==null&&<><div style={{fontSize:10,color:"#aaa"}}>obj. {ob[obk]} · {p}%</div>{S2.bar(p,clr)}</>}
+                      </div>);
+                    };
+                    return(<>
+                      <div style={S2.card}>
+                        <p style={S2.sec}>{ag?.nome} {ag?.cognome} — {opMeseSel}</p>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:"1rem"}}>
+                          <KpiOb lbl="Giorni compilati" val={r.giorniCompilati} obk="giorni" clr="#185FA5"/>
+                          <KpiOb lbl="Chiamate" val={r.chiamate} obk="chiamate" clr="#3B6D11"/>
+                          <KpiOb lbl="Appuntamenti" val={r.appuntamenti} obk="appuntamenti" clr="#633806"/>
+                          <KpiOb lbl="Acquisizioni" val={r.acquisizioni} obk="acquisizioni" clr="#533AB7"/>
+                          <KpiOb lbl="Proposte presentate" val={r.propPresentate} obk="propPresentate" clr="#185FA5"/>
+                          <KpiOb lbl="Proposte accettate" val={r.propAccettate} obk="propAccettate" clr="#27AE60"/>
+                          <KpiOb lbl="Preliminari" val={r.preliminari} obk="preliminari" clr="#A8863A"/>
+                          <KpiOb lbl="Open House" val={r.ohNum} obk="oh" clr="#D85A30"/>
+                        </div>
+                        <p style={{...S2.sec,marginBottom:8}}>Distribuzione ore</p>
+                        {[["Ricerca/acquisizione",r.oreRicerca,"#185FA5"],["Operativo/vendite",(r.immVisitati*0.5+r.valutazioni*1.5),"#633806"],["Open House",(r.ohNum*2),"#D85A30"],["Sviluppo",r.oreSviluppo,"#533AB7"],["Marketing",r.oreMarketing,"#3B6D11"],["Amministrativo",r.oreAmm,"#888780"]].map(([lbl,val,clr])=>{
+                          const tot=r.oreRicerca+(r.immVisitati*0.5+r.valutazioni*1.5)+(r.ohNum*2)+r.oreSviluppo+r.oreMarketing+r.oreAmm||1;
+                          const p=Math.round(val/tot*100);
+                          return(<div key={lbl} style={{marginBottom:8}}>
+                            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}><span style={{color:"#555"}}>{lbl}</span><span style={{fontWeight:500,color:clr}}>{val}h <span style={{color:"#aaa",fontWeight:400}}>({p}%)</span></span></div>
+                            <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:`${p}%`,background:clr,borderRadius:3}}/></div>
+                          </div>);
+                        })}
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:"1rem"}}>
+                          <div style={S2.kpi}><div style={{fontSize:10,color:"#888"}}>Visite OH totali</div><div style={{fontSize:18,fontWeight:500,color:"#D85A30"}}>{r.ohVisite}</div></div>
+                          <div style={S2.kpi}><div style={{fontSize:10,color:"#888"}}>Post social</div><div style={{fontSize:18,fontWeight:500,color:"#3B6D11"}}>{r.postSocial}</div></div>
+                          <div style={S2.kpi}><div style={{fontSize:10,color:"#888"}}>Rogiti</div><div style={{fontSize:18,fontWeight:500,color:"#A8863A"}}>{r.rogiti}</div></div>
+                        </div>
+                      </div>
+                    </>);
+                  })()}
+
+                  {/* Report team (broker - tutti) */}
+                  {isBroker&&opAgenteSel==="Tutti"&&(<div style={S2.card}>
+                    <p style={S2.sec}>Team — {opMeseSel}</p>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:580}}>
+                        <thead><tr style={{background:"#fafaf8"}}>
+                          {["Agente","Giorni","Chiamate","Appt.","Acq.","Prop.","Prelim.","OH","Post"].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}
+                        </tr></thead>
+                        <tbody>{agenti.map(ag=>{
+                          const r=calcReport(ag.id,opMeseSel);
+                          return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                            <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#C9A96E,#A8863A)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div>{ag.nome} {ag.cognome}</div></td>
+                            <td style={S.tdC}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:r.giorniCompilati>15?"#E9F7EF":r.giorniCompilati>8?"#FEF9E7":"#FDECEA",color:r.giorniCompilati>15?"#27AE60":r.giorniCompilati>8?"#D4AC0D":"#E74C3C",fontWeight:600}}>{r.giorniCompilati}</span></td>
+                            <td style={{...S.tdC,color:"#185FA5",fontWeight:500}}>{r.chiamate||"—"}</td>
+                            <td style={{...S.tdC,color:"#633806"}}>{r.appuntamenti||"—"}</td>
+                            <td style={{...S.tdC,color:"#533AB7",fontWeight:500}}>{r.acquisizioni||"—"}</td>
+                            <td style={{...S.tdC,color:"#27AE60"}}>{r.propAccettate||"—"}</td>
+                            <td style={{...S.tdC,color:"#A8863A"}}>{r.preliminari||"—"}</td>
+                            <td style={{...S.tdC,color:"#D85A30"}}>{r.ohNum||"—"}</td>
+                            <td style={{...S.tdC,color:"#3B6D11"}}>{r.postSocial||"—"}</td>
+                          </tr>);
+                        })}</tbody>
+                      </table>
+                    </div>
+                  </div>)}
+                </>)}
+
+                {/* ── OBIETTIVI ── */}
+                {opSubTab==="obiettivi"&&(<>
+                  <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                    <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
+                    {isBroker&&<select style={S.sel} value={opAgenteSel==="Tutti"?String(agenti[0]?.id||""):opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>}
+                  </div>
+                  {(()=>{
+                    const agId=isBroker?(Number(opAgenteSel)||agenti[0]?.id):myAgentId;
+                    const ag=agenti.find(a=>a.id===agId);
+                    if(!ag) return null;
+                    const obDati=getObiettivi(agId,opMeseSel);
+                    const proposti=obDati.proposti||{};
+                    const approvati=obDati.approvati||{};
+                    const statoOb=obDati.stato||"bozza";
+                    const vociOb=[
+                      {k:"giorni",lbl:"Giorni da compilare",un:"gg"},
+                      {k:"chiamate",lbl:"Chiamate / settimana",un:""},
+                      {k:"appuntamenti",lbl:"Appuntamenti / mese",un:""},
+                      {k:"acquisizioni",lbl:"Acquisizioni / mese",un:""},
+                      {k:"oh",lbl:"Open House / mese",un:""},
+                      {k:"immVisitati",lbl:"Immobili da visitare / sett.",un:""},
+                      {k:"oreRicerca",lbl:"Ore ricerca / sett.",un:"h"},
+                      {k:"propPresentate",lbl:"Proposte presentate / mese",un:""},
+                      {k:"postSocial",lbl:"Post social / sett.",un:""},
+                      {k:"oreAmm",lbl:"Ore amministrativo max / sett.",un:"h"},
+                    ];
+                    const agentePuoModificare = !isBroker && statoOb!=="approvato";
+                    const brokerPuoModificare = isBroker;
+                    const updProposto=(k,v)=>{
+                      const nuovi={...obDati,proposti:{...proposti,[k]:Number(v)},stato:"proposto"};
+                      salvaObiettivi(agId,opMeseSel,nuovi);
+                    };
+                    const updApprovato=(k,v)=>{
+                      const nuovi={...obDati,approvati:{...approvati,[k]:Number(v)}};
+                      salvaObiettivi(agId,opMeseSel,nuovi);
+                    };
+                    const approva=()=>salvaObiettivi(agId,opMeseSel,{...obDati,stato:"approvato",approvati:{...proposti,...approvati}});
+                    const cfgStato={bozza:{bg:"#F1EFE8",clr:"#444441",l:"Bozza"},proposto:{bg:"#FAEEDA",clr:"#633806",l:"Proposto — attende approvazione"},approvato:{bg:"#E9F7EF",clr:"#27AE60",l:"Approvato ✓"}};
+                    const cs=cfgStato[statoOb]||cfgStato.bozza;
+                    return(<>
+                      <div style={S2.card}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                          <div>
+                            <p style={{fontSize:14,fontWeight:500,margin:"0 0 4px"}}>{ag.nome} {ag.cognome} — {opMeseSel}</p>
+                            <span style={{fontSize:12,padding:"3px 10px",borderRadius:5,background:cs.bg,color:cs.clr,fontWeight:500}}>{cs.l}</span>
+                          </div>
+                          {brokerPuoModificare&&statoOb!=="approvato"&&<button style={{...S.btnP,padding:"7px 18px"}} onClick={approva}>Approva e invia ✓</button>}
+                          {brokerPuoModificare&&statoOb==="approvato"&&<button style={{...S.btn}} onClick={()=>salvaObiettivi(agId,opMeseSel,{...obDati,stato:"proposto"})}>Riapri</button>}
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",marginBottom:6,padding:"0 4px"}}>
+                          <span style={{fontSize:11,fontWeight:500,color:"#aaa"}}>Attività</span>
+                          <span style={{fontSize:11,fontWeight:500,color:"#aaa",textAlign:"right",minWidth:80}}>
+                            {isBroker?"Proposto":"Mio obiettivo"}
+                          </span>
+                          {isBroker&&<span style={{fontSize:11,fontWeight:500,color:"#A8863A",textAlign:"right",minWidth:80}}>Approvato</span>}
+                        </div>
+                        {vociOb.map(({k,lbl,un})=>{
+                          const vProp=proposti[k]||"";
+                          const vApp=approvati[k]||"";
+                          const diverso=vApp&&vProp&&Number(vApp)!==Number(vProp);
+                          return(<div key={k} style={{display:"grid",gridTemplateColumns:"1fr auto "+(isBroker?"auto":""),gap:8,alignItems:"center",padding:"8px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                            <span style={{fontSize:13,color:"#555"}}>{lbl}</span>
+                            <input type="number" min="0"
+                              style={{width:80,padding:"5px 8px",border:`0.5px solid ${!agentePuoModificare&&!isBroker?"#e8e5e0":"#ddd"}`,borderRadius:6,fontSize:12,textAlign:"right",background:agentePuoModificare||(!isBroker&&statoOb==="bozza")?"#fff":"#fafafa",color:"var(--color-text-primary)"}}
+                              value={vProp} disabled={!agentePuoModificare&&!isBroker&&statoOb!=="bozza"}
+                              onChange={e=>updProposto(k,e.target.value)}/>
+                            {isBroker&&<input type="number" min="0"
+                              style={{width:80,padding:"5px 8px",border:`0.5px solid ${diverso?"#F0997B":"#ddd"}`,borderRadius:6,fontSize:12,textAlign:"right",background:"#fff",fontWeight:diverso?600:400,color:diverso?"#D85A30":"var(--color-text-primary)"}}
+                              value={vApp||vProp} onChange={e=>updApprovato(k,e.target.value)}/>}
+                          </div>);
+                        })}
+                        {!isBroker&&statoOb==="bozza"&&<button style={{...S.btnP,width:"100%",marginTop:"1rem"}} onClick={()=>salvaObiettivi(agId,opMeseSel,{...obDati,stato:"proposto"})}>Invia proposta al broker</button>}
+                        {isBroker&&<p style={{fontSize:11,color:"#aaa",marginTop:8}}>I valori in arancio sono stati modificati rispetto alla proposta dell'agente.</p>}
+                      </div>
+
+                      {/* Confronto team (solo broker) */}
+                      {isBroker&&(<div style={S2.card}>
+                        <p style={S2.sec}>Stato obiettivi team — {opMeseSel}</p>
+                        <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:420}}>
+                            <thead><tr style={{background:"#fafaf8"}}>{["Agente","Stato","Chiamate","Appt.","OH","Acq."].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}</tr></thead>
+                            <tbody>{agenti.map(a=>{
+                              const od=getObiettivi(a.id,opMeseSel);
+                              const ob=od.approvati||od.proposti||{};
+                              const st=od.stato||"bozza";
+                              const cst=cfgStato[st]||cfgStato.bozza;
+                              return(<tr key={a.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                                <td style={S.td}>{a.nome} {a.cognome}</td>
+                                <td style={S.tdC}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:cst.bg,color:cst.clr,fontWeight:500}}>{cst.l}</span></td>
+                                <td style={S.tdC}>{ob.chiamate||"—"}</td>
+                                <td style={S.tdC}>{ob.appuntamenti||"—"}</td>
+                                <td style={S.tdC}>{ob.oh||"—"}</td>
+                                <td style={S.tdC}>{ob.acquisizioni||"—"}</td>
+                              </tr>);
+                            })}</tbody>
+                          </table>
+                        </div>
+                      </div>)}
+                    </>);
+                  })()}
+                </>)}
+              </div>
+            );
+          })()}
+
           {/* IL MIO REPORT (solo agente) */}
           {tab==="Il mio report"&&!isBroker&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
@@ -3114,6 +3696,10 @@ export default function App() {
             </div>
             <div style={S.divider}/>
             <SettSec title="Fonti incarico" items={fonti} setItems={setFonti} ph="Nuova fonte..."/>
+            <div style={S.divider}/>
+            <SettSec title="Tipi volantino / lettera" items={tipiVolantino} setItems={setTipiVolantino} ph="Nuovo tipo..."/>
+            <div style={S.divider}/>
+            <SettSec title="Tipi attività sviluppo" items={tipiSviluppo} setItems={setTipiSviluppo} ph="Nuova attività..."/>
             <div style={S.divider}/>
             <SettSec title="Tipologie immobile" items={tipologie} setItems={setTipologie} ph="Nuova tipologia..."/>
             <div style={S.divider}/>
