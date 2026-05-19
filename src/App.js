@@ -520,6 +520,11 @@ export default function App() {
   const [gpIncSel,setGpIncSel]=useState(null);
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
+  // App-level pratica helpers — usati sia in Pratiche che in Gestione Pratiche
+  const getPratica=(incId)=>(pratiche||{})[incId]||{fasi:{},clA:{},clB:{},clC:{},note:""};
+  const salvaPratica=(incId,dati)=>setPratiche(p=>({...p,[incId]:{...(p[incId]||{fasi:{},clA:{},clB:{},clC:{},note:""}),...dati}}));
+  const avanzamento=(incId)=>{const pr=(pratiche||{})[incId]||{fasi:{}};const tot=FASI.reduce((s,f)=>s+f.azioni.length,0);const fat=FASI.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);return tot>0?Math.round(fat/tot*100):0;};
+  const getAlert=(incId)=>{const pr=(pratiche||{})[incId]||{fasi:{}};const al=[];FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(pr.fasi[f.k]||{})[a.k]?.fatto)al.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});}));return al;};
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
@@ -1605,7 +1610,7 @@ export default function App() {
               const statoI=vend?calcolaStatoIncasso(vend):null;
               const cfgVend=statoI?STATI_INCASSO[statoI]:null;
               // Scadenza incarico
-              const scad=inc?.dataScadenza;
+              const scad=inc?.scadenza;
               const ggScad=scad?Math.round((new Date(scad)-new Date())/86400000):null;
               const scadClr=ggScad===null?"#aaa":ggScad<0?"#E74C3C":ggScad<30?"#E67E22":"#27AE60";
               // Info principali
@@ -1614,7 +1619,7 @@ export default function App() {
               const acquirente=prop?.nomeAcquirente||"";
               const prezzo=inc?.prezzoRichiesto||prop?.prezzoOfferto||vend?.prezzoVendita||0;
               const agListingId=inc?.agenteListing||prop?.agenteListing;
-              const avProposta=inc?calcolaScadenzaIncarico(inc):null;
+              const avProposta=null; // non usato
               return(<>
                 <div style={{background:"var(--color-background-primary)",border:`0.5px solid ${isOpen?gruppoClr+"88":"var(--color-border-tertiary)"}`,borderRadius:8,padding:"9px 12px",display:"flex",alignItems:"center",gap:10,marginBottom:5,cursor:"pointer",borderLeft:`3px solid ${gruppoClr}`,transition:"all .15s",background:isOpen?"#FDFBF7":"var(--color-background-primary)"}}
                   onClick={()=>{setPratAperto(isOpen?null:itemId);setPratPanelTab("scheda");}}>
@@ -1726,7 +1731,7 @@ export default function App() {
                         <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:10}}>
                           <div style={{background:"#fff",borderRadius:6,padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--color-text-secondary)"}}>Offerta</div><div style={{fontSize:15,fontWeight:500,color:BRAND.oroD}}>€ {fmtN(prop.prezzoOfferto)}</div></div>
                           <div style={{background:"#fff",borderRadius:6,padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--color-text-secondary)"}}>vs richiesta</div><div style={{fontSize:15,fontWeight:500,color:prop.prezzoOfferto<(inc?.prezzoRichiesto||prop.prezzoOfferto)?"#E74C3C":"#27AE60"}}>{inc?((prop.prezzoOfferto/inc.prezzoRichiesto-1)*100).toFixed(1)+"%":"—"}</div></div>
-                          <div style={{background:"#fff",borderRadius:6,padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--color-text-secondary)"}}>Scadenza</div><div style={{fontSize:15,fontWeight:500,color:"#E67E22"}}>{prop.dataScadenza?fmtD(prop.dataScadenza):"—"}</div></div>
+                          <div style={{background:"#fff",borderRadius:6,padding:"8px 10px"}}><div style={{fontSize:10,color:"var(--color-text-secondary)"}}>Scadenza</div><div style={{fontSize:15,fontWeight:500,color:"#E67E22"}}>{prop.scadenzaProposta?fmtD(prop.scadenzaProposta):"—"}</div></div>
                         </div>
                         {[
                           ["Ag. Acquirente",prop.agenteAcquirente],
@@ -2607,8 +2612,7 @@ export default function App() {
               ? incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato)
               : incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&i.agenteListing===myAgentId);
 
-            const getPratica = (incId) => pratiche[incId]||{fasi:{},clA:{},clB:{},clC:{},note:""};
-            const salvaPratica = (incId,dati) => setPratiche(p=>({...p,[incId]:{...getPratica(incId),...dati}}));
+            // getPratica, salvaPratica, avanzamento, getAlert defined at App level
             const toggleFase = (incId,faseK,attK,ruolo) => {
               const pr=getPratica(incId);
               const val=!(pr.fasi[faseK]||{})[attK];
@@ -2730,22 +2734,7 @@ export default function App() {
             ];
 
             // Calcola avanzamento pratica
-            const avanzamento = (incId) => {
-              const pr=getPratica(incId);
-              const totFasi=FASI.reduce((s,f)=>s+f.azioni.length,0);
-              const fatte=FASI.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
-              return totFasi>0?Math.round(fatte/totFasi*100):0;
-            };
-
-            // Alert: azioni obbligatorie non fatte
-            const getAlert = (incId) => {
-              const pr=getPratica(incId);
-              const alerts=[];
-              FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
-                if(!(pr.fasi[f.k]||{})[a.k]?.fatto) alerts.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
-              }));
-              return alerts;
-            };
+            // avanzamento and getAlert defined at App level
 
             const RUOLO_CFG={agente:{clr:"#A8863A",bg:"#FDF6EC",label:"Agente"},erica:{clr:"#185FA5",bg:"#E6F1FB",label:"Erica RT"},entrambi:{clr:"#533AB7",bg:"#EEEDFE",label:"Entrambi"}};
             const incSel = gpIncSel ? incarichi.find(i=>i.id===gpIncSel) : null;
