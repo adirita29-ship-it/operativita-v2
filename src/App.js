@@ -469,7 +469,9 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
 
 export default function App() {
   const isMobile=useIsMobile();
-  const [utente,setUtente]=useState(null);
+  const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
+  const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
+  const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
   const [tab,setTab]=useState("Dashboard");
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
   const _ls = caricaLS();
@@ -511,6 +513,8 @@ export default function App() {
   const [gpIncSel,setGpIncSel]=useState(null);
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
+  // Cache form giornata per evitare re-render a ogni carattere
+  const [opFormCache,setOpFormCache]=useState({});
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
@@ -741,6 +745,18 @@ export default function App() {
 
   const propVincolo=proposte.filter(p=>["Accettata con Vincolo","In attesa / Vincolata"].includes(p.stato)&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
   const dashSospeso=propVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
+  const dashSospesoQuotaAg=useMemo(()=>propVincolo.reduce((s,p)=>{
+    // Quota agenzia = provv totale - quote agenti - quote buyer
+    const pV=Number(p.provvVenditore||0); const pA=Number(p.provvAcquirente||0);
+    let qAg=pV+pA;
+    agenti.filter(a=>a.profilo!=="Broker").forEach(a=>{
+      if(p.agenteListing===a.id) qAg-=pV*(Number(a.percListing||0)/100);
+      if(p.agenteAcquirente===a.id) qAg-=pA*(Number(a.percAcquirente||0)/100);
+      if(p.buyerListing===a.id&&p.agenteListing!==a.id) qAg-=pV*(Number(a.percBuyerListing||p.percBuyerListing||0)/100);
+      if(p.buyer===a.id&&p.agenteAcquirente!==a.id) qAg-=pA*(Number(a.percBuyer||p.percBuyer||0)/100);
+    });
+    return s+Math.max(0,qAg);
+  },0),[propVincolo,agenti]);
 
   const agentiFattura=useMemo(()=>agenti.filter(a=>a.profilo!=="Broker"),[agenti]);
   const fatAg=agenti.find(a=>a.id===Number(fatAgente));
@@ -867,7 +883,7 @@ export default function App() {
     setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});
   };
 
-  if(!utente) return <LoginPage onLogin={setUtente}/>;
+  if(!utente) return <LoginPage onLogin={handleLogin}/>;
   if(!dbLoaded) return(
     <div style={{minHeight:"100vh",background:BRAND.beige,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
       <div style={{fontSize:32,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>a</span>sa</div>
@@ -988,7 +1004,7 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {dbSaving&&<span style={{fontSize:11,color:"#aaa",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:BRAND.oro,display:"inline-block",animation:"pulse 1s infinite"}}></span>Salvataggio...</span>}
             {!dbSaving&&dbLoaded&&<span style={{fontSize:11,color:"#27AE60"}}>✓ Sincronizzato</span>}
-            <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={()=>setUtente(null)}>Esci</button>
+            <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={handleLogout}>Esci</button>
           </div>
         </div>
         <div style={{flex:1,overflowY:"auto"}}>
@@ -1383,7 +1399,7 @@ export default function App() {
                   <tfoot><tr style={{background:BRAND.beige,fontWeight:500}}>
                     <td colSpan={5} style={S.tdS}>Totale vincolate ({propVincolo.length})</td>
                     <td style={{...S.tdRS,color:"#D4AC0D"}}>€ {fmt(dashSospeso)}</td>
-                    <td style={S.tdS}/>
+                    <td style={{...S.tdRS,color:"#27AE60",fontSize:11}}>Quota ag.: € {fmt(dashSospesoQuotaAg)}</td>
                   </tr></tfoot>
                 </table>
               ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
@@ -1441,7 +1457,7 @@ export default function App() {
                 const hasPropAttiva=hasPropBloccante(inc.id);
                 const propAttivaVinc=proposte.some(p=>p.incaricoId===inc.id&&p.stato==="In attesa / Vincolata");
                 const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
-                return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1}}>
+                return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1,borderLeft:`4px solid ${cfg.clr}`}}>
                   <td style={S.td}>{inc.fonte}</td>
                   <td style={{...S.td,position:"sticky",left:0,background:rowBg||"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>
                     {isVenduto?(
@@ -1543,7 +1559,7 @@ export default function App() {
               <tbody>{propFiltrate.map(p=>{
                 const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
                 const puoGestire=!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato);
-                return(<tr key={p.id}>
+                return(<tr key={p.id} style={{borderLeft:`4px solid ${cfg.clr}`}}>
                   <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></td>
                   <td style={{...S.td,position:"sticky",left:80,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{fmtD(p.dataStato)}</td>
                   <td style={{...S.td,position:"sticky",left:165,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{p.comuneImmobile}</td>
@@ -1616,7 +1632,7 @@ export default function App() {
               <tbody>{vendFiltrati.map(v=>{
                 const statoI=calcolaStatoIncasso(v);
                 const cfg=STATI_INCASSO[statoI]||STATI_INCASSO["Da incassare"];
-                return(<tr key={v.id} style={{opacity:v.bloccato?0.85:1}}>
+                return(<tr key={v.id} style={{opacity:v.bloccato?0.85:1,borderLeft:`4px solid ${cfg.clr}`}}>
                   <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{v.comuneImmobile}</td>
                   <td style={{...S.td,position:"sticky",left:90,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
                   <td style={S.td}>{v.nominativoVenditore}</td>
@@ -2050,7 +2066,13 @@ export default function App() {
               };
 
               const aggiornaTipo=(idx,tipo)=>{const v=[...vociConTipo];v[idx]={...v[idx],tipo};setCosti({...costi,[costiAnno]:v});};
-              const moveVoce=(idx,dir)=>{const v=[...vociConTipo];const to=idx+dir;if(to<0||to>=v.length)return;[v[idx],v[to]]=[v[to],v[idx]];setCosti({...costi,[costiAnno]:v});};
+              const moveVoce=(idx,dir)=>{
+                const v=[...vociConTipo];
+                const to=idx+dir;
+                if(to<0||to>=v.length)return;
+                [v[idx],v[to]]=[v[to],v[idx]];
+                setCosti(prev=>({...prev,[costiAnno]:v}));
+              };
 
 
               const thTipo=(label,colore,bg)=>(
@@ -2669,9 +2691,15 @@ export default function App() {
 
             // Form giornata per un agente
             const FormGiornata = ({agId, data}) => {
-              const g = autoCompila(agId, data);
+              const cacheKey=`${agId}_${data}`;
+              const g = {...autoCompila(agId, data), ...(opFormCache[cacheKey]||{})};
               const isSabato = new Date(data).getDay()===6;
-              const upd = (k,v) => salvaGiornata(agId, data, {[k]:v});
+              // Salva sia nel cache (immediato per UI) che nello stato persistente (debounced)
+              const upd = (k,v) => {
+                const newCache={...opFormCache,[cacheKey]:{...(opFormCache[cacheKey]||{}),[k]:v}};
+                setOpFormCache(newCache);
+                salvaGiornata(agId, data, {[k]:v});
+              };
               const updOh = (idx,k,v) => {
                 const ohArr = [...(g.ohImmobili||[])];
                 if(!ohArr[idx]) ohArr[idx]={};
@@ -2968,7 +2996,7 @@ export default function App() {
                     </span>
                   </div>
                   {(()=>{
-                    const agId=isBroker?(Number(opAgenteSel)||agenti[0]?.id):myAgentId;
+                    const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
                     if(!agId) return null;
                     return <FormGiornata agId={agId} data={opDataSel}/>;
                   })()}
@@ -3066,7 +3094,7 @@ export default function App() {
                     </select>}
                   </div>
                   {(()=>{
-                    const agId=isBroker?(Number(opAgenteSel)||agenti[0]?.id):myAgentId;
+                    const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
                     const ag=agenti.find(a=>a.id===agId);
                     if(!ag) return null;
                     const obDati=getObiettivi(agId,opMeseSel);
