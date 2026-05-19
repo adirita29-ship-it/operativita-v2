@@ -1089,6 +1089,38 @@ export default function App() {
               const totDaInc = daIncAssAgente + daIncAssBuyer;
               const totMaturato = quotaAgente + quotaBuyer;
 
+              // Quota da anno precedente = pratiche con dataCompetenzaAgente in anno diverso da dashAnno
+              // (es. Maconi: competenzaAgente 2026 ma competenzaAgenzia 2025)
+              // Cerchiamo pratiche dove dataCompetenzaAgente è nell'anno sel. ma dataCompAgenzia è in anno diverso
+              const annoPrecCalc = dashAnno!=="Tutti" ? String(Number(dashAnno)-1) : null;
+              // Quota incassata proveniente da pratiche di ANNI PRECEDENTI
+              // = pratiche dove competenza agente è nell'anno corrente MA competenza agenzia è anno precedente
+              const incassatoAnnoPrecAg = dashAnno==="Tutti" ? 0 : myVendTutti.filter(v=>{
+                const dataAgente = (v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente ? v.dataCompetenzaAgente : dataCompAgenzia(v);
+                const dataAgenzia = dataCompAgenzia(v);
+                // Pratica con quota agente nell'anno sel. ma competenza agenzia in anno precedente
+                return getAnno(dataAgente)===dashAnno && getAnno(dataAgenzia)!==dashAnno;
+              }).reduce((s,v)=>{
+                let q=0;
+                if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
+                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100;
+                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=calcolaIncassatoA(v)*Number(v.percBuyer||0)/100;
+                return s+q;
+              },0);
+              // Quota maturata anno precedente ancora da incassare
+              const daIncAnnoPrecAg = dashAnno==="Tutti" ? 0 : myVendTutti.filter(v=>{
+                const dataAgenzia = dataCompAgenzia(v);
+                return annoPrecCalc && getAnno(dataAgenzia)===annoPrecCalc;
+              }).reduce((s,v)=>{
+                let qTot=0,qInc=0;
+                if(Number(v.agenteListing)===myAgentId){qTot+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;qInc+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;}
+                if(Number(v.agenteAcquirente)===myAgentId){qTot+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;qInc+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;}
+                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId){qTot+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;qInc+=calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100;}
+                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId){qTot+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;qInc+=calcolaIncassatoA(v)*Number(v.percBuyer||0)/100;}
+                return s+Math.max(0,qTot-qInc);
+              },0);
+
               // Sospesi agente
               const sospesiRighe=[];
               myVendTutti.forEach(v=>{
@@ -1121,13 +1153,17 @@ export default function App() {
               };
               const colRuolo={Listing:"#2980B9",Acquirente:"#8E44AD","Buyer L":"#E67E22",Buyer:"#E74C3C"};
 
-              const BF=({titolo,colore,emoji,totale,sub1L,sub1V,sub2L,sub2V})=>(
+              const BF=({titolo,colore,emoji,totale,sub1L,sub1V,sub2L,sub2V,sub3L,sub3V})=>(
                 <div style={{background:"#fff",borderRadius:10,border:`0.5px solid ${colore}44`,padding:"14px 16px",borderTop:`3px solid ${colore}`}}>
                   <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"}}>{emoji} {titolo}</p>
                   <p style={{fontSize:22,fontWeight:700,color:colore,margin:"0 0 8px"}}>€ {fmt(totale)}</p>
                   <div style={{borderTop:"0.5px solid #f0f0f0",paddingTop:6,display:"flex",flexDirection:"column",gap:3}}>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:"#aaa"}}>{sub1L}</span><span style={{fontWeight:500,color:"#555"}}>€ {fmt(sub1V)}</span></div>
                     <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}><span style={{color:"#aaa"}}>{sub2L}</span><span style={{fontWeight:500,color:"#555"}}>€ {fmt(sub2V)}</span></div>
+                    {sub3L!==undefined&&sub3V>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginTop:3,paddingTop:3,borderTop:"0.5px dashed #e8e5e0"}}>
+                      <span style={{color:"#C9A96E",fontStyle:"italic"}}>{sub3L}</span>
+                      <span style={{fontWeight:600,color:"#C9A96E"}}>€ {fmt(sub3V)}</span>
+                    </div>}
                   </div>
                 </div>
               );
@@ -1164,8 +1200,8 @@ export default function App() {
                 {/* 4 blocchi finanziari */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                   <BF titolo="Produzione Agente" colore="#27AE60" emoji="📋" totale={produzione} sub1L="Quota Agenzia" sub1V={quotaAgenziaSuProd} sub2L="Quota Agente" sub2V={quotaAgente}/>
-                  <BF titolo="Quota Incassata" colore="#2980B9" emoji="✅" totale={totIncassato} sub1L="Quota Agente" sub1V={incassatoAgente} sub2L="Quota Buyer" sub2V={incassatoBuyer}/>
-                  <BF titolo="Da Incassare" colore="#E67E22" emoji="⏳" totale={totDaInc} sub1L="Quota Agente" sub1V={daIncAssAgente} sub2L="Quota Buyer" sub2V={daIncAssBuyer}/>
+                  <BF titolo="Quota Incassata" colore="#2980B9" emoji="✅" totale={totIncassato} sub1L="Quota Agente" sub1V={incassatoAgente} sub2L="Quota Buyer" sub2V={incassatoBuyer} sub3L={`di cui da ${annoPrecCalc||"anno prec."}`} sub3V={incassatoAnnoPrecAg}/>
+                  <BF titolo="Da Incassare" colore="#E67E22" emoji="⏳" totale={totDaInc} sub1L="Quota Agente" sub1V={daIncAssAgente} sub2L="Quota Buyer" sub2V={daIncAssBuyer} sub3L={`da anno ${annoPrecCalc||"prec."}`} sub3V={daIncAnnoPrecAg}/>
                   <BF titolo="Totale Maturato" colore={BRAND.oroD} emoji="💰" totale={totMaturato} sub1L="Quota Agente" sub1V={quotaAgente} sub2L="Quota Buyer" sub2V={quotaBuyer}/>
                 </div>
 
@@ -1724,39 +1760,32 @@ export default function App() {
             </div>
             {reportAnno!=="Tutti"&&<p style={{fontSize:11,color:"#888",margin:"0 0 12px",padding:"6px 10px",background:"#FEF9E7",borderRadius:6,borderLeft:"3px solid #D4AC0D"}}>📅 Filtro per <strong>data di competenza agenzia</strong> — le pratiche con competenza impostata manualmente seguono quella data, non la data atto</p>}
             <div style={{...S.tblWrap,overflowX:"auto"}}><table style={{...S.tbl,minWidth:isMobile?500:400}}>
-              <thead><tr>{["Agente","Profilo","Incarichi","N° Trans.","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer","Tot. Agente+Buyer"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{["Agente","Profilo","Incarichi","N° Trans.","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer","Tot. Ag.+Buyer","da ann. prec."].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
               <tbody>{agenti.map(ag=>{
                 const vAg=vendReport.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
                 const incAg=incarichi.filter(i=>i.agenteListing===ag.id&&!i.archiviato&&(reportAnno==="Tutti"||getAnno(i.dataInizio)===reportAnno)).length;
                 const nTV=vAg.filter(v=>v.agenteListing===ag.id&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
                 const nTA=vAg.filter(v=>v.agenteAcquirente===ag.id&&Number(v.provvAcquirente||0)>0).length;
-                const genTot=vAg.reduce((s,v)=>{
-                  let t=0;
-                  if(v.agenteListing===ag.id) t+=Number(v.provvVenditore||0);
-                  if(v.agenteAcquirente===ag.id) t+=Number(v.provvAcquirente||0);
-                  return s+t;
-                },0);
-                const incTot=vAg.reduce((s,v)=>{
-                  let t=0;
-                  if(v.agenteListing===ag.id) t+=calcolaIncassatoV(v);
-                  if(v.agenteAcquirente===ag.id) t+=calcolaIncassatoA(v);
-                  return s+t;
-                },0);
-                // Quota solo da ruoli Listing/Acquirente
-                const quotaAg=vAg.reduce((s,v)=>{
-                  let q=0;
-                  if(v.agenteListing===ag.id) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                  if(v.agenteAcquirente===ag.id) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                  return s+q;
-                },0);
-                // Quota solo da ruolo Buyer
-                const quotaBuy=vAg.reduce((s,v)=>{
-                  let q=0;
-                  if(v.buyerListing===ag.id&&v.agenteListing!==ag.id) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-                  if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-                  return s+q;
-                },0);
+                const genTot=vAg.reduce((s,v)=>{let t=0;if(v.agenteListing===ag.id)t+=Number(v.provvVenditore||0);if(v.agenteAcquirente===ag.id)t+=Number(v.provvAcquirente||0);return s+t;},0);
+                const incTot=vAg.reduce((s,v)=>{let t=0;if(v.agenteListing===ag.id)t+=calcolaIncassatoV(v);if(v.agenteAcquirente===ag.id)t+=calcolaIncassatoA(v);return s+t;},0);
+                const quotaAg=vAg.reduce((s,v)=>{let q=0;if(v.agenteListing===ag.id)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;if(v.agenteAcquirente===ag.id)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;return s+q;},0);
+                const quotaBuy=vAg.reduce((s,v)=>{let q=0;if(v.buyerListing===ag.id&&v.agenteListing!==ag.id)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;return s+q;},0);
                 const quotaTot=quotaAg+quotaBuy;
+                // Quota da anno precedente = pratiche con competenza agente nell'anno sel. ma agenzia in anno precedente
+                const annoPrecReport=reportAnno!=="Tutti"?String(Number(reportAnno)-1):null;
+                const quotaAnnoPrecAg=reportAnno==="Tutti"?0:venduti.filter(v=>{
+                  if(!(v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id))return false;
+                  const dataAgente=(v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente?v.dataCompetenzaAgente:dataCompAgenzia(v);
+                  const dataAgenzia=dataCompAgenzia(v);
+                  return getAnno(dataAgente)===reportAnno&&getAnno(dataAgenzia)!==reportAnno;
+                }).reduce((s,v)=>{
+                  let q=0;
+                  if(v.agenteListing===ag.id)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                  if(v.agenteAcquirente===ag.id)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                  if(v.buyerListing===ag.id&&v.agenteListing!==ag.id)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                  if(v.buyer===ag.id&&v.agenteAcquirente!==ag.id)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                  return s+q;
+                },0);
                 return(<tr key={ag.id} style={{cursor:"pointer"}}
                   onMouseEnter={e=>e.currentTarget.style.background="#fafaf8"}
                   onMouseLeave={e=>e.currentTarget.style.background=""}
@@ -1770,6 +1799,7 @@ export default function App() {
                   <td style={{...S.tdR,color:"#8E44AD",fontWeight:500}}>{ag.profilo==="Broker"?"—":quotaAg>0?`€ ${fmt(quotaAg)}`:"—"}</td>
                   <td style={{...S.tdR,color:"#2980B9",fontWeight:500}}>{quotaBuy>0?`€ ${fmt(quotaBuy)}`:"—"}</td>
                   <td style={{...S.tdR,color:BRAND.oroD,fontWeight:600}}>{ag.profilo==="Broker"?"—":quotaTot>0?`€ ${fmt(quotaTot)}`:"—"}</td>
+                  <td style={{...S.tdR,color:"#C9A96E",fontStyle:"italic",fontSize:11}}>{quotaAnnoPrecAg>0?`€ ${fmt(quotaAnnoPrecAg)}`:"—"}</td>
                 </tr>);
               })}</tbody>
             </table></div>
