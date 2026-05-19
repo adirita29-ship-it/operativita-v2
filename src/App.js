@@ -1025,7 +1025,12 @@ export default function App() {
               ));
 
               // Pratiche filtrate per anno selezionato
-              const myVendAnno = myVendTutti.filter(v=>dashAnno==="Tutti"||getAnno(dataCompAgenzia(v))===dashAnno);
+              // Per PRODUZIONE AGENZIA: filtra per dataCompAgenzia (competenza agenzia)
+              const myVendAnnoProd = myVendTutti.filter(v=>dashAnno==="Tutti"||getAnno(dataCompAgenzia(v))===dashAnno);
+              // Per QUOTA AGENTE/INCASSATO: filtra per dataCompetenzaAgente (quando l'agente matura la quota)
+              // Se competenzaAgenteDiversa=true usa dataCompetenzaAgente, altrimenti usa dataCompAgenzia
+              const dataCompAgente = v => (v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente ? v.dataCompetenzaAgente : dataCompAgenzia(v);
+              const myVendAnno = myVendTutti.filter(v=>dashAnno==="Tutti"||getAnno(dataCompAgente(v))===dashAnno);
 
               // Ruolo in ogni pratica
               const ruoloIn = v => {
@@ -1040,17 +1045,17 @@ export default function App() {
               // KPI incarichi agente
               const myInc = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId&&!i.archiviato);
               const myIncAnno = incarichi.filter(i=>i.categoria==="vendita"&&i.agenteListing===myAgentId&&(dashAnno==="Tutti"||getAnno(i.dataInizio)===dashAnno));
-              const nTransV = myVendAnno.filter(v=>Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
-              const nTransA = myVendAnno.filter(v=>Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0).length;
+              const nTransV = myVendAnnoProd.filter(v=>Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
+              const nTransA = myVendAnnoProd.filter(v=>Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0).length;
 
-              // Produzione Agente = provv agenzia dove è Listing o Acquirente
-              const produzione = myVendAnno.reduce((s,v)=>{
+              // Produzione Agente = provv agenzia dove è Listing o Acquirente (usa competenza AGENZIA)
+              const produzione = myVendAnnoProd.reduce((s,v)=>{
                 let p=0;
                 if(Number(v.agenteListing)===myAgentId) p+=Number(v.provvVenditore||0);
                 if(Number(v.agenteAcquirente)===myAgentId) p+=Number(v.provvAcquirente||0);
                 return s+p;
               },0);
-              const quotaAgenziaSuProd = myVendAnno.reduce((s,v)=>{
+              const quotaAgenziaSuProd = myVendAnnoProd.reduce((s,v)=>{
                 let q=0;
                 const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
                 if(Number(v.agenteListing)===myAgentId&&pV>0) q+=pV*(1-Number(v.percListing||0)/100);
@@ -1090,16 +1095,10 @@ export default function App() {
               const totMaturato = quotaAgente + quotaBuyer;
 
               // Quota da anno precedente = pratiche con dataCompetenzaAgente in anno diverso da dashAnno
-              // (es. Maconi: competenzaAgente 2026 ma competenzaAgenzia 2025)
-              // Cerchiamo pratiche dove dataCompetenzaAgente è nell'anno sel. ma dataCompAgenzia è in anno diverso
               const annoPrecCalc = dashAnno!=="Tutti" ? String(Number(dashAnno)-1) : null;
-              // Quota incassata proveniente da pratiche di ANNI PRECEDENTI
-              // = pratiche dove competenza agente è nell'anno corrente MA competenza agenzia è anno precedente
+              // Quota incassata da pratiche con competenza AGENTE nell'anno sel. ma competenza AGENZIA diversa
               const incassatoAnnoPrecAg = dashAnno==="Tutti" ? 0 : myVendTutti.filter(v=>{
-                const dataAgente = (v.competenzaAgenteDiversa===true||v.competenzaAgenteDiversa==="true")&&v.dataCompetenzaAgente ? v.dataCompetenzaAgente : dataCompAgenzia(v);
-                const dataAgenzia = dataCompAgenzia(v);
-                // Pratica con quota agente nell'anno sel. ma competenza agenzia in anno precedente
-                return getAnno(dataAgente)===dashAnno && getAnno(dataAgenzia)!==dashAnno;
+                return getAnno(dataCompAgente(v))===dashAnno && getAnno(dataCompAgenzia(v))!==dashAnno;
               }).reduce((s,v)=>{
                 let q=0;
                 if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
