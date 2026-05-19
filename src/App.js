@@ -146,9 +146,17 @@ const VOCI_COSTO = [
 const mkCosti = () => VOCI_COSTO.map((v,i)=>({id:i+1,voce:v.voce,tipo:v.tipo||"fisso",prevMensile:0,frequenza:"mensile",spese:[]}));
 const MESI_KEYS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
 const mesiNomi = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
-const totSpeseVoce = voce => (voce.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
+const totSpeseVoce = voce => {
+  const proprie=(voce.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
+  const sub=(voce.subVoci||[]).reduce((s,sv)=>s+(sv.spese||[]).reduce((a,x)=>a+Number(x.importo||0),0),0);
+  return proprie+sub;
+};
 const freqMultiplier = f => ({mensile:12,trimestrale:4,semestrale:2,annuale:1}[f]||12);
-const prevAnnuoVoce = voce => Number(voce.prevMensile||0) * freqMultiplier(voce.frequenza||"mensile");
+const prevAnnuoVoce = voce => {
+  if((voce.subVoci||[]).length>0)
+    return (voce.subVoci||[]).reduce((s,sv)=>s+Number(sv.prevMensile||0)*freqMultiplier(sv.frequenza||"mensile"),0);
+  return Number(voce.prevMensile||0)*freqMultiplier(voce.frequenza||"mensile");
+};
 const FREQ_LABELS = {mensile:"Mensile ×12",trimestrale:"Trimestrale ×4",semestrale:"Semestrale ×2",annuale:"Annuale ×1"};
 
 // Proposte che bloccano nuove proposte sullo stesso incarico
@@ -488,6 +496,7 @@ export default function App() {
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
   const [costiBreakevenMode,setCostiBreakevenMode]=useState("fissi+variabili");
   const [costiAgenteBreakevenMode,setCostiAgenteBreakevenMode]=useState("fissi+variabili");
+  const [expandedVoci,setExpandedVoci]=useState({});
   const [archiviatiProp,setArchiviatiProp]=useState(_ls?.archiviatiProp||[]);
   const [archiviatiVend,setArchiviatiVend]=useState(_ls?.archiviatiVend||[]);
   const [mostraArchiviatiProp,setMostraArchiviatiProp]=useState(false);
@@ -1094,6 +1103,32 @@ export default function App() {
               const totDaInc = daIncAssAgente + daIncAssBuyer;
               const totMaturato = quotaAgente + quotaBuyer;
 
+              // Quota agente SOLO su produzione anno corrente (esclude pratiche anno prec.)
+              const quotaAgenteProdAnno = myVendAnnoProd.reduce((s,v)=>{
+                let q=0;
+                if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                return s+q;
+              },0);
+
+              // Quota maturata da anno precedente (in totale maturato)
+              // = pratiche con competenza AGENTE nell'anno sel. ma competenza AGENZIA diversa
+              const quotaAnnoPrecMaturata = dashAnno==="Tutti" ? 0 : myVendTutti.filter(v=>{
+                return getAnno(dataCompAgente(v))===dashAnno && getAnno(dataCompAgenzia(v))!==dashAnno;
+              }).reduce((s,v)=>{
+                let q=0;
+                if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                return s+q;
+              },0);
+              // Produzione Agente anno corrente = esclude quota da anno precedente
+              const quotaAgentePuraAnno = quotaAgente - myVendAnnoProd.reduce((s,v)=>{
+                // sottrai solo la parte che viene da myVendAnno ma non da myVendAnnoProd
+                return s; // già calcolato sopra separatamente
+              },0);
+
               // Quota da anno precedente = pratiche con dataCompetenzaAgente in anno diverso da dashAnno
               const annoPrecCalc = dashAnno!=="Tutti" ? String(Number(dashAnno)-1) : null;
               // Quota incassata da pratiche con competenza AGENTE nell'anno sel. ma competenza AGENZIA diversa
@@ -1198,10 +1233,10 @@ export default function App() {
                 </div>
                 {/* 4 blocchi finanziari */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <BF titolo="Produzione Agente" colore="#27AE60" emoji="📋" totale={produzione} sub1L="Quota Agenzia" sub1V={quotaAgenziaSuProd} sub2L="Quota Agente" sub2V={quotaAgente}/>
+                  <BF titolo="Produzione Agente" colore="#27AE60" emoji="📋" totale={produzione} sub1L="Quota Agenzia" sub1V={quotaAgenziaSuProd} sub2L={`Quota Agente ${dashAnno!=="Tutti"?dashAnno:""}`} sub2V={quotaAgenteProdAnno}/>
                   <BF titolo="Quota Incassata" colore="#2980B9" emoji="✅" totale={totIncassato} sub1L="Quota Agente" sub1V={incassatoAgente} sub2L="Quota Buyer" sub2V={incassatoBuyer} sub3L={`di cui da ${annoPrecCalc||"anno prec."}`} sub3V={incassatoAnnoPrecAg}/>
                   <BF titolo="Da Incassare" colore="#E67E22" emoji="⏳" totale={totDaInc} sub1L="Quota Agente" sub1V={daIncAssAgente} sub2L="Quota Buyer" sub2V={daIncAssBuyer} sub3L={`da anno ${annoPrecCalc||"prec."}`} sub3V={daIncAnnoPrecAg}/>
-                  <BF titolo="Totale Maturato" colore={BRAND.oroD} emoji="💰" totale={totMaturato} sub1L="Quota Agente" sub1V={quotaAgente} sub2L="Quota Buyer" sub2V={quotaBuyer}/>
+                  <BF titolo="Totale Maturato" colore={BRAND.oroD} emoji="💰" totale={totMaturato} sub1L="Quota Agente" sub1V={quotaAgente} sub2L="Quota Buyer" sub2V={quotaBuyer} sub3L={annoPrecCalc&&quotaAnnoPrecMaturata>0?`di cui da ${annoPrecCalc}`:undefined} sub3V={quotaAnnoPrecMaturata}/>
                 </div>
 
                 {/* SOSPESI collassabile */}
@@ -1900,7 +1935,13 @@ export default function App() {
               const totPrevAnnuo = vociAnno.reduce((s,v)=>s+prevAnnuoVoce(v),0);
               const totPrevMensile = totPrevAnnuo/12;
               const vendAnno = venduti.filter(v=>getAnno(dataCompAgenzia(v))===costiAnno);
+
+              // Fatturato INCASSATO (cassa - soldi già entrati)
               const fatturatoLordo = vendAnno.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
+              // Fatturato TOTALE pattuito (competenza - include anche da incassare)
+              const fatturatoLordoTot = vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+
+              // Quote agenti su incassato
               const quotaAgenti = vendAnno.reduce((s,v)=>s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
                 const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
                 const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
@@ -1911,6 +1952,17 @@ export default function App() {
                 if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&pA>0) q+=incA*(Number(v.percBuyer||0)/100);
                 return sa+q;
               },0),0);
+              // Quote agenti su totale pattuito
+              const quotaAgentiTot = vendAnno.reduce((s,v)=>s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
+                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
+                let q=0;
+                if(v.agenteListing===a.id&&pV>0) q+=pV*(Number(v.percListing||0)/100);
+                if(v.agenteAcquirente===a.id&&pA>0) q+=pA*(Number(v.percAcquirente||0)/100);
+                if(v.buyerListing===a.id&&v.agenteListing!==a.id&&pV>0) q+=pV*(Number(v.percBuyerListing||0)/100);
+                if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&pA>0) q+=pA*(Number(v.percBuyer||0)/100);
+                return sa+q;
+              },0),0);
+
               const quotaBuyer = vendAnno.reduce((s,v)=>{
                 const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
                 const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
@@ -1919,7 +1971,17 @@ export default function App() {
                 if(v.buyer&&v.agenteAcquirente!==v.buyer&&pA>0) q+=incA*(Number(v.percBuyer||0)/100);
                 return s+q;
               },0);
+              const quotaBuyerTot = vendAnno.reduce((s,v)=>{
+                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
+                let q=0;
+                if(v.buyerListing&&v.agenteListing!==v.buyerListing&&pV>0) q+=pV*(Number(v.percBuyerListing||0)/100);
+                if(v.buyer&&v.agenteAcquirente!==v.buyer&&pA>0) q+=pA*(Number(v.percBuyer||0)/100);
+                return s+q;
+              },0);
+
               const quotaAgenzia = fatturatoLordo - quotaAgenti - quotaBuyer;
+              // Quota agenzia su TOTALE pattuito (incassato + da incassare)
+              const quotaAgenziaTot = fatturatoLordoTot - quotaAgentiTot - quotaBuyerTot;
               const totConsuntivo = vociAnno.reduce((s,v)=>s+totSpeseVoce(v),0);
               // Break even mode: fissi soli o fissi+variabili
               const vociConTipoKPI=vociAnno.map(v=>({...v,tipo:v.tipo||"fisso"}));
@@ -1981,7 +2043,7 @@ export default function App() {
                   <div style={S.card("#27AE60")}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota Agenzia {costiAnno}</p>
                     <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>Lordo: € {fmt(fatturatoLordo)}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>Incassato · Totale: € {fmt(quotaAgenziaTot)}</p>
                   </div>
                   <div style={S.card("#E74C3C")}>
                     <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsionali annui</p>
@@ -2007,18 +2069,24 @@ export default function App() {
                     <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
                       <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenzia</p>
                       <p style={{fontSize:16,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
-                      <p style={{fontSize:11,color:"#aaa",margin:"3px 0 0"}}>{fatturatoLordo>0?((quotaAgenzia/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                      <p style={{fontSize:10,color:"#aaa",margin:"2px 0 1px"}}>{fatturatoLordo>0?((quotaAgenzia/fatturatoLordo)*100).toFixed(1)+"% incassato":""}</p>
+                      <p style={{fontSize:10,color:"#2980B9",margin:0}}>Totale: € {fmt(quotaAgenziaTot)}</p>
                     </div>
                     <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
                       <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenti</p>
                       <p style={{fontSize:16,fontWeight:600,margin:0,color:"#2980B9"}}>€ {fmt(quotaAgenti)}</p>
-                      <p style={{fontSize:11,color:"#aaa",margin:"3px 0 0"}}>{fatturatoLordo>0?((quotaAgenti/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                      <p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>{fatturatoLordo>0?((quotaAgenti/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
                     </div>
                     <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
                       <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Buyer</p>
                       <p style={{fontSize:16,fontWeight:600,margin:0,color:"#8E44AD"}}>€ {fmt(quotaBuyer)}</p>
-                      <p style={{fontSize:11,color:"#aaa",margin:"3px 0 0"}}>{fatturatoLordo>0?((quotaBuyer/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                      <p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>{fatturatoLordo>0?((quotaBuyer/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
                     </div>
+                  </div>
+                  <div style={{marginTop:8,padding:"6px 10px",background:"#f0f0f0",borderRadius:6,fontSize:11,color:"#555",display:"flex",justifyContent:"space-between"}}>
+                    <span>Fatturato lordo incassato: <strong>€ {fmt(fatturatoLordo)}</strong></span>
+                    <span>Totale pattuito: <strong style={{color:"#2980B9"}}>€ {fmt(fatturatoLordoTot)}</strong></span>
+                    <span>Da incassare: <strong style={{color:"#E67E22"}}>€ {fmt(fatturatoLordoTot-fatturatoLordo)}</strong></span>
                   </div>
                 </div>
 
@@ -2044,34 +2112,55 @@ export default function App() {
                   </div>
                 )}
 
-                {/* BARRA 2 — Quota Agenzia vs Break Even (costi) */}
+                {/* BARRA 2 — Quota Agenzia vs Break Even (costi) — doppia: incassato e totale */}
                 {(obiettivoQuotaAgenzia>0||costiRif>0)&&(
                   <div style={{background:"#fff",borderRadius:10,border:`1px solid ${quotaAgenzia>=costiRif?"#27AE6044":"#E74C3C44"}`,padding:"1rem",marginBottom:"1.25rem"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:4}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:4}}>
                       <div>
                         <span style={{fontSize:13,fontWeight:600,color:BRAND.grigio}}>🎯 Obiettivo 2 — Quota Agenzia vs Break Even</span>
-                        <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Ciò che resta all'agenzia dopo le provvigioni agenti — deve coprire i costi fissi</p>
+                        <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Ciò che resta all'agenzia dopo le provvigioni agenti — deve coprire i costi</p>
                       </div>
-                      <span style={{fontSize:14,fontWeight:700,color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C"}}>€ {fmt(quotaAgenzia)} / € {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)}</span>
+                      <span style={{fontSize:14,fontWeight:700,color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C"}}>€ {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)} target</span>
                     </div>
-                    <div style={{background:"#f0f0f0",borderRadius:8,height:20,overflow:"hidden",position:"relative"}}>
-                      {/* Barra quota agenzia */}
-                      <div style={{height:"100%",borderRadius:8,background:quotaAgenzia>=costiRif?"#27AE60":"linear-gradient(90deg,#E74C3C,#C0392B)",width:`${Math.min(100,quotaAgenzia/Math.max(obiettivoQuotaAgenzia||costiRif,1)*100)}%`,transition:"width 0.5s ease"}}/>
-                      {/* Linea break even (costi) se obiettivo diverso dai costi */}
-                      {obiettivoQuotaAgenzia>0&&costiRif>0&&obiettivoQuotaAgenzia!==costiRif&&(
-                        <div style={{position:"absolute",top:0,bottom:0,left:`${Math.min(100,costiRif/obiettivoQuotaAgenzia*100)}%`,width:2,background:"#E74C3C",opacity:0.8}}/>
-                      )}
+
+                    {/* Barra A: su incassato */}
+                    <div style={{marginBottom:10}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+                        <span style={{color:"#555",fontWeight:500}}>💰 Su incassato</span>
+                        <span style={{color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C",fontWeight:600}}>€ {fmt(quotaAgenzia)} / € {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)}</span>
+                      </div>
+                      <div style={{background:"#f0f0f0",borderRadius:6,height:14,overflow:"hidden",position:"relative"}}>
+                        <div style={{height:"100%",borderRadius:6,background:quotaAgenzia>=costiRif?"#27AE60":"linear-gradient(90deg,#E74C3C,#C0392B)",width:`${Math.min(100,quotaAgenzia/Math.max(obiettivoQuotaAgenzia||costiRif,1)*100)}%`,transition:"width 0.5s ease"}}/>
+                        {obiettivoQuotaAgenzia>0&&costiRif>0&&obiettivoQuotaAgenzia!==costiRif&&(
+                          <div style={{position:"absolute",top:0,bottom:0,left:`${Math.min(100,costiRif/obiettivoQuotaAgenzia*100)}%`,width:2,background:"#888",opacity:0.6}}/>
+                        )}
+                      </div>
+                      <div style={{fontSize:10,color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C",marginTop:2,textAlign:"right"}}>
+                        {quotaAgenzia>=costiRif?"✅ Break Even raggiunto!":`⚠ Deficit: € ${fmt(costiRif-quotaAgenzia)} da coprire`}
+                      </div>
                     </div>
-                    <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,flexWrap:"wrap",gap:4}}>
-                      <span style={{color:"#aaa"}}>
-                        Break Even ({totConsuntivo>0?"consuntivo":"previsionale"}): <strong style={{color:"#E74C3C"}}>€ {fmt(costiRif)}</strong>
-                        {totPrevMensile>0&&<span> · € {fmt(Math.round(totPrevMensile))}/mese</span>}
-                      </span>
-                      {quotaAgenzia<costiRif
-                        ?<span style={{color:"#E74C3C",fontWeight:500}}>⚠ Deficit: <strong>€ {fmt(costiRif-quotaAgenzia)}</strong> da coprire</span>
-                        :<span style={{color:"#27AE60",fontWeight:600}}>✅ Break Even raggiunto! Margine: +€ {fmt(margine)}</span>}
+
+                    {/* Barra B: su totale pattuito (incassato + da incassare) */}
+                    <div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
+                        <span style={{color:"#555",fontWeight:500}}>📋 Su totale pattuito (incl. da incassare)</span>
+                        <span style={{color:quotaAgenziaTot>=costiRif?"#27AE60":"#2980B9",fontWeight:600}}>€ {fmt(quotaAgenziaTot)} / € {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)}</span>
+                      </div>
+                      <div style={{background:"#f0f0f0",borderRadius:6,height:14,overflow:"hidden",position:"relative"}}>
+                        <div style={{height:"100%",borderRadius:6,background:quotaAgenziaTot>=costiRif?"#27AE60":"linear-gradient(90deg,#2980B9,#1A5276)",width:`${Math.min(100,quotaAgenziaTot/Math.max(obiettivoQuotaAgenzia||costiRif,1)*100)}%`,transition:"width 0.5s ease"}}/>
+                      </div>
+                      <div style={{fontSize:10,color:"#aaa",marginTop:2,textAlign:"right"}}>
+                        {quotaAgenziaTot>=costiRif
+                          ?`✅ Break Even raggiunto anche sul pattuito! Margine potenziale: +€ ${fmt(quotaAgenziaTot-costiRif)}`
+                          :`Da incassare per break even: € ${fmt(costiRif-quotaAgenziaTot)}`}
+                      </div>
                     </div>
-                    {obiettivoQuotaAgenzia>0&&<div style={{marginTop:6,fontSize:11,color:"#aaa",textAlign:"right"}}>Obiettivo quota: {(quotaAgenzia/obiettivoQuotaAgenzia*100).toFixed(1)}% raggiunto{quotaAgenzia<obiettivoQuotaAgenzia?` · mancano € ${fmt(obiettivoQuotaAgenzia-quotaAgenzia)}`:""}</div>}
+
+                    <div style={{marginTop:8,fontSize:11,color:"#aaa",borderTop:"0.5px solid #f0f0f0",paddingTop:6}}>
+                      Break Even ({totConsuntivo>0?"consuntivo":"previsionale"}): <strong style={{color:"#E74C3C"}}>€ {fmt(costiRif)}</strong>
+                      {totPrevMensile>0&&<span> · € {fmt(Math.round(totPrevMensile))}/mese</span>}
+                      {obiettivoQuotaAgenzia>0&&<span> · Obiettivo quota: {(quotaAgenzia/obiettivoQuotaAgenzia*100).toFixed(1)}% raggiunto</span>}
+                    </div>
                   </div>
                 )}
                 {obiettivoFatturato===0&&obiettivoQuotaAgenzia===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"0 0 1rem"}}>💡 Imposta gli obiettivi qui sopra per visualizzare le barre di avanzamento</p>}
@@ -2174,33 +2263,78 @@ export default function App() {
                     </tr></thead>
                     <tbody>
                       {fissi.length>0&&<>{thTipo("🔒 Costi Fissi","#2980B9","#EAF4FB")}{fissi.map((voce)=>{
+                        const rows=[];
                         const idxGlobale=vociConTipo.findIndex(v=>v.id===voce.id);
                         const prevAnnuo=prevAnnuoVoce(voce);const tot=totSpeseVoce(voce);const diff=tot-prevAnnuo;const nSpese=(voce.spese||[]).length;const isFisso=voce.tipo==="fisso";
-                        return(<tr key={voce.id} style={{background:"#fff"}}>
-                          <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"fisso"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #2980B9`,background:"#EAF4FB",color:"#2980B9",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span></div></td>
-                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/></td>
+                        rows.push(<tr key={voce.id} style={{background:"#fff"}}>
+                          <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"fisso"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #2980B9`,background:"#EAF4FB",color:"#2980B9",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span>{(voce.subVoci||[]).length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#EAF4FB",color:"#2980B9",fontWeight:500,marginLeft:4}}>{(voce.subVoci||[]).length} sv {expandedVoci[voce.id]?"▲":"▼"}</span>}</div></td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>{(voce.subVoci||[]).length>0?<span style={{fontSize:12,color:"#2980B9",fontStyle:"italic"}}>→ sotto-voci</span>:<input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>}</td>
                           <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}} value={voce.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">Mensile ×12</option><option value="trimestrale">Trimestrale ×4</option><option value="semestrale">Semestrale ×2</option><option value="annuale">Annuale ×1</option></select></td>
                           <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
                           <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                           <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
                           <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoce({voce,idx:idxGlobale,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}</button></td>
-                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Su" onClick={()=>moveVoce(idxGlobale,-1)}>▲</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Giù" onClick={()=>moveVoce(idxGlobale,1)}>▼</button></td>
+                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 3px",border:"0.5px solid #ddd",borderRadius:3}} title="Sotto-voci" onClick={()=>setExpandedVoci(prev=>({...prev,[voce.id]:!prev[voce.id]}))}>⊕</button>
+                          <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Su" onClick={()=>moveVoce(idxGlobale,-1)}>▲</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Giù" onClick={()=>moveVoce(idxGlobale,1)}>▼</button></td>
                         </tr>);
-                      })}{tfTipo(totPrevFissi,totSpFissi,"fissi","#2980B9")}</>}
+                        // Sub-voci se espanso
+                        if(expandedVoci[voce.id]){
+                          const subs=voce.subVoci||[];
+                          const addSub=()=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],subVoci:[...subs,{id:Date.now(),voce:"Nuova sotto-voce",prevMensile:0,frequenza:"mensile",spese:[]}]};setCosti({...costi,[costiAnno]:v});};
+                          rows.push(<tr key={`sub_${voce.id}`} style={{background:"#F0F7FF"}}>
+                            <td colSpan={8} style={{padding:"6px 14px 10px 28px"}}>
+                              <div style={{fontSize:11,color:"#2980B9",fontWeight:600,marginBottom:6}}>Sotto-voci di {voce.voce}</div>
+                              {subs.map((sv,si)=>(
+                                <div key={sv.id||si} style={{display:"grid",gridTemplateColumns:"1fr auto auto auto auto",gap:6,alignItems:"center",marginBottom:4}}>
+                                  <input style={{...S.inp,margin:0,fontSize:12}} value={sv.voce} onChange={e=>{const v=[...vociConTipo];const s=[...subs];s[si]={...s[si],voce:e.target.value};v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}/>
+                                  <input type="number" style={{...S.inp,margin:0,fontSize:12,width:80,textAlign:"right"}} value={sv.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];const s=[...subs];s[si]={...s[si],prevMensile:Number(e.target.value)};v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}/>
+                                  <select style={{...S.inp,margin:0,fontSize:11,padding:"4px 6px"}} value={sv.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];const s=[...subs];s[si]={...s[si],frequenza:e.target.value};v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">×12</option><option value="trimestrale">×4</option><option value="semestrale">×2</option><option value="annuale">×1</option></select>
+                                  <span style={{fontSize:11,color:"#2980B9",fontWeight:500,whiteSpace:"nowrap"}}>€ {fmt(Number(sv.prevMensile||0)*freqMultiplier(sv.frequenza||"mensile"))}</span>
+                                  <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:13}} onClick={()=>{const v=[...vociConTipo];const s=[...subs];s.splice(si,1);v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}>✕</button>
+                                </div>
+                              ))}
+                              <button style={{...S.btn,fontSize:11,padding:"3px 10px",marginTop:4}} onClick={addSub}>+ Aggiungi sotto-voce</button>
+                            </td>
+                          </tr>);
+                        }
+                        return rows;
+                      }).flat()}{tfTipo(totPrevFissi,totSpFissi,"fissi","#2980B9")}</>}
                       {variabili.length>0&&<>{thTipo("📊 Costi Variabili","#E67E22","#FEF0E0")}{variabili.map((voce)=>{
+                        const rows=[];
                         const idxGlobale=vociConTipo.findIndex(v=>v.id===voce.id);
                         const prevAnnuo=prevAnnuoVoce(voce);const tot=totSpeseVoce(voce);const diff=tot-prevAnnuo;const nSpese=(voce.spese||[]).length;
-                        return(<tr key={voce.id} style={{background:"#FEFDF8"}}>
-                          <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"variabile"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #E67E22`,background:"#FEF0E0",color:"#E67E22",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span></div></td>
-                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/></td>
+                        rows.push(<tr key={voce.id} style={{background:"#FEFDF8"}}>
+                          <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"variabile"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #E67E22`,background:"#FEF0E0",color:"#E67E22",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span>{(voce.subVoci||[]).length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#EAF4FB",color:"#2980B9",fontWeight:500,marginLeft:4}}>{(voce.subVoci||[]).length} sv {expandedVoci[voce.id]?"▲":"▼"}</span>}</div></td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>{(voce.subVoci||[]).length>0?<span style={{fontSize:12,color:"#2980B9",fontStyle:"italic"}}>→ sotto-voci</span>:<input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>}</td>
                           <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}} value={voce.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">Mensile ×12</option><option value="trimestrale">Trimestrale ×4</option><option value="semestrale">Semestrale ×2</option><option value="annuale">Annuale ×1</option></select></td>
                           <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
                           <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
                           <td style={{...S.tdR,fontWeight:500,color:diff>0?"#E74C3C":diff<0?"#27AE60":"#aaa"}}>{tot>0?(diff!==0?(diff>0?"+":"")+fmt(diff):"—"):"—"}</td>
                           <td style={S.tdC}><button style={{fontSize:12,padding:"4px 12px",borderRadius:6,border:`0.5px solid ${nSpese>0?BRAND.oro:"#ddd"}`,background:nSpese>0?`${BRAND.oro}18`:"transparent",color:nSpese>0?BRAND.oroD:"#999",cursor:"pointer"}} onClick={()=>{setModalCostoVoce({voce,idx:idxGlobale,anno:costiAnno});setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});}}>{nSpese>0?`${nSpese} ${nSpese===1?"spesa":"spese"}`:"Aggiungi"}</button></td>
-                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Su" onClick={()=>moveVoce(idxGlobale,-1)}>▲</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Giù" onClick={()=>moveVoce(idxGlobale,1)}>▼</button></td>
+                          <td style={S.tdC}><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 3px",border:"0.5px solid #ddd",borderRadius:3}} title="Sotto-voci" onClick={()=>setExpandedVoci(prev=>({...prev,[voce.id]:!prev[voce.id]}))}>⊕</button>
+                          <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:16,lineHeight:1}} onClick={()=>{if(window.confirm(`Eliminare "${voce.voce}"?`)){const v=[...vociConTipo];v.splice(idxGlobale,1);setCosti({...costi,[costiAnno]:v});}}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Su" onClick={()=>moveVoce(idxGlobale,-1)}>▲</button><button style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:11,lineHeight:1,padding:"0 2px"}} title="Giù" onClick={()=>moveVoce(idxGlobale,1)}>▼</button></td>
                         </tr>);
-                      })}{tfTipo(totPrevVar,totSpVar,"variabili","#E67E22")}</>}
+                        if(expandedVoci[voce.id]){
+                          const subs=voce.subVoci||[];
+                          const addSub=()=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],subVoci:[...subs,{id:Date.now(),voce:"Nuova sotto-voce",prevMensile:0,frequenza:"mensile",spese:[]}]};setCosti({...costi,[costiAnno]:v});};
+                          rows.push(<tr key={`sub_${voce.id}`} style={{background:"#FFF8F0"}}>
+                            <td colSpan={8} style={{padding:"6px 14px 10px 28px"}}>
+                              <div style={{fontSize:11,color:"#E67E22",fontWeight:600,marginBottom:6}}>Sotto-voci di {voce.voce}</div>
+                              {subs.map((sv,si)=>(
+                                <div key={sv.id||si} style={{display:"grid",gridTemplateColumns:"1fr auto auto auto auto",gap:6,alignItems:"center",marginBottom:4}}>
+                                  <input style={{...S.inp,margin:0,fontSize:12}} value={sv.voce} onChange={e=>{const v=[...vociConTipo];const s=[...subs];s[si]={...s[si],voce:e.target.value};v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}/>
+                                  <input type="number" style={{...S.inp,margin:0,fontSize:12,width:80,textAlign:"right"}} value={sv.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];const s=[...subs];s[si]={...s[si],prevMensile:Number(e.target.value)};v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}/>
+                                  <select style={{...S.inp,margin:0,fontSize:11,padding:"4px 6px"}} value={sv.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];const s=[...subs];s[si]={...s[si],frequenza:e.target.value};v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">×12</option><option value="trimestrale">×4</option><option value="semestrale">×2</option><option value="annuale">×1</option></select>
+                                  <span style={{fontSize:11,color:"#E67E22",fontWeight:500,whiteSpace:"nowrap"}}>€ {fmt(Number(sv.prevMensile||0)*freqMultiplier(sv.frequenza||"mensile"))}</span>
+                                  <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:13}} onClick={()=>{const v=[...vociConTipo];const s=[...subs];s.splice(si,1);v[idxGlobale]={...v[idxGlobale],subVoci:s};setCosti({...costi,[costiAnno]:v});}}>✕</button>
+                                </div>
+                              ))}
+                              <button style={{...S.btn,fontSize:11,padding:"3px 10px",marginTop:4}} onClick={addSub}>+ Aggiungi sotto-voce</button>
+                            </td>
+                          </tr>);
+                        }
+                        return rows;
+                      }).flat()}{tfTipo(totPrevVar,totSpVar,"variabili","#E67E22")}</>}
                     </tbody>
                     <tfoot>
                       <tr style={{background:BRAND.beige,fontWeight:700,fontSize:13}}>
@@ -2739,174 +2873,249 @@ export default function App() {
               const cacheKey=`${agId}_${data}`;
               const g = {...autoCompila(agId, data), ...(opFormCache[cacheKey]||{})};
               const isSabato = new Date(data).getDay()===6;
-              // Salva sia nel cache (immediato per UI) che nello stato persistente (debounced)
               const upd = (k,v) => {
-                const newCache={...opFormCache,[cacheKey]:{...(opFormCache[cacheKey]||{}),[k]:v}};
-                setOpFormCache(newCache);
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[k]:v}}));
                 salvaGiornata(agId, data, {[k]:v});
               };
+              const updNested = (parent,k,v) => {
+                const curr={...((opFormCache[cacheKey]||{})[parent]||(g[parent]||{})),[k]:v};
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[parent]:curr}}));
+                salvaGiornata(agId, data, {[parent]:curr});
+              };
               const updOh = (idx,k,v) => {
-                const ohArr = [...(g.ohImmobili||[])];
+                const ohArr=[...(g.ohImmobili||[])];
                 if(!ohArr[idx]) ohArr[idx]={};
                 ohArr[idx]={...ohArr[idx],[k]:v};
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),ohImmobili:ohArr}}));
                 salvaGiornata(agId, data, {ohImmobili:ohArr});
               };
-              const addImmobile = () => salvaGiornata(agId, data, {attImm:[...(g.attImm||[]),{incId:"",cartello:false,lettAMV:false,lettOH:false,volVend:false,tipoVol:"",modalita:"",copie:0}]});
               const updImm = (idx,k,v) => {
                 const arr=[...(g.attImm||[])];
+                if(!arr[idx]) arr[idx]={};
                 arr[idx]={...arr[idx],[k]:v};
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),attImm:arr}}));
                 salvaGiornata(agId, data, {attImm:arr});
               };
-              const addOH = () => salvaGiornata(agId, data, {ohImmobili:[...(g.ohImmobili||[]),{incId:"",visite:0,richieste:0,proposte:0,ore:2}]});
+              const addOH = () => {
+                const ohArr=[...(g.ohImmobili||[]),{incId:"",visite:0,richieste:0,proposte:0,ore:2}];
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),ohImmobili:ohArr}}));
+                salvaGiornata(agId, data, {ohImmobili:ohArr});
+              };
+              const addImmobile = () => {
+                const arr=[...(g.attImm||[]),{incId:"",cartello:false,lettAMV:false,lettOH:false,volVend:false,tipoVol:"",modalita:"",copie:0}];
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),attImm:arr}}));
+                salvaGiornata(agId, data, {attImm:arr});
+              };
+              const incarichiAgente_f = incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(isBroker||i.agenteListing===agId||i.buyerListing===agId));
 
-              const sCard={background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px",marginBottom:8};
+              // Stili locali form
+              const sc={background:"var(--color-background-secondary)",borderRadius:8,padding:"12px 14px",marginBottom:8};
+              const sc2={...sc,background:"#fff",border:"0.5px solid #e8e5e0"};
+              const lbl={fontSize:11,color:"#666",display:"block",marginBottom:3,fontWeight:500};
               const g2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:8};
               const g3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8};
-              const lbl={fontSize:11,color:"#888",display:"block",marginBottom:3};
-              const inp={...S.inp,margin:0,fontSize:12};
+              const numInp=(k,ph="0",step=1)=>(
+                <input type="number" min="0" step={step} style={{...S.inp,margin:0,fontSize:13}} value={g[k]||""} placeholder={ph} onChange={e=>upd(k,Number(e.target.value))}/>
+              );
+              const secTitle=(label,clr,bg)=>(
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <div style={{width:4,height:16,borderRadius:2,background:clr,flexShrink:0}}/>
+                  <span style={{fontSize:11,fontWeight:700,color:clr,textTransform:"uppercase",letterSpacing:"0.08em"}}>{label}</span>
+                </div>
+              );
+
+              const chiamate=g.chiamate_tipi||{};
+              const updCh=(k,v)=>{ const n={...chiamate,[k]:Number(v)}; upd("chiamate_tipi",n); upd("chiamate",Object.values(n).reduce((s,x)=>s+Number(x||0),0)); };
+              const totCh=Object.values(chiamate).reduce((s,x)=>s+Number(x||0),0);
 
               return(<div>
-                {/* RICERCA / ACQUISIZIONE */}
-                <div style={sCard}>
-                  <p style={{fontSize:11,fontWeight:600,color:"#0C447C",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Ricerca / acquisizione</p>
+                {/* ── SEZIONE RICERCA / ACQUISIZIONE ── */}
+                <div style={sc}>
+                  {secTitle("📞 Ricerca / Acquisizione","#185FA5","#E6F1FB")}
+
+                  {/* Blocco chiamate per tipo */}
+                  <div style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                      <span style={{fontSize:11,color:"#555",fontWeight:500}}>Chiamate per tipo</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"#185FA5"}}>{totCh} tot.</span>
+                    </div>
+                    <div style={g2}>
+                      {[
+                        ["centri_inf","Centri d'influenza"],
+                        ["clienti_pass","Clienti passati"],
+                        ["privati","Privati"],
+                        ["freddo","Generica / Freddo"],
+                        ["zona_vol","Zona Post Volantino"],
+                        ["followup","Follow-Up Notizie"],
+                      ].map(([k,lb])=>(
+                        <div key={k}>
+                          <label style={lbl}>{lb}</label>
+                          <input type="number" min="0" style={{...S.inp,margin:0,fontSize:13}} value={chiamate[k]||""} placeholder="0" onChange={e=>updCh(k,e.target.value)}/>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Appuntamenti acquisizione e presentazione */}
+                  <div style={{...g2,marginBottom:8}}>
+                    <div>
+                      <label style={lbl}>Appuntamenti acquisizione fissati</label>
+                      {numInp("appuntamenti")}
+                    </div>
+                    <div>
+                      <label style={lbl}>Presentazione / Valutazione</label>
+                      {numInp("valutazioni")}
+                    </div>
+                  </div>
+
+                  {/* Ore ricerca */}
                   <div style={g3}>
-                    <div><label style={lbl}>Chiamate</label><input style={inp} type="number" min="0" value={g.chiamate||""} placeholder="0" onChange={e=>upd("chiamate",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Appuntamenti fissati</label><input style={inp} type="number" min="0" value={g.appuntamenti||""} placeholder="0" onChange={e=>upd("appuntamenti",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Centri influenza</label><input style={inp} type="number" min="0" value={g.centri||""} placeholder="0" onChange={e=>upd("centri",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Privati contattati</label><input style={inp} type="number" min="0" value={g.privati||""} placeholder="0" onChange={e=>upd("privati",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Ricerca zona (ore)</label><input style={inp} type="number" min="0" step="0.5" value={g.oreRicerca||""} placeholder="0" onChange={e=>upd("oreRicerca",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Acquisizioni</label><input style={inp} type="number" min="0" value={g.acquisizioni||""} placeholder="0" onChange={e=>upd("acquisizioni",Number(e.target.value))}/></div>
+                    <div><label style={lbl}>Ore telefono</label>{numInp("oreTel",0,0.5)}</div>
+                    <div><label style={lbl}>Ore in zona</label>{numInp("oreZona",0,0.5)}</div>
+                    <div><label style={lbl}>Ore sviluppo/varie</label>{numInp("oreSviluppoRic",0,0.5)}</div>
                   </div>
                 </div>
 
-                {/* OPERATIVO / VENDITE */}
-                <div style={{...sCard,borderLeft:"3px solid #BA7517"}}>
-                  <p style={{fontSize:11,fontWeight:600,color:"#633806",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Operativo / vendite <span style={{fontSize:10,color:"#aaa",fontWeight:400}}>— dati pre-compilati dal gestionale</span></p>
+                {/* ── SEZIONE OPERATIVO / VENDITE ── */}
+                <div style={{...sc,borderLeft:"3px solid #BA7517"}}>
+                  {secTitle("🤝 Operativo / Vendite","#633806")}
                   <div style={g3}>
-                    <div><label style={lbl}>Immobili visitati</label><input style={inp} type="number" min="0" value={g.immVisitati||""} placeholder="0" onChange={e=>upd("immVisitati",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Appt. venditori</label><input style={inp} type="number" min="0" value={g.apptVend||""} placeholder="0" onChange={e=>upd("apptVend",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Appt. acquirenti</label><input style={inp} type="number" min="0" value={g.apptAcq||""} placeholder="0" onChange={e=>upd("apptAcq",Number(e.target.value))}/></div>
                     <div>
-                      <label style={lbl}>Proposte presentate</label>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <input style={{...inp,flex:1}} type="number" min="0" value={g.propPresentate||""} placeholder="0" onChange={e=>upd("propPresentate",Number(e.target.value))}/>
-                        {g.propPresentate>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
-                      </div>
+                      <label style={lbl}>Immobili visitati</label>
+                      {numInp("immVisitati")}
                     </div>
                     <div>
-                      <label style={lbl}>Proposte accettate</label>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <input style={{...inp,flex:1}} type="number" min="0" value={g.propAccettate||""} placeholder="0" onChange={e=>upd("propAccettate",Number(e.target.value))}/>
-                        {g.propAccettate>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
-                      </div>
+                      <label style={lbl}>Appt. acquirenti</label>
+                      {numInp("apptAcq")}
                     </div>
                     <div>
-                      <label style={lbl}>Preliminari firmati</label>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <input style={{...inp,flex:1}} type="number" min="0" value={g.preliminari||""} placeholder="0" onChange={e=>upd("preliminari",Number(e.target.value))}/>
-                        {g.preliminari>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
-                      </div>
+                      <label style={lbl}>Proposte presentate <span style={{color:"#27AE60",fontSize:10}}>✓ auto</span></label>
+                      {numInp("propPresentate")}
                     </div>
                     <div>
-                      <label style={lbl}>Rogiti</label>
-                      <div style={{display:"flex",alignItems:"center",gap:4}}>
-                        <input style={{...inp,flex:1}} type="number" min="0" value={g.rogiti||""} placeholder="0" onChange={e=>upd("rogiti",Number(e.target.value))}/>
-                        {g.rogiti>0&&<span style={{fontSize:10,color:"#27AE60"}}>✓ auto</span>}
-                      </div>
+                      <label style={lbl}>Proposte accettate <span style={{color:"#27AE60",fontSize:10}}>✓ auto</span></label>
+                      {numInp("propAccettate")}
                     </div>
-                    <div><label style={lbl}>Valutazioni effettuate</label><input style={inp} type="number" min="0" value={g.valutazioni||""} placeholder="0" onChange={e=>upd("valutazioni",Number(e.target.value))}/></div>
+                    <div>
+                      <label style={lbl}>Preliminari <span style={{color:"#27AE60",fontSize:10}}>✓ auto</span></label>
+                      {numInp("preliminari")}
+                    </div>
+                    <div>
+                      <label style={lbl}>Rogiti <span style={{color:"#27AE60",fontSize:10}}>✓ auto</span></label>
+                      {numInp("rogiti")}
+                    </div>
                   </div>
+                  <div style={{marginTop:6,fontSize:11,color:"#aaa"}}>I campi con ✓ auto si pre-compilano dai dati del gestionale</div>
                 </div>
 
-                {/* OPEN HOUSE — sabato in evidenza */}
-                <div style={{...sCard,background:isSabato?"#FDF6EC":"var(--color-background-secondary)",border:isSabato?"1px solid #C9A96E":"0.5px solid transparent"}}>
+                {/* ── OPEN HOUSE ── */}
+                <div style={{...sc,background:isSabato?"#FDF6EC":"var(--color-background-secondary)",border:isSabato?"1px solid #C9A96E":"0.5px solid transparent"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <p style={{fontSize:11,fontWeight:600,color:"#D85A30",textTransform:"uppercase",letterSpacing:"0.08em",margin:0}}>Open House {isSabato?"🏠 sabato":""}</p>
-                    <button style={{...S.btnP,fontSize:11,padding:"3px 10px"}} onClick={addOH}>+ Aggiungi OH</button>
+                    {secTitle(`🏠 Open House${isSabato?" — Sabato":""}`,isSabato?"#A8863A":"#D85A30")}
+                    <button style={{...S.btnP,fontSize:11,padding:"3px 10px",marginBottom:8}} onClick={addOH}>+ Aggiungi</button>
                   </div>
-                  {(g.ohImmobili||[]).length===0&&<p style={{fontSize:12,color:"#aaa",margin:0}}>Nessun Open House oggi. Clicca + per aggiungerne uno.</p>}
+                  {(g.ohImmobili||[]).length===0&&<p style={{fontSize:12,color:"#aaa",margin:0}}>Nessun Open House oggi</p>}
                   {(g.ohImmobili||[]).map((oh,idx)=>(
                     <div key={idx} style={{background:"#fff",borderRadius:6,padding:"10px 12px",marginBottom:6,border:"0.5px solid #e8e5e0"}}>
                       <div style={{marginBottom:8}}>
-                        <label style={lbl}>Immobile (incarico)</label>
-                        <select style={inp} value={oh.incId||""} onChange={e=>updOh(idx,"incId",e.target.value)}>
+                        <label style={lbl}>Immobile</label>
+                        <select style={{...S.inp,margin:0,fontSize:12}} value={oh.incId||""} onChange={e=>updOh(idx,"incId",e.target.value)}>
                           <option value="">— seleziona —</option>
-                          {incarichiAgente(agId).map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
+                          {incarichiAgente_f.map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
                         </select>
                       </div>
                       <div style={g3}>
-                        <div><label style={lbl}>N° visite</label><input style={inp} type="number" min="0" value={oh.visite||""} placeholder="0" onChange={e=>updOh(idx,"visite",Number(e.target.value))}/></div>
-                        <div><label style={lbl}>Richieste info</label><input style={inp} type="number" min="0" value={oh.richieste||""} placeholder="0" onChange={e=>updOh(idx,"richieste",Number(e.target.value))}/></div>
-                        <div><label style={lbl}>Proposte raccolte</label><input style={inp} type="number" min="0" value={oh.proposte||""} placeholder="0" onChange={e=>updOh(idx,"proposte",Number(e.target.value))}/></div>
-                        <div><label style={lbl}>Durata (ore)</label><input style={inp} type="number" min="0" step="0.5" value={oh.ore||""} placeholder="2" onChange={e=>updOh(idx,"ore",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>N° visite</label><input type="number" min="0" style={{...S.inp,margin:0,fontSize:13}} value={oh.visite||""} placeholder="0" onChange={e=>updOh(idx,"visite",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Richieste info</label><input type="number" min="0" style={{...S.inp,margin:0,fontSize:13}} value={oh.richieste||""} placeholder="0" onChange={e=>updOh(idx,"richieste",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Proposte</label><input type="number" min="0" style={{...S.inp,margin:0,fontSize:13}} value={oh.proposte||""} placeholder="0" onChange={e=>updOh(idx,"proposte",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Durata (ore)</label><input type="number" min="0" step="0.5" style={{...S.inp,margin:0,fontSize:13}} value={oh.ore||""} placeholder="2" onChange={e=>updOh(idx,"ore",Number(e.target.value))}/></div>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* ATTIVITÀ IMMOBILE */}
-                <div style={sCard}>
+                {/* ── ATTIVITÀ IMMOBILE ── */}
+                <div style={sc}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <p style={{fontSize:11,fontWeight:600,color:"#085041",textTransform:"uppercase",letterSpacing:"0.08em",margin:0}}>Attività collegate all'immobile</p>
-                    <button style={{...S.btnP,fontSize:11,padding:"3px 10px"}} onClick={addImmobile}>+ Aggiungi immobile</button>
+                    {secTitle("🏡 Attività collegate all'immobile","#085041")}
+                    <button style={{...S.btnP,fontSize:11,padding:"3px 10px",marginBottom:8}} onClick={addImmobile}>+ Aggiungi</button>
                   </div>
-                  {(g.attImm||[]).length===0&&<p style={{fontSize:12,color:"#aaa",margin:0}}>Nessuna attività su immobile oggi.</p>}
+                  {(g.attImm||[]).length===0&&<p style={{fontSize:12,color:"#aaa",margin:0}}>Nessuna attività su immobile</p>}
                   {(g.attImm||[]).map((att,idx)=>(
                     <div key={idx} style={{background:"#fff",borderRadius:6,padding:"10px 12px",marginBottom:6,border:"0.5px solid #e8e5e0"}}>
                       <div style={{marginBottom:8}}>
                         <label style={lbl}>Immobile</label>
-                        <select style={inp} value={att.incId||""} onChange={e=>updImm(idx,"incId",e.target.value)}>
-                          <option value="">— seleziona incarico —</option>
-                          {incarichiAgente(agId).map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
+                        <select style={{...S.inp,margin:0,fontSize:12}} value={att.incId||""} onChange={e=>updImm(idx,"incId",e.target.value)}>
+                          <option value="">— seleziona —</option>
+                          {incarichiAgente_f.map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
                         </select>
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:6,marginBottom:8}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
                         {[["cartello","Cartello AMV affisso"],["lettAMV","Lettera AMV distribuita"],["lettOH","Lettera OH distribuita"],["volVend","Volantino Venduto"]].map(([k,lb])=>(
-                          <label key={k} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",padding:"6px 8px",background:"var(--color-background-secondary)",borderRadius:5}}>
+                          <label key={k} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,cursor:"pointer",padding:"6px 8px",background:"#f8f8f8",borderRadius:5}}>
                             <input type="checkbox" checked={att[k]||false} onChange={e=>updImm(idx,k,e.target.checked)}/>{lb}
                           </label>
                         ))}
                       </div>
                       <div style={g3}>
-                        <div><label style={lbl}>Tipo volantino</label><select style={inp} value={att.tipoVol||""} onChange={e=>updImm(idx,"tipoVol",e.target.value)}><option value="">—</option>{tipiVolantino.map(v=><option key={v}>{v}</option>)}</select></div>
-                        <div><label style={lbl}>Modalità</label><select style={inp} value={att.modalita||""} onChange={e=>updImm(idx,"modalita",e.target.value)}><option value="">—</option><option>Di persona</option><option>Distributore</option></select></div>
-                        <div><label style={lbl}>N° copie</label><input style={inp} type="number" min="0" value={att.copie||""} placeholder="0" onChange={e=>updImm(idx,"copie",Number(e.target.value))}/></div>
+                        <div><label style={lbl}>Tipo volantino</label><select style={{...S.inp,margin:0,fontSize:12}} value={att.tipoVol||""} onChange={e=>updImm(idx,"tipoVol",e.target.value)}><option value="">—</option>{tipiVolantino.map(v=><option key={v}>{v}</option>)}</select></div>
+                        <div><label style={lbl}>Modalità</label><select style={{...S.inp,margin:0,fontSize:12}} value={att.modalita||""} onChange={e=>updImm(idx,"modalita",e.target.value)}><option value="">—</option><option>Di persona</option><option>Distributore</option></select></div>
+                        <div><label style={lbl}>N° copie</label><input type="number" min="0" style={{...S.inp,margin:0,fontSize:13}} value={att.copie||""} placeholder="0" onChange={e=>updImm(idx,"copie",Number(e.target.value))}/></div>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* SVILUPPO */}
-                <div style={g2}>
-                  <div style={sCard}>
-                    <p style={{fontSize:11,fontWeight:600,color:"#3C3489",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Sviluppo</p>
-                    <div><label style={lbl}>Tipo attività</label><select style={inp} value={g.tipoSviluppo||""} onChange={e=>upd("tipoSviluppo",e.target.value)}><option value="">—</option>{tipiSviluppo.map(v=><option key={v}>{v}</option>)}</select></div>
-                    <div style={{marginTop:6}}><label style={lbl}>Ore</label><input style={inp} type="number" min="0" step="0.5" value={g.oreSviluppo||""} placeholder="0" onChange={e=>upd("oreSviluppo",Number(e.target.value))}/></div>
+                {/* ── SOCIAL / MARKETING ── */}
+                <div style={sc}>
+                  {secTitle("📱 Social / Marketing","#3C3489")}
+                  <div style={g3}>
+                    <div><label style={lbl}>Post pubblicati</label>{numInp("postSocial")}</div>
+                    <div><label style={lbl}>Video pubblicati</label>{numInp("video")}</div>
+                    <div><label style={lbl}>Stories/Reels</label>{numInp("stories")}</div>
                   </div>
-                  <div style={sCard}>
-                    <p style={{fontSize:11,fontWeight:600,color:"#3B6D11",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Marketing / social</p>
-                    <div style={g2}>
-                      <div><label style={lbl}>Post social</label><input style={inp} type="number" min="0" value={g.postSocial||""} placeholder="0" onChange={e=>upd("postSocial",Number(e.target.value))}/></div>
-                      <div><label style={lbl}>Video</label><input style={inp} type="number" min="0" value={g.video||""} placeholder="0" onChange={e=>upd("video",Number(e.target.value))}/></div>
-                      <div><label style={lbl}>Ore marketing</label><input style={inp} type="number" min="0" step="0.5" value={g.oreMarketing||""} placeholder="0" onChange={e=>upd("oreMarketing",Number(e.target.value))}/></div>
+                </div>
+
+                {/* ── SVILUPPO ── */}
+                <div style={{...g2,gap:8}}>
+                  <div style={sc}>
+                    {secTitle("📚 Sviluppo","#533AB7")}
+                    <div style={{marginBottom:6}}>
+                      <label style={lbl}>Tipo attività</label>
+                      <select style={{...S.inp,margin:0,fontSize:12}} value={g.tipoSviluppo||""} onChange={e=>upd("tipoSviluppo",e.target.value)}>
+                        <option value="">—</option>{tipiSviluppo.map(v=><option key={v}>{v}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={lbl}>Ore</label>
+                      <input type="number" min="0" step="0.5" style={{...S.inp,margin:0,fontSize:13}} value={g.oreSviluppo||""} placeholder="0" onChange={e=>upd("oreSviluppo",Number(e.target.value))}/>
+                    </div>
+                  </div>
+                  <div style={sc}>
+                    {secTitle("📋 Amministrativo","#444441")}
+                    <div style={{marginBottom:6}}>
+                      <label style={lbl}>Ore back-office</label>
+                      <input type="number" min="0" step="0.5" style={{...S.inp,margin:0,fontSize:13}} value={g.oreAmm||""} placeholder="0" onChange={e=>upd("oreAmm",Number(e.target.value))}/>
+                    </div>
+                    <div>
+                      <label style={lbl}>Note</label>
+                      <input type="text" style={{...S.inp,margin:0,fontSize:12}} value={g.noteAmm||""} placeholder="es. pratica, doc..." onChange={e=>upd("noteAmm",e.target.value)}/>
                     </div>
                   </div>
                 </div>
 
-                {/* AMMINISTRATIVO */}
-                <div style={sCard}>
-                  <p style={{fontSize:11,fontWeight:600,color:"#444441",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"}}>Amministrativo</p>
-                  <div style={g2}>
-                    <div><label style={lbl}>Ore back-office</label><input style={inp} type="number" min="0" step="0.5" value={g.oreAmm||""} placeholder="0" onChange={e=>upd("oreAmm",Number(e.target.value))}/></div>
-                    <div><label style={lbl}>Note</label><input style={{...inp,width:"100%"}} type="text" value={g.noteAmm||""} placeholder="es. pratica Rossi..." onChange={e=>upd("noteAmm",e.target.value)}/></div>
-                  </div>
+                {/* Note giornata */}
+                <div style={{marginTop:4}}>
+                  <label style={{...lbl,fontSize:12,fontWeight:500}}>Note giornata (opzionale)</label>
+                  <textarea style={{...S.inp,width:"100%",minHeight:55,resize:"vertical",fontSize:12,margin:0}} value={g.note||""} placeholder="Annotazioni libere..." onChange={e=>upd("note",e.target.value)}/>
                 </div>
 
-                {/* NOTE GIORNATA */}
-                <div style={{marginTop:4}}>
-                  <label style={{...lbl,fontSize:12}}>Note giornata (opzionale)</label>
-                  <textarea style={{...S.inp,width:"100%",minHeight:60,resize:"vertical",fontSize:12}} value={g.note||""} placeholder="Annotazioni libere per la giornata..." onChange={e=>upd("note",e.target.value)}/>
-                </div>
+                <button style={{...S.btnP,width:"100%",marginTop:8,padding:10,fontSize:13}} onClick={()=>{
+                  // Forza salvataggio da cache
+                  const cached=opFormCache[cacheKey]||{};
+                  if(Object.keys(cached).length>0) salvaGiornata(agId,data,cached);
+                  alert(`Giornata del ${fmtD(data)} salvata!`);
+                }}>💾 Salva giornata</button>
               </div>);
             };
 
@@ -2915,23 +3124,27 @@ export default function App() {
               const giorni = Object.entries(operativita[agId]||{}).filter(([d])=>d.startsWith(mese));
               const sum = (k) => giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
               const sumArr = (arr,k) => giorni.reduce((s,[,g])=>s+(g[arr]||[]).reduce((a,x)=>a+Number(x[k]||0),0),0);
+              const sumNested = (parent,k) => giorni.reduce((s,[,g])=>s+Number((g[parent]||{})[k]||0),0);
+              const chiamateTot = giorni.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0)||sum("chiamate");
               const ohVisite = sumArr("ohImmobili","visite");
               const ohNum = giorni.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
               const giorniCompilati = giorni.filter(([,g])=>Object.keys(g).some(k=>Number(g[k]||0)>0||g[k]===true)).length;
-              // Vendite auto dal gestionale
               const vendMese = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&dataCompAgenzia(v).startsWith(mese));
               const propMese = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"").startsWith(mese));
               return {
-                giorniCompilati, chiamate:sum("chiamate"), appuntamenti:sum("appuntamenti"),
-                centri:sum("centri"), privati:sum("privati"), acquisizioni:sum("acquisizioni"),
+                giorniCompilati, chiamate:chiamateTot, appuntamenti:sum("appuntamenti"), acquisizioni:sum("acquisizioni"),
+                centri_inf:sumNested("chiamate_tipi","centri_inf"), clienti_pass:sumNested("chiamate_tipi","clienti_pass"),
+                privati:sumNested("chiamate_tipi","privati"), freddo:sumNested("chiamate_tipi","freddo"),
+                zona_vol:sumNested("chiamate_tipi","zona_vol"), followup:sumNested("chiamate_tipi","followup"),
                 immVisitati:sum("immVisitati"), valutazioni:sum("valutazioni"),
+                oreTel:sum("oreTel"), oreZona:sum("oreZona"), oreSviluppoRic:sum("oreSviluppoRic"),
+                oreRicerca:sum("oreTel")+sum("oreZona")+sum("oreSviluppoRic"),
                 propPresentate:Math.max(sum("propPresentate"),propMese.length),
                 propAccettate:Math.max(sum("propAccettate"),propMese.filter(p=>p.stato==="Accettata"||p.stato==="Accettata con Vincolo").length),
                 preliminari:Math.max(sum("preliminari"),vendMese.filter(v=>v.tipoAtto==="Preliminare").length),
                 rogiti:vendMese.filter(v=>v.dataAtto).length,
-                ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"),
-                oreMarketing:sum("oreMarketing"), oreSviluppo:sum("oreSviluppo"),
-                oreAmm:sum("oreAmm"), oreRicerca:sum("oreRicerca"),
+                ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"), stories:sum("stories"),
+                oreSviluppo:sum("oreSviluppo"), oreAmm:sum("oreAmm"),
               };
             };
 
@@ -3148,14 +3361,14 @@ export default function App() {
                     const upd=(k,v)=>salvaObiettivi(agId,opMeseSel,{...obDati,proposti:{...ob,[k]:Number(v)}});
 
                     const vociOb=[
-                      {k:"chiamate",    lbl:"Chiamate",          sub:"a settimana", clr:"#185FA5", icon:"📞", val:rep.chiamate},
-                      {k:"appuntamenti",lbl:"Appuntamenti",      sub:"al mese",     clr:"#633806", icon:"🤝", val:rep.appuntamenti},
-                      {k:"acquisizioni",lbl:"Acquisizioni",      sub:"al mese",     clr:"#533AB7", icon:"🏠", val:rep.acquisizioni},
-                      {k:"oh",          lbl:"Open House",        sub:"al mese",     clr:"#D85A30", icon:"🚪", val:rep.ohNum},
-                      {k:"propPresentate",lbl:"Proposte",        sub:"al mese",     clr:"#27AE60", icon:"📝", val:rep.propPresentate},
-                      {k:"immVisitati", lbl:"Immobili visitati", sub:"a settimana", clr:"#085041", icon:"👁",  val:rep.immVisitati},
-                      {k:"oreRicerca",  lbl:"Ore ricerca",       sub:"a settimana", clr:"#0F6E56", icon:"🔍", val:rep.oreRicerca},
-                      {k:"postSocial",  lbl:"Post social",       sub:"a settimana", clr:"#3C3489", icon:"📱", val:rep.postSocial},
+                      {k:"chiamate",    lbl:"Chiamate",           sub:"a settimana", clr:"#185FA5", icon:"📞", val:rep.chiamate},
+                      {k:"appuntamenti",lbl:"Appuntamenti acq.",   sub:"al mese",     clr:"#633806", icon:"🤝", val:rep.appuntamenti},
+                      {k:"acquisizioni",lbl:"Acquisizioni",        sub:"al mese",     clr:"#533AB7", icon:"🏠", val:rep.acquisizioni},
+                      {k:"oh",          lbl:"Open House",          sub:"al mese",     clr:"#D85A30", icon:"🚪", val:rep.ohNum},
+                      {k:"propPresentate",lbl:"Proposte",          sub:"al mese",     clr:"#27AE60", icon:"📝", val:rep.propPresentate},
+                      {k:"immVisitati", lbl:"Immobili visitati",   sub:"a settimana", clr:"#085041", icon:"👁",  val:rep.immVisitati},
+                      {k:"oreTel",      lbl:"Ore telefono",        sub:"a settimana", clr:"#0F6E56", icon:"⏱",  val:rep.oreTel},
+                      {k:"postSocial",  lbl:"Post social",         sub:"a settimana", clr:"#3C3489", icon:"📱", val:rep.postSocial},
                     ];
 
                     return(<>
