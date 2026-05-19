@@ -49,6 +49,7 @@ const TAB_CONFIG = [
   { id:"Proposte",        icon:"📝", label:"Proposte" },
   { id:"Venduti",         icon:"🏠", label:"Venduti" },
   { id:"Operatività",     icon:"📅", label:"Operatività" },
+  { id:"Gestione Pratiche", icon:"📁", label:"Gestione Pratiche" },
   { id:"Il mio report",   icon:"📊", label:"Il mio report" },
   { id:"Report Agenti",   icon:"📊", label:"Report Agenti" },
   { id:"Fatture Agenti",  icon:"🧾", label:"Fatture Agenti" },
@@ -203,7 +204,7 @@ function LoginPage({onLogin}) {
 
 function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isBroker = utente?.ruolo==="Broker";
-  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Il mio report","Statistiche","Costi & Break Even","Fatture Agente"];
+  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi & Break Even","Fatture Agente"];
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
     return TAB_AGENTE.includes(t.id);
@@ -505,6 +506,11 @@ export default function App() {
   const [opDataSel,setOpDataSel]=useState(todayStr());
   const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
   const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
+  // Gestione Pratiche: {incaricoId: {fasi:{}, checklistA:{}, checklistB:{}, checklistC:{}, note:""}}
+  const [pratiche,setPratiche]=useState(_ls?.pratiche||{});
+  const [gpIncSel,setGpIncSel]=useState(null);
+  const [gpSubTab,setGpSubTab]=useState("pipeline");
+  const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
@@ -570,6 +576,7 @@ export default function App() {
         if(data.tipiSviluppo) setTipiSviluppo(data.tipiSviluppo);
         if(data.operativita) setOperativita(data.operativita);
         if(data.obiettiviOp) setObiettiviOp(data.obiettiviOp);
+        if(data.pratiche) setPratiche(data.pratiche);
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
@@ -585,14 +592,14 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
       salvaDB(payload).finally(()=>setDbSaving(false));
     },1500); // debounce 1.5s per non sovraccaricare
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -3052,7 +3059,7 @@ export default function App() {
 
                 {/* ── OBIETTIVI ── */}
                 {opSubTab==="obiettivi"&&(<>
-                  <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:8,marginBottom:"1.25rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel==="Tutti"?String(agenti[0]?.id||""):opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
@@ -3063,88 +3070,122 @@ export default function App() {
                     const ag=agenti.find(a=>a.id===agId);
                     if(!ag) return null;
                     const obDati=getObiettivi(agId,opMeseSel);
-                    const proposti=obDati.proposti||{};
-                    const approvati=obDati.approvati||{};
-                    const statoOb=obDati.stato||"bozza";
+                    const ob=obDati.proposti||{};
+                    const rep=calcReport(agId,opMeseSel);
+                    const upd=(k,v)=>salvaObiettivi(agId,opMeseSel,{...obDati,proposti:{...ob,[k]:Number(v)}});
+
                     const vociOb=[
-                      {k:"giorni",lbl:"Giorni da compilare",un:"gg"},
-                      {k:"chiamate",lbl:"Chiamate / settimana",un:""},
-                      {k:"appuntamenti",lbl:"Appuntamenti / mese",un:""},
-                      {k:"acquisizioni",lbl:"Acquisizioni / mese",un:""},
-                      {k:"oh",lbl:"Open House / mese",un:""},
-                      {k:"immVisitati",lbl:"Immobili da visitare / sett.",un:""},
-                      {k:"oreRicerca",lbl:"Ore ricerca / sett.",un:"h"},
-                      {k:"propPresentate",lbl:"Proposte presentate / mese",un:""},
-                      {k:"postSocial",lbl:"Post social / sett.",un:""},
-                      {k:"oreAmm",lbl:"Ore amministrativo max / sett.",un:"h"},
+                      {k:"chiamate",    lbl:"Chiamate",          sub:"a settimana", clr:"#185FA5", icon:"📞", val:rep.chiamate},
+                      {k:"appuntamenti",lbl:"Appuntamenti",      sub:"al mese",     clr:"#633806", icon:"🤝", val:rep.appuntamenti},
+                      {k:"acquisizioni",lbl:"Acquisizioni",      sub:"al mese",     clr:"#533AB7", icon:"🏠", val:rep.acquisizioni},
+                      {k:"oh",          lbl:"Open House",        sub:"al mese",     clr:"#D85A30", icon:"🚪", val:rep.ohNum},
+                      {k:"propPresentate",lbl:"Proposte",        sub:"al mese",     clr:"#27AE60", icon:"📝", val:rep.propPresentate},
+                      {k:"immVisitati", lbl:"Immobili visitati", sub:"a settimana", clr:"#085041", icon:"👁",  val:rep.immVisitati},
+                      {k:"oreRicerca",  lbl:"Ore ricerca",       sub:"a settimana", clr:"#0F6E56", icon:"🔍", val:rep.oreRicerca},
+                      {k:"postSocial",  lbl:"Post social",       sub:"a settimana", clr:"#3C3489", icon:"📱", val:rep.postSocial},
                     ];
-                    const agentePuoModificare = !isBroker && statoOb!=="approvato";
-                    const brokerPuoModificare = isBroker;
-                    const updProposto=(k,v)=>{
-                      const nuovi={...obDati,proposti:{...proposti,[k]:Number(v)},stato:"proposto"};
-                      salvaObiettivi(agId,opMeseSel,nuovi);
-                    };
-                    const updApprovato=(k,v)=>{
-                      const nuovi={...obDati,approvati:{...approvati,[k]:Number(v)}};
-                      salvaObiettivi(agId,opMeseSel,nuovi);
-                    };
-                    const approva=()=>salvaObiettivi(agId,opMeseSel,{...obDati,stato:"approvato",approvati:{...proposti,...approvati}});
-                    const cfgStato={bozza:{bg:"#F1EFE8",clr:"#444441",l:"Bozza"},proposto:{bg:"#FAEEDA",clr:"#633806",l:"Proposto — attende approvazione"},approvato:{bg:"#E9F7EF",clr:"#27AE60",l:"Approvato ✓"}};
-                    const cs=cfgStato[statoOb]||cfgStato.bozza;
+
                     return(<>
-                      <div style={S2.card}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
-                          <div>
-                            <p style={{fontSize:14,fontWeight:500,margin:"0 0 4px"}}>{ag.nome} {ag.cognome} — {opMeseSel}</p>
-                            <span style={{fontSize:12,padding:"3px 10px",borderRadius:5,background:cs.bg,color:cs.clr,fontWeight:500}}>{cs.l}</span>
-                          </div>
-                          {brokerPuoModificare&&statoOb!=="approvato"&&<button style={{...S.btnP,padding:"7px 18px"}} onClick={approva}>Approva e invia ✓</button>}
-                          {brokerPuoModificare&&statoOb==="approvato"&&<button style={{...S.btn}} onClick={()=>salvaObiettivi(agId,opMeseSel,{...obDati,stato:"proposto"})}>Riapri</button>}
+                      {/* Header agente */}
+                      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:"1.5rem",padding:"1rem 1.25rem",background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
+                        <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
+                        <div>
+                          <h3 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</h3>
+                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {isBroker?"vista broker — sola lettura":"modifica i tuoi obiettivi"}</p>
                         </div>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,alignItems:"center",marginBottom:6,padding:"0 4px"}}>
-                          <span style={{fontSize:11,fontWeight:500,color:"#aaa"}}>Attività</span>
-                          <span style={{fontSize:11,fontWeight:500,color:"#aaa",textAlign:"right",minWidth:80}}>
-                            {isBroker?"Proposto":"Mio obiettivo"}
-                          </span>
-                          {isBroker&&<span style={{fontSize:11,fontWeight:500,color:"#A8863A",textAlign:"right",minWidth:80}}>Approvato</span>}
-                        </div>
-                        {vociOb.map(({k,lbl,un})=>{
-                          const vProp=proposti[k]||"";
-                          const vApp=approvati[k]||"";
-                          const diverso=vApp&&vProp&&Number(vApp)!==Number(vProp);
-                          return(<div key={k} style={{display:"grid",gridTemplateColumns:"1fr auto "+(isBroker?"auto":""),gap:8,alignItems:"center",padding:"8px 0",borderBottom:"0.5px solid #f5f5f5"}}>
-                            <span style={{fontSize:13,color:"#555"}}>{lbl}</span>
-                            <input type="number" min="0"
-                              style={{width:80,padding:"5px 8px",border:`0.5px solid ${!agentePuoModificare&&!isBroker?"#e8e5e0":"#ddd"}`,borderRadius:6,fontSize:12,textAlign:"right",background:agentePuoModificare||(!isBroker&&statoOb==="bozza")?"#fff":"#fafafa",color:"var(--color-text-primary)"}}
-                              value={vProp} disabled={!agentePuoModificare&&!isBroker&&statoOb!=="bozza"}
-                              onChange={e=>updProposto(k,e.target.value)}/>
-                            {isBroker&&<input type="number" min="0"
-                              style={{width:80,padding:"5px 8px",border:`0.5px solid ${diverso?"#F0997B":"#ddd"}`,borderRadius:6,fontSize:12,textAlign:"right",background:"#fff",fontWeight:diverso?600:400,color:diverso?"#D85A30":"var(--color-text-primary)"}}
-                              value={vApp||vProp} onChange={e=>updApprovato(k,e.target.value)}/>}
-                          </div>);
-                        })}
-                        {!isBroker&&statoOb==="bozza"&&<button style={{...S.btnP,width:"100%",marginTop:"1rem"}} onClick={()=>salvaObiettivi(agId,opMeseSel,{...obDati,stato:"proposto"})}>Invia proposta al broker</button>}
-                        {isBroker&&<p style={{fontSize:11,color:"#aaa",marginTop:8}}>I valori in arancio sono stati modificati rispetto alla proposta dell'agente.</p>}
                       </div>
 
-                      {/* Confronto team (solo broker) */}
-                      {isBroker&&(<div style={S2.card}>
-                        <p style={S2.sec}>Stato obiettivi team — {opMeseSel}</p>
+                      {/* Griglia obiettivi — visuale ad alto impatto */}
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
+                        {vociOb.map(({k,lbl,sub,clr,icon,val})=>{
+                          const target=Number(ob[k]||0);
+                          const perc=target>0?Math.min(100,Math.round(val/target*100)):0;
+                          const raggiunto=target>0&&val>=target;
+                          return(<div key={k} style={{background:"#fff",borderRadius:12,border:`0.5px solid ${clr}33`,padding:"1rem",borderTop:`3px solid ${clr}`,position:"relative",overflow:"hidden"}}>
+                            {raggiunto&&<div style={{position:"absolute",top:8,right:8,fontSize:16}}>🎉</div>}
+                            <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
+                            <div style={{fontSize:11,color:"#888",fontWeight:500,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.06em"}}>{lbl}</div>
+                            <div style={{fontSize:11,color:"#bbb",marginBottom:10}}>{sub}</div>
+                            {/* Input obiettivo — grande e chiaro */}
+                            {!isBroker?(
+                              <input type="number" min="0"
+                                style={{width:"100%",fontSize:28,fontWeight:700,color:clr,border:"none",borderBottom:`2px solid ${clr}44`,background:"transparent",padding:"4px 0",textAlign:"center",outline:"none",marginBottom:8}}
+                                value={ob[k]||""} placeholder="0"
+                                onChange={e=>upd(k,e.target.value)}/>
+                            ):(
+                              <div style={{fontSize:28,fontWeight:700,color:clr,textAlign:"center",padding:"4px 0",marginBottom:8}}>{ob[k]||"—"}</div>
+                            )}
+                            {/* Realizzato nel mese */}
+                            {val>0&&<div style={{fontSize:11,color:"#888",textAlign:"center",marginBottom:6}}>Realizzato: <strong style={{color:clr}}>{val}</strong></div>}
+                            {/* Barra progresso */}
+                            {target>0&&(<>
+                              <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:raggiunto?"#27AE60":clr,borderRadius:3,transition:"width 0.5s"}}/>
+                              </div>
+                              <div style={{fontSize:10,color:raggiunto?"#27AE60":"#aaa",textAlign:"center",marginTop:4,fontWeight:raggiunto?600:400}}>
+                                {raggiunto?"✓ Obiettivo raggiunto":`${perc}% · mancano ${target-val}`}
+                              </div>
+                            </>)}
+                          </div>);
+                        })}
+                      </div>
+
+                      {/* Box riepilogo mese */}
+                      {Object.keys(ob).length>0&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                        <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Riepilogo avanzamento — {opMeseSel}</p>
+                        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                          {(()=>{
+                            const raggiunti=vociOb.filter(v=>Number(ob[v.k]||0)>0&&v.val>=Number(ob[v.k]||0)).length;
+                            const totConOb=vociOb.filter(v=>Number(ob[v.k]||0)>0).length;
+                            const percTot=totConOb>0?Math.round(raggiunti/totConOb*100):0;
+                            return(<>
+                              <div style={{flex:1,minWidth:120}}>
+                                <div style={{fontSize:32,fontWeight:700,color:percTot>=80?"#27AE60":percTot>=50?"#D4AC0D":"#E74C3C"}}>{percTot}%</div>
+                                <div style={{fontSize:12,color:"#888"}}>obiettivi raggiunti</div>
+                                <div style={{fontSize:11,color:"#aaa"}}>{raggiunti}/{totConOb} voci completate</div>
+                              </div>
+                              <div style={{flex:3}}>
+                                {vociOb.filter(v=>Number(ob[v.k]||0)>0).map(({k,lbl,clr,val,icon})=>{
+                                  const t=Number(ob[k]||0);
+                                  const p=Math.min(100,Math.round(val/t*100));
+                                  return(<div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                                    <span style={{fontSize:12,width:120,flexShrink:0,color:"#555"}}>{icon} {lbl}</span>
+                                    <div style={{flex:1,height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                      <div style={{height:"100%",width:`${p}%`,background:val>=t?"#27AE60":clr,borderRadius:4}}/>
+                                    </div>
+                                    <span style={{fontSize:11,color:val>=t?"#27AE60":"#aaa",width:60,textAlign:"right",flexShrink:0}}>{val}/{t}</span>
+                                  </div>);
+                                })}
+                              </div>
+                            </>);
+                          })()}
+                        </div>
+                      </div>)}
+
+                      {/* Vista team broker */}
+                      {isBroker&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem"}}>
+                        <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Obiettivi team — {opMeseSel}</p>
                         <div style={{overflowX:"auto"}}>
-                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:420}}>
-                            <thead><tr style={{background:"#fafaf8"}}>{["Agente","Stato","Chiamate","Appt.","OH","Acq."].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}</tr></thead>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
+                            <thead><tr style={{background:"#fafaf8"}}>
+                              {["Agente","📞","🤝","🏠","🚪","📝","% media"].map(h=><th key={h} style={{...S.th,fontSize:11,textAlign:"center"}}>{h}</th>)}
+                            </tr></thead>
                             <tbody>{agenti.map(a=>{
-                              const od=getObiettivi(a.id,opMeseSel);
-                              const ob=od.approvati||od.proposti||{};
-                              const st=od.stato||"bozza";
-                              const cst=cfgStato[st]||cfgStato.bozza;
+                              const od=getObiettivi(a.id,opMeseSel).proposti||{};
+                              const r=calcReport(a.id,opMeseSel);
+                              const coppie=[[od.chiamate,r.chiamate],[od.appuntamenti,r.appuntamenti],[od.acquisizioni,r.acquisizioni],[od.oh,r.ohNum],[od.propPresentate,r.propPresentate]];
+                              const percs=coppie.filter(([t])=>t>0).map(([t,v])=>Math.min(100,Math.round((v||0)/t*100)));
+                              const avgPerc=percs.length>0?Math.round(percs.reduce((s,p)=>s+p,0)/percs.length):null;
                               return(<tr key={a.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
-                                <td style={S.td}>{a.nome} {a.cognome}</td>
-                                <td style={S.tdC}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:cst.bg,color:cst.clr,fontWeight:500}}>{cst.l}</span></td>
-                                <td style={S.tdC}>{ob.chiamate||"—"}</td>
-                                <td style={S.tdC}>{ob.appuntamenti||"—"}</td>
-                                <td style={S.tdC}>{ob.oh||"—"}</td>
-                                <td style={S.tdC}>{ob.acquisizioni||"—"}</td>
+                                <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:22,height:22,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff"}}>{a.nome.charAt(0)}</div>{a.nome} {a.cognome}</div></td>
+                                {coppie.map(([t,v],i)=>(
+                                  <td key={i} style={{...S.tdC,color:t>0&&v>=t?"#27AE60":t>0?"#555":"#ccc"}}>
+                                    {t>0?`${v||0}/${t}`:"—"}
+                                  </td>
+                                ))}
+                                <td style={{...S.tdC,fontWeight:600,color:avgPerc>=80?"#27AE60":avgPerc>=50?"#D4AC0D":avgPerc!==null?"#E74C3C":"#ccc"}}>
+                                  {avgPerc!==null?`${avgPerc}%`:"—"}
+                                </td>
                               </tr>);
                             })}</tbody>
                           </table>
@@ -3152,6 +3193,335 @@ export default function App() {
                       </div>)}
                     </>);
                   })()}
+                </>)}
+              </div>
+            );
+          })()}
+
+          {/* GESTIONE PRATICHE */}
+          {tab==="Gestione Pratiche"&&(()=>{
+            // Permessi: agente=solo sue, Erica (id=5 o profilo RT) tutto, Broker tutto
+            const isErica = myAgentId===5; // Collaborazione Agenzia = Erica
+            const canEditErica = isBroker||isErica;
+            const canEditAgente = (inc) => isBroker||isErica||(inc&&inc.agenteListing===myAgentId);
+
+            // Incarichi visibili
+            const incVis = isBroker||isErica
+              ? incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato)
+              : incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&i.agenteListing===myAgentId);
+
+            const getPratica = (incId) => pratiche[incId]||{fasi:{},clA:{},clB:{},clC:{},note:""};
+            const salvaPratica = (incId,dati) => setPratiche(p=>({...p,[incId]:{...getPratica(incId),...dati}}));
+            const toggleFase = (incId,faseK,attK,ruolo) => {
+              const pr=getPratica(incId);
+              const val=!(pr.fasi[faseK]||{})[attK];
+              salvaPratica(incId,{fasi:{...pr.fasi,[faseK]:{...(pr.fasi[faseK]||{}),[attK]:{fatto:val,data:val?todayStr():"",chi:ruolo}}}});
+            };
+            const toggleCl = (incId,lista,k) => {
+              const pr=getPratica(incId);
+              const val=!(pr[lista]||{})[k];
+              salvaPratica(incId,{[lista]:{...(pr[lista]||{}),[k]:{fatto:val,data:val?todayStr():""}}});
+            };
+
+            // Fasi pipeline dal manuale
+            const FASI=[
+              {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
+                {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
+                {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
+                {k:"gestim",lbl:"Inserimento su GESTIM",ruolo:"agente"},
+                {k:"vendilo",lbl:"Aggiornamento VENDILO",ruolo:"agente"},
+                {k:"consegnaErica",lbl:"Consegna documenti a Erica",ruolo:"agente"},
+              ]},
+              {k:"f2",n:"Attivazione pratica",fase:2,timing:"Entro 48h",azioni:[
+                {k:"numPratica",lbl:"N° pratica generato su GESTIM",ruolo:"erica"},
+                {k:"fascicolo",lbl:"Fascicolo cartaceo + 8 sottocartelle",ruolo:"erica"},
+                {k:"cartellaNav",lbl:"Cartella NAS creata",ruolo:"erica"},
+                {k:"visuraCat",lbl:"Visura catastale storica",ruolo:"erica",alert:true},
+                {k:"visuraIpo",lbl:"Visura ipotecaria su immobile e proprietari",ruolo:"erica",alert:true},
+                {k:"mailPropr",lbl:"Mail al proprietario + lista documenti mancanti",ruolo:"erica"},
+                {k:"checkDoc",lbl:"Checklist documentale aperta (vedi A)",ruolo:"erica"},
+              ]},
+              {k:"f3",n:"Lancio commerciale",fase:3,timing:"Entro 5 gg",azioni:[
+                {k:"fotografo",lbl:"Sopralluogo fotografo concordato",ruolo:"agente"},
+                {k:"schedaGestim",lbl:"Scheda immobile compilata su GESTIM",ruolo:"agente"},
+                {k:"pubblicazione",lbl:"Pubblicazione completa su portali",ruolo:"erica"},
+                {k:"cartello",lbl:"Cartello VENDESI preparato e affisso",ruolo:"entrambi"},
+                {k:"mailLink",lbl:"Mail ringraziamento + link annuncio",ruolo:"erica"},
+                {k:"letteraZona",lbl:"Lettera dedicata per zona preparata",ruolo:"erica"},
+              ]},
+              {k:"f4",n:"Prima visita / Open House",fase:4,timing:"Entro 15 gg",azioni:[
+                {k:"cartelloOH",lbl:"Cartello Open House preparato",ruolo:"erica"},
+                {k:"brochure",lbl:"Brochure immobile per slot preparata",ruolo:"erica"},
+                {k:"prequalifica",lbl:"Prequalifica telefonica interessati",ruolo:"agente"},
+                {k:"ohEseguito",lbl:"Open House eseguito",ruolo:"agente"},
+                {k:"feedback",lbl:"Feedback da ogni visitatore raccolto (entro 24h)",ruolo:"agente"},
+                {k:"followUp",lbl:"Follow-up profili interessati (entro 48h)",ruolo:"agente"},
+                {k:"aggGestim",lbl:"GESTIM aggiornato con nominativi e feedback",ruolo:"erica"},
+              ]},
+              {k:"f5",n:"Proposta ricevuta",fase:5,timing:"Stesso giorno",azioni:[
+                {k:"propCompilata",lbl:"Proposta compilata (UNAFIAIP mod. 14)",ruolo:"agente",alert:true},
+                {k:"copieCI",lbl:"Copie CI/CF proponente + fotocopia assegno",ruolo:"agente"},
+                {k:"lavagnaProp",lbl:"Lavagna aggiornata sezione Proposte",ruolo:"agente"},
+                {k:"gestimProp",lbl:"Proposta inserita su GESTIM (entro 2h)",ruolo:"agente",alert:true},
+                {k:"vendiloProp",lbl:"VENDILO spostato in 'In Proposta' (entro 2h)",ruolo:"agente"},
+                {k:"notificaErica",lbl:"Notifica WhatsApp a Erica",ruolo:"agente"},
+                {k:"assegnoDeposito",lbl:"Assegno caparra consegnato a Erica/Broker",ruolo:"agente",alert:true},
+                {k:"appAccettazione",lbl:"Appuntamento accettazione fissato (entro 48h)",ruolo:"agente"},
+              ]},
+              {k:"f6",n:"Proposta accettata",fase:6,timing:"Entro 48h",azioni:[
+                {k:"firmaProp",lbl:"Proposta firmata per accettazione",ruolo:"agente"},
+                {k:"datePrelim",lbl:"2 date possibili per preliminare concordate",ruolo:"agente"},
+                {k:"visuraPrePrelim",lbl:"Visura ipotecaria aggiornata (giorno prima prelim.)",ruolo:"erica",alert:true},
+                {k:"cartellaRogito",lbl:"Cartella 'Da Rogitare' NAS aperta",ruolo:"erica"},
+                {k:"contattoMutuo",lbl:"Contatto broker/banca per mutuo avviato",ruolo:"agente"},
+              ]},
+              {k:"f7",n:"Preliminare firmato",fase:7,timing:"Data concordata",azioni:[
+                {k:"bozzaPrelim",lbl:"Bozza preliminare preparata da Erica",ruolo:"erica",alert:true},
+                {k:"invioParti",lbl:"Bozza inviata alle parti (almeno 48h prima)",ruolo:"erica",alert:true},
+                {k:"antiricicl",lbl:"Antiriciclaggio completato PRIMA della firma",ruolo:"erica",alert:true},
+                {k:"firmaEseguita",lbl:"Firma preliminare eseguita",ruolo:"entrambi"},
+                {k:"copieAssegni",lbl:"Fotocopia tutti gli assegni",ruolo:"erica"},
+                {k:"regold",lbl:"Registrazione Regold (entro 30 gg dalla firma)",ruolo:"erica",alert:true},
+                {k:"fatturaPrelim",lbl:"Fatture provvigioni emesse (entro 48h)",ruolo:"erica"},
+              ]},
+              {k:"f8",n:"Dal prelim. al rogito",fase:8,timing:"Monitoraggio costante",azioni:[
+                {k:"docBanca",lbl:"Documentazione inviata alla banca (entro 48h)",ruolo:"erica"},
+                {k:"monitorMutuo",lbl:"Iter mutuo monitorato settimanalmente",ruolo:"entrambi"},
+                {k:"contNotaio",lbl:"Contatti con notaio — invio documenti",ruolo:"erica",alert:true},
+                {k:"docNotaio7gg",lbl:"Documenti al notaio (almeno 7 gg prima rogito)",ruolo:"erica",alert:true},
+                {k:"checkFinale",lbl:"Check finale 1 gg prima con agente e Broker",ruolo:"erica"},
+              ]},
+              {k:"f9",n:"Il rogito",fase:9,timing:"Giorno rogito",azioni:[
+                {k:"presenzaRogito",lbl:"Agente presente al rogito con pratica completa",ruolo:"agente"},
+                {k:"giftAcquirente",lbl:"Pacchetto gift consegnato all'acquirente",ruolo:"agente"},
+                {k:"recensioni",lbl:"Recensioni richieste alle parti",ruolo:"agente"},
+                {k:"notificaStipula",lbl:"Comunicazione stipula avvenuta a Erica",ruolo:"agente"},
+                {k:"aggGestimVend",lbl:"GESTIM aggiornato come 'Venduto'",ruolo:"erica"},
+                {k:"portaliVend",lbl:"Portali aggiornati 'Venduto' (entro 24h)",ruolo:"erica",alert:true},
+              ]},
+              {k:"f10",n:"Post rogito",fase:10,timing:"Entro 48h",azioni:[
+                {k:"cartelloVend",lbl:"Cartello VENDUTO affisso",ruolo:"erica"},
+                {k:"fattureFinali",lbl:"Fatture definitive emesse (entro 48h)",ruolo:"erica"},
+                {k:"archiviazioneNas",lbl:"Pratica archiviata su NAS",ruolo:"erica"},
+                {k:"lettCongratul",lbl:"Lettera congratulazioni al venditore inviata",ruolo:"agente"},
+                {k:"lettBenvenuto",lbl:"Lettera benvenuto all'acquirente inviata",ruolo:"agente"},
+                {k:"cartolineZona",lbl:"Cartoline 'Appena Venduto' distribuite in zona",ruolo:"agente"},
+                {k:"recensioneGoogle",lbl:"Recensione Google richiesta (entro 7 gg)",ruolo:"agente",alert:true},
+              ]},
+            ];
+
+            // Checklist A
+            const CL_A=[
+              "Incarico di mediazione firmato (UNAFIAIP)","Copia CI di tutti i proprietari","Copia CF di tutti i proprietari",
+              "Consenso privacy firmato","Scheda antiriciclaggio compilata","Atto di provenienza (rogito/successione/donazione)",
+              "Visura catastale storica","Visura ipotecaria su immobile e proprietari","Copia atto di mutuo (se ipoteca)",
+              "APE in corso di validità","Certificato di agibilità/abitabilità","Planimetria catastale",
+              "Permesso di costruire / DIA / SCIA / CILA","Regolamento condominiale (se cond.)","Ultime 3 delibere assemblea (se cond.)",
+              "Bilancio condominiale (se cond.)","Certificazioni impianti (se disponibili)","Questionario primo appuntamento",
+            ];
+            const CL_B=[
+              "Visura ipotecaria aggiornata (giorno prima)","Bozza preliminare approvata dal Broker","Bozza inviata alle parti (almeno 48h prima)",
+              "Sala riunioni prenotata","CI/CF di tutte le parti","Moduli antiriciclaggio per tutte le parti",
+              "Attestazione compenso provvigionale","Fotocopiatrice disponibile per copie assegni","Conteggio spese dettagliato",
+              "Spese condominiali documentate (se cond.)","3 copie contratto da firmare","Assegni verificati (intestaz. + non trasf.)",
+            ];
+            const CL_C=[
+              "Tutti i documenti consegnati al notaio","Visura ipotecaria aggiornata","Liberatoria condominiale per morosità",
+              "Dichiarazione amministratore spese straordinarie","Estinzione mutuo venditore coordinata","Mutuo acquirente: conferma erogazione e data",
+              "Importi e assegni verificati con agente e Broker","Dichiarazioni parti sulla mediazione (L.203/2024)","Chiavi disponibili per consegna",
+              "Letture contatori concordate con le parti","Fatture provvigioni emesse","Portali aggiornati come Venduto",
+            ];
+
+            // Calcola avanzamento pratica
+            const avanzamento = (incId) => {
+              const pr=getPratica(incId);
+              const totFasi=FASI.reduce((s,f)=>s+f.azioni.length,0);
+              const fatte=FASI.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
+              return totFasi>0?Math.round(fatte/totFasi*100):0;
+            };
+
+            // Alert: azioni obbligatorie non fatte
+            const getAlert = (incId) => {
+              const pr=getPratica(incId);
+              const alerts=[];
+              FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
+                if(!(pr.fasi[f.k]||{})[a.k]?.fatto) alerts.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
+              }));
+              return alerts;
+            };
+
+            const RUOLO_CFG={agente:{clr:"#A8863A",bg:"#FDF6EC",label:"Agente"},erica:{clr:"#185FA5",bg:"#E6F1FB",label:"Erica RT"},entrambi:{clr:"#533AB7",bg:"#EEEDFE",label:"Entrambi"}};
+            const incSel = gpIncSel ? incarichi.find(i=>i.id===gpIncSel) : null;
+            const pr = incSel ? getPratica(incSel.id) : null;
+
+            return(
+              <div style={S.sec}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📁 Gestione Pratiche</h2>
+                  <p style={{fontSize:12,color:"#888",margin:0}}>Tracciamento operativo dall'incarico al rogito</p>
+                </div>
+
+                {/* Lista incarichi se nessuno selezionato */}
+                {!gpIncSel&&(<>
+                  <div style={{display:"flex",gap:8,marginBottom:"1rem",flexWrap:"wrap"}}>
+                    <Sel value={gpFiltroStato} onChange={setGpFiltroStato}>
+                      <option value="Tutti">Tutti gli stati</option>
+                      <option value="Attivo">Attivi</option>
+                      <option value="Venduto">Venduti</option>
+                    </Sel>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                    {incVis.filter(i=>gpFiltroStato==="Tutti"||statoInc(i)===gpFiltroStato).map(inc=>{
+                      const av=avanzamento(inc.id);
+                      const al=getAlert(inc.id);
+                      const ag=agenti.find(a=>a.id===inc.agenteListing);
+                      return(<div key={inc.id} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${al.length>0?"#E74C3C44":"#e8e5e0"}`,padding:"1rem",cursor:"pointer",transition:"box-shadow 0.2s"}}
+                        onClick={()=>setGpIncSel(inc.id)}
+                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.08)"}
+                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                          <div>
+                            <p style={{fontSize:13,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{inc.comune} — {inc.indirizzo}</p>
+                            <p style={{fontSize:11,color:"#888",margin:0}}>{ag?.nome} {ag?.cognome} · € {fmtN(inc.prezzoRichiesto)}</p>
+                          </div>
+                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                            {al.length>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ {al.length} alert</span>}
+                            <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:"#EAF3DE",color:"#27500A"}}>{av}%</span>
+                          </div>
+                        </div>
+                        {/* Barra avanzamento */}
+                        <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:6}}>
+                          <div style={{height:"100%",width:`${av}%`,background:av>=80?"#27AE60":av>=40?"#D4AC0D":"#E67E22",borderRadius:3,transition:"width 0.5s"}}/>
+                        </div>
+                        {/* Fase corrente */}
+                        {(()=>{
+                          const p2=getPratica(inc.id);
+                          const ultimaFase=FASI.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
+                          return <p style={{fontSize:11,color:"#aaa",margin:0}}>Fase corrente: {ultimaFase?ultimaFase.n:"Non avviata"}</p>;
+                        })()}
+                      </div>);
+                    })}
+                    {incVis.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessun incarico attivo</div>}
+                  </div>
+                </>)}
+
+                {/* Scheda pratica selezionata */}
+                {gpIncSel&&incSel&&(<>
+                  {/* Header */}
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <button style={{background:"none",border:"none",cursor:"pointer",color:"#888",fontSize:20,padding:0}} onClick={()=>setGpIncSel(null)}>←</button>
+                        <div>
+                          <p style={{fontSize:15,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{incSel.comune} — {incSel.indirizzo}</p>
+                          <p style={{fontSize:11,color:"#888",margin:0}}>
+                            {agenti.find(a=>a.id===incSel.agenteListing)?.nome} · € {fmtN(incSel.prezzoRichiesto)}
+                            {incSel.dataInizio?` · Incarico: ${fmtD(incSel.dataInizio)}`:""}
+                          </p>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        {getAlert(gpIncSel).length>0&&<span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ {getAlert(gpIncSel).length} alert obbligatori</span>}
+                        <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:600}}>{avanzamento(gpIncSel)}% completato</span>
+                      </div>
+                    </div>
+                    {/* Barra avanzamento grande */}
+                    <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden",marginTop:12}}>
+                      <div style={{height:"100%",width:`${avanzamento(gpIncSel)}%`,background:`linear-gradient(90deg,${BRAND.oro},#27AE60)`,borderRadius:4,transition:"width 0.5s"}}/>
+                    </div>
+                  </div>
+
+                  {/* Sub-tab scheda */}
+                  <div style={{display:"flex",gap:4,marginBottom:"1rem",borderBottom:"1px solid #eee",paddingBottom:"0.5rem",flexWrap:"wrap"}}>
+                    {[{v:"pipeline",l:"🔄 Pipeline 10 fasi"},{v:"clA",l:"📋 Checklist A — Incarico"},{v:"clB",l:"📋 Checklist B — Prelim."},{v:"clC",l:"📋 Checklist C — Rogito"},{v:"note",l:"📝 Note"}].map(o=>(
+                      <button key={o.v} onClick={()=>setGpSubTab(o.v)} style={{padding:"5px 14px",fontSize:12,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${gpSubTab===o.v?"#A8863A":"transparent"}`,color:gpSubTab===o.v?"#A8863A":"#666",fontWeight:gpSubTab===o.v?600:400,fontFamily:"inherit"}}>
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* PIPELINE */}
+                  {gpSubTab==="pipeline"&&(<div>
+                    {getAlert(gpIncSel).length>0&&(
+                      <div style={{background:"#FDECEA",border:"1px solid #E74C3C44",borderRadius:8,padding:"10px 14px",marginBottom:"1rem"}}>
+                        <p style={{fontSize:12,fontWeight:600,color:"#E74C3C",margin:"0 0 6px"}}>⚠ Azioni obbligatorie non completate:</p>
+                        {getAlert(gpIncSel).map((al,i)=>(
+                          <div key={i} style={{fontSize:11,color:"#E74C3C",marginBottom:2}}>· <strong>{al.fase}</strong> — {al.lbl} <span style={{color:"#aaa"}}>({al.ruolo})</span></div>
+                        ))}
+                      </div>
+                    )}
+                    {FASI.map(fase=>{
+                      const fasiPr=pr.fasi[fase.k]||{};
+                      const fatte=fase.azioni.filter(a=>fasiPr[a.k]?.fatto).length;
+                      const completa=fatte===fase.azioni.length;
+                      return(<div key={fase.k} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${completa?"#27AE6044":"#e8e5e0"}`,marginBottom:10,overflow:"hidden"}}>
+                        <div style={{padding:"10px 14px",background:completa?"#E9F7EF":"#fafaf8",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #eee"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:18,fontWeight:700,color:completa?"#27AE60":"#ccc"}}>{completa?"✓":fase.fase}</span>
+                            <div>
+                              <span style={{fontSize:13,fontWeight:600,color:"#2C2C2C"}}>Fase {fase.fase} — {fase.n}</span>
+                              <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{fase.timing}</span>
+                            </div>
+                          </div>
+                          <span style={{fontSize:11,color:"#888"}}>{fatte}/{fase.azioni.length}</span>
+                        </div>
+                        <div style={{padding:"8px 14px"}}>
+                          {fase.azioni.map(az=>{
+                            const stato=fasiPr[az.k]||{};
+                            const cfgR=RUOLO_CFG[az.ruolo]||RUOLO_CFG.agente;
+                            const puoModificare=(az.ruolo==="erica"&&canEditErica)||(az.ruolo==="agente"&&(canEditAgente(incSel)||canEditErica))||(az.ruolo==="entrambi");
+                            return(<div key={az.k} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"0.5px solid #f8f8f8"}}>
+                              <input type="checkbox" checked={stato.fatto||false} disabled={!puoModificare}
+                                onChange={()=>puoModificare&&toggleFase(gpIncSel,fase.k,az.k,az.ruolo)}
+                                style={{cursor:puoModificare?"pointer":"default",flexShrink:0}}/>
+                              <span style={{flex:1,fontSize:12,color:stato.fatto?"#27AE60":"#555",textDecoration:stato.fatto?"line-through":"none"}}>{az.lbl}</span>
+                              {az.alert&&!stato.fatto&&<span style={{fontSize:10,color:"#E74C3C",fontWeight:600,flexShrink:0}}>⚠</span>}
+                              <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:cfgR.bg,color:cfgR.clr,flexShrink:0}}>{cfgR.label}</span>
+                              {stato.fatto&&stato.data&&<span style={{fontSize:10,color:"#aaa",flexShrink:0}}>{fmtD(stato.data)}</span>}
+                            </div>);
+                          })}
+                        </div>
+                      </div>);
+                    })}
+                  </div>)}
+
+                  {/* CHECKLIST */}
+                  {["clA","clB","clC"].includes(gpSubTab)&&(()=>{
+                    const items=gpSubTab==="clA"?CL_A:gpSubTab==="clB"?CL_B:CL_C;
+                    const titoli={clA:"Documentazione incarico",clB:"Documentazione preliminare",clC:"Documentazione rogito"};
+                    const scadenze={clA:"Entro 10 giorni dalla firma incarico",clB:"Da verificare il giorno prima del preliminare",clC:"Almeno 7 giorni prima del rogito"};
+                    const fatte=items.filter((_,i)=>(pr[gpSubTab]||{})[i]?.fatto).length;
+                    return(<div>
+                      <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                          <p style={{fontSize:14,fontWeight:600,margin:0}}>Checklist {gpSubTab.replace("cl","").toUpperCase()} — {titoli[gpSubTab]}</p>
+                          <span style={{fontSize:12,color:fatte===items.length?"#27AE60":"#888"}}>{fatte}/{items.length} completati</span>
+                        </div>
+                        <p style={{fontSize:11,color:"#aaa",margin:"0 0 12px"}}>{scadenze[gpSubTab]}</p>
+                        <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:"1rem"}}>
+                          <div style={{height:"100%",width:`${Math.round(fatte/items.length*100)}%`,background:fatte===items.length?"#27AE60":"#A8863A",borderRadius:3}}/>
+                        </div>
+                        {items.map((item,i)=>{
+                          const s=(pr[gpSubTab]||{})[i]||{};
+                          return(<label key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 0",borderBottom:"0.5px solid #f5f5f5",cursor:"pointer"}}>
+                            <input type="checkbox" checked={s.fatto||false} onChange={()=>toggleCl(gpIncSel,gpSubTab,i)} style={{marginTop:2,cursor:"pointer",flexShrink:0}}/>
+                            <div style={{flex:1}}>
+                              <span style={{fontSize:12,color:s.fatto?"#27AE60":"#555",textDecoration:s.fatto?"line-through":"none"}}>{item}</span>
+                              {s.fatto&&s.data&&<span style={{fontSize:10,color:"#aaa",marginLeft:8}}>{fmtD(s.data)}</span>}
+                            </div>
+                          </label>);
+                        })}
+                      </div>
+                    </div>);
+                  })()}
+
+                  {/* NOTE */}
+                  {gpSubTab==="note"&&(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                    <p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Note pratica</p>
+                    <textarea style={{...S.inp,width:"100%",minHeight:180,resize:"vertical",fontSize:13}}
+                      value={pr.note||""} placeholder="Annotazioni, comunicazioni, criticità..."
+                      onChange={e=>salvaPratica(gpIncSel,{note:e.target.value})}/>
+                  </div>)}
                 </>)}
               </div>
             );
