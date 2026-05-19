@@ -517,7 +517,7 @@ export default function App() {
   const [opFormCache,setOpFormCache]=useState({});
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
-  const [fIncStato,setFIncStato]=useState("Tutti"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
+  const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
   const [dashAnno,setDashAnno]=useState(annoCorrente);
@@ -1430,7 +1430,7 @@ export default function App() {
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead>
                 <tr>
-                  <th style={{...S.th,minWidth:70}}>Fonte</th>
+                  <th style={{...S.th,minWidth:90}}>Stato</th>
                   <th style={{...S.th,minWidth:130,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Nominativo</th>
                   <th style={{...S.th,minWidth:90,position:"sticky",left:130,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Comune</th>
                   <th style={{...S.th,minWidth:130,position:"sticky",left:220,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Indirizzo</th>
@@ -1458,13 +1458,19 @@ export default function App() {
                 const propAttivaVinc=proposte.some(p=>p.incaricoId===inc.id&&p.stato==="In attesa / Vincolata");
                 const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
                 return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1,borderLeft:`4px solid ${cfg.clr}`}}>
-                  <td style={S.td}>{inc.fonte}</td>
+                  <td style={{...S.td,minWidth:80}}>
+                    <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"2px 7px",borderRadius:4,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`}}>
+                      {cfg.s} {s}
+                    </span>
+                    {hasPropAttiva&&<div style={{fontSize:10,color:"#E67E22",marginTop:3,fontWeight:500}}>{propAttivaVinc?"⚡ Vincolata":"⚡ In proposta"}</div>}
+                  </td>
                   <td style={{...S.td,position:"sticky",left:0,background:rowBg||"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>
                     {isVenduto?(
                       <button style={{background:"none",border:"none",cursor:"pointer",color:BRAND.oroD,fontWeight:600,fontSize:13,padding:0,textDecoration:"underline"}} onClick={()=>setSchedaIncarico({incarico:inc,venduto:vendCorr,proposta:proposte.find(p=>p.incaricoId===inc.id&&p.stato==="Accettata")})}>
                         {inc.nominativo}
                       </button>
                     ):<strong>{inc.nominativo}</strong>}
+                    {inc.fonte&&<div style={{fontSize:10,color:"#aaa",marginTop:2}}>{inc.fonte}</div>}
                   </td>
                   <td style={{...S.td,position:"sticky",left:130,background:rowBg||"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{inc.comune}</td><td style={{...S.td,position:"sticky",left:220,background:rowBg||"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{inc.indirizzo}</td><td style={S.td}>{inc.tipologia}</td>
                   <td style={S.td}>{fmtD(inc.dataInizio)}</td>
@@ -1548,7 +1554,7 @@ export default function App() {
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
-                <th style={{...S.th,minWidth:80,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Tipo</th>
+                <th style={{...S.th,minWidth:110,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Stato</th>
                 <th style={{...S.th,minWidth:85,position:"sticky",left:80,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Data</th>
                 <th style={{...S.th,minWidth:90,position:"sticky",left:165,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Comune</th>
                 <th style={{...S.th,minWidth:130}}>Indirizzo</th>
@@ -1560,7 +1566,12 @@ export default function App() {
                 const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
                 const puoGestire=!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato);
                 return(<tr key={p.id} style={{borderLeft:`4px solid ${cfg.clr}`}}>
-                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}><span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></td>
+                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)",minWidth:110}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                      <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>{cfg.s} {p.stato}</span>
+                      <span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span>
+                    </div>
+                  </td>
                   <td style={{...S.td,position:"sticky",left:80,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{fmtD(p.dataStato)}</td>
                   <td style={{...S.td,position:"sticky",left:165,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{p.comuneImmobile}</td>
                   <td style={S.td}>{p.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{p.tipologia}</span></td>
@@ -1621,7 +1632,8 @@ export default function App() {
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={S.tblWrap}><table style={S.tbl}>
               <thead><tr>
-                <th style={{...S.th,minWidth:90,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Comune</th>
+                <th style={{...S.th,minWidth:100,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Stato</th>
+                <th style={{...S.th,minWidth:90,position:"sticky",left:100,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Comune</th>
                 <th style={{...S.th,minWidth:130,position:"sticky",left:90,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Indirizzo</th>
                 <th style={{...S.th,minWidth:120}}>Venditore</th>
                 <th style={{...S.th,minWidth:120}}>Acquirente</th>
@@ -1633,8 +1645,12 @@ export default function App() {
                 const statoI=calcolaStatoIncasso(v);
                 const cfg=STATI_INCASSO[statoI]||STATI_INCASSO["Da incassare"];
                 return(<tr key={v.id} style={{opacity:v.bloccato?0.85:1,borderLeft:`4px solid ${cfg.clr}`}}>
-                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{v.comuneImmobile}</td>
-                  <td style={{...S.td,position:"sticky",left:90,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
+                  <td style={{...S.td,position:"sticky",left:0,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)",minWidth:100}}>
+                    <span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>{cfg.s} {statoI}</span>
+                    {v.bloccato&&<div style={{fontSize:10,color:"#E74C3C",marginTop:2}}>🔒 Bloccato</div>}
+                  </td>
+                  <td style={{...S.td,position:"sticky",left:100,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}>{v.comuneImmobile}</td>
+                  <td style={{...S.td,position:"sticky",left:190,background:"#fff",zIndex:1,boxShadow:"2px 0 3px rgba(0,0,0,0.06)"}}><strong>{v.indirizzoImmobile}</strong><br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
                   <td style={S.td}>{v.nominativoVenditore}</td>
                   <td style={S.td}>{v.nomeAcquirente}</td>
                   <td style={{...S.tdL,borderLeft:"2px solid #2980B922"}}>{v.agenteListing?nomAg(v.agenteListing):<span style={{fontSize:11,color:BRAND.oroD}}>{v.agenziaEsterna||"Est."}</span>}</td>
@@ -3119,7 +3135,7 @@ export default function App() {
                         <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
                         <div>
                           <h3 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</h3>
-                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {isBroker?"vista broker — sola lettura":"modifica i tuoi obiettivi"}</p>
+                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {isBroker?"imposta obiettivi per l'agente":"modifica i tuoi obiettivi"}</p>
                         </div>
                       </div>
 
@@ -3134,15 +3150,11 @@ export default function App() {
                             <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
                             <div style={{fontSize:11,color:"#888",fontWeight:500,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.06em"}}>{lbl}</div>
                             <div style={{fontSize:11,color:"#bbb",marginBottom:10}}>{sub}</div>
-                            {/* Input obiettivo — grande e chiaro */}
-                            {!isBroker?(
-                              <input type="number" min="0"
-                                style={{width:"100%",fontSize:28,fontWeight:700,color:clr,border:"none",borderBottom:`2px solid ${clr}44`,background:"transparent",padding:"4px 0",textAlign:"center",outline:"none",marginBottom:8}}
-                                value={ob[k]||""} placeholder="0"
-                                onChange={e=>upd(k,e.target.value)}/>
-                            ):(
-                              <div style={{fontSize:28,fontWeight:700,color:clr,textAlign:"center",padding:"4px 0",marginBottom:8}}>{ob[k]||"—"}</div>
-                            )}
+                            {/* Input obiettivo — modificabile da tutti */}
+                            <input type="number" min="0"
+                              style={{width:"100%",fontSize:28,fontWeight:700,color:clr,border:"none",borderBottom:`2px solid ${clr}44`,background:"transparent",padding:"4px 0",textAlign:"center",outline:"none",marginBottom:8}}
+                              value={ob[k]||""} placeholder="0"
+                              onChange={e=>upd(k,e.target.value)}/>
                             {/* Realizzato nel mese */}
                             {val>0&&<div style={{fontSize:11,color:"#888",textAlign:"center",marginBottom:6}}>Realizzato: <strong style={{color:clr}}>{val}</strong></div>}
                             {/* Barra progresso */}
