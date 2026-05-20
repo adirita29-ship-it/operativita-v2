@@ -643,6 +643,7 @@ export default function App() {
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
   const [opSaved,setOpSaved]=useState(false);
+  const [opFormSett,setOpFormSett]=useState({});
   const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
@@ -3724,7 +3725,7 @@ export default function App() {
                 preliminari:Math.max(sum("preliminari"),vendMese.filter(v=>v.tipoAtto==="Preliminare").length),
                 rogiti:vendMese.filter(v=>v.dataAtto).length,
                 ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"), stories:sum("stories"),
-                oreSviluppo:sum("oreSviluppo"), oreAmm:sum("oreAmm"),
+                oreSviluppo:sum("oreSviluppo"), oreAmm:sum("oreAmm"), oreMarketing:sum("postSocial"),
               };
             };
 
@@ -3848,30 +3849,105 @@ export default function App() {
                     const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
                     if(!agId) return null;
                     const giorniSett=Array.from({length:6},(_,i)=>{const d=new Date(lunedi);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10);});
-                    const nomGiorno=["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+                    const nomG=["Lun","Mar","Mer","Gio","Ven","Sab"];
+                    // Totali settimana dai dati esistenti
+                    const totSett={};
+                    const CAMPI=[["chiamate_ci","centri_inf"],["chiamate_cp","clienti_pass"],["chiamate_freddo","freddo"],["chiamate_zona","zona_vol"],["chiamate_priv","privati"],["appuntamenti","appuntamenti"],["immVisitati","immVisitati"],["apptAcq","apptAcq"],["ohNum","ohNum"],["postSocial","postSocial"]];
+                    giorniSett.forEach(d=>{
+                      const g=operativita[agId]?.[d]||{};
+                      const ct=g.chiamate_tipi||{};
+                      totSett.centri_inf=(totSett.centri_inf||0)+Number(ct.centri_inf||0);
+                      totSett.clienti_pass=(totSett.clienti_pass||0)+Number(ct.clienti_pass||0);
+                      totSett.freddo=(totSett.freddo||0)+Number(ct.freddo||0);
+                      totSett.zona_vol=(totSett.zona_vol||0)+Number(ct.zona_vol||0);
+                      totSett.privati=(totSett.privati||0)+Number(ct.privati||0);
+                      totSett.appuntamenti=(totSett.appuntamenti||0)+Number(g.appuntamenti||0);
+                      totSett.immVisitati=(totSett.immVisitati||0)+Number(g.immVisitati||0);
+                      totSett.apptAcq=(totSett.apptAcq||0)+Number(g.apptAcq||0);
+                      totSett.ohNum=(totSett.ohNum||0)+Number(g.ohNum||0);
+                      totSett.postSocial=(totSett.postSocial||0)+Number(g.postSocial||0);
+                    });
+                    // Stato locale per il form massivo
+                    const formSett={...totSett,...opFormSett};
+                    const setFormSett=setOpFormSett;
+                    const updS=(k,delta)=>setOpFormSett(p=>({...totSett,...p,[k]:Math.max(0,(Number({...totSett,...p}[k]||0))+delta)}));
+
+                    const salvaSett=()=>{
+                      // Distribuisce i totali equamente sui giorni lavorativi
+                      const ggLav=giorniSett.filter((_,i)=>i<5); // lun-ven
+                      const dividi=(tot,n)=>Math.floor(tot/n);
+                      const resto=(tot,n)=>tot%n;
+                      ggLav.forEach((d,i)=>{
+                        const isLast=i===ggLav.length-1;
+                        const g={};
+                        const ct={};
+                        ["centri_inf","clienti_pass","freddo","zona_vol","privati"].forEach(k=>{
+                          const tot=Number(formSett[k]||0);
+                          ct[k]=dividi(tot,5)+(isLast?resto(tot,5):0);
+                        });
+                        const totCh=Object.values(ct).reduce((s,v)=>s+v,0);
+                        g.chiamate_tipi=ct; g.chiamate=totCh;
+                        ["appuntamenti","immVisitati","apptAcq","ohNum","postSocial"].forEach(k=>{
+                          const tot=Number(formSett[k]||0);
+                          g[k]=dividi(tot,5)+(isLast?resto(tot,5):0);
+                        });
+                        salvaGiornata(agId,d,g);
+                      });
+                      // Sabato: se c'è OH lo mette lì
+                      if(formSett.ohNum>0){
+                        salvaGiornata(agId,giorniSett[5],{ohNum:Number(formSett.ohNum||0)});
+                      }
+                      alert("✓ Dati settimanali salvati e distribuiti sui giorni!");
+                    };
+                    const Stepper2=({label,k,clr="#2c2c2c"})=>(
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                        <span style={{fontSize:12,color:clr}}>{label}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updS(k,-1)}>−</button>
+                          <span style={{fontSize:14,fontWeight:600,minWidth:30,textAlign:"center"}}>{formSett[k]||0}</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updS(k,1)}>+</button>
+                        </div>
+                      </div>
+                    );
                     return(<div>
-                      {giorniSett.map((d,i)=>{
-                        const isOpen=opDataSel===d;
-                        const g=operativita[agId]?.[d]||{};
-                        const hasData=Object.values(g).some(v=>Number(v||0)>0||v===true);
-                        return(<div key={d} style={{marginBottom:6,border:`0.5px solid ${isOpen?"#A8863A":"#e8e5e0"}`,borderRadius:10,overflow:"hidden"}}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",cursor:"pointer",background:isOpen?"#FDFBF7":"#fff"}} onClick={()=>setOpDataSel(isOpen?lunedi:d)}>
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <div style={{width:32,height:32,borderRadius:8,background:i===5?"#FEF9E7":"#f5f5f5",border:`0.5px solid ${i===5?"#D4AC0D44":"#eee"}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-                                <div style={{fontSize:9,color:"#aaa",lineHeight:1}}>{nomGiorno[i].slice(0,3)}</div>
-                                <div style={{fontSize:13,fontWeight:600,color:i===5?"#A8863A":"#2c2c2c"}}>{new Date(d).getDate()}</div>
-                              </div>
-                              <div>
-                                <div style={{fontSize:12,fontWeight:500}}>{nomGiorno[i]} {fmtD(d)}</div>
-                                {hasData&&<div style={{fontSize:10,color:"#27AE60",marginTop:1}}>✓ compilata</div>}
-                                {!hasData&&<div style={{fontSize:10,color:"#aaa",marginTop:1}}>non compilata</div>}
-                              </div>
-                            </div>
-                            <span style={{fontSize:12,color:"#aaa"}}>{isOpen?"▲":"▼"}</span>
-                          </div>
-                          {isOpen&&<div style={{padding:"0 14px 14px"}}><FormGiornata agId={agId} data={d}/></div>}
-                        </div>);
-                      })}
+                      {/* Header settimana */}
+                      <div style={{background:"#fafaf8",borderRadius:10,padding:"10px 14px",marginBottom:10,border:"0.5px solid #e8e5e0",display:"flex",gap:6,flexWrap:"wrap"}}>
+                        {giorniSett.map((d,i)=>{
+                          const g=operativita[agId]?.[d]||{};
+                          const hasData=Object.values(g).some(v=>Number(v||0)>0);
+                          return(<div key={d} style={{flex:1,minWidth:40,textAlign:"center",padding:"6px 4px",background:hasData?"#E9F7EF":"#fff",borderRadius:6,border:`0.5px solid ${hasData?"#C0DD97":"#eee"}`}}>
+                            <div style={{fontSize:9,color:"#aaa"}}>{nomG[i]}</div>
+                            <div style={{fontSize:12,fontWeight:600,color:hasData?"#27AE60":"#aaa"}}>{new Date(d).getDate()}</div>
+                            {hasData&&<div style={{fontSize:9,color:"#27AE60"}}>✓</div>}
+                          </div>);
+                        })}
+                      </div>
+                      <div style={{background:"#EAF4FB",borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:11,color:"#2980B9"}}>
+                        💡 Inserisci i <strong>totali settimanali</strong> — verranno distribuiti automaticamente sui giorni lavorativi (Lun-Ven)
+                      </div>
+                      {/* Form massivo */}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
+                          <div style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>📞 Chiamate</div>
+                          <Stepper2 label="Centri d'influenza" k="centri_inf"/>
+                          <Stepper2 label="Clienti passati" k="clienti_pass"/>
+                          <Stepper2 label="Privati" k="privati"/>
+                          <Stepper2 label="Generica / Freddo" k="freddo"/>
+                          <Stepper2 label="Zona post volantino" k="zona_vol"/>
+                        </div>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
+                          <div style={{fontSize:11,fontWeight:600,color:"#A8863A",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🏠 Acquisizione</div>
+                          <Stepper2 label="Appt. acquisizione" k="appuntamenti"/>
+                          <Stepper2 label="Immobili visitati" k="immVisitati"/>
+                          <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8,marginTop:12}}>🤝 Vendita</div>
+                          <Stepper2 label="Appt. acquirenti" k="apptAcq"/>
+                          <Stepper2 label="OH effettuati" k="ohNum"/>
+                          <Stepper2 label="Post social" k="postSocial"/>
+                        </div>
+                      </div>
+                      <button style={{width:"100%",padding:11,background:"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={salvaSett}>
+                        💾 Salva settimana e distribuisci sui giorni
+                      </button>
                     </div>);
                   })()}
                 </>)}
