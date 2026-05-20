@@ -641,6 +641,8 @@ export default function App() {
   const [warMese,setWarMese]=useState(String(new Date().getMonth()+1).padStart(2,"0"));
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
+  const [opSaved,setOpSaved]=useState(false);
+  const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState(annoCorrente); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
@@ -1465,25 +1467,54 @@ export default function App() {
               };
               const myRog=venduti.filter(v=>{if(!v.dataAtto||(v.agenteListing!==myAgentId&&v.agenteAcquirente!==myAgentId))return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
               const myAl=incarichi.filter(i=>!i.archiviato&&i.agenteListing===myAgentId).map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
-              return(<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":sfidaAtt?"1fr 1fr 1fr":"1fr 1fr",gap:10,marginTop:"1rem"}}>
-                {sfidaAtt&&(()=>{
-                  const cl=agenti.map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
-                  const miaPos=cl.findIndex(x=>x.ag.id===myAgentId);
-                  const mioVal=cl[miaPos]?.val||0;
-                  const ggR=Math.max(0,Math.round((toD(sfidaAtt.al)-oggiD)/86400000));
-                  return(<div style={{background:"linear-gradient(135deg,#FDF6EC,#FAEEDA)",borderRadius:10,border:"1px solid #D4AC0D44",padding:"1rem"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-                      <div><div style={{fontSize:11,fontWeight:600,color:"#D4AC0D",marginBottom:2}}>🏆 {sfidaAtt.nome}</div><div style={{fontSize:10,color:"#aaa"}}>🎁 {sfidaAtt.premio}</div></div>
-                      <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Scade tra</div><div style={{fontSize:16,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR}gg</div></div>
+              return(<div style={{marginTop:"1rem"}}>
+                {/* Traguardo volante agente — sempre visibile */}
+                <div style={{background:sfidaAtt?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAtt?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
+                  {sfidaAtt?(()=>{
+                    const cl=agenti.map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
+                    const miaPos=cl.findIndex(x=>x.ag.id===myAgentId);
+                    const mioVal=cl[miaPos]?.val||0;
+                    const ggR=Math.max(0,Math.round((toD(sfidaAtt.al)-oggiD)/86400000));
+                    return(<>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:700,color:"#D4AC0D",marginBottom:2}}>🏆 {sfidaAtt.nome}</div>
+                          <div style={{fontSize:11,color:"#888"}}>{METRB[sfidaAtt.metrica]||sfidaAtt.metrica} · 🎁 {sfidaAtt.premio}</div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{fontSize:10,color:"#aaa"}}>Scade tra</div>
+                          <div style={{fontSize:18,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR}gg</div>
+                        </div>
+                      </div>
+                      {/* La mia posizione */}
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px",marginBottom:8,display:"flex",alignItems:"center",gap:12,border:"0.5px solid #f0f0f0"}}>
+                        <div style={{fontSize:28}}>{PEMOJI[miaPos]||"—"}</div>
+                        <div>
+                          <div style={{fontSize:11,color:"#aaa"}}>La tua posizione</div>
+                          <div style={{fontSize:20,fontWeight:700,color:PCLR[miaPos]||"#555"}}>{sfidaAtt.metrica==="fatturato"?`€ ${fmt(mioVal)}`:mioVal}</div>
+                        </div>
+                        <div style={{marginLeft:"auto",textAlign:"right"}}>
+                          <div style={{fontSize:11,color:"#aaa"}}>Classifica</div>
+                          <div style={{fontSize:16,fontWeight:700,color:PCLR[miaPos]||"#555"}}>{miaPos+1}° / {agenti.length}</div>
+                        </div>
+                      </div>
+                      {/* Mini podio */}
+                      {cl.slice(0,3).map(({ag,val},i)=>(<div key={ag.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,padding:"4px 8px",borderRadius:5,background:ag.id===myAgentId?"#FEF0E0":"transparent",border:ag.id===myAgentId?"0.5px solid #D4AC0D33":"none",marginBottom:2}}>
+                        <span style={{fontWeight:ag.id===myAgentId?600:400}}>{PEMOJI[i]} {ag.nome} {ag.cognome||""}</span>
+                        <span style={{fontWeight:600,color:PCLR[i]}}>{sfidaAtt.metrica==="fatturato"?`€ ${fmt(val)}`:val}</span>
+                      </div>))}
+                    </>);
+                  })():(
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{fontSize:24}}>🏆</div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:"#aaa"}}>Nessun traguardo volante attivo</div>
+                        <div style={{fontSize:11,color:"#bbb"}}>Il broker ne creerà uno presto!</div>
+                      </div>
                     </div>
-                    <div style={{background:"#fff",borderRadius:8,padding:"8px",marginBottom:8,textAlign:"center"}}>
-                      <div style={{fontSize:20}}>{PEMOJI[miaPos]||"—"}</div>
-                      <div style={{fontSize:18,fontWeight:700,color:PCLR[miaPos]||"#555"}}>{sfidaAtt.metrica==="fatturato"?`€ ${fmt(mioVal)}`:mioVal}</div>
-                      <div style={{fontSize:10,color:"#aaa"}}>Sei {miaPos+1}° su {agenti.length}</div>
-                    </div>
-                    {cl.slice(0,3).map(({ag,val},i)=>(<div key={ag.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 4px",background:ag.id===myAgentId?"#FEF0E0":"transparent",borderRadius:3,fontWeight:ag.id===myAgentId?600:400}}><span>{PEMOJI[i]} {ag.nome}</span><span style={{color:PCLR[i]}}>{sfidaAtt.metrica==="fatturato"?`€ ${fmt(val)}`:val}</span></div>))}
-                  </div>);
-                })()}
+                  )}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":sfidaAtt?"1fr 1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>📅 Prossimi rogiti</p>
                   {myRog.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
@@ -1494,7 +1525,7 @@ export default function App() {
                   {myAl.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Tutto in regola!</p>
                   :myAl.slice(0,3).map(({inc,al})=>(<div key={inc.id} style={{padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}><div style={{fontSize:12,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#E74C3C",marginTop:2}}>{al[0].lbl}{al.length>1?` +${al.length-1}`:""}</div></div>))}
                 </div>
-              </div>);
+              </div></div>);
             })()}
             {/* ── DASHBOARD BROKER (invariata) ── */}
             {isBroker&&(<>
@@ -1655,23 +1686,40 @@ export default function App() {
                 switch(metr){case "acquisizioni":return incP.length;case "fatturato":return vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);case "chiamate":return ch;default:return 0;}
               };
               return(<div style={{marginTop:"1rem"}}>
-              {sfidaAttBr&&(()=>{
-                const cl=agenti.map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
-                const ggR=Math.max(0,Math.round((toD(sfidaAttBr.al)-oggiD)/86400000));
-                return(<div style={{background:"linear-gradient(135deg,#FDF6EC,#FAEEDA)",borderRadius:10,border:"1px solid #D4AC0D44",padding:"1rem",marginBottom:10}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
-                    <div><div style={{fontSize:13,fontWeight:700,color:"#D4AC0D",marginBottom:2}}>🏆 {sfidaAttBr.nome}</div><div style={{fontSize:11,color:"#aaa"}}>{METRB[sfidaAttBr.metrica]||sfidaAttBr.metrica} · 🎁 {sfidaAttBr.premio}</div></div>
-                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Scade tra</div><div style={{fontSize:18,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR}gg</div></div>
+              {/* Traguardo volante — sempre visibile */}
+              <div style={{background:sfidaAttBr?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAttBr?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
+                {sfidaAttBr?(()=>{
+                  const cl=agenti.map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
+                  const ggR=Math.max(0,Math.round((toD(sfidaAttBr.al)-oggiD)/86400000));
+                  return(<>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:"#D4AC0D",marginBottom:2}}>🏆 Traguardo volante attivo: {sfidaAttBr.nome}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{METRB[sfidaAttBr.metrica]||sfidaAttBr.metrica} · {fmtD(sfidaAttBr.dal)} → {fmtD(sfidaAttBr.al)} · 🎁 {sfidaAttBr.premio}</div>
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        <div style={{fontSize:10,color:"#aaa"}}>Scade tra</div>
+                        <div style={{fontSize:20,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR} gg</div>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agenti.length,4)},1fr)`,gap:6}}>
+                      {cl.slice(0,4).map(({ag,val},i)=>(<div key={ag.id} style={{background:i===0?"#fff":"#fafaf8",borderRadius:8,padding:"8px",textAlign:"center",border:i===0?"1px solid #D4AC0D":"0.5px solid #eee"}}>
+                        <div style={{fontSize:16}}>{PEMOJIB[i]}</div>
+                        <div style={{fontSize:11,fontWeight:500,marginTop:2}}>{ag.nome} {ag.cognome||""}</div>
+                        <div style={{fontSize:14,fontWeight:700,color:PCLRB[i]}}>{sfidaAttBr.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
+                      </div>))}
+                    </div>
+                  </>);
+                })():(
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:600,color:"#aaa",marginBottom:2}}>🏆 Nessun traguardo volante attivo</div>
+                      <div style={{fontSize:11,color:"#bbb"}}>Vai in War Room per crearne uno e motivare il team</div>
+                    </div>
+                    <button style={{...S.btn,fontSize:11,padding:"5px 14px",borderColor:"#D4AC0D",color:"#A8863A"}} onClick={()=>setTab("War Room")}>+ Crea traguardo</button>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agenti.length,4)},1fr)`,gap:6}}>
-                    {cl.slice(0,4).map(({ag,val},i)=>(<div key={ag.id} style={{background:i===0?"#fff":"#fafaf8",borderRadius:8,padding:"8px",textAlign:"center",border:i===0?"0.5px solid #D4AC0D":"0.5px solid #eee"}}>
-                      <div style={{fontSize:16}}>{PEMOJIB[i]}</div>
-                      <div style={{fontSize:11,fontWeight:500,marginTop:2}}>{ag.nome}</div>
-                      <div style={{fontSize:13,fontWeight:700,color:PCLRB[i]}}>{sfidaAttBr.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
-                    </div>))}
-                  </div>
-                </div>);
-              })()}
+                )}
+              </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
@@ -3390,7 +3438,6 @@ export default function App() {
             const FormGiornata = ({agId, data}) => {
               const cacheKey=`${agId}_${data}`;
               const g={...autoCompila(agId,data),...(opFormCache[cacheKey]||{})};
-              const [saved,setSaved]=React.useState(false);
               const isSabato=new Date(data).getDay()===6;
               const upd=(k,v)=>{
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[k]:v}}));
@@ -3642,12 +3689,12 @@ export default function App() {
                   </div>
                 </div>}
 
-                <button style={{width:"100%",padding:11,background:saved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background .3s"}} onClick={()=>{
+                <button style={{width:"100%",padding:11,background:opSaved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background .3s"}} onClick={()=>{
                   const cached=opFormCache[cacheKey]||{};
                   salvaGiornata(agId,data,cached);
-                  setSaved(true);
-                  setTimeout(()=>setSaved(false),2000);
-                }}>{saved?"✓ Salvato!":"Salva giornata"}</button>
+                  setOpSaved(true);
+                  setTimeout(()=>setOpSaved(false),2000);
+                }}>{opSaved?"✓ Salvato!":"Salva giornata"}</button>
               </div>);
             };
 
@@ -3777,18 +3824,54 @@ export default function App() {
                 {/* ── INSERIMENTO GIORNATA ── */}
                 {opSubTab==="inserimento"&&(<>
                   <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                    {/* Toggle giorno/settimana */}
+                    <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
+                      {[["giorno","📅 Giorno"],["settimana","📆 Settimana"]].map(([v,l])=>(
+                        <button key={v} onClick={()=>setOpModoInserimento(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:opModoInserimento===v?"#fff":"transparent",color:opModoInserimento===v?"#A8863A":"#888",fontWeight:opModoInserimento===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:opModoInserimento===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
+                      ))}
+                    </div>
                     <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel==="Tutti"?String(agenti[0]?.id||""):opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                     <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FEF9E7",color:"#A8863A",border:"0.5px solid #C9A96E"}}>
-                      {fmtD(opDataSel)}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
+                      {opModoInserimento==="giorno"?fmtD(opDataSel):`Settimana dal ${fmtD(lunedi)} al ${fmtD(sabato)}`}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
                     </span>
                   </div>
-                  {(()=>{
+                  {opModoInserimento==="giorno"&&(()=>{
                     const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
                     if(!agId) return null;
                     return <FormGiornata agId={agId} data={opDataSel}/>;
+                  })()}
+                  {opModoInserimento==="settimana"&&(()=>{
+                    const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
+                    if(!agId) return null;
+                    const giorniSett=Array.from({length:6},(_,i)=>{const d=new Date(lunedi);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10);});
+                    const nomGiorno=["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+                    return(<div>
+                      {giorniSett.map((d,i)=>{
+                        const isOpen=opDataSel===d;
+                        const g=operativita[agId]?.[d]||{};
+                        const hasData=Object.values(g).some(v=>Number(v||0)>0||v===true);
+                        return(<div key={d} style={{marginBottom:6,border:`0.5px solid ${isOpen?"#A8863A":"#e8e5e0"}`,borderRadius:10,overflow:"hidden"}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",cursor:"pointer",background:isOpen?"#FDFBF7":"#fff"}} onClick={()=>setOpDataSel(isOpen?lunedi:d)}>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:32,height:32,borderRadius:8,background:i===5?"#FEF9E7":"#f5f5f5",border:`0.5px solid ${i===5?"#D4AC0D44":"#eee"}`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+                                <div style={{fontSize:9,color:"#aaa",lineHeight:1}}>{nomGiorno[i].slice(0,3)}</div>
+                                <div style={{fontSize:13,fontWeight:600,color:i===5?"#A8863A":"#2c2c2c"}}>{new Date(d).getDate()}</div>
+                              </div>
+                              <div>
+                                <div style={{fontSize:12,fontWeight:500}}>{nomGiorno[i]} {fmtD(d)}</div>
+                                {hasData&&<div style={{fontSize:10,color:"#27AE60",marginTop:1}}>✓ compilata</div>}
+                                {!hasData&&<div style={{fontSize:10,color:"#aaa",marginTop:1}}>non compilata</div>}
+                              </div>
+                            </div>
+                            <span style={{fontSize:12,color:"#aaa"}}>{isOpen?"▲":"▼"}</span>
+                          </div>
+                          {isOpen&&<div style={{padding:"0 14px 14px"}}><FormGiornata agId={agId} data={d}/></div>}
+                        </div>);
+                      })}
+                    </div>);
                   })()}
                 </>)}
 
@@ -4608,51 +4691,43 @@ export default function App() {
 
               {/* Storico sfide — sempre visibile, non solo se !warRiunione */}
               {sfideStor.length>0&&(<div style={sezW}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                  <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:0}}>🏅 Storico traguardi ({sfideStor.length})</p>
-                </div>
-                <select style={{...S.sel,width:"100%",marginBottom:10}} onChange={e=>{
-                  const el=document.getElementById("stor-detail");
-                  if(el)el.innerHTML=e.target.value;
-                }}>
-                  <option value="">— Seleziona traguardo —</option>
-                  {sfideStor.map((s,i)=>{
-                    const cl=s.snapshot?s.snapshot:agenti.map(ag=>({agId:ag.id,nome:ag.nome,cognome:ag.cognome||"",val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
-                    const top3=cl.filter(x=>x.val>0).slice(0,3);
-                    const top3str=top3.map((x,i)=>`${["🥇","🥈","🥉"][i]} ${x.nome||x.ag?.nome}: ${s.metrica==="fatturato"?`€ ${fmt(x.val)}`:x.val}`).join(" · ");
-                    return(<option key={i} value={`${s.nome} · ${fmtD(s.dal)}→${fmtD(s.al)} · ${METR2[s.metrica]||s.metrica} · ${top3str}`}>{fmtD(s.dal)}–{fmtD(s.al)} · {s.nome} · {["🥇","🥈","🥉"].map((m,i)=>top3[i]?`${m}${top3[i].nome||top3[i].ag?.nome}`:null).filter(Boolean).join(" ")}</option>);
-                  })}
-                </select>
+                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 12px"}}>🏅 Storico traguardi ({sfideStor.length})</p>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {sfideStor.map((s,i)=>{
-                  // Usa snapshot se disponibile, altrimenti ricalcola
                   const cl=s.snapshot
-                    ?s.snapshot.map(x=>({ag:agenti.find(a=>a.id===x.agId)||{id:x.agId,nome:x.nome,cognome:""},val:x.val}))
+                    ?s.snapshot.map(x=>({ag:agenti.find(a=>a.id===x.agId)||{nome:x.nome,cognome:""},val:x.val}))
                     :agenti.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
-                  const hasSnap=!!s.snapshot;
-                  return(<div key={i} style={{background:i%2===0?"#fafaf8":"#fff",borderRadius:8,padding:"10px 12px",marginBottom:6,border:"0.5px solid #f0f0f0"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
+                  const top3=cl.filter(x=>x.val>0).slice(0,3);
+                  const PEMOJI3=["🥇","🥈","🥉"];const PCLR3=["#D4AC0D","#888","#CD7F32"];
+                  return(<div key={i} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                    {/* Header card */}
+                    <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
                       <div>
-                        <div style={{fontSize:12,fontWeight:600,marginBottom:2}}>{s.nome}</div>
-                        <div style={{fontSize:11,color:"#888"}}>{METR2[s.metrica]||s.metrica} · {fmtD(s.dal)} → {fmtD(s.al)}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:2}}>🏆 {s.nome}</div>
+                        <div style={{fontSize:11,color:"#aaa"}}>{fmtD(s.dal)} → {fmtD(s.al)} · {METR2[s.metrica]||s.metrica}</div>
                       </div>
-                      <div style={{textAlign:"right",flexShrink:0}}>
-                        <div style={{fontSize:11,color:"#aaa"}}>Premio: <strong style={{color:BRAND.oroD}}>{s.premio||"—"}</strong></div>
-                        {hasSnap&&<div style={{fontSize:10,color:"#27AE60",marginTop:2}}>✓ risultati cristallizzati</div>}
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:11,color:BRAND.oro}}>🎁 {s.premio||"—"}</div>
+                        {s.snapshot&&<div style={{fontSize:10,color:"#27AE60",marginTop:2}}>✓ snapshot</div>}
                       </div>
                     </div>
-                    <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
-                      {cl.filter(x=>x.val>0).slice(0,3).map(({ag,val},idx)=>(
-                        <div key={ag?.id||idx} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:idx===0?"#FDF6EC":"#f5f5f5",border:idx===0?"0.5px solid #D4AC0D":"0.5px solid #eee"}}>
-                          <span style={{fontSize:12}}>{["🥇","🥈","🥉"][idx]}</span>
-                          <span style={{fontSize:11,fontWeight:idx===0?600:400,color:idx===0?BRAND.oroD:"#555"}}>{ag?.nome||"—"}</span>
-                          <span style={{fontSize:11,fontWeight:600,color:PCLR2[idx]}}>{s.metrica==="fatturato"?`€ ${fmt(val)}`:val}</span>
+                    {/* Podio */}
+                    <div style={{padding:"10px 14px",display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                      {top3.length===0&&<span style={{fontSize:12,color:"#aaa",fontStyle:"italic"}}>Nessun dato registrato</span>}
+                      {top3.map(({ag,val},idx)=>(
+                        <div key={ag?.id||idx} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",borderRadius:8,background:idx===0?"#FDF6EC":idx===1?"#f5f5f5":"#faf5ef",border:`0.5px solid ${PCLR3[idx]}44`,flex:idx===0?"1 1 auto":"0 0 auto"}}>
+                          <span style={{fontSize:idx===0?22:16}}>{PEMOJI3[idx]}</span>
+                          <div>
+                            <div style={{fontSize:idx===0?13:11,fontWeight:600,color:PCLR3[idx]}}>{ag?.nome||"—"} {ag?.cognome||""}</div>
+                            <div style={{fontSize:idx===0?16:13,fontWeight:700,color:PCLR3[idx]}}>{s.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
+                          </div>
                         </div>
                       ))}
-                      {cl.filter(x=>x.val>0).length===0&&<span style={{fontSize:11,color:"#aaa"}}>Nessun dato registrato</span>}
+                      {isBroker&&<button style={{...S.btnD,fontSize:10,padding:"3px 8px",marginLeft:"auto"}} onClick={()=>setSfide(sfide.filter((_,j)=>j!==sfide.indexOf(s)))}>Elimina</button>}
                     </div>
-                    {isBroker&&<button style={{...S.btnD,fontSize:10,padding:"2px 8px",marginTop:6}} onClick={()=>setSfide(sfide.filter((_,j)=>j!==sfide.indexOf(s)))}>Elimina</button>}
                   </div>);
                 })}
+                </div>
               </div>)}
             </div>);
           })()}
@@ -4768,28 +4843,41 @@ export default function App() {
           {tab==="One-to-One"&&!isBroker&&myAgentId&&(<div style={S.sec}>
             <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 1.25rem"}}>🤝 I miei One-to-One</h2>
             {(()=>{
+              const ag=agenti.find(a=>a.id===myAgentId);
               const incontri=((oneToOne[myAgentId]||[]).filter(i=>i.noteIncontro||i.obiettivi||i.criticita||i.azioni)).sort((a,b)=>b.data.localeCompare(a.data));
-              if(incontri.length===0) return(<div style={{background:"var(--color-background-secondary)",borderRadius:10,padding:"2rem",textAlign:"center"}}><p style={{fontSize:13,color:"var(--color-text-secondary)"}}>Nessun incontro registrato ancora</p></div>);
-              return incontri.map(inc=>{
-                const isOpen=otoOpen===inc.id;
-                return(<div key={inc.id} style={{background:"var(--color-background-primary)",borderRadius:10,border:"0.5px solid var(--color-border-tertiary)",marginBottom:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",cursor:"pointer"}} onClick={()=>setOtoOpen(isOpen?null:inc.id)}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{fontSize:13,fontWeight:500}}>{fmtD(inc.data)}</div>
-                      {inc.azioni&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#E9F7EF",color:"#27AE60"}}>✅ azioni</span>}
-                    </div>
-                    <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>{isOpen?"▲":"▼"}</span>
-                  </div>
-                  {isOpen&&<div style={{padding:"0 14px 14px"}}>
-                    {[["📝 Note incontro","noteIncontro"],["🎯 Obiettivi","obiettivi"],["⚠ Criticità","criticita"],["✅ Azioni da fare","azioni"]].map(([lbl,k])=>inc[k]&&(
-                      <div key={k} style={{marginBottom:8,padding:"8px 10px",background:"var(--color-background-secondary)",borderRadius:6}}>
-                        <div style={{fontSize:10,fontWeight:600,color:"var(--color-text-secondary)",marginBottom:4}}>{lbl}</div>
-                        <div style={{fontSize:12,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{inc[k]}</div>
+              if(incontri.length===0) return(<div style={{background:"#fafaf8",borderRadius:10,padding:"2rem",textAlign:"center",border:"0.5px solid #e8e5e0"}}><p style={{fontSize:13,color:"#aaa"}}>Nessun incontro registrato ancora — il broker inserirà le note degli incontri qui</p></div>);
+              return(<div>
+                <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12,fontWeight:600}}>{incontri.length} incontri registrati</div>
+                {incontri.map((inc,i)=>{
+                  const isOpen=otoOpen===inc.id;
+                  return(<div key={inc.id} style={{background:"#fff",borderRadius:12,border:`0.5px solid ${isOpen?"#A8863A":"#e8e5e0"}`,marginBottom:10,overflow:"hidden"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",cursor:"pointer",background:isOpen?"#FDFBF7":"#fff",borderBottom:isOpen?"0.5px solid #f0f0f0":"none"}} onClick={()=>setOtoOpen(isOpen?null:inc.id)}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:34,height:34,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro}88,${BRAND.oro})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{String(incontri.length-i).padStart(2,"0")}</div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:600,color:"#2c2c2c"}}>{fmtD(inc.data)}</div>
+                          <div style={{display:"flex",gap:5,marginTop:2}}>
+                            {inc.azioni&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#E9F7EF",color:"#085041",fontWeight:500}}>✅ azioni</span>}
+                            {inc.criticita&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#FDECEA",color:"#A32D2D",fontWeight:500}}>⚠ criticità</span>}
+                            {inc.obiettivi&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#EAF3DE",color:"#3B6D11",fontWeight:500}}>🎯 obiettivi</span>}
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                  </div>}
-                </div>);
-              });
+                      <span style={{fontSize:13,color:"#aaa"}}>{isOpen?"▲":"▼"}</span>
+                    </div>
+                    {isOpen&&<div style={{padding:"14px 16px"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                        {[["📝 Note incontro","noteIncontro","#f8f8f8","#555"],["🎯 Obiettivi","obiettivi","#EAF3DE","#3B6D11"],["⚠ Criticità","criticita","#FDECEA","#A32D2D"],["✅ Azioni da fare","azioni","#E9F7EF","#085041"]].map(([lbl,k,bg,clr])=>inc[k]&&(
+                          <div key={k} style={{padding:"10px 12px",background:bg,borderRadius:8}}>
+                            <div style={{fontSize:10,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{lbl}</div>
+                            <div style={{fontSize:12,color:"#2c2c2c",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{inc[k]}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>}
+                  </div>);
+                })}
+              </div>);
             })()}
           </div>)}
 
