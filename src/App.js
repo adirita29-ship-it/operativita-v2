@@ -1521,24 +1521,24 @@ export default function App() {
                 const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
                 const ggScad=inc.scadenza?Math.round((new Date(inc.scadenza)-new Date())/86400000):null;
                 const scadClr=ggScad===null?"#aaa":ggScad<0?"#E74C3C":ggScad<30?"#E67E22":"#27AE60";
-                return(<tr key={inc.id} style={{background:rowBg,opacity:inc.archiviato?0.7:1,borderLeft:`4px solid ${cfg.clr}`,borderBottom:"0.5px solid #f5f5f5"}}>
+                const isOpenInc=rowOpen===`inc_${inc.id}`;
+                return(<React.Fragment key={inc.id}>
+                <tr style={{background:isOpenInc?"#FDFBF7":rowBg,opacity:inc.archiviato?0.7:1,borderLeft:`4px solid ${cfg.clr}`,borderBottom:isOpenInc?"none":"0.5px solid #f5f5f5",cursor:"pointer",transition:"background .15s"}}
+                  onClick={()=>setRowOpen(isOpenInc?null:`inc_${inc.id}`)}>
                   {/* Stato */}
-                  <td style={{padding:"10px 12px",verticalAlign:"middle"}}>
-                    <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,padding:"3px 8px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>
+                  <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
+                    <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,padding:"4px 10px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>
                       {cfg.s} {s}
                     </span>
                     {hasPropAttiva&&<div style={{fontSize:10,color:propAttivaVinc?"#D4AC0D":"#E67E22",marginTop:3,fontWeight:500}}>{propAttivaVinc?"⚡ Vincolata":"⚡ In proposta"}</div>}
                   </td>
                   {/* Immobile + Proprietario */}
-                  <td style={{padding:"10px 12px",verticalAlign:"middle"}}>
-                    <div style={{fontWeight:500,fontSize:13,marginBottom:2}}>
-                      {isVenduto?(
-                        <button style={{background:"none",border:"none",cursor:"pointer",color:BRAND.oroD,fontWeight:600,fontSize:13,padding:0,textDecoration:"underline"}} onClick={()=>setSchedaIncarico({incarico:inc,venduto:vendCorr,proposta:proposte.find(p=>p.incaricoId===inc.id&&p.stato==="Accettata")})}>
-                          {inc.comune} — {inc.indirizzo}
-                        </button>
-                      ):<span>{inc.comune} — {inc.indirizzo}</span>}
+                  <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:3,color:"#2C2C2C"}}>
+                      {inc.comune} — {inc.indirizzo}
+                      <span style={{fontSize:12,color:"#bbb",fontWeight:400,marginLeft:6}}>{isOpenInc?"▲":"▼"}</span>
                     </div>
-                    <div style={{fontSize:11,color:"#888",display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <div style={{fontSize:12,color:"#888",display:"flex",gap:8,flexWrap:"wrap"}}>
                       <span>{inc.nominativo}</span>
                       {inc.fonte&&<span style={{padding:"1px 5px",borderRadius:3,background:"#f0f0f0",color:"#666"}}>{inc.fonte}</span>}
                       {inc.tipologia&&<span style={{color:"#aaa"}}>{inc.tipologia}</span>}
@@ -1583,16 +1583,55 @@ export default function App() {
                       })}</div>;
                     })()}
                   </td>
-                  <td style={S.td}>
-                    <div style={{display:"flex",gap:4}}>
+                  <td style={S.td} onClick={e=>e.stopPropagation()}>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
-                      {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} title="Registra ribasso prezzo" onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘ Ribasso</button>}
-                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Proposta</button>}
-                      {!inc.archiviato?<button style={S.btnD} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare "${inc.nominativo}"? Potrai ripristinarlo in seguito.`))archiviaInc(inc.id);}}>📦</button>
-                      :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩ Ripristina</button>}
+                      {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
+                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Prop.</button>}
+                      {!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
+                      :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩</button>}
                     </div>
                   </td>
-                </tr>);
+                </tr>
+                {/* ACCORDION INCARICHI */}
+                {isOpenInc&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
+                  <td colSpan={7} style={{padding:"0 14px 14px"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio incarico</p>
+                        {[["Data inizio",fmtD(inc.dataInizio)],["Scadenza",inc.scadenza?fmtD(inc.scadenza):"—"],["Tipologia",inc.tipologia||"—"],["Fonte",inc.fonte||"—"],["Provv. prevista",`${inc.provvPrevista||3}%`],["Provv. acquirente",`${inc.provvAcquirente||3}%`]].map(([k,v])=>(
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><strong>{v}</strong></div>
+                        ))}
+                        {inc.note&&<div style={{fontSize:11,color:"#aaa",fontStyle:"italic",marginTop:6}}>{inc.note}</div>}
+                      </div>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Agenti coinvolti</p>
+                        {[["Listing",inc.agenteListing,`${inc.percListing||50}%`],["Buyer L.",inc.buyerListing,`${inc.percBuyerListing||0}%`],["Acquirente",vendCorr?.agenteAcquirente,`${vendCorr?.percAcquirente||0}%`],["Buyer",vendCorr?.buyer,`${vendCorr?.percBuyer||0}%`]].filter(([,id])=>id).map(([k,id,p])=>(
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong> <span style={{color:"#aaa"}}>{p}</span></span></div>
+                        ))}
+                      </div>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Proposte attive</p>
+                        {proposte.filter(p=>p.incaricoId===inc.id&&!["Rifiutata","Mancata Chiusura"].includes(p.stato)).length===0
+                          ?<p style={{fontSize:12,color:"#aaa",fontStyle:"italic"}}>Nessuna proposta attiva</p>
+                          :proposte.filter(p=>p.incaricoId===inc.id&&!["Rifiutata","Mancata Chiusura"].includes(p.stato)).map(p=>{
+                            const cfgP=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
+                            return(<div key={p.id} style={{marginBottom:8,padding:"8px",background:"#fafaf8",borderRadius:6,border:`0.5px solid ${cfgP.clr}33`}}>
+                              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                                <span style={{fontSize:11,fontWeight:600,color:cfgP.clr}}>{cfgP.s} {p.stato}</span>
+                                <strong style={{fontSize:12,color:BRAND.oroD}}>€ {fmtN(p.prezzoOfferto)}</strong>
+                              </div>
+                              <div style={{fontSize:11,color:"#888"}}>{p.nomeAcquirente}</div>
+                              {p.vincolata&&<div style={{fontSize:10,color:BRAND.oroD,marginTop:2}}>⚡ {p.tipoVincolo||"Vincolata"}</div>}
+                            </div>);
+                          })
+                        }
+                        {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={{...S.btnG,width:"100%",marginTop:4,fontSize:12}} onClick={e=>{e.stopPropagation();setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Nuova proposta</button>}
+                      </div>
+                    </div>
+                  </td>
+                </tr>}
+                </React.Fragment>);
               })}
               {incFiltrati.length===0&&<tr><td colSpan={18} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessun incarico trovato</td></tr>}
               </tbody>
@@ -1647,16 +1686,22 @@ export default function App() {
               <tbody>{propFiltrate.map(p=>{
                 const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
                 const puoGestire=!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato);
-                return(<tr key={p.id} style={{borderLeft:`4px solid ${cfg.clr}`,borderBottom:"0.5px solid #f5f5f5"}}>
+                const isOpenProp=rowOpen===`prop_${p.id}`;
+                return(<React.Fragment key={p.id}>
+                <tr style={{borderLeft:`4px solid ${cfg.clr}`,borderBottom:isOpenProp?"none":"0.5px solid #f5f5f5",cursor:"pointer",background:isOpenProp?"#FDFBF7":"#fff",transition:"background .15s"}}
+                  onClick={()=>setRowOpen(isOpenProp?null:`prop_${p.id}`)}>
                   {/* Stato */}
-                  <td style={{padding:"10px 12px",verticalAlign:"top",minWidth:100}}>
-                    <span style={{display:"inline-flex",fontSize:11,padding:"3px 8px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap",marginBottom:3}}>{cfg.s} {p.stato}</span>
+                  <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
+                    <span style={{display:"inline-flex",fontSize:12,padding:"4px 10px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap",marginBottom:3}}>{cfg.s} {p.stato}</span>
                     <div><span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></div>
                   </td>
                   {/* Immobile + Parti */}
-                  <td style={{padding:"10px 12px",verticalAlign:"top"}}>
-                    <div style={{fontWeight:500,fontSize:12,marginBottom:3}}>{p.comuneImmobile} — {p.indirizzoImmobile}</div>
-                    <div style={{fontSize:11,color:"#888",display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:3,color:"#2C2C2C"}}>
+                      {p.comuneImmobile} — {p.indirizzoImmobile}
+                      <span style={{fontSize:12,color:"#bbb",fontWeight:400,marginLeft:6}}>{isOpenProp?"▲":"▼"}</span>
+                    </div>
+                    <div style={{fontSize:12,color:"#888",display:"flex",gap:8,flexWrap:"wrap"}}>
                       <span>V: {p.nominativoVenditore||"—"}</span>
                       <span>A: {p.nomeAcquirente||"—"}</span>
                       {p.tipologia&&<span style={{color:"#aaa"}}>{p.tipologia}</span>}
@@ -1706,9 +1751,42 @@ export default function App() {
                       <button style={{...S.btnD,fontSize:11,padding:"3px 8px"}} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare la proposta per "${p.nomeAcquirente}"?`))archiviaProp(p.id);}}>📦</button>
                     </div>
                   </td>
-                </tr>);
+                </tr>
+                {/* ACCORDION PROPOSTE */}
+                {isOpenProp&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
+                  <td colSpan={8} style={{padding:"0 14px 14px"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio proposta</p>
+                        {[["Offerta",`€ ${fmtN(p.prezzoOfferto)}`],["Data",fmtD(p.dataStato)],["Accettazione",p.dataAccettazione?fmtD(p.dataAccettazione):"—"],["Scadenza",p.scadenzaProposta?fmtD(p.scadenzaProposta):"—"],["Tipo",p.tipo==="da_incarico"?"Su incarico":"Collaborazione"]].map(([k,v])=>(
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><strong>{v}</strong></div>
+                        ))}
+                        {p.vincolata&&<div style={{marginTop:8,padding:"6px 8px",background:"#FEF9E7",borderRadius:5,fontSize:11,color:"#633806"}}>⚡ Vincolo: {p.tipoVincolo||"Sì"}{p.termineSubordine?` · scade ${fmtD(p.termineSubordine)}`:""}</div>}
+                      </div>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Provvigioni</p>
+                        {[["Provv. venditore",`€ ${fmt(p.provvVenditore||0)}`],["Provv. acquirente",`€ ${fmt(p.provvAcquirente||0)}`]].map(([k,v])=>(
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><strong>{v}</strong></div>
+                        ))}
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"12px 0 8px"}}>Agenti</p>
+                        {[["Listing",p.agenteListing,p.percListing],["Buyer L.",p.buyerListing,p.percBuyerListing],["Acquirente",p.agenteAcquirente,p.percAcquirente],["Buyer",p.buyer,p.percBuyer]].filter(([,id])=>id).map(([k,id,perc])=>(
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong>{perc?<span style={{color:"#aaa"}}> {perc}%</span>:null}</span></div>
+                        ))}
+                      </div>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Azioni</p>
+                        <div style={{display:"flex",flexDirection:"column",gap:6}} onClick={e=>e.stopPropagation()}>
+                          {puoGestire&&<button style={{...S.btnP,fontSize:12,padding:"6px"}} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);}}>Gestisci proposta</button>}
+                          {p.stato==="Accettata"&&!venduti.find(v=>v.propostaId===p.id)&&<button style={{...S.btnG,fontSize:12,padding:"6px"}} onClick={()=>{const nv=creaVendutoDaProposta(p);setVenduti([...venduti,nv]);setProposte(proposte.map(x=>x.id===p.id?{...x,archiviato:true}:x));}}>✓ Conclusa</button>}
+                          {p.note&&<div style={{fontSize:11,color:"#aaa",fontStyle:"italic",marginTop:4}}>{p.note}</div>}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>}
+                </React.Fragment>);
               })}
-              {propFiltrate.length===0&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna proposta trovata</td></tr>}
+              {propFiltrate.length===0&&<tr><td colSpan={8} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna proposta trovata</td></tr>}
               </tbody>
             </table></div>
           </div>)}
@@ -1766,7 +1844,7 @@ export default function App() {
                     {v.bloccato&&<div style={{fontSize:10,color:"#E74C3C",marginTop:3}}>🔒</div>}
                   </td>
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
-                    <div style={{fontWeight:500,fontSize:12,marginBottom:3}}>{v.comuneImmobile} — {v.indirizzoImmobile}</div>
+                    <div style={{fontWeight:600,fontSize:14,marginBottom:3,color:"#2C2C2C"}}>{v.comuneImmobile} — {v.indirizzoImmobile}<span style={{fontSize:12,color:"#bbb",fontWeight:400,marginLeft:6}}>{isOpen?"▲":"▼"}</span></div>
                     <div style={{fontSize:11,color:"#888",display:"flex",gap:6,flexWrap:"wrap"}}>
                       <span>V: {v.nominativoVenditore||"—"}</span><span>A: {v.nomeAcquirente||"—"}</span>
                       {v.tipologia&&<span style={{color:"#aaa"}}>{v.tipologia}</span>}
@@ -1811,20 +1889,30 @@ export default function App() {
                 </tr>
                 {isOpen&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
                   <td colSpan={7} style={{padding:"0 14px 14px 14px"}}>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
+                    {/* Riepilogo incasso stato */}
+                    <div style={{display:"flex",gap:10,marginTop:10,marginBottom:10,flexWrap:"wrap"}}>
+                      <div style={{flex:1,minWidth:120,background:totInc>=totProvv&&totProvv>0?"#E9F7EF":"#FEF0E0",borderRadius:8,padding:"10px 14px",border:`0.5px solid ${totInc>=totProvv&&totProvv>0?"#C0DD97":"#FAC775"}`}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Stato incasso</div>
+                        <div style={{fontSize:16,fontWeight:700,color:totInc>=totProvv&&totProvv>0?"#27AE60":"#E67E22"}}>{statoI}</div>
+                        <div style={{fontSize:12,marginTop:4}}>Incassato: <strong style={{color:"#27AE60"}}>€ {fmt(totInc)}</strong> su <strong>€ {fmt(totProvv)}</strong></div>
+                        {totInc<totProvv&&<div style={{fontSize:12,color:"#E74C3C",marginTop:2,fontWeight:500}}>Manca: € {fmt(totProvv-totInc)}</div>}
+                        {totProvv>0&&<div style={{height:5,background:"#f0f0f0",borderRadius:3,marginTop:6,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(100,Math.round(totInc/totProvv*100))}%`,background:totInc>=totProvv?"#27AE60":"#E67E22",borderRadius:3}}/></div>}
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
-                        <p style={{fontSize:10,fontWeight:600,color:"#2980B9",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Incasso Venditore</p>
-                        {[["Acc.1",v.acc1V,v.dataAcc1V],["Acc.2",v.acc2V,v.dataAcc2V],["Saldo",v.saldoV,v.dataSaldoV]].map(([k,imp,dt])=>Number(imp||0)>0&&(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}{dt?` · ${fmtD(dt)}`:""}</span><strong style={{color:"#2980B9"}}>€ {fmt(imp)}</strong></div>))}
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6,fontWeight:600,borderTop:"1px solid #e8e5e0",paddingTop:4}}><span>Totale</span><span style={{color:"#27AE60"}}>€ {fmt(incV)}</span></div>
+                        <p style={{fontSize:10,fontWeight:600,color:"#2980B9",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Incasso Venditore <span style={{color:"#27AE60"}}>(€ {fmt(incV)} / € {fmt(v.provvVenditore||0)})</span></p>
+                        {[["Acc.1",v.acc1V,v.dataAcc1V],["Acc.2",v.acc2V,v.dataAcc2V],["Saldo",v.saldoV,v.dataSaldoV]].map(([k,imp,dt])=>Number(imp||0)>0&&(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}{dt?` · ${fmtD(dt)}`:""}</span><strong style={{color:"#2980B9"}}>€ {fmt(imp)}</strong></div>))}
+                        {Number(v.provvVenditore||0)>incV&&<div style={{marginTop:6,fontSize:11,color:"#E74C3C",fontWeight:500}}>Da incassare: € {fmt(Number(v.provvVenditore||0)-incV)}</div>}
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
-                        <p style={{fontSize:10,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Incasso Acquirente</p>
-                        {[["Acc.1",v.acc1A,v.dataAcc1A],["Acc.2",v.acc2A,v.dataAcc2A],["Saldo",v.saldoA,v.dataSaldoA]].map(([k,imp,dt])=>Number(imp||0)>0&&(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}{dt?` · ${fmtD(dt)}`:""}</span><strong style={{color:"#8E44AD"}}>€ {fmt(imp)}</strong></div>))}
-                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6,fontWeight:600,borderTop:"1px solid #e8e5e0",paddingTop:4}}><span>Totale</span><span style={{color:"#27AE60"}}>€ {fmt(incA)}</span></div>
+                        <p style={{fontSize:10,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Incasso Acquirente <span style={{color:"#27AE60"}}>(€ {fmt(incA)} / € {fmt(v.provvAcquirente||0)})</span></p>
+                        {[["Acc.1",v.acc1A,v.dataAcc1A],["Acc.2",v.acc2A,v.dataAcc2A],["Saldo",v.saldoA,v.dataSaldoA]].map(([k,imp,dt])=>Number(imp||0)>0&&(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}{dt?` · ${fmtD(dt)}`:""}</span><strong style={{color:"#8E44AD"}}>€ {fmt(imp)}</strong></div>))}
+                        {Number(v.provvAcquirente||0)>incA&&<div style={{marginTop:6,fontSize:11,color:"#E74C3C",fontWeight:500}}>Da incassare: € {fmt(Number(v.provvAcquirente||0)-incA)}</div>}
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Riepilogo pratica</p>
-                        {[["Prezzo vendita",`€ ${fmtN(v.prezzoVendita)}`],["Tipo atto",v.tipoAtto||"—"],["Data atto",v.dataAtto?fmtD(v.dataAtto):"—"],["Scad. incasso",v.scadenzaIncasso?fmtD(v.scadenzaIncasso):"—"],["Note",v.note||"—"]].map(([k,val])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span style={{fontWeight:500}}>{val}</span></div>))}
+                        {[["Prezzo vendita",`€ ${fmtN(v.prezzoVendita)}`],["Tipo atto",v.tipoAtto||"—"],["Data atto",v.dataAtto?fmtD(v.dataAtto):"—"],["Scad. incasso",v.scadenzaIncasso?fmtD(v.scadenzaIncasso):"—"],["Note",v.note||"—"]].map(([k,val])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span style={{fontWeight:500}}>{val}</span></div>))}
                       </div>
                     </div>
                   </td>
