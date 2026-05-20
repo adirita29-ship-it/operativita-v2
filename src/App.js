@@ -3701,8 +3701,8 @@ export default function App() {
 
             // ── CALCOLI REPORT MENSILE ──────────────────────────────────────
             const calcReport = (agId, mese) => {
-              const agIdN=Number(agId);
-              const giorni = Object.entries(operativita[agIdN]||operativita[String(agIdN)]||{}).filter(([d])=>d&&d.startsWith(mese));
+              const agIdK=Number(agId)||agId;
+              const giorni = Object.entries(operativita[agIdK]||{}).filter(([d])=>d&&typeof d==="string"&&d.startsWith(mese));
               const sum = (k) => giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
               const sumArr = (arr,k) => giorni.reduce((s,[,g])=>s+(g[arr]||[]).reduce((a,x)=>a+Number(x[k]||0),0),0);
               const sumNested = (parent,k) => giorni.reduce((s,[,g])=>s+Number((g[parent]||{})[k]||0),0);
@@ -3710,8 +3710,8 @@ export default function App() {
               const ohVisite = sumArr("ohImmobili","visite");
               const ohNum = giorni.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
               const giorniCompilati = giorni.filter(([,g])=>Object.keys(g).some(k=>Number(g[k]||0)>0||g[k]===true)).length;
-              const vendMese = venduti.filter(v=>(v.agenteListing===agIdN||v.agenteAcquirente===agIdN)&&dataCompAgenzia(v).startsWith(mese));
-              const propMese = proposte.filter(p=>(p.agenteListing===agIdN||p.agenteAcquirente===agIdN)&&(p.dataStato||"").startsWith(mese));
+              const vendMese = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&dataCompAgenzia(v).startsWith(mese));
+              const propMese = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"").startsWith(mese));
               return {
                 giorniCompilati, chiamate:chiamateTot, appuntamenti:sum("appuntamenti"), acquisizioni:sum("acquisizioni"),
                 centri_inf:sumNested("chiamate_tipi","centri_inf"), clienti_pass:sumNested("chiamate_tipi","clienti_pass"),
@@ -3726,6 +3726,7 @@ export default function App() {
                 rogiti:vendMese.filter(v=>v.dataAtto).length,
                 ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"), stories:sum("stories"),
                 oreSviluppo:sum("oreSviluppo"), oreAmm:sum("oreAmm"),
+                oreMarketing:sum("postSocial")+sum("video")+sum("stories"),
               };
             };
 
@@ -3919,7 +3920,7 @@ export default function App() {
                           <KpiOb lbl="Ribassi proposti" val={(()=>{const agId2=isBroker?Number(opAgenteSel):myAgentId;return Object.values(operativita[agId2]||{}).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.ribasso).length),0);})()+"" } obk="ribassi" clr="#E74C3C"/>
                         </div>
                         <p style={{...S2.sec,marginBottom:8}}>Distribuzione ore</p>
-                        {[["Ricerca/acquisizione",r.oreRicerca,"#185FA5"],["Operativo/vendite",(r.immVisitati*0.5+r.valutazioni*1.5),"#633806"],["Open House",(r.ohNum*2),"#D85A30"],["Sviluppo",r.oreSviluppo,"#533AB7"],["Marketing",(r.postSocial||0),"#3B6D11"],["Amministrativo",r.oreAmm,"#888780"]].map(([lbl,val,clr])=>{
+                        {[["Ricerca/acquisizione",r.oreRicerca,"#185FA5"],["Operativo/vendite",(r.immVisitati*0.5+r.valutazioni*1.5),"#633806"],["Open House",(r.ohNum*2),"#D85A30"],["Sviluppo",r.oreSviluppo,"#533AB7"],["Marketing",r.oreMarketing,"#3B6D11"],["Amministrativo",r.oreAmm,"#888780"]].map(([lbl,val,clr])=>{
                           const tot=r.oreRicerca+(r.immVisitati*0.5+r.valutazioni*1.5)+(r.ohNum*2)+r.oreSviluppo+r.oreMarketing+r.oreAmm||1;
                           const p=Math.round(val/tot*100);
                           return(<div key={lbl} style={{marginBottom:8}}>
