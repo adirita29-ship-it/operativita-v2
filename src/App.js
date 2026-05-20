@@ -626,6 +626,8 @@ export default function App() {
   const [warDal,setWarDal]=useState(todayStr());
   const [warAl,setWarAl]=useState(todayStr());
   const [warRiunione,setWarRiunione]=useState(false);
+  const [warShowObiettivo,setWarShowObiettivo]=useState(true);
+  const [warShowProduzione,setWarShowProduzione]=useState(true);
   // War Room — traguardi volanti
   const [sfide,setSfide]=useState(_ls?.sfide||[]);
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
@@ -4420,7 +4422,13 @@ export default function App() {
               const acq=incarichi.filter(i=>i.agenteListing===ag.id&&i.dataInizio>=dal2&&i.dataInizio<=al2).length;
               const prop=proposte.filter(p=>(p.agenteListing===ag.id||p.agenteAcquirente===ag.id)&&(p.dataStato||"")>=dal2&&(p.dataStato||"")<=al2).length;
               const vendP=venduti.filter(v=>(v.agenteListing===ag.id||v.agenteAcquirente===ag.id)&&(v.dataAtto||"")>=dal2&&(v.dataAtto||"")<=al2);
-              const fatt=vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+              // Produzione per agenzia = provvigioni sulle pratiche dove l'agente è Listing o Acquirente
+              const fatt=vendP.reduce((s,v)=>{
+                let p=0;
+                if(v.agenteListing===ag.id) p+=Number(v.provvVenditore||0);
+                if(v.agenteAcquirente===ag.id) p+=Number(v.provvAcquirente||0);
+                return s+p;
+              },0);
               const gg=Object.entries(operativita[ag.id]||{}).filter(([d])=>d>=dal2&&d<=al2);
               const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
               const giorniC=gg.filter(([,g])=>Object.values(g).some(v=>Number(v||0)>0)).length;
@@ -4440,12 +4448,21 @@ export default function App() {
                   </select>
                   {warPeriodo==="anno"&&<select style={S.sel} value={warAnno} onChange={e=>setWarAnno(e.target.value)}>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</select>}
                   {warPeriodo==="custom"&&<><input type="date" style={{...S.sel,width:130}} value={warDal} onChange={e=>setWarDal(e.target.value)}/><input type="date" style={{...S.sel,width:130}} value={warAl} onChange={e=>setWarAl(e.target.value)}/></>}
+                  {/* Toggle visibilità */}
+                  <div style={{display:"flex",gap:4,padding:"3px",background:"#f0f0f0",borderRadius:6}}>
+                    <button onClick={()=>setWarShowObiettivo(!warShowObiettivo)} style={{fontSize:11,padding:"3px 10px",borderRadius:4,border:"none",cursor:"pointer",background:warShowObiettivo?"#fff":"transparent",color:warShowObiettivo?"#2C2C2C":"#aaa",fontWeight:warShowObiettivo?500:400,boxShadow:warShowObiettivo?"0 1px 3px rgba(0,0,0,.1)":"none",transition:"all .15s"}}>
+                      💰 Obiettivo
+                    </button>
+                    <button onClick={()=>setWarShowProduzione(!warShowProduzione)} style={{fontSize:11,padding:"3px 10px",borderRadius:4,border:"none",cursor:"pointer",background:warShowProduzione?"#fff":"transparent",color:warShowProduzione?"#2C2C2C":"#aaa",fontWeight:warShowProduzione?500:400,boxShadow:warShowProduzione?"0 1px 3px rgba(0,0,0,.1)":"none",transition:"all .15s"}}>
+                      📊 Produzione
+                    </button>
+                  </div>
                   <button style={{...S.btnP,fontSize:12,padding:"5px 14px",background:warRiunione?"#27AE60":"#2C2C2C",borderColor:warRiunione?"#27AE60":"#2C2C2C"}} onClick={()=>setWarRiunione(!warRiunione)}>{warRiunione?"✕ Esci":"📽 Riunione"}</button>
                   {isBroker&&<button style={{...S.btn,fontSize:11,padding:"4px 12px",borderColor:"#E67E22",color:"#E67E22"}} onClick={()=>setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""})}>+ Traguardo</button>}
                 </div>
               </div>
               <div style={{fontSize:11,color:"#aaa",marginBottom:"1rem"}}>Periodo: {fmtD(dal2)} → {fmtD(al2)}</div>
-              <div style={{background:"linear-gradient(135deg,#1a1a2e,#16213e)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1rem",color:"#fff"}}>
+              {warShowObiettivo&&<div style={{background:"linear-gradient(135deg,#1a1a2e,#16213e)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1rem",color:"#fff"}}>
                 <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 8px"}}>🎯 Obiettivo team {warAnno}</p>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,flexWrap:"wrap",gap:8}}>
                   <div><div style={{fontSize:warRiunione?36:28,fontWeight:700}}>€ {fmt(fattW)}</div><div style={{fontSize:12,color:"#aaa"}}>su € {fmt(obFattW)}</div></div>
@@ -4456,7 +4473,7 @@ export default function App() {
                     {percW>15&&<span style={{fontSize:warRiunione?16:12,fontWeight:600,color:"#fff"}}>{percW}%</span>}
                   </div>
                 </div>
-              </div>
+              </div>}
               {sfidaAtt2&&(()=>{
                 const ggR=Math.max(0,Math.round((new Date(sfidaAtt2.al)-new Date())/86400000));
                 const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al)})).sort((a,b)=>b.val-a.val);
@@ -4476,10 +4493,10 @@ export default function App() {
                   {isBroker&&<button style={{...S.btnD,fontSize:11,marginTop:8}} onClick={()=>setSfide(sfide.map(s=>s===sfidaAtt2?{...s,conclusa:true}:s))}>Concludi sfida</button>}
                 </div>);
               })()}
-              <div style={sezW}>
+              {warShowProduzione&&<div style={sezW}>
                 <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 12px"}}>📊 Produzione nel periodo</p>
                 <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:warRiunione?14:12,minWidth:480}}>
-                  <thead><tr style={{background:"#fafaf8"}}>{["Agente","📅","📞","🏠","📝","✅","💰"].map(h=><th key={h} style={{...S.th,textAlign:"center",padding:warRiunione?"12px":"8px"}}>{h}</th>)}</tr></thead>
+                  <thead><tr style={{background:"#fafaf8"}}>{["Agente","📅","📞","🏠 Acq.","📝 Prop.","✅ Vend.","💰 Produzione"].map(h=><th key={h} style={{...S.th,textAlign:"center",padding:warRiunione?"12px":"8px"}}>{h}</th>)}</tr></thead>
                   <tbody>{prodAg.map(({ag,acq,prop,vend,fatt,ch,giorniC})=>(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
                     <td style={{padding:warRiunione?"12px":"8px 10px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:warRiunione?30:22,height:warRiunione?30:22,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:warRiunione?13:10,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div><span style={{fontWeight:500,fontSize:warRiunione?14:12}}>{ag.nome}</span></div></td>
                     <td style={{...S.tdC}}><span style={{fontSize:10,padding:"2px 5px",borderRadius:3,background:giorniC>=5?"#E9F7EF":giorniC>=3?"#FEF9E7":"#FCEBEB",color:giorniC>=5?"#27AE60":giorniC>=3?"#D4AC0D":"#E74C3C",fontWeight:500}}>{giorniC}</span></td>
@@ -4490,7 +4507,7 @@ export default function App() {
                     <td style={{...S.tdR,fontWeight:600,color:BRAND.oroD,fontSize:warRiunione?14:12}}>{fatt>0?`€ ${fmt(fatt)}`:"—"}</td>
                   </tr>))}</tbody>
                 </table></div>
-              </div>
+              </div>}
               {sfideStor.length>0&&!warRiunione&&(<div style={sezW}>
                 <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>Storico traguardi</p>
                 {sfideStor.map((s,i)=>{const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);const w=cl[0];return(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap",gap:4}}><div><span style={{fontSize:12,fontWeight:500}}>{s.nome}</span><span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{METR2[s.metrica]} · {fmtD(s.dal)}–{fmtD(s.al)}</span></div><div style={{display:"flex",gap:8}}>{w&&w.val>0&&<span style={{fontSize:12,color:"#D4AC0D",fontWeight:600}}>🥇 {w.ag.nome}: {s.metrica==="fatturato"?`€ ${fmt(w.val)}`:w.val}</span>}<span style={{fontSize:11,color:"#aaa"}}>🎁 {s.premio}</span></div></div>);})}
