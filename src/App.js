@@ -54,7 +54,8 @@ const TAB_CONFIG = [
   { id:"Report Agenti",   icon:"📊", label:"Report Agenti" },
   { id:"Fatture Agenti",  icon:"🧾", label:"Fatture Agenti" },
   { id:"Fatture Agente",  icon:"🧾", label:"Le mie fatture" },
-  { id:"Costi & Break Even", icon:"📉", label:"Costi & Break Even" },
+  { id:"Costi",          icon:"📋", label:"Costi" },
+  { id:"Break Even",     icon:"📉", label:"Break Even" },
   { id:"Statistiche",     icon:"📈", label:"Statistiche" },
   { id:"Agenti",          icon:"👥", label:"Agenti" },
   { id:"Impostazioni",    icon:"⚙️", label:"Impostazioni" },
@@ -212,7 +213,7 @@ function LoginPage({onLogin}) {
 
 function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isBroker = utente?.ruolo==="Broker";
-  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi & Break Even","Fatture Agente"];
+  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","Fatture Agente"];
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
     return TAB_AGENTE.includes(t.id);
@@ -2082,10 +2083,10 @@ export default function App() {
           </div>)}
 
 
-          {/* COSTI & BREAK EVEN */}
-          {tab==="Costi & Break Even"&&isBroker&&(<div style={S.sec}>
-            {/* Anno selector */}
-            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center"}}>
+          {/* ── TAB COSTI ── */}
+          {tab==="Break Even"&&isBroker&&(<div style={S.sec}>
+            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+              <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Gestione Costi</h2>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <label style={{fontSize:13,color:"#888"}}>Anno:</label>
                 <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);if(!costi[e.target.value])setCosti({...costi,[e.target.value]:mkCosti()});}}>
@@ -2094,8 +2095,6 @@ export default function App() {
                 </select>
               </div>
             </div>
-
-            {/* KPI Break Even */}
             {(()=>{
               const vociAnno = costi[costiAnno]||mkCosti();
               const totPrevAnnuo = vociAnno.reduce((s,v)=>s+prevAnnuoVoce(v),0);
@@ -2332,8 +2331,35 @@ export default function App() {
                 {obiettivoFatturato===0&&obiettivoQuotaAgenzia===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"0 0 1rem"}}>💡 Imposta gli obiettivi qui sopra per visualizzare le barre di avanzamento</p>}
               </>);
             })()}
+          </div>)}
 
-            {/* Tabella voci di costo — raggruppate per tipo */}
+          {/* ── TAB BREAK EVEN ── */}
+          {tab==="Break Even"&&isBroker&&(<div style={S.sec}>
+            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+              <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📉 Break Even</h2>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <label style={{fontSize:13,color:"#888"}}>Anno:</label>
+                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);}}>
+                  {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>)}
+
+          {/* ── TAB COSTI — Gestione voci ── */}
+          {tab==="Costi"&&isBroker&&(<div style={S.sec}>
+            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+              <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Voci di Costo — {costiAnno}</h2>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <label style={{fontSize:13,color:"#888"}}>Anno:</label>
+                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);if(!costi[e.target.value])setCosti({...costi,[e.target.value]:mkCosti()});}}>
+                  {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                  <option value={String(Number(annoCorrente)+1)}>{Number(annoCorrente)+1}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* KPI Break Even — solo analisi, nessuna modifica voci */}
             {(()=>{
               const vociAnno=costi[costiAnno]||mkCosti();
               // Migrazione: aggiungi tipo se mancante
@@ -2520,7 +2546,7 @@ export default function App() {
           </div>)}
 
           {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
-          {tab==="Costi & Break Even"&&!isBroker&&myAgentId&&(()=>{
+          {tab==="Costi"&&!isBroker&&myAgentId&&(()=>{
             const ag = agenti.find(a=>a.id===myAgentId);
             const mieVoci = costiAgente[myAgentId]?.[costiAgenteAnno] || mkCostiAgente();
             const salvaMieVoci = (nuove) => setCostiAgente({...costiAgente,[myAgentId]:{...(costiAgente[myAgentId]||{}),[costiAgenteAnno]:nuove}});
