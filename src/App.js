@@ -522,6 +522,7 @@ export default function App() {
   const [gpIncSel,setGpIncSel]=useState(null);
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
+  const [rowOpen,setRowOpen]=useState(null);
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
@@ -1497,17 +1498,17 @@ export default function App() {
                 <span style={{fontSize:10,color:"#aaa"}}>{isBroker?"totali agenzia":"tuoi anno corrente"}</span>
               </div>
             </div>
-            <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"auto",maxHeight:"70vh"}}>
+            <table style={{width:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:13}}>
               <thead>
                 <tr style={{background:"#fafaf8",borderBottom:"1px solid #e8e5e0"}}>
-                  <th style={{...S.th,minWidth:100,paddingLeft:12}}>Stato</th>
-                  <th style={{...S.th,minWidth:200}}>Immobile / Proprietario</th>
-                  <th style={{...S.th,minWidth:100}}>Agenti</th>
-                  <th style={{...S.th,minWidth:110,textAlign:"right"}}>Prezzo</th>
-                  <th style={{...S.th,minWidth:110}}>Scadenza</th>
-                  <th style={{...S.th,minWidth:100}}>Proposta</th>
-                  <th style={{...S.th,minWidth:100}}>Azioni</th>
+                  <th style={{...S.th,minWidth:100,paddingLeft:12,position:"sticky",top:0,zIndex:2}}>Stato</th>
+                  <th style={{...S.th,minWidth:200,position:"sticky",top:0,zIndex:2}}>Immobile / Proprietario</th>
+                  <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Agenti</th>
+                  <th style={{...S.th,minWidth:110,textAlign:"right",position:"sticky",top:0,zIndex:2}}>Prezzo</th>
+                  <th style={{...S.th,minWidth:110,position:"sticky",top:0,zIndex:2}}>Scadenza</th>
+                  <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Proposta</th>
+                  <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Azioni</th>
                 </tr>
               </thead>
               <tbody>{incFiltrati.map(inc=>{
@@ -1632,16 +1633,16 @@ export default function App() {
             </div>
             <FiltriProp/>
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
-            <div style={S.tblWrap}><table style={S.tbl}>
+            <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:0}}>
               <thead><tr>
-                <th style={{...S.th,minWidth:110,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Stato</th>
-                <th style={{...S.th,minWidth:160}}>Immobile / Parti</th>
-                <th style={{...S.th,minWidth:100}}>Agenti</th>
-                <th style={{...S.th,minWidth:110,textAlign:"right"}}>Offerta</th>
-                <th style={{...S.th,minWidth:90}}>Provvigioni</th>
-                <th style={{...S.th,minWidth:90}}>Vincolo</th>
-                <th style={{...S.th,minWidth:100}}>Data</th>
-                <th style={{...S.th,minWidth:110}}>Azioni</th>
+                <th style={{...S.th,minWidth:110,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Stato</th>
+                <th style={{...S.th,minWidth:160,position:"sticky",top:0,zIndex:2}}>Immobile / Parti</th>
+                <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Agenti</th>
+                <th style={{...S.th,minWidth:130,textAlign:"right",position:"sticky",top:0,zIndex:2}}>Offerta / Prezzo rich.</th>
+                <th style={{...S.th,minWidth:90,position:"sticky",top:0,zIndex:2}}>Provvigioni</th>
+                <th style={{...S.th,minWidth:90,position:"sticky",top:0,zIndex:2}}>Vincolo</th>
+                <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Data</th>
+                <th style={{...S.th,minWidth:110,position:"sticky",top:0,zIndex:2}}>Azioni</th>
               </tr></thead>
               <tbody>{propFiltrate.map(p=>{
                 const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
@@ -1670,10 +1671,14 @@ export default function App() {
                       {p.buyer&&<span style={{color:"#8E44AD",opacity:.8}}>B: {nomAg(p.buyer)}</span>}
                     </div>
                   </td>
-                  {/* Prezzo */}
-                  <td style={{padding:"10px 12px",textAlign:"right",verticalAlign:"top"}}>
-                    <div style={{fontWeight:500,color:BRAND.oroD,fontSize:13}}>€ {fmtN(p.prezzoOfferto)}</div>
-                  </td>
+                  {/* Prezzo offerta + prezzo incarico */}
+                  <td style={{padding:"10px 12px",textAlign:"right",verticalAlign:"top"}}>{(()=>{
+                    const inc2=incarichi.find(i=>i.id===p.incaricoId);
+                    const diff=inc2&&inc2.prezzoRichiesto?((p.prezzoOfferto/inc2.prezzoRichiesto-1)*100).toFixed(1):null;
+                    return(<><div style={{fontWeight:500,color:BRAND.oroD,fontSize:13}}>€ {fmtN(p.prezzoOfferto)}</div>
+                    {inc2&&inc2.prezzoRichiesto&&<div style={{fontSize:10,color:"#aaa",marginTop:2}}>Rich.: € {fmtN(inc2.prezzoRichiesto)}</div>}
+                    {diff&&<div style={{fontSize:11,fontWeight:500,color:Number(diff)<0?"#E74C3C":"#27AE60",marginTop:1}}>{diff}%</div>}</>);
+                  })()}</td>
                   {/* Provvigioni */}
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
                     <div style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
@@ -1737,43 +1742,36 @@ export default function App() {
             <div style={{marginBottom:"1rem"}}><SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/></div>
             <FiltriVend/>
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
-            <div style={S.tblWrap}><table style={S.tbl}>
+            <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:0}}>
               <thead><tr>
-                <th style={{...S.th,minWidth:100,position:"sticky",left:0,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Stato</th>
-                <th style={{...S.th,minWidth:90,position:"sticky",left:100,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Comune</th>
-                <th style={{...S.th,minWidth:130,position:"sticky",left:90,zIndex:2,background:"#fafaf8",boxShadow:"2px 0 3px rgba(0,0,0,0.08)"}}>Indirizzo</th>
-                <th style={{...S.th,minWidth:120}}>Venditore</th>
-                <th style={{...S.th,minWidth:120}}>Acquirente</th>
-                <th style={{...S.thL,borderLeft:"2px solid #2980B944"}}>Ag. Listing</th><th style={S.thL}>Buyer L.</th><th style={{...S.thL,borderRight:"2px solid #2980B944"}}></th>
-                <th style={{...S.thA,borderLeft:"2px solid #8E44AD44"}}>Ag. Acq.</th><th style={{...S.thA,borderRight:"2px solid #8E44AD44"}}>Buyer</th>
-                <th style={{...S.th,minWidth:180}}>Immobile / Parti</th>
-                <th style={{...S.th,minWidth:100}}>Agenti</th>
-                <th style={{...S.th,minWidth:110,textAlign:"right"}}>Prezzo / Provv.</th>
-                <th style={{...S.th,minWidth:110}}>Rogito / Competenza</th>
-                <th style={{...S.th,minWidth:120}}>Incassato</th>
-                <th style={{...S.th,minWidth:100}}>Azioni</th>
+                <th style={{...S.th,minWidth:100,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Stato</th>
+                <th style={{...S.th,minWidth:220,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Immobile / Parti</th>
+                <th style={{...S.th,minWidth:130,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Agenti</th>
+                <th style={{...S.th,minWidth:120,textAlign:"right",background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Prezzo / Provv.</th>
+                <th style={{...S.th,minWidth:120,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Rogito</th>
+                <th style={{...S.th,minWidth:110,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Incassato</th>
+                <th style={{...S.th,minWidth:90,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Azioni</th>
               </tr></thead>
               <tbody>{vendFiltrati.map(v=>{
                 const statoI=calcolaStatoIncasso(v);
                 const cfg=STATI_INCASSO[statoI]||STATI_INCASSO["Da incassare"];
                 const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
                 const totInc=incV+incA; const totProvv=(v.provvVenditore||0)+(v.provvAcquirente||0);
-                return(<tr key={v.id} style={{opacity:v.bloccato?0.85:1,borderLeft:`4px solid ${cfg.clr}`,borderBottom:"0.5px solid #f5f5f5"}}>
-                  {/* Stato */}
-                  <td style={{padding:"10px 12px",verticalAlign:"top",minWidth:100}}>
+                const isOpen=rowOpen===v.id;
+                return(<React.Fragment key={v.id}>
+                  <tr style={{opacity:v.bloccato?0.85:1,borderLeft:`4px solid ${cfg.clr}`,borderBottom:isOpen?"none":"0.5px solid #f5f5f5",cursor:"pointer",background:isOpen?"#FDFBF7":"#fff"}}
+                    onClick={()=>setRowOpen(isOpen?null:v.id)}>
+                  <td style={{padding:"10px 12px",verticalAlign:"top"}}>
                     <span style={{display:"inline-flex",fontSize:11,padding:"3px 8px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>{cfg.s} {statoI}</span>
-                    {v.bloccato&&<div style={{fontSize:10,color:"#E74C3C",marginTop:3}}>🔒 Bloccato</div>}
+                    {v.bloccato&&<div style={{fontSize:10,color:"#E74C3C",marginTop:3}}>🔒</div>}
                   </td>
-                  {/* Immobile + Parti */}
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
                     <div style={{fontWeight:500,fontSize:12,marginBottom:3}}>{v.comuneImmobile} — {v.indirizzoImmobile}</div>
-                    <div style={{fontSize:11,color:"#888",display:"flex",gap:8,flexWrap:"wrap"}}>
-                      <span>V: {v.nominativoVenditore||"—"}</span>
-                      <span>A: {v.nomeAcquirente||"—"}</span>
+                    <div style={{fontSize:11,color:"#888",display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <span>V: {v.nominativoVenditore||"—"}</span><span>A: {v.nomeAcquirente||"—"}</span>
                       {v.tipologia&&<span style={{color:"#aaa"}}>{v.tipologia}</span>}
                     </div>
                   </td>
-                  {/* Agenti */}
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
                     <div style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
                       {v.agenteListing?<span style={{color:"#2980B9"}}>L: {nomAg(v.agenteListing)}{v.percListing?` ${v.percListing}%`:""}</span>:v.agenziaEsterna?<span style={{color:BRAND.oroD,fontSize:10}}>{v.agenziaEsterna}</span>:null}
@@ -1782,38 +1780,56 @@ export default function App() {
                       {v.buyer&&<span style={{color:"#8E44AD",opacity:.8}}>B: {nomAg(v.buyer)}{v.percBuyer?` ${v.percBuyer}%`:""}</span>}
                     </div>
                   </td>
-                  {/* Prezzo + Provvigioni */}
                   <td style={{padding:"10px 12px",textAlign:"right",verticalAlign:"top"}}>
                     <div style={{fontWeight:500,color:BRAND.oroD,fontSize:13}}>€ {fmtN(v.prezzoVendita)}</div>
-                    <div style={{fontSize:11,color:"#888",marginTop:2}}>
-                      {v.provvVenditore>0&&<span style={{color:"#2980B9"}}>V: € {fmt(v.provvVenditore)} </span>}
-                      {v.provvAcquirente>0&&<span style={{color:"#8E44AD"}}>A: € {fmt(v.provvAcquirente)}</span>}
+                    <div style={{fontSize:11,marginTop:2}}>
+                      {v.provvVenditore>0&&<div style={{color:"#2980B9"}}>V: € {fmt(v.provvVenditore)}</div>}
+                      {v.provvAcquirente>0&&<div style={{color:"#8E44AD"}}>A: € {fmt(v.provvAcquirente)}</div>}
                     </div>
                   </td>
-                  {/* Rogito + Competenza */}
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
                     <div style={{fontSize:12,fontWeight:500}}>{v.tipoAtto||"—"}</div>
-                    <div style={{fontSize:11,color:"#888",marginTop:2}}>{v.dataAtto?fmtD(v.dataAtto):"—"}</div>
-                    {v.competenzaAgenziaDiversa&&v.dataCompetenzaAgenzia&&<div style={{fontSize:10,color:"#2980B9",fontStyle:"italic",marginTop:2}}>🏢 {fmtD(v.dataCompetenzaAgenzia)}</div>}
+                    <div style={{fontSize:11,color:"#888"}}>{v.dataAtto?fmtD(v.dataAtto):"—"}</div>
+                    {v.competenzaAgenziaDiversa&&v.dataCompetenzaAgenzia&&<div style={{fontSize:10,color:"#2980B9",fontStyle:"italic"}}>🏢 {fmtD(v.dataCompetenzaAgenzia)}</div>}
                     {v.competenzaAgenteDiversa&&v.dataCompetenzaAgente&&<div style={{fontSize:10,color:"#8E44AD",fontStyle:"italic"}}>👤 {fmtD(v.dataCompetenzaAgente)}</div>}
                   </td>
-                  {/* Incassato */}
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
-                    <div style={{fontSize:13,fontWeight:500,color:totInc>=totProvv?"#27AE60":"#E67E22"}}>€ {fmt(totInc)}</div>
-                    <div style={{fontSize:10,color:"#aaa",marginTop:2}}>su € {fmt(totProvv)}</div>
-                    {totProvv>0&&<div style={{height:3,background:"#f0f0f0",borderRadius:2,marginTop:4,overflow:"hidden",width:50}}>
-                      <div style={{height:"100%",width:`${Math.min(100,Math.round(totInc/totProvv*100))}%`,background:totInc>=totProvv?"#27AE60":"#E67E22",borderRadius:2}}/>
-                    </div>}
+                    <div style={{fontSize:13,fontWeight:500,color:totInc>=totProvv&&totProvv>0?"#27AE60":"#E67E22"}}>€ {fmt(totInc)}</div>
+                    <div style={{fontSize:10,color:"#aaa"}}>su € {fmt(totProvv)}</div>
+                    {totProvv>0&&<div style={{height:3,background:"#f0f0f0",borderRadius:2,marginTop:3,overflow:"hidden",width:50}}><div style={{height:"100%",width:`${Math.min(100,Math.round(totInc/totProvv*100))}%`,background:totInc>=totProvv?"#27AE60":"#E67E22",borderRadius:2}}/></div>}
                     {v.scadenzaIncasso&&<div style={{fontSize:10,color:"#E67E22",marginTop:2}}>Scad: {fmtD(v.scadenzaIncasso)}</div>}
                   </td>
-                  <td style={S.td}><div style={{display:"flex",gap:4,alignItems:"center"}}>
-                    {!v.bloccato&&<><button style={{...S.btnP,fontSize:12,padding:"4px 8px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
-                    <button style={{...S.btnP,fontSize:12,padding:"4px 8px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
-                    <button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormVend({...v});setShowGestVend(v);}}>✏️</button></>}
-                    <button title={v.bloccato?"Sblocca pratica":"Blocca pratica"} style={{...S.btn,fontSize:14,padding:"4px 8px",color:v.bloccato?"#27AE60":"#E67E22"}} onClick={()=>setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x))}>{v.bloccato?"🔓":"🔒"}</button>
-                    <button style={{...S.btnD,fontSize:11,padding:"3px 8px"}} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare "${v.nominativoVenditore} - ${v.nomeAcquirente}"?`))archiviaVend(v.id);}}>📦</button>
-                  </div></td>
-                </tr>);
+                  <td style={{padding:"10px 12px",verticalAlign:"top"}} onClick={e=>e.stopPropagation()}>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                      {!v.bloccato&&<><button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
+                      <button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
+                      <button style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});setShowGestVend(v);}}>✏️</button></>}
+                      <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:v.bloccato?"#27AE60":"#E67E22"}} onClick={()=>setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x))}>{v.bloccato?"🔓":"🔒"}</button>
+                      <button style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>{if(window.confirm("Archiviare?"))archiviaVend(v.id);}}>📦</button>
+                    </div>
+                  </td>
+                </tr>
+                {isOpen&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
+                  <td colSpan={7} style={{padding:"0 14px 14px 14px"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#2980B9",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Incasso Venditore</p>
+                        {[["Acc.1",v.acc1V,v.dataAcc1V],["Acc.2",v.acc2V,v.dataAcc2V],["Saldo",v.saldoV,v.dataSaldoV]].map(([k,imp,dt])=>Number(imp||0)>0&&(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}{dt?` · ${fmtD(dt)}`:""}</span><strong style={{color:"#2980B9"}}>€ {fmt(imp)}</strong></div>))}
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6,fontWeight:600,borderTop:"1px solid #e8e5e0",paddingTop:4}}><span>Totale</span><span style={{color:"#27AE60"}}>€ {fmt(incV)}</span></div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Incasso Acquirente</p>
+                        {[["Acc.1",v.acc1A,v.dataAcc1A],["Acc.2",v.acc2A,v.dataAcc2A],["Saldo",v.saldoA,v.dataSaldoA]].map(([k,imp,dt])=>Number(imp||0)>0&&(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}{dt?` · ${fmtD(dt)}`:""}</span><strong style={{color:"#8E44AD"}}>€ {fmt(imp)}</strong></div>))}
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6,fontWeight:600,borderTop:"1px solid #e8e5e0",paddingTop:4}}><span>Totale</span><span style={{color:"#27AE60"}}>€ {fmt(incA)}</span></div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
+                        <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Riepilogo pratica</p>
+                        {[["Prezzo vendita",`€ ${fmtN(v.prezzoVendita)}`],["Tipo atto",v.tipoAtto||"—"],["Data atto",v.dataAtto?fmtD(v.dataAtto):"—"],["Scad. incasso",v.scadenzaIncasso?fmtD(v.scadenzaIncasso):"—"],["Note",v.note||"—"]].map(([k,val])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"3px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span style={{fontWeight:500}}>{val}</span></div>))}
+                      </div>
+                    </div>
+                  </td>
+                </tr>}
+                </React.Fragment>);
               })}
               {vendFiltrati.length===0&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessun venduto trovato</td></tr>}
               </tbody>
