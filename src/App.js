@@ -622,6 +622,10 @@ export default function App() {
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
   const [rowOpen,setRowOpen]=useState(null);
+  const [warPeriodo,setWarPeriodo]=useState("settimana");
+  const [warDal,setWarDal]=useState(todayStr());
+  const [warAl,setWarAl]=useState(todayStr());
+  const [warRiunione,setWarRiunione]=useState(false);
   // War Room — traguardi volanti
   const [sfide,setSfide]=useState(_ls?.sfide||[]);
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
@@ -4384,185 +4388,123 @@ export default function App() {
 
           {/* ── WAR ROOM ── */}
           {tab==="War Room"&&(()=>{
-            const oggi=todayStr();
-            // Sfida attiva = quella con dal<=oggi<=al
-            const sfidaAttiva=sfide.find(s=>s.dal<=oggi&&s.al>=oggi&&!s.conclusa);
-            const sfideStorico=sfide.filter(s=>s.al<oggi||s.conclusa);
-
-            // Calcola metrica per ogni agente in un periodo
-            const calcMetrica=(agId,metrica,dal,al)=>{
-              const incAnno=incarichi.filter(i=>i.agenteListing===agId&&i.dataInizio>=dal&&i.dataInizio<=al);
-              const propPer=proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=dal&&(p.dataStato||"")<=al);
-              const vendPer=venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&(v.dataAtto||"")>=dal&&(v.dataAtto||"")<=al);
-              const giorni=Object.entries(operativita[agId]||{}).filter(([d])=>d>=dal&&d<=al);
-              const sum=k=>giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
-              const chiamateTot=giorni.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0)||sum("chiamate");
-              switch(metrica){
-                case "acquisizioni": return incAnno.length;
-                case "fatturato": return vendPer.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-                case "chiamate": return chiamateTot;
-                case "oh": return giorni.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
-                case "proposte": return propPer.length;
-                default: return 0;
+            const oggi2=todayStr();
+            const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
+            const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
+            const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",oh:"🚪 Open House",proposte:"📝 Proposte"};
+            const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
+            const PEMOJI2=["🥇","🥈","🥉","4°","5°"];
+            const getPeriodo=()=>{
+              const d=new Date();const y=d.getFullYear();const m=d.getMonth();
+              if(warPeriodo==="settimana"){const day=d.getDay()||7;const lun=new Date(d);lun.setDate(d.getDate()-day+1);const sab=new Date(lun);sab.setDate(lun.getDate()+5);return[lun.toISOString().slice(0,10),sab.toISOString().slice(0,10)];}
+              if(warPeriodo==="mese"){return[`${y}-${String(m+1).padStart(2,"0")}-01`,new Date(y,m+1,0).toISOString().slice(0,10)];}
+              if(warPeriodo==="anno"){return[`${warAnno}-01-01`,`${warAnno}-12-31`];}
+              return[warDal,warAl];
+            };
+            const [dal2,al2]=getPeriodo();
+            const calcM2=(agId,metr,d1,d2)=>{
+              const incP=incarichi.filter(i=>i.agenteListing===agId&&i.dataInizio>=d1&&i.dataInizio<=d2);
+              const vendP=venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&(v.dataAtto||"")>=d1&&(v.dataAtto||"")<=d2);
+              const gg=Object.entries(operativita[agId]||{}).filter(([d])=>d>=d1&&d<=d2);
+              const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+              switch(metr){
+                case "acquisizioni":return incP.length;
+                case "fatturato":return vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+                case "chiamate":return ch;
+                case "oh":return gg.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
+                case "proposte":return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;
+                default:return 0;
               }
             };
-
-            const METRICHE={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",oh:"🚪 Open House",proposte:"📝 Proposte"};
-            const PODIO_CLR=["#D4AC0D","#888","#CD7F32","#555","#777"];
-            const PODIO_EMOJI=["🥇","🥈","🥉","4°","5°"];
-
-            // Dati operatività settimana corrente
-            const lunedi=(()=>{const d=new Date();const day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d.toISOString().slice(0,10);})();
-            const sabato=(()=>{const d=new Date(lunedi);d.setDate(d.getDate()+5);return d.toISOString().slice(0,10);})();
-
-            // Obiettivo team
-            const mesiAnno=Array.from({length:12},(_,i)=>`${warAnno}-${String(i+1).padStart(2,"0")}`);
-            const obFattTeam=agenti.reduce((s,ag)=>{
-              const maxOb=Math.max(...mesiAnno.map(m=>{const ob=(obiettiviOp[ag.id]||{})[m]||{};const p=ob.proposti||ob||{};return Number(p.fatturato||0);}));
-              return s+(maxOb>0?maxOb*12:0);
-            },0)||obiettivoFatturato||0;
-
-            const fattAnno=venduti.filter(v=>getAnno(dataCompAgenzia(v))===warAnno).reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-            const percFatt=obFattTeam>0?Math.min(100,Math.round(fattAnno/obFattTeam*100)):0;
-
-            return(<div style={S.sec}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem",flexWrap:"wrap",gap:8}}>
-                <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room</h2>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <select style={S.sel} value={warAnno} onChange={e=>setWarAnno(e.target.value)}>
-                    {[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+            const prodAg=agenti.map(ag=>{
+              const acq=incarichi.filter(i=>i.agenteListing===ag.id&&i.dataInizio>=dal2&&i.dataInizio<=al2).length;
+              const prop=proposte.filter(p=>(p.agenteListing===ag.id||p.agenteAcquirente===ag.id)&&(p.dataStato||"")>=dal2&&(p.dataStato||"")<=al2).length;
+              const vendP=venduti.filter(v=>(v.agenteListing===ag.id||v.agenteAcquirente===ag.id)&&(v.dataAtto||"")>=dal2&&(v.dataAtto||"")<=al2);
+              const fatt=vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+              const gg=Object.entries(operativita[ag.id]||{}).filter(([d])=>d>=dal2&&d<=al2);
+              const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+              const giorniC=gg.filter(([,g])=>Object.values(g).some(v=>Number(v||0)>0)).length;
+              return{ag,acq,prop,vend:vendP.length,fatt,ch,giorniC};
+            });
+            const mesiW=Array.from({length:12},(_,i)=>`${warAnno}-${String(i+1).padStart(2,"0")}`);
+            const obFattW=agenti.reduce((s,ag)=>{const mx=Math.max(0,...mesiW.map(m=>{const ob=(obiettiviOp[ag.id]||{})[m]||{};const p=ob.proposti||ob||{};return Number(p.fatturato||0);}));return s+(mx>0?mx*12:0);},0)||obiettivoFatturato||0;
+            const fattW=venduti.filter(v=>getAnno(dataCompAgenzia(v))===warAnno).reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+            const percW=obFattW>0?Math.min(100,Math.round(fattW/obFattW*100)):0;
+            const sezW={background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1rem"};
+            return(<div style={{...S.sec,...(warRiunione?{position:"fixed",inset:0,zIndex:1000,background:"#F5F3EE",overflowY:"auto",padding:"1.5rem"}:{})}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem",flexWrap:"wrap",gap:8}}>
+                <h2 style={{fontSize:warRiunione?24:16,fontWeight:600,margin:0}}>🏆 War Room</h2>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  <select style={S.sel} value={warPeriodo} onChange={e=>setWarPeriodo(e.target.value)}>
+                    <option value="settimana">Settimana</option><option value="mese">Mese</option><option value="anno">Anno</option><option value="custom">Personalizzato</option>
                   </select>
-                  {isBroker&&<button style={{...S.btn,fontSize:11,padding:"4px 12px",borderColor:"#E67E22",color:"#E67E22"}} onClick={()=>setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""})}>+ Traguardo volante</button>}
+                  {warPeriodo==="anno"&&<select style={S.sel} value={warAnno} onChange={e=>setWarAnno(e.target.value)}>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</select>}
+                  {warPeriodo==="custom"&&<><input type="date" style={{...S.sel,width:130}} value={warDal} onChange={e=>setWarDal(e.target.value)}/><input type="date" style={{...S.sel,width:130}} value={warAl} onChange={e=>setWarAl(e.target.value)}/></>}
+                  <button style={{...S.btnP,fontSize:12,padding:"5px 14px",background:warRiunione?"#27AE60":"#2C2C2C",borderColor:warRiunione?"#27AE60":"#2C2C2C"}} onClick={()=>setWarRiunione(!warRiunione)}>{warRiunione?"✕ Esci":"📽 Riunione"}</button>
+                  {isBroker&&<button style={{...S.btn,fontSize:11,padding:"4px 12px",borderColor:"#E67E22",color:"#E67E22"}} onClick={()=>setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""})}>+ Traguardo</button>}
                 </div>
               </div>
-
-              {/* TERMOMETRO OBIETTIVO TEAM */}
-              <div style={{background:"linear-gradient(135deg,#1a1a2e,#16213e)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
+              <div style={{fontSize:11,color:"#aaa",marginBottom:"1rem"}}>Periodo: {fmtD(dal2)} → {fmtD(al2)}</div>
+              <div style={{background:"linear-gradient(135deg,#1a1a2e,#16213e)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1rem",color:"#fff"}}>
                 <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 8px"}}>🎯 Obiettivo team {warAnno}</p>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:12,flexWrap:"wrap",gap:8}}>
-                  <div>
-                    <div style={{fontSize:28,fontWeight:700}}>€ {fmt(fattAnno)}</div>
-                    <div style={{fontSize:12,color:"#aaa"}}>su obiettivo € {fmt(obFattTeam)}</div>
-                  </div>
-                  <div style={{textAlign:"right"}}>
-                    <div style={{fontSize:32,fontWeight:700,color:percFatt>=100?"#27AE60":percFatt>=50?"#D4AC0D":"#E74C3C"}}>{percFatt}%</div>
-                    {percFatt<100&&<div style={{fontSize:11,color:"#aaa"}}>mancano € {fmt(obFattTeam-fattAnno)}</div>}
-                    {percFatt>=100&&<div style={{fontSize:11,color:"#27AE60"}}>✅ Obiettivo raggiunto!</div>}
-                  </div>
+                  <div><div style={{fontSize:warRiunione?36:28,fontWeight:700}}>€ {fmt(fattW)}</div><div style={{fontSize:12,color:"#aaa"}}>su € {fmt(obFattW)}</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:warRiunione?48:32,fontWeight:700,color:percW>=100?"#27AE60":percW>=50?"#D4AC0D":"#E74C3C"}}>{percW}%</div>{percW<100&&<div style={{fontSize:12,color:"#aaa"}}>mancano € {fmt(obFattW-fattW)}</div>}</div>
                 </div>
-                {/* Barra termometro */}
-                <div style={{height:20,background:"rgba(255,255,255,.1)",borderRadius:10,overflow:"hidden",position:"relative"}}>
-                  <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":percFatt>=50?"linear-gradient(90deg,#D4AC0D,#E67E22)":"linear-gradient(90deg,#E74C3C,#C0392B)",borderRadius:10,transition:"width .8s ease",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:10}}>
-                    {percFatt>20&&<span style={{fontSize:12,fontWeight:600,color:"#fff"}}>{percFatt}%</span>}
+                <div style={{height:warRiunione?28:20,background:"rgba(255,255,255,.1)",borderRadius:14,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${percW}%`,background:percW>=100?"#27AE60":percW>=50?"linear-gradient(90deg,#D4AC0D,#E67E22)":"linear-gradient(90deg,#E74C3C,#C0392B)",borderRadius:14,display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:12}}>
+                    {percW>15&&<span style={{fontSize:warRiunione?16:12,fontWeight:600,color:"#fff"}}>{percW}%</span>}
                   </div>
                 </div>
               </div>
-
-              {/* TRAGUARDO VOLANTE ATTIVO */}
-              {sfidaAttiva&&(()=>{
-                const ggRimasti=Math.max(0,Math.round((new Date(sfidaAttiva.al)-new Date())/86400000));
-                const classifica=agenti.map(ag=>({ag,val:calcMetrica(ag.id,sfidaAttiva.metrica,sfidaAttiva.dal,sfidaAttiva.al)})).sort((a,b)=>b.val-a.val);
-                return(<div style={{background:"#fff",borderRadius:12,border:"2px solid #D4AC0D",padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
-                    <div>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                        <span style={{fontSize:16,fontWeight:700,color:"#D4AC0D"}}>🏆 {sfidaAttiva.nome}</span>
-                        <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:"#E9F7EF",color:"#27AE60",fontWeight:600}}>Attiva</span>
-                      </div>
-                      <p style={{fontSize:12,color:"#888",margin:0}}>{METRICHE[sfidaAttiva.metrica]} · {fmtD(sfidaAttiva.dal)} → {fmtD(sfidaAttiva.al)} · 🎁 {sfidaAttiva.premio}</p>
-                    </div>
-                    <div style={{textAlign:"right",flexShrink:0}}>
-                      <div style={{fontSize:11,color:"#aaa"}}>Scade tra</div>
-                      <div style={{fontSize:24,fontWeight:700,color:ggRimasti<7?"#E74C3C":"#E67E22"}}>{ggRimasti} gg</div>
-                    </div>
+              {sfidaAtt2&&(()=>{
+                const ggR=Math.max(0,Math.round((new Date(sfidaAtt2.al)-new Date())/86400000));
+                const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al)})).sort((a,b)=>b.val-a.val);
+                return(<div style={{...sezW,border:"2px solid #D4AC0D"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                    <div><div style={{fontSize:warRiunione?20:15,fontWeight:700,color:"#D4AC0D",marginBottom:4}}>🏆 {sfidaAtt2.nome}</div><p style={{fontSize:12,color:"#888",margin:0}}>{METR2[sfidaAtt2.metrica]} · {fmtD(sfidaAtt2.dal)}→{fmtD(sfidaAtt2.al)} · 🎁 {sfidaAtt2.premio}</p></div>
+                    <div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:10,color:"#aaa"}}>Scade tra</div><div style={{fontSize:warRiunione?32:22,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR} gg</div></div>
                   </div>
-                  {/* Podio */}
                   <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agenti.length,4)},1fr)`,gap:8}}>
-                    {classifica.slice(0,4).map(({ag,val},i)=>(
-                      <div key={ag.id} style={{background:i===0?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,padding:"12px",textAlign:"center",border:i===0?"1px solid #D4AC0D":"0.5px solid #eee"}}>
-                        <div style={{fontSize:24,marginBottom:4}}>{PODIO_EMOJI[i]}</div>
-                        <div style={{width:32,height:32,borderRadius:"50%",background:`linear-gradient(135deg,${PODIO_CLR[i]},${PODIO_CLR[i]}88)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:"#fff",margin:"0 auto 6px"}}>{ag.nome.charAt(0)}</div>
-                        <div style={{fontSize:12,fontWeight:500,marginBottom:4}}>{ag.nome}</div>
-                        <div style={{fontSize:22,fontWeight:700,color:PODIO_CLR[i]}}>{sfidaAttiva.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
-                        <div style={{fontSize:10,color:"#aaa"}}>{METRICHE[sfidaAttiva.metrica]}</div>
-                      </div>
-                    ))}
+                    {cl.slice(0,4).map(({ag,val},i)=>(<div key={ag.id} style={{background:i===0?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,padding:warRiunione?"14px":"10px",textAlign:"center",border:i===0?"1px solid #D4AC0D":"0.5px solid #eee"}}>
+                      <div style={{fontSize:warRiunione?28:22,marginBottom:4}}>{PEMOJI2[i]}</div>
+                      <div style={{width:warRiunione?36:28,height:warRiunione?36:28,borderRadius:"50%",background:PCLR2[i],display:"flex",alignItems:"center",justifyContent:"center",fontSize:warRiunione?14:11,fontWeight:700,color:"#fff",margin:"0 auto 4px"}}>{ag.nome.charAt(0)}</div>
+                      <div style={{fontSize:warRiunione?14:11,fontWeight:500,marginBottom:2}}>{ag.nome}</div>
+                      <div style={{fontSize:warRiunione?24:18,fontWeight:700,color:PCLR2[i]}}>{sfidaAtt2.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
+                    </div>))}
                   </div>
-                  {isBroker&&<button style={{...S.btnD,fontSize:11,marginTop:10,padding:"4px 12px"}} onClick={()=>setSfide(sfide.map(s=>s===sfidaAttiva?{...s,conclusa:true}:s))}>Concludi sfida</button>}
+                  {isBroker&&<button style={{...S.btnD,fontSize:11,marginTop:8}} onClick={()=>setSfide(sfide.map(s=>s===sfidaAtt2?{...s,conclusa:true}:s))}>Concludi sfida</button>}
                 </div>);
               })()}
-
-              {/* OPERATIVITA' SETTIMANA */}
-              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
-                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 12px"}}>📅 Operatività settimana corrente ({fmtD(lunedi)} – {fmtD(sabato)})</p>
-                <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
-                    <thead><tr style={{background:"#fafaf8"}}>
-                      {["Agente","Giorni","📞 Chiam.","🤝 Appt.","🏠 Acq.","🚪 OH","📝 Prop.","% Obj."].map(h=><th key={h} style={{...S.th,textAlign:"center",padding:"8px 10px"}}>{h}</th>)}
-                    </tr></thead>
-                    <tbody>{agenti.filter(a=>a.profilo!=="Broker"||isBroker).map(ag=>{
-                      const giorni=Object.entries(operativita[ag.id]||{}).filter(([d])=>d>=lunedi&&d<=sabato);
-                      const sum=k=>giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
-                      const chiamate=giorni.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0)||sum("chiamate");
-                      const giorniComp=giorni.filter(([,g])=>Object.values(g).some(v=>Number(v||0)>0||v===true)).length;
-                      // Obiettivo mensile per questa settimana (÷4)
-                      const meseCorr=`${warAnno}-${warMese}`;
-                      const ob=(obiettiviOp[ag.id]||{})[meseCorr]||{};
-                      const obP=ob.proposti||ob||{};
-                      const obChiam=Number(obP.chiamate||0)/4;
-                      const percOb=obChiam>0?Math.min(100,Math.round(chiamate/obChiam*100)):null;
-                      const clrAv=percOb===null?"#aaa":percOb>=80?"#27AE60":percOb>=50?"#D4AC0D":"#E74C3C";
-                      return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
-                        <td style={{padding:"8px 10px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div><span style={{fontWeight:500}}>{ag.nome}</span></div></td>
-                        <td style={{...S.tdC}}><span style={{fontSize:11,padding:"2px 6px",borderRadius:3,background:giorniComp>=5?"#E9F7EF":giorniComp>=3?"#FEF9E7":"#FCEBEB",color:giorniComp>=5?"#27AE60":giorniComp>=3?"#D4AC0D":"#E74C3C",fontWeight:500}}>{giorniComp}/6</span></td>
-                        <td style={{...S.tdC,fontWeight:500,color:"#185FA5"}}>{chiamate||"—"}</td>
-                        <td style={S.tdC}>{sum("appuntamenti")||"—"}</td>
-                        <td style={S.tdC}>{incarichi.filter(i=>i.agenteListing===ag.id&&i.dataInizio>=lunedi&&i.dataInizio<=sabato).length||"—"}</td>
-                        <td style={S.tdC}>{giorni.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0)||"—"}</td>
-                        <td style={S.tdC}>{proposte.filter(p=>(p.agenteListing===ag.id||p.agenteAcquirente===ag.id)&&(p.dataStato||"")>=lunedi&&(p.dataStato||"")<=sabato).length||"—"}</td>
-                        <td style={{...S.tdC,color:clrAv,fontWeight:500}}>{percOb!==null?`${percOb}%`:"—"}</td>
-                      </tr>);
-                    })}</tbody>
-                  </table>
-                </div>
+              <div style={sezW}>
+                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 12px"}}>📊 Produzione nel periodo</p>
+                <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:warRiunione?14:12,minWidth:480}}>
+                  <thead><tr style={{background:"#fafaf8"}}>{["Agente","📅","📞","🏠","📝","✅","💰"].map(h=><th key={h} style={{...S.th,textAlign:"center",padding:warRiunione?"12px":"8px"}}>{h}</th>)}</tr></thead>
+                  <tbody>{prodAg.map(({ag,acq,prop,vend,fatt,ch,giorniC})=>(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                    <td style={{padding:warRiunione?"12px":"8px 10px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:warRiunione?30:22,height:warRiunione?30:22,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:warRiunione?13:10,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div><span style={{fontWeight:500,fontSize:warRiunione?14:12}}>{ag.nome}</span></div></td>
+                    <td style={{...S.tdC}}><span style={{fontSize:10,padding:"2px 5px",borderRadius:3,background:giorniC>=5?"#E9F7EF":giorniC>=3?"#FEF9E7":"#FCEBEB",color:giorniC>=5?"#27AE60":giorniC>=3?"#D4AC0D":"#E74C3C",fontWeight:500}}>{giorniC}</span></td>
+                    <td style={{...S.tdC,fontWeight:500,color:"#185FA5",fontSize:warRiunione?14:12}}>{ch||"—"}</td>
+                    <td style={{...S.tdC,fontWeight:500,color:"#533AB7",fontSize:warRiunione?14:12}}>{acq||"—"}</td>
+                    <td style={{...S.tdC,fontSize:warRiunione?14:12}}>{prop||"—"}</td>
+                    <td style={{...S.tdC,fontWeight:500,color:"#8E44AD",fontSize:warRiunione?14:12}}>{vend||"—"}</td>
+                    <td style={{...S.tdR,fontWeight:600,color:BRAND.oroD,fontSize:warRiunione?14:12}}>{fatt>0?`€ ${fmt(fatt)}`:"—"}</td>
+                  </tr>))}</tbody>
+                </table></div>
               </div>
-
-              {/* STORICO SFIDE */}
-              {sfideStorico.length>0&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
-                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>Storico traguardi volanti</p>
-                {sfideStorico.map((s,i)=>{
-                  const classifica=agenti.map(ag=>({ag,val:calcMetrica(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
-                  const vincitore=classifica[0];
-                  return(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap",gap:6}}>
-                    <div>
-                      <span style={{fontSize:12,fontWeight:500}}>{s.nome}</span>
-                      <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{METRICHE[s.metrica]} · {fmtD(s.dal)}–{fmtD(s.al)}</span>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      {vincitore&&vincitore.val>0&&<span style={{fontSize:12,color:"#D4AC0D",fontWeight:600}}>🥇 {vincitore.ag.nome}: {s.metrica==="fatturato"?`€ ${fmt(vincitore.val)}`:vincitore.val}</span>}
-                      <span style={{fontSize:11,color:"#aaa"}}>🎁 {s.premio}</span>
-                    </div>
-                  </div>);
-                })}
+              {sfideStor.length>0&&!warRiunione&&(<div style={sezW}>
+                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>Storico traguardi</p>
+                {sfideStor.map((s,i)=>{const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);const w=cl[0];return(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap",gap:4}}><div><span style={{fontSize:12,fontWeight:500}}>{s.nome}</span><span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{METR2[s.metrica]} · {fmtD(s.dal)}–{fmtD(s.al)}</span></div><div style={{display:"flex",gap:8}}>{w&&w.val>0&&<span style={{fontSize:12,color:"#D4AC0D",fontWeight:600}}>🥇 {w.ag.nome}: {s.metrica==="fatturato"?`€ ${fmt(w.val)}`:w.val}</span>}<span style={{fontSize:11,color:"#aaa"}}>🎁 {s.premio}</span></div></div>);})}
               </div>)}
-
-              {/* FORM CREA SFIDA (solo broker) */}
-              {isBroker&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem"}}>
-                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 12px"}}>⚡ Crea nuovo traguardo volante</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Nome sfida</label><input style={S.inp} value={formSfida.nome} placeholder="es. Maggio Sprint" onChange={e=>setFormSfida({...formSfida,nome:e.target.value})}/></div>
-                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Metrica</label><select style={S.sel} value={formSfida.metrica} onChange={e=>setFormSfida({...formSfida,metrica:e.target.value})}>
-                    {Object.entries(METRICHE).map(([v,l])=><option key={v} value={v}>{l}</option>)}
-                  </select></div>
-                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Dal</label><input type="date" style={S.inp} value={formSfida.dal} onChange={e=>setFormSfida({...formSfida,dal:e.target.value})}/></div>
-                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Al</label><input type="date" style={S.inp} value={formSfida.al} onChange={e=>setFormSfida({...formSfida,al:e.target.value})}/></div>
+              {isBroker&&!warRiunione&&(<div style={sezW}>
+                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>⚡ Crea traguardo volante</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Nome</label><input style={S.inp} value={formSfida.nome} placeholder="es. Maggio Sprint" onChange={e=>setFormSfida({...formSfida,nome:e.target.value})}/></div>
+                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Metrica</label><select style={S.sel} value={formSfida.metrica} onChange={e=>setFormSfida({...formSfida,metrica:e.target.value})}>{Object.entries(METR2).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
+                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Dal</label><input type="date" style={S.inp} value={formSfida.dal} onChange={e=>setFormSfida({...formSfida,dal:e.target.value})}/></div>
+                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Al</label><input type="date" style={S.inp} value={formSfida.al} onChange={e=>setFormSfida({...formSfida,al:e.target.value})}/></div>
                 </div>
-                <div style={{marginBottom:10}}><label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Premio 🎁</label><input style={S.inp} value={formSfida.premio} placeholder="es. Cena al ristorante, buono €100..." onChange={e=>setFormSfida({...formSfida,premio:e.target.value})}/></div>
-                <button style={{...S.btnP,width:"100%",padding:9}} onClick={()=>{
-                  if(!formSfida.nome||!formSfida.al){alert("Inserisci nome e data fine sfida");return;}
-                  setSfide([...sfide,{...formSfida,id:Date.now(),conclusa:false}]);
-                  setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
-                }}>🏆 Avvia traguardo volante</button>
+                <div style={{marginBottom:8}}><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Premio 🎁</label><input style={S.inp} value={formSfida.premio} placeholder="es. Cena, buono €100..." onChange={e=>setFormSfida({...formSfida,premio:e.target.value})}/></div>
+                <button style={{...S.btnP,width:"100%",padding:9}} onClick={()=>{if(!formSfida.nome||!formSfida.al){alert("Inserisci nome e data fine");return;}setSfide([...sfide,{...formSfida,id:Date.now(),conclusa:false}]);setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});}}>🏆 Avvia traguardo</button>
               </div>)}
             </div>);
           })()}
