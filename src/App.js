@@ -3701,8 +3701,7 @@ export default function App() {
 
             // ── CALCOLI REPORT MENSILE ──────────────────────────────────────
             const calcReport = (agId, mese) => {
-              const agIdK=Number(agId)||agId;
-              const giorni = Object.entries(operativita[agIdK]||{}).filter(([d])=>d&&typeof d==="string"&&d.startsWith(mese));
+              const giorni = Object.entries(operativita[agId]||{}).filter(([d])=>d.startsWith(mese));
               const sum = (k) => giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
               const sumArr = (arr,k) => giorni.reduce((s,[,g])=>s+(g[arr]||[]).reduce((a,x)=>a+Number(x[k]||0),0),0);
               const sumNested = (parent,k) => giorni.reduce((s,[,g])=>s+Number((g[parent]||{})[k]||0),0);
@@ -3726,7 +3725,6 @@ export default function App() {
                 rogiti:vendMese.filter(v=>v.dataAtto).length,
                 ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"), stories:sum("stories"),
                 oreSviluppo:sum("oreSviluppo"), oreAmm:sum("oreAmm"),
-                oreMarketing:sum("postSocial")+sum("video")+sum("stories"),
               };
             };
 
