@@ -1643,7 +1643,36 @@ export default function App() {
               const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
               const prossimiR=venduti.filter(v=>{if(!v.dataAtto)return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
               const alertP=incarichi.filter(i=>!i.archiviato&&statoInc(i)!=="Venduto").map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
-              return(<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginTop:"1rem"}}>
+              const sfidaAttBr=sfide.find(s=>s.dal<=todayStr()&&s.al>=todayStr()&&!s.conclusa);
+              const METRB={acquisizioni:"🏠",fatturato:"💰",chiamate:"📞",oh:"🚪",proposte:"📝",chiamate_ci:"📞CI",chiamate_cp:"📞CP",appuntamenti:"🤝",immVisitati:"👁",postSocial:"📱"};
+              const PCLRB=["#D4AC0D","#888","#CD7F32","#555"];
+              const PEMOJIB=["🥇","🥈","🥉","4°"];
+              const calcMB=(agId,metr,d1,d2)=>{
+                const incP=incarichi.filter(i=>i.agenteListing===agId&&i.dataInizio>=d1&&i.dataInizio<=d2);
+                const vendP=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(v.agenteListing===agId||v.agenteAcquirente===agId)&&dc>=d1&&dc<=d2;});
+                const gg=Object.entries(operativita[agId]||{}).filter(([d])=>d>=d1&&d<=d2);
+                const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+                switch(metr){case "acquisizioni":return incP.length;case "fatturato":return vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);case "chiamate":return ch;default:return 0;}
+              };
+              return(<div style={{marginTop:"1rem"}}>
+              {sfidaAttBr&&(()=>{
+                const cl=agenti.map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
+                const ggR=Math.max(0,Math.round((toD(sfidaAttBr.al)-oggiD)/86400000));
+                return(<div style={{background:"linear-gradient(135deg,#FDF6EC,#FAEEDA)",borderRadius:10,border:"1px solid #D4AC0D44",padding:"1rem",marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                    <div><div style={{fontSize:13,fontWeight:700,color:"#D4AC0D",marginBottom:2}}>🏆 {sfidaAttBr.nome}</div><div style={{fontSize:11,color:"#aaa"}}>{METRB[sfidaAttBr.metrica]||sfidaAttBr.metrica} · 🎁 {sfidaAttBr.premio}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Scade tra</div><div style={{fontSize:18,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR}gg</div></div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agenti.length,4)},1fr)`,gap:6}}>
+                    {cl.slice(0,4).map(({ag,val},i)=>(<div key={ag.id} style={{background:i===0?"#fff":"#fafaf8",borderRadius:8,padding:"8px",textAlign:"center",border:i===0?"0.5px solid #D4AC0D":"0.5px solid #eee"}}>
+                      <div style={{fontSize:16}}>{PEMOJIB[i]}</div>
+                      <div style={{fontSize:11,fontWeight:500,marginTop:2}}>{ag.nome}</div>
+                      <div style={{fontSize:13,fontWeight:700,color:PCLRB[i]}}>{sfidaAttBr.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
+                    </div>))}
+                  </div>
+                </div>);
+              })()}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
                   {prossimiR.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
@@ -1660,7 +1689,7 @@ export default function App() {
                     <div style={{fontSize:11,color:"#E74C3C"}}>{al[0].lbl}{al.length>1?` +${al.length-1}`:""}</div>
                   </div>))}
                 </div>
-              </div>);
+              </div></div>);
             })()}
             </>)}
           </div>)}
@@ -3361,6 +3390,7 @@ export default function App() {
             const FormGiornata = ({agId, data}) => {
               const cacheKey=`${agId}_${data}`;
               const g={...autoCompila(agId,data),...(opFormCache[cacheKey]||{})};
+              const [saved,setSaved]=React.useState(false);
               const isSabato=new Date(data).getDay()===6;
               const upd=(k,v)=>{
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[k]:v}}));
@@ -3373,7 +3403,7 @@ export default function App() {
                 salvaGiornata(agId,data,{chiamate_tipi:n,chiamate:tot});
               };
               const updN=(k,delta)=>upd(k,Math.max(0,(Number(g[k]||0))+delta));
-              const updH=(k,delta)=>upd(k,Math.max(0,(Number(g[k]||0))+0.5*delta));
+              const updH=(k,delta)=>upd(k,Math.max(0,parseFloat(((Number(g[k]||0))+0.5*delta).toFixed(1))));
               const updChN=(k,delta)=>updCh(k,Math.max(0,(Number((g.chiamate_tipi||{})[k]||0))+delta));
               const updImm=(idx,k,v)=>{
                 const arr=[...(g.attImm||[])];
@@ -3383,181 +3413,160 @@ export default function App() {
                 salvaGiornata(agId,data,{attImm:arr});
               };
               const addImmobile=()=>{
-                const arr=[...(g.attImm||[]),{incId:"",cartello:false,lettAMV:false,lettOH:false,volVend:false,reportProp:false,ribasso:false,tipoVol:"",modalita:"",copie:0}];
+                const arr=[...(g.attImm||[]),{incId:"",cartello:false,lettAMV:false,lettOH:false,volVend:false,reportProp:false,ribasso:false,tipoVol:"",modalita:"Di persona",copie:0}];
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),attImm:arr}}));
                 salvaGiornata(agId,data,{attImm:arr});
               };
-              const toggleSviluppo=(tipo)=>{
-                const cur=g.tipiSviluppoSel||[];
+              const toggleChip=(k,tipo)=>{
+                const cur=g[k]||[];
                 const next=cur.includes(tipo)?cur.filter(t=>t!==tipo):[...cur,tipo];
-                upd("tipiSviluppoSel",next);
-              };
-              const toggleAmm=(tipo)=>{
-                const cur=g.tipiAmmSel||[];
-                const next=cur.includes(tipo)?cur.filter(t=>t!==tipo):[...cur,tipo];
-                upd("tipiAmmSel",next);
+                upd(k,next);
               };
               const incarichiAg=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(isBroker||i.agenteListing===agId));
               const ct=g.chiamate_tipi||{};
               const totCh=Object.values(ct).reduce((s,x)=>s+Number(x||0),0);
-              const CHIP_SW={display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:20,fontSize:11,cursor:"pointer",border:"0.5px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)",color:"var(--color-text-secondary)",transition:"all .15s",marginBottom:4,marginRight:4};
-              const CHIP_ON={...CHIP_SW,background:"#E6F1FB",borderColor:"#185FA5",color:"#0C447C",fontWeight:500};
-              const SCARD={background:"var(--color-background-primary)",border:"0.5px solid var(--color-border-tertiary)",borderRadius:"var(--border-radius-lg)",padding:"1rem 1.25rem",marginBottom:8};
-              const SHDR={display:"flex",alignItems:"center",gap:8,marginBottom:10};
-              const DOT=(clr)=>(<div style={{width:4,height:16,borderRadius:2,background:clr,flexShrink:0}}/>);
-              const NR=({label,k,step=1,unit=""})=>(
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid var(--color-border-tertiary)"}}>
-                  <span style={{fontSize:12,color:"var(--color-text-primary)"}}>{label}</span>
+
+              // Stili locali
+              const CARD={background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"14px 16px",marginBottom:10};
+              const HDOT=(clr)=><div style={{width:4,height:18,borderRadius:2,background:clr,flexShrink:0}}/>;
+              const HLBL=(lbl,clr,badge)=>(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                {HDOT(clr)}
+                <span style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888"}}>{lbl}</span>
+                {badge&&<span style={{marginLeft:"auto",fontSize:11,padding:"2px 8px",borderRadius:12,background:clr+"18",color:clr,fontWeight:600}}>{badge}</span>}
+              </div>);
+              const Stepper=({label,k,step=1,auto=false,last=false})=>{
+                const val=step===0.5?`${g[k]||0}h`:(g[k]||0);
+                return(<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:last?"none":"0.5px solid #f5f5f5"}}>
+                  <span style={{fontSize:12,color:"#2c2c2c"}}>{label}{auto&&<span style={{fontSize:10,color:"#27AE60",marginLeft:4}}>✓</span>}</span>
                   <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--color-text-secondary)",fontFamily:"inherit"}} onClick={()=>step===0.5?updH(k,-1):updN(k,-1)}>−</button>
-                    <span style={{fontSize:13,fontWeight:500,minWidth:30,textAlign:"center"}}>{step===0.5?`${g[k]||0}h`:g[k]||0}{unit}</span>
-                    <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--color-text-secondary)",fontFamily:"inherit"}} onClick={()=>step===0.5?updH(k,1):updN(k,1)}>+</button>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>step===0.5?updH(k,-1):updN(k,-1)}>−</button>
+                    <span style={{fontSize:13,fontWeight:600,minWidth:32,textAlign:"center",color:"#2c2c2c"}}>{val}</span>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>step===0.5?updH(k,1):updN(k,1)}>+</button>
+                  </div>
+                </div>);
+              };
+              const StepperCh=({label,k,last=false})=>(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:last?"none":"0.5px solid #f5f5f5"}}>
+                  <span style={{fontSize:12,color:"#2c2c2c"}}>{label}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>updChN(k,-1)}>−</button>
+                    <span style={{fontSize:13,fontWeight:600,minWidth:32,textAlign:"center",color:"#2c2c2c"}}>{ct[k]||0}</span>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>updChN(k,1)}>+</button>
                   </div>
                 </div>
               );
-              const NLAST=({label,k,step=1})=>(
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0"}}>
-                  <span style={{fontSize:12,color:"var(--color-text-primary)"}}>{label}</span>
-                  <div style={{display:"flex",alignItems:"center",gap:6}}>
-                    <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}} onClick={()=>step===0.5?updH(k,-1):updN(k,-1)}>−</button>
-                    <span style={{fontSize:13,fontWeight:500,minWidth:30,textAlign:"center"}}>{step===0.5?`${g[k]||0}h`:g[k]||0}</span>
-                    <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"inherit"}} onClick={()=>step===0.5?updH(k,1):updN(k,1)}>+</button>
-                  </div>
-                </div>
-              );
+              const Chip=({label,k,tipo,clrOn="#185FA5"})=>{
+                const on=(g[k]||[]).includes(tipo);
+                return(<span onClick={()=>toggleChip(k,tipo)} style={{display:"inline-flex",padding:"5px 12px",borderRadius:20,fontSize:11,cursor:"pointer",border:`0.5px solid ${on?clrOn:"#ddd"}`,background:on?clrOn+"18":"#fafaf8",color:on?clrOn:"#888",fontWeight:on?500:400,marginBottom:5,marginRight:5,transition:"all .15s"}}>{label}</span>);
+              };
 
               // Riepilogo badges
               const badges=[];
-              if(totCh>0) badges.push({lbl:`📞 ${totCh} chiam.`,bg:"#E6F1FB",clr:"#0C447C"});
-              if(g.appuntamenti>0) badges.push({lbl:`🤝 ${g.appuntamenti} appt.`,bg:"#FAEEDA",clr:"#412402"});
-              if(g.immVisitati>0) badges.push({lbl:`🏠 ${g.immVisitati} visitati`,bg:"#EAF3DE",clr:"#173404"});
-              if(g.postSocial>0) badges.push({lbl:`📱 ${g.postSocial} post`,bg:"#EEEDFE",clr:"#26215C"});
-              if((g.oreSviluppo||0)>0) badges.push({lbl:`📚 ${g.oreSviluppo}h sviluppo`,bg:"#E1F5EE",clr:"#04342C"});
-              if(g.mood) badges.push({lbl:g.mood==="top"?"😊 Ottima":g.mood==="ok"?"😐 Normale":"😓 Difficile",bg:g.mood==="top"?"#E1F5EE":g.mood==="ok"?"#F1EFE8":"#FCEBEB",clr:g.mood==="top"?"#04342C":g.mood==="ok"?"#444441":"#501313"});
+              if(totCh>0)badges.push({l:`📞 ${totCh} chiam.`,bg:"#E6F1FB",c:"#0C447C"});
+              if(g.appuntamenti>0)badges.push({l:`🤝 ${g.appuntamenti} appt. acq.`,bg:"#FAEEDA",c:"#412402"});
+              if(g.immVisitati>0)badges.push({l:`🏠 ${g.immVisitati} visitati`,bg:"#EAF3DE",c:"#173404"});
+              if(g.postSocial>0)badges.push({l:`📱 ${g.postSocial} post`,bg:"#EEEDFE",c:"#26215C"});
+              if((g.oreSviluppo||0)>0)badges.push({l:`📚 ${g.oreSviluppo}h sviluppo`,bg:"#E1F5EE",c:"#04342C"});
+              if(g.mood)badges.push({l:g.mood==="top"?"😊 Ottima":g.mood==="ok"?"😐 Normale":"😓 Difficile",bg:g.mood==="top"?"#E9F7EF":g.mood==="ok"?"#f5f5f5":"#FCEBEB",c:g.mood==="top"?"#085041":g.mood==="ok"?"#444":"#A32D2D"});
 
               return(<div>
-
-                {/* ─── SEZIONE A: CHIAMATE ─── */}
-                <div style={SCARD}>
-                  <div style={SHDR}>
-                    {DOT("#185FA5")}
-                    <span style={{fontSize:11,fontWeight:500,textTransform:"uppercase",letterSpacing:".08em",color:"var(--color-text-secondary)"}}>Chiamate</span>
-                    {totCh>0&&<span style={{marginLeft:"auto",fontSize:11,padding:"2px 8px",borderRadius:12,background:"#E6F1FB",color:"#0C447C",fontWeight:500}}>Totale: {totCh}</span>}
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {/* ─── A.1 CHIAMATE ─── */}
+                <div style={CARD}>
+                  {HLBL("Chiamate","#185FA5",totCh>0?`Totale: ${totCh}`:null)}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
                     <div>
-                      {[["centri_inf","Centri d'influenza"],["clienti_pass","Clienti passati"],["privati","Privati"]].map(([k,lbl])=>(
-                        <div key={k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid var(--color-border-tertiary)"}}>
-                          <span style={{fontSize:12}}>{lbl}</span>
-                          <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updChN(k,-1)}>−</button>
-                            <span style={{fontSize:13,fontWeight:500,minWidth:24,textAlign:"center"}}>{ct[k]||0}</span>
-                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updChN(k,1)}>+</button>
-                          </div>
-                        </div>
-                      ))}
+                      <StepperCh label="Centri d'influenza" k="centri_inf"/>
+                      <StepperCh label="Clienti passati" k="clienti_pass"/>
+                      <StepperCh label="Privati" k="privati" last/>
                     </div>
                     <div>
-                      {[["freddo","Generica / Freddo"],["zona_vol","Zona post volantino"],["followup","Follow-up notizie"]].map(([k,lbl])=>(
-                        <div key={k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid var(--color-border-tertiary)"}}>
-                          <span style={{fontSize:12}}>{lbl}</span>
-                          <div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updChN(k,-1)}>−</button>
-                            <span style={{fontSize:13,fontWeight:500,minWidth:24,textAlign:"center"}}>{ct[k]||0}</span>
-                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updChN(k,1)}>+</button>
-                          </div>
-                        </div>
-                      ))}
+                      <StepperCh label="Generica / Freddo" k="freddo"/>
+                      <StepperCh label="Zona post volantino" k="zona_vol"/>
+                      <StepperCh label="Follow-up notizie" k="followup" last/>
                     </div>
                   </div>
                 </div>
 
-                {/* ─── ACQUISIZIONE + VENDITA affiancati ─── */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                  <div style={SCARD}>
-                    <div style={SHDR}>{DOT("#A8863A")}<span style={{fontSize:11,fontWeight:500,textTransform:"uppercase",letterSpacing:".08em",color:"var(--color-text-secondary)"}}>Acquisizione</span></div>
-                    <NR label="Appt. fissati" k="appuntamenti"/>
-                    <NR label="Presentaz./Valutaz." k="valutazioni"/>
-                    <NR label="Immobili visitati" k="immVisitati"/>
-                    <NR label="Ore telefono" k="oreTel" step={0.5}/>
-                    <NLAST label="Ore zona" k="oreZona" step={0.5}/>
+                {/* ─── A.2 ACQUISIZIONE + VENDITA affiancati ─── */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                  <div style={CARD}>
+                    {HLBL("Acquisizione","#A8863A")}
+                    <Stepper label="Appt. fissati" k="appuntamenti"/>
+                    <Stepper label="Presentaz./Valutaz." k="valutazioni"/>
+                    <Stepper label="Immobili visitati" k="immVisitati"/>
+                    <Stepper label="Ore telefono" k="oreTel" step={0.5}/>
+                    <Stepper label="Ore zona" k="oreZona" step={0.5} last/>
                   </div>
-                  <div style={SCARD}>
-                    <div style={SHDR}>{DOT("#533AB7")}<span style={{fontSize:11,fontWeight:500,textTransform:"uppercase",letterSpacing:".08em",color:"var(--color-text-secondary)"}}>Vendita</span></div>
-                    <NR label="Appt. acquirenti" k="apptAcq"/>
-                    <NR label="OH effettuati" k="ohNum"/>
-                    <NR label={<span>Proposte <span style={{fontSize:10,color:"#27AE60"}}>✓</span></span>} k="propPresentate"/>
-                    <NR label={<span>Preliminari <span style={{fontSize:10,color:"#27AE60"}}>✓</span></span>} k="preliminari"/>
-                    <NLAST label={<span>Rogiti <span style={{fontSize:10,color:"#27AE60"}}>✓</span></span>} k="rogiti"/>
+                  <div style={CARD}>
+                    {HLBL("Vendita","#533AB7")}
+                    <Stepper label="Appt. acquirenti" k="apptAcq"/>
+                    <Stepper label="OH effettuati" k="ohNum"/>
+                    <Stepper label="Proposte" k="propPresentate" auto/>
+                    <Stepper label="Preliminari" k="preliminari" auto/>
+                    <Stepper label="Rogiti" k="rogiti" auto last/>
                   </div>
                 </div>
 
-                {/* ─── SOCIAL ─── */}
-                <div style={{...SCARD,marginBottom:16}}>
-                  <div style={SHDR}>{DOT("#3C3489")}<span style={{fontSize:11,fontWeight:500,textTransform:"uppercase",letterSpacing:".08em",color:"var(--color-text-secondary)"}}>Social / Marketing</span></div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-                    {[["postSocial","Post"],["video","Video"],["stories","Stories/Reels"]].map(([k,lbl])=>(
-                      <div key={k} style={{textAlign:"center"}}>
-                        <div style={{fontSize:11,color:"var(--color-text-secondary)",marginBottom:6}}>{lbl}</div>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                          <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updN(k,-1)}>−</button>
-                          <span style={{fontSize:16,fontWeight:500,minWidth:24,textAlign:"center"}}>{g[k]||0}</span>
-                          <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updN(k,1)}>+</button>
+                {/* ─── A.3 SOCIAL ─── */}
+                <div style={{...CARD,marginBottom:20}}>
+                  {HLBL("Social / Marketing","#3C3489")}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                    {[["Post pubblicati","postSocial"],["Video","video"],["Stories / Reels","stories"]].map(([lbl,k])=>(
+                      <div key={k} style={{textAlign:"center",padding:"10px 6px",background:"#fafaf8",borderRadius:8,border:"0.5px solid #f0f0f0"}}>
+                        <div style={{fontSize:11,color:"#888",marginBottom:8}}>{lbl}</div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f0f0f0",cursor:"pointer",fontSize:15,fontFamily:"inherit",color:"#555"}} onClick={()=>updN(k,-1)}>−</button>
+                          <span style={{fontSize:18,fontWeight:600,color:"#3C3489",minWidth:24}}>{g[k]||0}</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f0f0f0",cursor:"pointer",fontSize:15,fontFamily:"inherit",color:"#555"}} onClick={()=>updN(k,1)}>+</button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* ─── SEZIONE B: ATTIVITA IMMOBILE ─── */}
-                <div style={{fontSize:10,fontWeight:500,textTransform:"uppercase",letterSpacing:".1em",color:"var(--color-text-secondary)",marginBottom:6}}>B — Attività su immobili</div>
-                <div style={{...SCARD,borderColor:isSabato?"#A8863A44":"var(--color-border-tertiary)"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:(g.attImm||[]).length>0?10:0}}>
-                    <div style={SHDR}>{DOT("#085041")}<span style={{fontSize:11,fontWeight:500,textTransform:"uppercase",letterSpacing:".08em",color:"var(--color-text-secondary)"}}>Attività immobile {isSabato?"/ Open House 🏠":""}</span></div>
-                    <button style={{fontSize:11,padding:"3px 10px",borderRadius:5,border:"0.5px solid var(--color-border-secondary)",background:"transparent",cursor:"pointer",color:"var(--color-text-secondary)"}} onClick={addImmobile}>+ Aggiungi</button>
+                {/* ─── B: ATTIVITA IMMOBILE ─── */}
+                <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",marginBottom:8}}>B — Attività su immobili</div>
+                <div style={CARD}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:(g.attImm||[]).length>0?12:0}}>
+                    {HLBL("Attività immobile","#085041")}
+                    <button style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px solid #085041",background:"transparent",cursor:"pointer",color:"#085041",marginBottom:10}} onClick={addImmobile}>+ Aggiungi immobile</button>
                   </div>
-                  {(g.attImm||[]).length===0&&<p style={{fontSize:12,color:"var(--color-text-secondary)",fontStyle:"italic"}}>Nessuna attività su immobili oggi</p>}
+                  {(g.attImm||[]).length===0&&<p style={{fontSize:12,color:"#aaa",fontStyle:"italic",paddingBottom:4}}>Nessuna attività su immobili — clicca "+ Aggiungi immobile"</p>}
                   {(g.attImm||[]).map((att,idx)=>(
-                    <div key={idx} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px",marginBottom:6,border:"0.5px solid var(--color-border-tertiary)"}}>
-                      <div style={{marginBottom:8}}>
-                        <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:3}}>Immobile</div>
-                        <select style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",background:"var(--color-background-primary)"}} value={att.incId||""} onChange={e=>updImm(idx,"incId",e.target.value)}>
-                          <option value="">— seleziona —</option>
-                          {incarichiAg.map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
-                        </select>
-                      </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,marginBottom:8}}>
-                        {[["cartello","Cartello AMV"],["lettAMV","Lettera AMV"],["lettOH","Lettera OH"],["volVend","Volantino Venduto"]].map(([k,lbl])=>(
-                          <label key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:12,padding:"5px 7px",background:"var(--color-background-primary)",borderRadius:5,cursor:"pointer",border:"0.5px solid var(--color-border-tertiary)"}}>
-                            <input type="checkbox" checked={att[k]||false} onChange={e=>updImm(idx,k,e.target.checked)}/>{lbl}
+                    <div key={idx} style={{background:"#fafal8",borderRadius:8,padding:"10px 12px",marginBottom:8,border:"0.5px solid #e8e5e0"}}>
+                      <select style={{width:"100%",fontSize:12,padding:"6px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",marginBottom:10}} value={att.incId||""} onChange={e=>updImm(idx,"incId",e.target.value)}>
+                        <option value="">— seleziona immobile —</option>
+                        {incarichiAg.map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
+                      </select>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
+                        {[["cartello","Cartello AMV affisso","#e8e5e0"],["lettAMV","Lettera AMV","#e8e5e0"],["lettOH","Lettera OH distribuita","#e8e5e0"],["volVend","Volantino Venduto","#e8e5e0"]].map(([k,lbl])=>(
+                          <label key={k} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",background:"#fafal8",borderRadius:6,cursor:"pointer",border:"0.5px solid #e8e5e0"}}>
+                            <input type="checkbox" style={{accentColor:"#085041"}} checked={att[k]||false} onChange={e=>updImm(idx,k,e.target.checked)}/>{lbl}
                           </label>
                         ))}
-                        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:12,padding:"5px 7px",background:"#FEF9E7",borderRadius:5,cursor:"pointer",border:"0.5px solid #D4AC0D33"}}>
-                          <input type="checkbox" checked={att.reportProp||false} onChange={e=>updImm(idx,"reportProp",e.target.checked)}/>Report proprietario
+                        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",background:"#FEF9E7",borderRadius:6,cursor:"pointer",border:"0.5px solid #D4AC0D44"}}>
+                          <input type="checkbox" style={{accentColor:"#A8863A"}} checked={att.reportProp||false} onChange={e=>updImm(idx,"reportProp",e.target.checked)}/>Report al proprietario
                         </label>
-                        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:12,padding:"5px 7px",background:"#FCEBEB",borderRadius:5,cursor:"pointer",border:"0.5px solid #E24B4A33"}}>
-                          <input type="checkbox" checked={att.ribasso||false} onChange={e=>updImm(idx,"ribasso",e.target.checked)}/>Ribasso proposto
+                        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",background:"#FCEBEB",borderRadius:6,cursor:"pointer",border:"0.5px solid #E24B4A44"}}>
+                          <input type="checkbox" style={{accentColor:"#E24B4A"}} checked={att.ribasso||false} onChange={e=>updImm(idx,"ribasso",e.target.checked)}/>Ribasso proposto
                         </label>
                       </div>
                       {(att.lettOH||att.lettAMV||att.volVend)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                        <div>
-                          <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:3}}>Tipo volantino</div>
-                          <select style={{width:"100%",fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",background:"var(--color-background-primary)"}} value={att.tipoVol||""} onChange={e=>updImm(idx,"tipoVol",e.target.value)}>
+                        <div><div style={{fontSize:10,color:"#aaa",marginBottom:3}}>Tipo volantino</div>
+                          <select style={{width:"100%",fontSize:11,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={att.tipoVol||""} onChange={e=>updImm(idx,"tipoVol",e.target.value)}>
                             <option value="">—</option>{tipiVolantino.map(v=><option key={v}>{v}</option>)}
                           </select>
                         </div>
-                        <div>
-                          <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:3}}>Modalità</div>
-                          <select style={{width:"100%",fontSize:11,padding:"4px 6px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",background:"var(--color-background-primary)"}} value={att.modalita||""} onChange={e=>updImm(idx,"modalita",e.target.value)}>
-                            <option value="">—</option><option>Di persona</option><option>Distributore</option>
+                        <div><div style={{fontSize:10,color:"#aaa",marginBottom:3}}>Modalità</div>
+                          <select style={{width:"100%",fontSize:11,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={att.modalita||"Di persona"} onChange={e=>updImm(idx,"modalita",e.target.value)}>
+                            <option>Di persona</option><option>Distributore</option>
                           </select>
                         </div>
-                        <div>
-                          <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:3}}>N° copie</div>
+                        <div><div style={{fontSize:10,color:"#aaa",marginBottom:3}}>N° copie</div>
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <button style={{width:24,height:24,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:13,fontFamily:"inherit"}} onClick={()=>updImm(idx,"copie",Math.max(0,(att.copie||0)-10))}>−</button>
-                            <span style={{fontSize:12,fontWeight:500,minWidth:26,textAlign:"center"}}>{att.copie||0}</span>
-                            <button style={{width:24,height:24,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:13,fontFamily:"inherit"}} onClick={()=>updImm(idx,"copie",(att.copie||0)+10)}>+</button>
+                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:13,fontFamily:"inherit"}} onClick={()=>updImm(idx,"copie",Math.max(0,(att.copie||0)-10))}>−</button>
+                            <span style={{fontSize:12,fontWeight:600,minWidth:28,textAlign:"center"}}>{att.copie||0}</span>
+                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:13,fontFamily:"inherit"}} onClick={()=>updImm(idx,"copie",(att.copie||0)+10)}>+</button>
                           </div>
                         </div>
                       </div>}
@@ -3565,81 +3574,80 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* ─── SEZIONE C: SVILUPPO, AMM, NOTE ─── */}
-                <div style={{fontSize:10,fontWeight:500,textTransform:"uppercase",letterSpacing:".1em",color:"var(--color-text-secondary)",marginBottom:6,marginTop:8}}>C — Sviluppo, Amministrativo, Note</div>
-                <div style={SCARD}>
+                {/* ─── C: SVILUPPO, AMM, NOTE ─── */}
+                <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",marginBottom:8,marginTop:4}}>C — Sviluppo, Amministrativo, Note</div>
+                <div style={CARD}>
                   {/* Sviluppo */}
-                  <div style={{marginBottom:14}}>
-                    <div style={{fontSize:10,fontWeight:500,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Sviluppo professionale</div>
-                    <div style={{marginBottom:10,flexWrap:"wrap",display:"flex"}}>
-                      {["Corso / Formazione","Riunione team","One-to-one broker","Programmazione settimana","Formazione online","Coaching","Altro"].map(t=>{
-                        const sel=(g.tipiSviluppoSel||[]).includes(t);
-                        return(<span key={t} style={sel?CHIP_ON:CHIP_SW} onClick={()=>toggleSviluppo(t)}>{t}</span>);
-                      })}
+                  <div style={{marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Sviluppo professionale</div>
+                    <div style={{marginBottom:10}}>
+                      {["Corso / Formazione","Riunione team","One-to-one broker","Programmazione settimana","Formazione online","Coaching","Altro"].map(t=><Chip key={t} label={t} k="tipiSviluppoSel" tipo={t} clrOn="#533AB7"/>)}
                     </div>
-                    {(g.tipiSviluppoSel||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {(g.tipiSviluppoSel||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                       <div>
-                        <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:4}}>Ore totali sviluppo</div>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Ore totali sviluppo</div>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updH("oreSviluppo",-1)}>−</button>
-                          <span style={{fontSize:14,fontWeight:500,minWidth:30,textAlign:"center"}}>{g.oreSviluppo||0}h</span>
-                          <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updH("oreSviluppo",1)}>+</button>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreSviluppo",-1)}>−</button>
+                          <span style={{fontSize:14,fontWeight:600,minWidth:32,textAlign:"center"}}>{g.oreSviluppo||0}h</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreSviluppo",1)}>+</button>
                         </div>
                       </div>
                       <div>
-                        <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:4}}>Note (opzionale)</div>
-                        <input style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}} value={g.noteSviluppo||""} placeholder="es. corso negoziazione..." onChange={e=>upd("noteSviluppo",e.target.value)}/>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Note</div>
+                        <input style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={g.noteSviluppo||""} placeholder="es. corso negoziazione..." onChange={e=>upd("noteSviluppo",e.target.value)}/>
                       </div>
                     </div>}
                   </div>
                   {/* Amministrativo */}
-                  <div style={{borderTop:"0.5px solid var(--color-border-tertiary)",paddingTop:14,marginBottom:14}}>
-                    <div style={{fontSize:10,fontWeight:500,color:"#444441",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Amministrativo / Back-office</div>
-                    <div style={{marginBottom:10,flexWrap:"wrap",display:"flex"}}>
-                      {["Pratiche e documenti","Inserimento gestionale","Email e comunicazioni","Fatturazione","Archivio","Altro"].map(t=>{
-                        const sel=(g.tipiAmmSel||[]).includes(t);
-                        return(<span key={t} style={sel?{...CHIP_ON,background:"#F1EFE8",borderColor:"#444441",color:"#2C2C2A"}:CHIP_SW} onClick={()=>toggleAmm(t)}>{t}</span>);
-                      })}
+                  <div style={{borderTop:"0.5px solid #f0f0f0",paddingTop:16,marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#444441",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Amministrativo / Back-office</div>
+                    <div style={{marginBottom:10}}>
+                      {["Pratiche e documenti","Inserimento gestionale","Email e comunicazioni","Fatturazione","Archivio","Altro"].map(t=><Chip key={t} label={t} k="tipiAmmSel" tipo={t} clrOn="#444441"/>)}
                     </div>
-                    {(g.tipiAmmSel||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {(g.tipiAmmSel||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                       <div>
-                        <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:4}}>Ore back-office</div>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Ore back-office</div>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updH("oreAmm",-1)}>−</button>
-                          <span style={{fontSize:14,fontWeight:500,minWidth:30,textAlign:"center"}}>{g.oreAmm||0}h</span>
-                          <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid var(--color-border-secondary)",background:"var(--color-background-secondary)",cursor:"pointer",fontSize:14,fontFamily:"inherit"}} onClick={()=>updH("oreAmm",1)}>+</button>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreAmm",-1)}>−</button>
+                          <span style={{fontSize:14,fontWeight:600,minWidth:32,textAlign:"center"}}>{g.oreAmm||0}h</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreAmm",1)}>+</button>
                         </div>
                       </div>
                       <div>
-                        <div style={{fontSize:10,color:"var(--color-text-secondary)",marginBottom:4}}>Dettaglio</div>
-                        <input style={{width:"100%",fontSize:12,padding:"5px 8px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}} value={g.noteAmm||""} placeholder="es. pratica Maconi..." onChange={e=>upd("noteAmm",e.target.value)}/>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Dettaglio</div>
+                        <input style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={g.noteAmm||""} placeholder="es. pratica Maconi..." onChange={e=>upd("noteAmm",e.target.value)}/>
                       </div>
                     </div>}
                   </div>
                   {/* Note + Mood */}
-                  <div style={{borderTop:"0.5px solid var(--color-border-tertiary)",paddingTop:14}}>
-                    <div style={{fontSize:10,fontWeight:500,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Note giornata</div>
-                    <div style={{display:"flex",gap:6,marginBottom:10}}>
-                      {[["top","😊"],["ok","😐"],["hard","😓"]].map(([v,emoji])=>(
-                        <button key={v} style={{flex:1,padding:"6px",fontSize:18,borderRadius:8,border:`0.5px solid ${g.mood===v?"#A8863A":"var(--color-border-tertiary)"}`,background:g.mood===v?"#FDF6EC":"var(--color-background-secondary)",cursor:"pointer"}} onClick={()=>upd("mood",g.mood===v?"":v)}>{emoji}</button>
+                  <div style={{borderTop:"0.5px solid #f0f0f0",paddingTop:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Note giornata</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+                      {[["top","😊","Ottima"],["ok","😐","Normale"],["hard","😓","Difficile"]].map(([v,em,lbl])=>(
+                        <button key={v} onClick={()=>upd("mood",g.mood===v?"":v)} style={{padding:"10px 6px",fontSize:14,borderRadius:8,border:`1px solid ${g.mood===v?"#A8863A":"#e8e5e0"}`,background:g.mood===v?"#FEF9E7":"#fafal8",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                          <span style={{fontSize:22}}>{em}</span>
+                          <span style={{fontSize:10,color:g.mood===v?"#A8863A":"#888",fontWeight:g.mood===v?600:400}}>{lbl}</span>
+                        </button>
                       ))}
                     </div>
-                    <textarea style={{width:"100%",fontSize:12,padding:"8px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",resize:"none",background:"var(--color-background-primary)",color:"var(--color-text-primary)",lineHeight:1.5}} rows={3} value={g.note||""} placeholder="Annotazioni, idee, promemoria per domani..." onChange={e=>upd("note",e.target.value)}/>
+                    <textarea style={{width:"100%",fontSize:12,padding:"8px",borderRadius:6,border:"0.5px solid #ddd",resize:"none",background:"#fff",lineHeight:1.6}} rows={3} value={g.note||""} placeholder="Annotazioni, idee, promemoria per domani..." onChange={e=>upd("note",e.target.value)}/>
                   </div>
                 </div>
 
-                {/* ─── RIEPILOGO ─── */}
-                {badges.length>0&&(<div style={{background:"var(--color-background-secondary)",borderRadius:"var(--border-radius-lg)",padding:"10px 14px",marginBottom:8,border:"0.5px solid var(--color-border-tertiary)"}}>
-                  <div style={{fontSize:10,fontWeight:500,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Riepilogo giornata</div>
+                {/* Riepilogo */}
+                {badges.length>0&&<div style={{background:"#fafal8",borderRadius:10,padding:"10px 14px",marginBottom:10,border:"0.5px solid #e8e5e0"}}>
+                  <div style={{fontSize:10,fontWeight:600,color:"#aaa",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Riepilogo giornata</div>
                   <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                    {badges.map((b,i)=><span key={i} style={{fontSize:11,padding:"3px 9px",borderRadius:12,background:b.bg,color:b.clr,fontWeight:500}}>{b.lbl}</span>)}
+                    {badges.map((b,i)=><span key={i} style={{fontSize:11,padding:"3px 9px",borderRadius:12,background:b.bg,color:b.c,fontWeight:500}}>{b.l}</span>)}
                   </div>
-                </div>)}
+                </div>}
 
-                <button style={{width:"100%",padding:10,background:"#A8863A",color:"#fff",border:"none",borderRadius:"var(--border-radius-md)",fontSize:13,fontWeight:500,cursor:"pointer"}} onClick={()=>{
+                <button style={{width:"100%",padding:11,background:saved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background .3s"}} onClick={()=>{
                   const cached=opFormCache[cacheKey]||{};
-                  if(Object.keys(cached).length>0) salvaGiornata(agId,data,cached);
-                }}>Salva giornata</button>
+                  salvaGiornata(agId,data,cached);
+                  setSaved(true);
+                  setTimeout(()=>setSaved(false),2000);
+                }}>{saved?"✓ Salvato!":"Salva giornata"}</button>
               </div>);
             };
 
@@ -3821,6 +3829,8 @@ export default function App() {
                           <KpiOb lbl="Proposte accettate" val={r.propAccettate} obk="propAccettate" clr="#27AE60"/>
                           <KpiOb lbl="Preliminari" val={r.preliminari} obk="preliminari" clr="#A8863A"/>
                           <KpiOb lbl="Open House" val={r.ohNum} obk="oh" clr="#D85A30"/>
+                          <KpiOb lbl="Report proprietari" val={(()=>{const mese=opMeseSel;const agId2=isBroker?Number(opAgenteSel):myAgentId;return Object.values(operativita[agId2]||{}).filter(([d])=>d&&d.startsWith(mese.slice(0,7))||true).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.reportProp).length),0);})()+"" } obk="reportProp" clr="#A8863A"/>
+                          <KpiOb lbl="Ribassi proposti" val={(()=>{const agId2=isBroker?Number(opAgenteSel):myAgentId;return Object.values(operativita[agId2]||{}).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.ribasso).length),0);})()+"" } obk="ribassi" clr="#E74C3C"/>
                         </div>
                         <p style={{...S2.sec,marginBottom:8}}>Distribuzione ore</p>
                         {[["Ricerca/acquisizione",r.oreRicerca,"#185FA5"],["Operativo/vendite",(r.immVisitati*0.5+r.valutazioni*1.5),"#633806"],["Open House",(r.ohNum*2),"#D85A30"],["Sviluppo",r.oreSviluppo,"#533AB7"],["Marketing",r.oreMarketing,"#3B6D11"],["Amministrativo",r.oreAmm,"#888780"]].map(([lbl,val,clr])=>{
@@ -4551,7 +4561,7 @@ export default function App() {
                     {cl.slice(0,4).map(({ag,val},i)=>(<div key={ag.id} style={{background:i===0?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,padding:warRiunione?"14px":"10px",textAlign:"center",border:i===0?"1px solid #D4AC0D":"0.5px solid #eee"}}>
                       <div style={{fontSize:warRiunione?28:22,marginBottom:4}}>{PEMOJI2[i]}</div>
                       <div style={{width:warRiunione?36:28,height:warRiunione?36:28,borderRadius:"50%",background:PCLR2[i],display:"flex",alignItems:"center",justifyContent:"center",fontSize:warRiunione?14:11,fontWeight:700,color:"#fff",margin:"0 auto 4px"}}>{ag.nome.charAt(0)}</div>
-                      <div style={{fontSize:warRiunione?14:11,fontWeight:500,marginBottom:2}}>{ag.nome}</div>
+                      <div style={{fontSize:warRiunione?14:11,fontWeight:500,marginBottom:2}}>{ag.nome} {ag.cognome||""}</div>
                       <div style={{fontSize:warRiunione?24:18,fontWeight:700,color:PCLR2[i]}}>{sfidaAtt2.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
                     </div>))}
                   </div>
@@ -4566,7 +4576,7 @@ export default function App() {
                 <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:warRiunione?14:12,minWidth:480}}>
                   <thead><tr style={{background:"#fafaf8"}}>{["Agente","📅","📞","🏠 Acq.","📝 Prop.","✅ Vend.",warShowProduzione&&"💰 Produzione"].filter(Boolean).map(h=><th key={h} style={{...S.th,textAlign:"center",padding:warRiunione?"12px":"8px"}}>{h}</th>)}</tr></thead>
                   <tbody>{prodAg.map(({ag,acq,prop,vend,fatt,ch,giorniC})=>(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
-                    <td style={{padding:warRiunione?"12px":"8px 10px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:warRiunione?30:22,height:warRiunione?30:22,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:warRiunione?13:10,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div><span style={{fontWeight:500,fontSize:warRiunione?14:12}}>{ag.nome}</span></div></td>
+                    <td style={{padding:warRiunione?"12px":"8px 10px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:warRiunione?30:22,height:warRiunione?30:22,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:warRiunione?13:10,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div><span style={{fontWeight:500,fontSize:warRiunione?14:12}}>{ag.nome} {ag.cognome||""}</span></div></td>
                     <td style={{...S.tdC}}><span style={{fontSize:10,padding:"2px 5px",borderRadius:3,background:giorniC>=5?"#E9F7EF":giorniC>=3?"#FEF9E7":"#FCEBEB",color:giorniC>=5?"#27AE60":giorniC>=3?"#D4AC0D":"#E74C3C",fontWeight:500}}>{giorniC}</span></td>
                     <td style={{...S.tdC,fontWeight:500,color:"#185FA5",fontSize:warRiunione?14:12}}>{ch||"—"}</td>
                     <td style={{...S.tdC,fontWeight:500,color:"#533AB7",fontSize:warRiunione?14:12}}>{acq||"—"}</td>
@@ -4598,7 +4608,21 @@ export default function App() {
 
               {/* Storico sfide — sempre visibile, non solo se !warRiunione */}
               {sfideStor.length>0&&(<div style={sezW}>
-                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>🏅 Storico traguardi volanti ({sfideStor.length})</p>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:0}}>🏅 Storico traguardi ({sfideStor.length})</p>
+                </div>
+                <select style={{...S.sel,width:"100%",marginBottom:10}} onChange={e=>{
+                  const el=document.getElementById("stor-detail");
+                  if(el)el.innerHTML=e.target.value;
+                }}>
+                  <option value="">— Seleziona traguardo —</option>
+                  {sfideStor.map((s,i)=>{
+                    const cl=s.snapshot?s.snapshot:agenti.map(ag=>({agId:ag.id,nome:ag.nome,cognome:ag.cognome||"",val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
+                    const top3=cl.filter(x=>x.val>0).slice(0,3);
+                    const top3str=top3.map((x,i)=>`${["🥇","🥈","🥉"][i]} ${x.nome||x.ag?.nome}: ${s.metrica==="fatturato"?`€ ${fmt(x.val)}`:x.val}`).join(" · ");
+                    return(<option key={i} value={`${s.nome} · ${fmtD(s.dal)}→${fmtD(s.al)} · ${METR2[s.metrica]||s.metrica} · ${top3str}`}>{fmtD(s.dal)}–{fmtD(s.al)} · {s.nome} · {["🥇","🥈","🥉"].map((m,i)=>top3[i]?`${m}${top3[i].nome||top3[i].ag?.nome}`:null).filter(Boolean).join(" ")}</option>);
+                  })}
+                </select>
                 {sfideStor.map((s,i)=>{
                   // Usa snapshot se disponibile, altrimenti ricalcola
                   const cl=s.snapshot
@@ -4663,59 +4687,75 @@ export default function App() {
                 setOtoForm({data:todayStr(),noteIncontro:"",obiettivi:"",criticita:"",azioni:"",notePrivate:""});
               };
               return(<div>
-                {/* Form nuovo incontro */}
-                <div style={{background:"var(--color-background-primary)",borderRadius:12,border:`1.5px solid ${BRAND.oro}44`,padding:"1.25rem",marginBottom:"1.25rem"}}>
-                  <div style={{fontSize:12,fontWeight:600,color:BRAND.oroD,marginBottom:"1rem"}}>+ Nuovo incontro con {ag?.nome}</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                {/* Form nuovo incontro — card stile professionale */}
+                <div style={{background:"#fff",borderRadius:12,border:`1.5px solid ${BRAND.oro}66`,padding:"1.5rem",marginBottom:"1.5rem",boxShadow:"0 2px 8px rgba(0,0,0,.04)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",paddingBottom:"1rem",borderBottom:"0.5px solid #f0f0f0"}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff"}}>{ag?.nome?.charAt(0)}</div>
                     <div>
-                      <label style={{fontSize:11,color:"var(--color-text-secondary)",display:"block",marginBottom:3}}>Data incontro</label>
-                      <input type="date" style={S.inp} value={otoForm.data} onChange={e=>setOtoForm({...otoForm,data:e.target.value})}/>
+                      <div style={{fontSize:14,fontWeight:600,color:"#2c2c2c"}}>+ Nuovo incontro — {ag?.nome} {ag?.cognome}</div>
+                      <div style={{fontSize:11,color:"#aaa"}}>Le note pubbliche saranno visibili all'agente</div>
+                    </div>
+                    <input type="date" style={{...S.inp,marginLeft:"auto",width:"auto"}} value={otoForm.data} onChange={e=>setOtoForm({...otoForm,data:e.target.value})}/>
+                  </div>
+                  {/* Sezione pubblica */}
+                  <div style={{background:"#fafaf8",borderRadius:8,padding:"12px 14px",marginBottom:12,border:"0.5px solid #e8e5e0"}}>
+                    <div style={{fontSize:10,fontWeight:600,color:"#27AE60",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>📋 Sezione pubblica — visibile all'agente</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      {[["noteIncontro","📝 Note incontro","es. Abbiamo parlato di...","1fr"],["obiettivi","🎯 Obiettivi concordati","es. 15 chiamate/giorno, 2 acquisizioni...","1fr"],["criticita","⚠ Criticità emerse","es. difficoltà nella negoziazione...","1fr"],["azioni","✅ Azioni da fare","es. corso negoziazione entro venerdì...","1fr"]].map(([k,lbl,ph])=>(
+                        <div key={k}>
+                          <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3,fontWeight:500}}>{lbl}</label>
+                          <textarea style={{width:"100%",fontSize:12,padding:"7px 9px",borderRadius:6,border:"0.5px solid #ddd",resize:"none",background:"#fff",lineHeight:1.5}} rows={2} placeholder={ph} value={otoForm[k]||""} onChange={e=>setOtoForm({...otoForm,[k]:e.target.value})}/>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"1rem",marginBottom:10}}>
-                    <div style={{fontSize:11,fontWeight:500,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Sezione pubblica — visibile all'agente</div>
-                    {[["noteIncontro","📝 Note incontro","es. Abbiamo parlato di..."],["obiettivi","🎯 Obiettivi concordati","es. 15 chiamate/giorno, 2 acquisizioni..."],["criticita","⚠ Criticità emerse","es. difficoltà nella negoziazione..."],["azioni","✅ Azioni da fare","es. corso negoziazione entro venerdì..."]].map(([k,lbl,ph])=>(
-                      <div key={k} style={{marginBottom:8}}>
-                        <label style={{fontSize:11,color:"var(--color-text-secondary)",display:"block",marginBottom:3}}>{lbl}</label>
-                        <textarea style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid var(--color-border-tertiary)",resize:"none",background:"var(--color-background-primary)",color:"var(--color-text-primary)"}} rows={2} placeholder={ph} value={otoForm[k]||""} onChange={e=>setOtoForm({...otoForm,[k]:e.target.value})}/>
-                      </div>
-                    ))}
+                  {/* Sezione privata */}
+                  <div style={{background:"#FDFBF5",borderRadius:8,padding:"12px 14px",marginBottom:14,border:"1px dashed #D4AC0D66"}}>
+                    <div style={{fontSize:10,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:".08em",marginBottom:8}}>🔒 Note private — visibili solo al broker</div>
+                    <textarea style={{width:"100%",fontSize:12,padding:"7px 9px",borderRadius:6,border:"0.5px solid #D4AC0D44",resize:"none",background:"#fff",lineHeight:1.5}} rows={3} placeholder="Considerazioni personali, valutazioni riservate, piani di sviluppo..." value={otoForm.notePrivate||""} onChange={e=>setOtoForm({...otoForm,notePrivate:e.target.value})}/>
                   </div>
-                  <div style={{background:"#FDFBF5",borderRadius:8,padding:"1rem",border:"0.5px solid #D4AC0D33",marginBottom:10}}>
-                    <div style={{fontSize:11,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🔒 Note private — solo broker</div>
-                    <textarea style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #D4AC0D44",resize:"none",background:"#fff",color:"var(--color-text-primary)"}} rows={3} placeholder="Considerazioni personali, valutazioni riservate..." value={otoForm.notePrivate||""} onChange={e=>setOtoForm({...otoForm,notePrivate:e.target.value})}/>
-                  </div>
-                  <button style={{...S.btnP,width:"100%",padding:9}} onClick={salvaIncontro}>💾 Salva incontro</button>
+                  <button style={{...S.btnP,width:"100%",padding:10,fontSize:13}} onClick={salvaIncontro}>💾 Salva incontro</button>
                 </div>
 
-                {/* Storico incontri */}
+                {/* Storico incontri — cards timeline */}
                 {incontri.length>0&&(<div>
-                  <div style={{fontSize:11,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{incontri.length} incontri registrati</div>
-                  {incontri.map(inc=>{
+                  <div style={{fontSize:11,fontWeight:600,color:"#aaa",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>{incontri.length} incontri registrati</div>
+                  {incontri.map((inc,i)=>{
                     const isOpen=otoOpen===inc.id;
-                    return(<div key={inc.id} style={{background:"var(--color-background-primary)",borderRadius:10,border:"0.5px solid var(--color-border-tertiary)",marginBottom:8,overflow:"hidden"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",cursor:"pointer",background:isOpen?"#FDFBF7":"var(--color-background-primary)"}} onClick={()=>setOtoOpen(isOpen?null:inc.id)}>
-                        <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{fontSize:13,fontWeight:500}}>{fmtD(inc.data)}</div>
-                          {inc.azioni&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#E9F7EF",color:"#27AE60"}}>✅ con azioni</span>}
-                          {inc.criticita&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#FDECEA",color:"#E74C3C"}}>⚠ criticità</span>}
-                        </div>
-                        <span style={{fontSize:12,color:"var(--color-text-secondary)"}}>{isOpen?"▲":"▼"}</span>
-                      </div>
-                      {isOpen&&<div style={{padding:"0 14px 14px"}}>
-                        {[["📝 Note incontro","noteIncontro","var(--color-background-primary)"],["🎯 Obiettivi","obiettivi","var(--color-background-primary)"],["⚠ Criticità","criticita","#FDECEA"],["✅ Azioni da fare","azioni","#E9F7EF"]].map(([lbl,k,bg])=>inc[k]&&(
-                          <div key={k} style={{marginBottom:8,padding:"8px 10px",background:bg,borderRadius:6}}>
-                            <div style={{fontSize:10,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>{lbl}</div>
-                            <div style={{fontSize:12,color:"var(--color-text-primary)",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{inc[k]}</div>
+                    const hasAzioni=!!inc.azioni; const hasCrit=!!inc.criticita;
+                    return(<div key={inc.id} style={{background:"#fff",borderRadius:12,border:`0.5px solid ${isOpen?"#A8863A":"#e8e5e0"}`,marginBottom:10,overflow:"hidden",transition:"border-color .2s"}}>
+                      {/* Card header */}
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",cursor:"pointer",background:isOpen?"#FDFBF7":"#fff",borderBottom:isOpen?"0.5px solid #f0f0f0":"none"}} onClick={()=>setOtoOpen(isOpen?null:inc.id)}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:34,height:34,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro}88,${BRAND.oro})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{String(incontri.length-i).padStart(2,"0")}</div>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:600,color:"#2c2c2c"}}>{fmtD(inc.data)}</div>
+                            <div style={{display:"flex",gap:5,marginTop:2}}>
+                              {hasAzioni&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#E9F7EF",color:"#085041",fontWeight:500}}>✅ azioni</span>}
+                              {hasCrit&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#FDECEA",color:"#A32D2D",fontWeight:500}}>⚠ criticità</span>}
+                              {inc.obiettivi&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#EAF3DE",color:"#3B6D11",fontWeight:500}}>🎯 obiettivi</span>}
+                            </div>
                           </div>
-                        ))}
+                        </div>
+                        <span style={{fontSize:13,color:"#aaa",flexShrink:0}}>{isOpen?"▲":"▼"}</span>
+                      </div>
+                      {/* Card body */}
+                      {isOpen&&<div style={{padding:"14px 16px"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                          {[["📝 Note incontro","noteIncontro","#f8f8f8","#555"],["🎯 Obiettivi","obiettivi","#EAF3DE","#3B6D11"],["⚠ Criticità","criticita","#FDECEA","#A32D2D"],["✅ Azioni da fare","azioni","#E9F7EF","#085041"]].map(([lbl,k,bg,clr])=>inc[k]&&(
+                            <div key={k} style={{padding:"10px 12px",background:bg,borderRadius:8,border:`0.5px solid ${bg}`}}>
+                              <div style={{fontSize:10,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{lbl}</div>
+                              <div style={{fontSize:12,color:"#2c2c2c",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{inc[k]}</div>
+                            </div>
+                          ))}
+                        </div>
                         {inc.notePrivate&&isBroker&&(
-                          <div style={{marginTop:8,padding:"8px 10px",background:"#FDFBF5",borderRadius:6,border:"0.5px solid #D4AC0D33"}}>
-                            <div style={{fontSize:10,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>🔒 Note private broker</div>
-                            <div style={{fontSize:12,color:"var(--color-text-primary)",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{inc.notePrivate}</div>
+                          <div style={{padding:"10px 12px",background:"#FDFBF5",borderRadius:8,border:"1px dashed #D4AC0D66",marginBottom:8}}>
+                            <div style={{fontSize:10,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>🔒 Note private broker</div>
+                            <div style={{fontSize:12,color:"#2c2c2c",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{inc.notePrivate}</div>
                           </div>
                         )}
-                        {isBroker&&<button style={{...S.btnD,fontSize:10,padding:"2px 8px",marginTop:8}} onClick={()=>setOneToOne(prev=>({...prev,[otoAgSel]:prev[otoAgSel].filter(x=>x.id!==inc.id)}))}>Elimina</button>}
+                        {isBroker&&<button style={{...S.btnD,fontSize:10,padding:"3px 10px",marginTop:4}} onClick={()=>setOneToOne(prev=>({...prev,[otoAgSel]:prev[otoAgSel].filter(x=>x.id!==inc.id)}))}>Elimina incontro</button>}
                       </div>}
                     </div>);
                   })}
