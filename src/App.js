@@ -1482,6 +1482,31 @@ export default function App() {
                 </table>
               ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
             </div>
+            {isBroker&&(()=>{
+              const oggiD=new Date();oggiD.setHours(0,0,0,0);
+              const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
+              const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
+              const prossimiR=venduti.filter(v=>{if(!v.dataAtto)return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
+              const alertP=incarichi.filter(i=>!i.archiviato&&statoInc(i)!=="Venduto").map(i=>({inc:i,al:getAlert(i.id)})).filter(x=>x.al.length>0);
+              return(<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginTop:"1rem"}}>
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
+                  {prossimiR.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
+                  :prossimiR.map(v=>{const gg=Math.round((toD(v.dataAtto)-oggiD)/86400000);const ag=agenti.find(a=>a.id===v.agenteListing);return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5",gap:4}}>
+                    <div><div style={{fontSize:12,fontWeight:500}}>{v.comuneImmobile} — {v.indirizzoImmobile}</div><div style={{fontSize:11,color:"#888"}}>{v.nominativoVenditore} · {ag?.nome||"—"}</div></div>
+                    <div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:12,fontWeight:600,color:gg<=7?"#E74C3C":gg<=15?"#E67E22":"#27AE60"}}>{gg===0?"Oggi!":gg===1?"Domani":gg+" gg"}</div><div style={{fontSize:10,color:"#aaa"}}>{fmtD(v.dataAtto)}</div></div>
+                  </div>);})}
+                </div>
+                <div style={{background:"#fff",borderRadius:10,border:`0.5px solid ${alertP.length>0?"#E74C3C44":"#e8e5e0"}`,padding:"1rem"}}>
+                  <p style={{fontSize:11,fontWeight:600,color:alertP.length>0?"#E74C3C":"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>{alertP.length>0?"⚠ Alert pratiche RT":"✅ Pratiche RT"}{alertP.length>0&&<span style={{marginLeft:6,padding:"1px 6px",borderRadius:3,background:"#FDECEA",color:"#E74C3C",fontSize:10}}>{alertP.length}</span>}</p>
+                  {alertP.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Tutto in regola</p>
+                  :alertP.slice(0,4).map(({inc,al})=>(<div key={inc.id} style={{padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontSize:12,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</span><span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>{al.length}</span></div>
+                    <div style={{fontSize:11,color:"#E74C3C"}}>{al[0].lbl}{al.length>1?` +${al.length-1}`:""}</div>
+                  </div>))}
+                </div>
+              </div>);
+            })()}
             </>)}
           </div>)}
 
