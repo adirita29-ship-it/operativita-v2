@@ -575,7 +575,8 @@ const getAlertFasi = (pratiche, incId) => {
   return al;
 };
 
-export default function App() {
+const METRB_LABELS={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 Clienti pass.",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
+function App() {
   const isMobile=useIsMobile();
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
@@ -1479,7 +1480,7 @@ export default function App() {
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
                         <div>
                           <div style={{fontSize:12,fontWeight:700,color:"#D4AC0D",marginBottom:2}}>🏆 {sfidaAtt.nome}</div>
-                          <div style={{fontSize:11,color:"#888"}}>{METRB[sfidaAtt.metrica]||sfidaAtt.metrica} · 🎁 {sfidaAtt.premio}</div>
+                          <div style={{fontSize:11,color:"#888"}}>{METRB_LABELS[sfidaAtt.metrica]||sfidaAtt.metrica} · 🎁 {sfidaAtt.premio}</div>
                         </div>
                         <div style={{textAlign:"right",flexShrink:0}}>
                           <div style={{fontSize:10,color:"#aaa"}}>Scade tra</div>
@@ -1675,7 +1676,7 @@ export default function App() {
               const prossimiR=venduti.filter(v=>{if(!v.dataAtto)return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
               const alertP=incarichi.filter(i=>!i.archiviato&&statoInc(i)!=="Venduto").map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
               const sfidaAttBr=sfide.find(s=>s.dal<=todayStr()&&s.al>=todayStr()&&!s.conclusa);
-              const METRB={acquisizioni:"🏠",fatturato:"💰",chiamate:"📞",oh:"🚪",proposte:"📝",chiamate_ci:"📞CI",chiamate_cp:"📞CP",appuntamenti:"🤝",immVisitati:"👁",postSocial:"📱"};
+              // METRB_LABELS defined at module level
               const PCLRB=["#D4AC0D","#888","#CD7F32","#555"];
               const PEMOJIB=["🥇","🥈","🥉","4°"];
               const calcMB=(agId,metr,d1,d2)=>{
@@ -1695,7 +1696,7 @@ export default function App() {
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:700,color:"#D4AC0D",marginBottom:2}}>🏆 Traguardo volante attivo: {sfidaAttBr.nome}</div>
-                        <div style={{fontSize:11,color:"#888"}}>{METRB[sfidaAttBr.metrica]||sfidaAttBr.metrica} · {fmtD(sfidaAttBr.dal)} → {fmtD(sfidaAttBr.al)} · 🎁 {sfidaAttBr.premio}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{METRB_LABELS[sfidaAttBr.metrica]||sfidaAttBr.metrica} · {fmtD(sfidaAttBr.dal)} → {fmtD(sfidaAttBr.al)} · 🎁 {sfidaAttBr.premio}</div>
                       </div>
                       <div style={{textAlign:"right",flexShrink:0}}>
                         <div style={{fontSize:10,color:"#aaa"}}>Scade tra</div>
@@ -3886,8 +3887,9 @@ export default function App() {
                   </div>
 
                   {/* Report agente singolo — agenti vedono sempre il proprio */}
-                  {(!isBroker||opAgenteSel!=="Tutti")&&(()=>{
+                  {(!isBroker||(isBroker&&opAgenteSel!=="Tutti"))&&(()=>{
                     const agId=isBroker?Number(opAgenteSel):myAgentId;
+                    if(!agId) return null;
                     const ag=agenti.find(a=>a.id===agId);
                     const r=calcReport(agId,opMeseSel);
                     const ob=(getObiettivi(agId,opMeseSel).approvati||getObiettivi(agId,opMeseSel).proposti)||{};
@@ -4844,7 +4846,10 @@ export default function App() {
             <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 1.25rem"}}>🤝 I miei One-to-One</h2>
             {(()=>{
               const ag=agenti.find(a=>a.id===myAgentId);
-              const incontri=((oneToOne[myAgentId]||[]).filter(i=>i.noteIncontro||i.obiettivi||i.criticita||i.azioni)).sort((a,b)=>b.data.localeCompare(a.data));
+              const incontri=((oneToOne[myAgentId]||[]).filter(i=>i.noteIncontro||i.obiettivi||i.criticita||i.azioni||i[`noteAgente_${myAgentId}`])).sort((a,b)=>b.data.localeCompare(a.data));
+              const salvaNoteAgente=(incId,nota)=>{
+                setOneToOne(prev=>({...prev,[myAgentId]:prev[myAgentId].map(x=>x.id===incId?{...x,[`noteAgente_${myAgentId}`]:nota}:x)}));
+              };
               if(incontri.length===0) return(<div style={{background:"#fafaf8",borderRadius:10,padding:"2rem",textAlign:"center",border:"0.5px solid #e8e5e0"}}><p style={{fontSize:13,color:"#aaa"}}>Nessun incontro registrato ancora — il broker inserirà le note degli incontri qui</p></div>);
               return(<div>
                 <div style={{fontSize:11,color:"#aaa",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12,fontWeight:600}}>{incontri.length} incontri registrati</div>
@@ -4866,13 +4871,18 @@ export default function App() {
                       <span style={{fontSize:13,color:"#aaa"}}>{isOpen?"▲":"▼"}</span>
                     </div>
                     {isOpen&&<div style={{padding:"14px 16px"}}>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
                         {[["📝 Note incontro","noteIncontro","#f8f8f8","#555"],["🎯 Obiettivi","obiettivi","#EAF3DE","#3B6D11"],["⚠ Criticità","criticita","#FDECEA","#A32D2D"],["✅ Azioni da fare","azioni","#E9F7EF","#085041"]].map(([lbl,k,bg,clr])=>inc[k]&&(
                           <div key={k} style={{padding:"10px 12px",background:bg,borderRadius:8}}>
                             <div style={{fontSize:10,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:5}}>{lbl}</div>
                             <div style={{fontSize:12,color:"#2c2c2c",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{inc[k]}</div>
                           </div>
                         ))}
+                      </div>
+                      {/* Note personali agente */}
+                      <div style={{background:"#EAF4FB",borderRadius:8,padding:"10px 12px",border:"1px dashed #2980B944"}}>
+                        <div style={{fontSize:10,fontWeight:600,color:"#2980B9",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>📓 Le mie note personali (private, solo tu le vedi)</div>
+                        <textarea style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #2980B944",resize:"none",background:"#fff",lineHeight:1.5}} rows={3} value={inc[`noteAgente_${myAgentId}`]||""} placeholder="Le tue riflessioni, domande da fare al prossimo incontro..." onChange={e=>salvaNoteAgente(inc.id,e.target.value)}/>
                       </div>
                     </div>}
                   </div>);
