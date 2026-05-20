@@ -3970,28 +3970,30 @@ export default function App() {
                     const r=calcReport(agId,opMeseSel);
                     const ob=(getObiettivi(agId,opMeseSel).approvati||getObiettivi(agId,opMeseSel).proposti)||{};
                     const perc=(v,k)=>ob[k]>0?Math.min(100,Math.round(v/ob[k]*100)):null;
-                    const KpiOb=({lbl,val,obk,clr})=>{
-                      const p=perc(val,obk);
-                      return(<div style={S2.kpi}>
+                    const kpi=(lbl,val,obk,clr)=>{
+                      const p=ob[obk]>0?Math.min(100,Math.round(Number(val)/ob[obk]*100)):null;
+                      return(<div key={lbl} style={S2.kpi}>
                         <div style={{fontSize:10,color:"#888"}}>{lbl}</div>
                         <div style={{fontSize:18,fontWeight:500,color:clr,margin:"2px 0"}}>{val}</div>
                         {p!==null&&<><div style={{fontSize:10,color:"#aaa"}}>obj. {ob[obk]} · {p}%</div>{S2.bar(p,clr)}</>}
                       </div>);
                     };
+                    const reportPropCount=Object.values(operativita[agId]||{}).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.reportProp).length),0);
+                    const ribassiCount=Object.values(operativita[agId]||{}).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.ribasso).length),0);
                     return(<>
                       <div style={S2.card}>
                         <p style={S2.sec}>{ag?.nome} {ag?.cognome} — {opMeseSel}</p>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:"1rem"}}>
-                          <KpiOb lbl="Giorni compilati" val={r.giorniCompilati} obk="giorni" clr="#185FA5"/>
-                          <KpiOb lbl="Chiamate" val={r.chiamate} obk="chiamate" clr="#3B6D11"/>
-                          <KpiOb lbl="Appuntamenti" val={r.appuntamenti} obk="appuntamenti" clr="#633806"/>
-                          <KpiOb lbl="Acquisizioni" val={r.acquisizioni} obk="acquisizioni" clr="#533AB7"/>
-                          <KpiOb lbl="Proposte presentate" val={r.propPresentate} obk="propPresentate" clr="#185FA5"/>
-                          <KpiOb lbl="Proposte accettate" val={r.propAccettate} obk="propAccettate" clr="#27AE60"/>
-                          <KpiOb lbl="Preliminari" val={r.preliminari} obk="preliminari" clr="#A8863A"/>
-                          <KpiOb lbl="Open House" val={r.ohNum} obk="oh" clr="#D85A30"/>
-                          <KpiOb lbl="Report proprietari" val={(()=>{const mese=opMeseSel;const agId2=isBroker?Number(opAgenteSel):myAgentId;return Object.values(operativita[agId2]||{}).filter(([d])=>d&&d.startsWith(mese.slice(0,7))||true).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.reportProp).length),0);})()+"" } obk="reportProp" clr="#A8863A"/>
-                          <KpiOb lbl="Ribassi proposti" val={(()=>{const agId2=isBroker?Number(opAgenteSel):myAgentId;return Object.values(operativita[agId2]||{}).reduce((s,g)=>s+((g.attImm||[]).filter(x=>x.ribasso).length),0);})()+"" } obk="ribassi" clr="#E74C3C"/>
+                          {kpi("Giorni compilati",r.giorniCompilati,"giorni","#185FA5")}
+                          {kpi("Chiamate",r.chiamate,"chiamate","#3B6D11")}
+                          {kpi("Appuntamenti",r.appuntamenti,"appuntamenti","#633806")}
+                          {kpi("Acquisizioni",r.acquisizioni,"acquisizioni","#533AB7")}
+                          {kpi("Proposte presentate",r.propPresentate,"propPresentate","#185FA5")}
+                          {kpi("Proposte accettate",r.propAccettate,"propAccettate","#27AE60")}
+                          {kpi("Preliminari",r.preliminari,"preliminari","#A8863A")}
+                          {kpi("Open House",r.ohNum,"oh","#D85A30")}
+                          {kpi("Report proprietari",reportPropCount,"reportProp","#A8863A")}
+                          {kpi("Ribassi proposti",ribassiCount,"ribassi","#E74C3C")}
                         </div>
                         <p style={{...S2.sec,marginBottom:8}}>Distribuzione ore</p>
                         {[["Ricerca/acquisizione",r.oreRicerca,"#185FA5"],["Operativo/vendite",(r.immVisitati*0.5+r.valutazioni*1.5),"#633806"],["Open House",(r.ohNum*2),"#D85A30"],["Sviluppo",r.oreSviluppo,"#533AB7"],["Marketing",r.oreMarketing,"#3B6D11"],["Amministrativo",r.oreAmm,"#888780"]].map(([lbl,val,clr])=>{
