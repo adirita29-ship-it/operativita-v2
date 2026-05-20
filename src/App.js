@@ -2254,37 +2254,86 @@ export default function App() {
                 </div>
 
                 {/* ── BOX 4: OBIETTIVI ── */}
-                {(obiettivoFatturato>0||obiettivoQuotaAgenzia>0)&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem"}}>
-                  <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>🎯 Obiettivi annuali</p>
-                  {obiettivoFatturato>0&&(<div style={{marginBottom:10}}>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
-                      <span style={{color:"#555"}}>Fatturato lordo vs obiettivo</span>
-                      <span style={{fontWeight:600,color:BRAND.oroD}}>{Math.round((vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0))/obiettivoFatturato*100)}%</span>
+                {(()=>{
+                  // Obiettivo fatturato automatico = somma obiettivi fatturato agenti dall'anno selezionato
+                  // Gli obiettivi sono mensili, sommiamo su tutti i mesi dell'anno
+                  const mesiAnno=Array.from({length:12},(_,i)=>`${costiAnno}-${String(i+1).padStart(2,"0")}`);
+                  const obFattAutoPerAgente=agenti.map(ag=>{
+                    // Prendi il massimo obiettivo mensile impostato per quell'agente nell'anno
+                    const obMesi=mesiAnno.map(m=>{
+                      const ob=(obiettiviOp[ag.id]||{})[m]||{};
+                      const proposti=ob.proposti||ob||{};
+                      return Number(proposti.fatturato||proposti.fatturatoBruto||0);
+                    });
+                    // Se hanno impostato un obiettivo mensile fatturato, moltiplica x12
+                    // Altrimenti non lo contiamo
+                    const maxOb=Math.max(...obMesi);
+                    return maxOb>0?maxOb*12:0;
+                  });
+                  const obFattTeamAuto=obFattAutoPerAgente.reduce((s,v)=>s+v,0);
+                  // Usa automatico se disponibile, altrimenti manuale
+                  const obFattEffettivo=obFattTeamAuto>0?obFattTeamAuto:obiettivoFatturato;
+                  const fattLordo=vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+                  const percFatt=obFattEffettivo>0?Math.min(100,Math.round(fattLordo/obFattEffettivo*100)):0;
+                  const percQuota=obiettivoQuotaAgenzia>0?Math.min(100,Math.round(quotaAgTot/obiettivoQuotaAgenzia*100)):0;
+
+                  return(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem"}}>
+                    <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>🎯 Obiettivi annuali {costiAnno}</p>
+
+                    {/* Obiettivo fatturato — automatico da somma agenti */}
+                    <div style={{marginBottom:"1rem",padding:"10px 14px",background:"#FDFBF7",borderRadius:8,border:"0.5px solid #e8e5e0"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}}>
+                        <div>
+                          <span style={{fontSize:12,fontWeight:500,color:"#555"}}>Fatturato lordo team</span>
+                          {obFattTeamAuto>0
+                            ?<span style={{fontSize:10,color:"#27AE60",marginLeft:6,padding:"1px 6px",borderRadius:3,background:"#E9F7EF"}}>✓ auto da obiettivi agenti</span>
+                            :<span style={{fontSize:10,color:"#aaa",marginLeft:6,padding:"1px 6px",borderRadius:3,background:"#f0f0f0"}}>inserisci manualmente</span>}
+                        </div>
+                        <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>€ {fmt(obFattEffettivo||0)}</span>
+                      </div>
+                      {obFattTeamAuto>0&&<div style={{fontSize:11,color:"#aaa",marginBottom:8}}>
+                        Somma obiettivi: {agenti.filter((_,i)=>obFattAutoPerAgente[i]>0).map((a,i)=>`${a.nome}: € ${fmt(obFattAutoPerAgente[agenti.indexOf(a)])}`).join(" · ")}
+                      </div>}
+                      {obFattTeamAuto===0&&<div style={{marginBottom:8}}>
+                        <input type="number" style={{...S.inp,margin:0}} value={obiettivoFatturato||""} placeholder="es. 300.000" onChange={e=>setObiettivoFatturato(Number(e.target.value))}/>
+                        <div style={{fontSize:10,color:"#aaa",marginTop:4}}>Oppure imposta gli obiettivi mensili degli agenti in Operatività → Obiettivi per il calcolo automatico</div>
+                      </div>}
+                      {obFattEffettivo>0&&(<>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:3}}>
+                          <span>Realizzato: € {fmt(fattLordo)}</span>
+                          <span style={{fontWeight:600,color:percFatt>=100?"#27AE60":BRAND.oroD}}>{percFatt}%</span>
+                        </div>
+                        <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":BRAND.oro,borderRadius:4}}/>
+                        </div>
+                      </>)}
                     </div>
-                    <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${Math.min(100,Math.round(vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0)/obiettivoFatturato*100))}%`,background:BRAND.oro,borderRadius:4}}/>
+
+                    {/* Obiettivo quota agenzia — sempre manuale */}
+                    <div style={{padding:"10px 14px",background:"#FDFBF7",borderRadius:8,border:"0.5px solid #e8e5e0"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}}>
+                        <div>
+                          <span style={{fontSize:12,fontWeight:500,color:"#555"}}>Obiettivo quota agenzia</span>
+                          <span style={{fontSize:10,color:"#aaa",marginLeft:6}}>per coprire BE + utile</span>
+                        </div>
+                        {obiettivoQuotaAgenzia>0&&<span style={{fontSize:18,fontWeight:700,color:percQuota>=100?"#27AE60":"#E67E22"}}>€ {fmt(obiettivoQuotaAgenzia)}</span>}
+                      </div>
+                      <input type="number" style={{...S.inp,margin:"0 0 8px"}} value={obiettivoQuotaAgenzia||""} placeholder={`es. ${fmt(Math.round(puntoBE*1.2))} (BE + 20% utile)`} onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value))}/>
+                      {obiettivoQuotaAgenzia>0&&(<>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:3}}>
+                          <span>Quota agenzia attuale: € {fmt(quotaAgTot)}</span>
+                          <span style={{fontWeight:600,color:percQuota>=100?"#27AE60":"#E67E22"}}>{percQuota}%</span>
+                        </div>
+                        <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${percQuota}%`,background:percQuota>=100?"#27AE60":"#E67E22",borderRadius:4}}/>
+                        </div>
+                        {obiettivoQuotaAgenzia>0&&puntoBE>0&&<div style={{fontSize:10,color:"#aaa",marginTop:4}}>
+                          Break Even: € {fmt(puntoBE)} · Utile previsto: € {fmt(obiettivoQuotaAgenzia-puntoBE)} ({Math.round((obiettivoQuotaAgenzia/puntoBE-1)*100)}%)
+                        </div>}
+                      </>)}
                     </div>
-                  </div>)}
-                  {obiettivoQuotaAgenzia>0&&(<div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
-                      <span style={{color:"#555"}}>Quota agenzia vs obiettivo quota</span>
-                      <span style={{fontWeight:600,color:quotaAgTot>=obiettivoQuotaAgenzia?"#27AE60":"#E67E22"}}>{Math.round(quotaAgTot/obiettivoQuotaAgenzia*100)}%</span>
-                    </div>
-                    <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${Math.min(100,Math.round(quotaAgTot/obiettivoQuotaAgenzia*100))}%`,background:quotaAgTot>=obiettivoQuotaAgenzia?"#27AE60":"#E67E22",borderRadius:4}}/>
-                    </div>
-                  </div>)}
-                  <div style={{marginTop:"1rem",display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:140}}>
-                      <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Obiettivo fatturato lordo</label>
-                      <input type="number" style={S.inp} value={obiettivoFatturato||""} placeholder="es. 300000" onChange={e=>setObiettivoFatturato(Number(e.target.value))}/>
-                    </div>
-                    <div style={{flex:1,minWidth:140}}>
-                      <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Obiettivo quota agenzia</label>
-                      <input type="number" style={S.inp} value={obiettivoQuotaAgenzia||""} placeholder="es. 150000" onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value))}/>
-                    </div>
-                  </div>
-                </div>)}
+                  </div>);
+                })()}
               </>);
             })()}
           </div>)}
