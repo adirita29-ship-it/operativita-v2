@@ -2084,267 +2084,211 @@ export default function App() {
 
 
           {/* ── TAB COSTI ── */}
+          {/* ── TAB BREAK EVEN ── */}
           {tab==="Break Even"&&isBroker&&(<div style={S.sec}>
-            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
-              <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Gestione Costi</h2>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <label style={{fontSize:13,color:"#888"}}>Anno:</label>
-                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);if(!costi[e.target.value])setCosti({...costi,[e.target.value]:mkCosti()});}}>
+            <div style={{display:"flex",gap:12,marginBottom:"1.5rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+              <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📉 Break Even — {costiAnno}</h2>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <select style={S.sel} value={costiAnno} onChange={e=>setCostiAnno(e.target.value)}>
                   {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
-                  <option value={String(Number(annoCorrente)+1)}>{Number(annoCorrente)+1}</option>
                 </select>
+                <div style={{display:"flex",gap:4}}>
+                  {[["fissi","Solo fissi"],["fissi+variabili","Fissi + Variabili"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setCostiBreakevenMode(v)} style={{fontSize:11,padding:"5px 12px",borderRadius:6,border:`1px solid ${costiBreakevenMode===v?"#E74C3C":"#ddd"}`,background:costiBreakevenMode===v?"#FDECEA":"#fff",color:costiBreakevenMode===v?"#E74C3C":"#888",cursor:"pointer",fontWeight:costiBreakevenMode===v?600:400}}>{l}</button>
+                  ))}
+                </div>
               </div>
             </div>
             {(()=>{
-              const vociAnno = costi[costiAnno]||mkCosti();
-              const totPrevAnnuo = vociAnno.reduce((s,v)=>s+prevAnnuoVoce(v),0);
-              const totPrevMensile = totPrevAnnuo/12;
-              const vendAnno = venduti.filter(v=>getAnno(dataCompAgenzia(v))===costiAnno);
+              const vociAnno=costi[costiAnno]||mkCosti();
+              const vociConTipo=vociAnno.map(v=>({...v,tipo:v.tipo||"fisso"}));
+              const fissi=vociConTipo.filter(v=>v.tipo==="fisso");
+              const variabili=vociConTipo.filter(v=>v.tipo==="variabile");
+              const totPrevFissi=fissi.reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totPrevVar=variabili.reduce((s,v)=>s+prevAnnuoVoce(v),0);
+              const totSpFissi=fissi.reduce((s,v)=>s+totSpeseVoce(v),0);
+              const totSpVar=variabili.reduce((s,v)=>s+totSpeseVoce(v),0);
+              const totConsuntivo=totSpFissi+totSpVar;
+              const totPrevAnnuo=totPrevFissi+totPrevVar;
 
-              // Fatturato INCASSATO (cassa - soldi già entrati)
-              const fatturatoLordo = vendAnno.reduce((s,v)=>s+calcolaIncassatoV(v)+calcolaIncassatoA(v),0);
-              // Fatturato TOTALE pattuito (competenza - include anche da incassare)
-              const fatturatoLordoTot = vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+              // Punto di Break Even = spese (preventivo o consuntivo se disponibile)
+              const puntoBE = costiBreakevenMode==="fissi"
+                ? (totSpFissi>0?totSpFissi:totPrevFissi)
+                : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
+              const puntoBELabel = costiBreakevenMode==="fissi" ? "Solo costi fissi" : "Costi fissi + variabili";
+              const costoMensile = puntoBE/12;
 
-              // Quote agenti su incassato
-              const quotaAgenti = vendAnno.reduce((s,v)=>s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
-                const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
-                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
-                let q=0;
-                if(v.agenteListing===a.id&&pV>0) q+=incV*(Number(v.percListing||0)/100);
-                if(v.agenteAcquirente===a.id&&pA>0) q+=incA*(Number(v.percAcquirente||0)/100);
-                if(v.buyerListing===a.id&&v.agenteListing!==a.id&&pV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
-                if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&pA>0) q+=incA*(Number(v.percBuyer||0)/100);
-                return sa+q;
-              },0),0);
-              // Quote agenti su totale pattuito
-              const quotaAgentiTot = vendAnno.reduce((s,v)=>s+agenti.filter(a=>a.profilo!=="Broker").reduce((sa,a)=>{
-                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
-                let q=0;
-                if(v.agenteListing===a.id&&pV>0) q+=pV*(Number(v.percListing||0)/100);
-                if(v.agenteAcquirente===a.id&&pA>0) q+=pA*(Number(v.percAcquirente||0)/100);
-                if(v.buyerListing===a.id&&v.agenteListing!==a.id&&pV>0) q+=pV*(Number(v.percBuyerListing||0)/100);
-                if(v.buyer===a.id&&v.agenteAcquirente!==a.id&&pA>0) q+=pA*(Number(v.percBuyer||0)/100);
-                return sa+q;
-              },0),0);
+              // Fatturato anno
+              const vendAnno=venduti.filter(v=>getAnno(dataCompAgenzia(v))===costiAnno);
 
-              const quotaBuyer = vendAnno.reduce((s,v)=>{
-                const incV=calcolaIncassatoV(v); const incA=calcolaIncassatoA(v);
-                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
-                let q=0;
-                if(v.buyerListing&&v.agenteListing!==v.buyerListing&&pV>0) q+=incV*(Number(v.percBuyerListing||0)/100);
-                if(v.buyer&&v.agenteAcquirente!==v.buyer&&pA>0) q+=incA*(Number(v.percBuyer||0)/100);
-                return s+q;
-              },0);
-              const quotaBuyerTot = vendAnno.reduce((s,v)=>{
-                const pV=Number(v.provvVenditore||0); const pA=Number(v.provvAcquirente||0);
-                let q=0;
-                if(v.buyerListing&&v.agenteListing!==v.buyerListing&&pV>0) q+=pV*(Number(v.percBuyerListing||0)/100);
-                if(v.buyer&&v.agenteAcquirente!==v.buyer&&pA>0) q+=pA*(Number(v.percBuyer||0)/100);
-                return s+q;
+              // Quota Agenzia TOTALE (incassato + da incassare)
+              const calcQuotaAg=(vend,useIncassato)=>vend.reduce((s,v)=>{
+                const pV=useIncassato?calcolaIncassatoV(v):Number(v.provvVenditore||0);
+                const pA=useIncassato?calcolaIncassatoA(v):Number(v.provvAcquirente||0);
+                let qa=pV+pA;
+                agenti.filter(a=>a.profilo!=="Broker").forEach(a=>{
+                  if(v.agenteListing===a.id) qa-=pV*(Number(v.percListing||0)/100);
+                  if(v.agenteAcquirente===a.id) qa-=pA*(Number(v.percAcquirente||0)/100);
+                  if(v.buyerListing===a.id&&v.agenteListing!==a.id) qa-=pV*(Number(v.percBuyerListing||0)/100);
+                  if(v.buyer===a.id&&v.agenteAcquirente!==a.id) qa-=pA*(Number(v.percBuyer||0)/100);
+                });
+                return s+Math.max(0,qa);
               },0);
 
-              const quotaAgenzia = fatturatoLordo - quotaAgenti - quotaBuyer;
-              // Quota agenzia su TOTALE pattuito (incassato + da incassare)
-              const quotaAgenziaTot = fatturatoLordoTot - quotaAgentiTot - quotaBuyerTot;
-              const totConsuntivo = vociAnno.reduce((s,v)=>s+totSpeseVoce(v),0);
-              // Break even mode: fissi soli o fissi+variabili
-              const vociConTipoKPI=vociAnno.map(v=>({...v,tipo:v.tipo||"fisso"}));
-              const totPrevFissiKPI=vociConTipoKPI.filter(v=>v.tipo==="fisso").reduce((s,v)=>s+prevAnnuoVoce(v),0);
-              const totPrevVariabiliKPI=vociConTipoKPI.filter(v=>v.tipo==="variabile").reduce((s,v)=>s+prevAnnuoVoce(v),0);
-              const totSpFissiKPI=vociConTipoKPI.filter(v=>v.tipo==="fisso").reduce((s,v)=>s+totSpeseVoce(v),0);
-              const totSpVariabiliKPI=vociConTipoKPI.filter(v=>v.tipo==="variabile").reduce((s,v)=>s+totSpeseVoce(v),0);
-              const costiPrevRif=costiBreakevenMode==="fissi"?totPrevFissiKPI:totPrevAnnuo;
-              const costiSpRif=costiBreakevenMode==="fissi"?totSpFissiKPI:totConsuntivo;
-              const costiRif = costiSpRif>0?costiSpRif:costiPrevRif;
-              const margine = quotaAgenzia - costiRif;
-              const percCopertura = totPrevAnnuo>0?(quotaAgenzia/totPrevAnnuo*100).toFixed(1):null;
+              const quotaAgTot=calcQuotaAg(vendAnno,false);   // su totale pattuito
+              const quotaAgInc=calcQuotaAg(vendAnno,true);    // su incassato
+              const quotaAgDaInc=quotaAgTot-quotaAgInc;       // già maturata, non ancora incassata
 
-              // Obiettivo fatturato dagli agenti (somma automatica)
-              const obFatAgenti = agenti.filter(a=>a.profilo!=="Broker").reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0);
+              const meseTot=puntoBE>0?Math.round(quotaAgTot/costoMensile*10)/10:0;
+              const meseInc=puntoBE>0?Math.round(quotaAgInc/costoMensile*10)/10:0;
+              const meseCoperti=new Date().getFullYear()===Number(costiAnno)?new Date().getMonth()+1:12;
+
+              const percTot=puntoBE>0?Math.min(100,Math.round(quotaAgTot/puntoBE*100)):0;
+              const percInc=puntoBE>0?Math.min(100,Math.round(quotaAgInc/puntoBE*100)):0;
+
+              const beRaggiuntoTot=quotaAgTot>=puntoBE;
+              const beRaggiuntoInc=quotaAgInc>=puntoBE;
 
               return(<>
-                {/* Toggle break even mode */}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"1rem",flexWrap:"wrap"}}>
-                  <span style={{fontSize:12,color:"#888",fontWeight:500}}>Break Even su:</span>
-                  {[["fissi","🔒 Solo fissi"],["fissi+variabili","🔒+📊 Fissi + Variabili"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>setCostiBreakevenMode(v)} style={{fontSize:12,padding:"5px 14px",borderRadius:6,border:`1px solid ${costiBreakevenMode===v?"#2980B9":"#ddd"}`,background:costiBreakevenMode===v?"#EAF4FB":"#fff",color:costiBreakevenMode===v?"#2980B9":"#888",cursor:"pointer",fontWeight:costiBreakevenMode===v?600:400}}>{l}</button>
-                  ))}
-                  {costiBreakevenMode==="fissi"&&totPrevVariabiliKPI>0&&<span style={{fontSize:11,color:"#E67E22",fontStyle:"italic"}}>+€ {fmt(totPrevVariabiliKPI)} variabili esclusi dal calcolo</span>}
+                {/* ── BOX 1: PUNTO DI BREAK EVEN ── */}
+                <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
+                  <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 6px"}}>Punto di Break Even ({puntoBELabel})</p>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:8}}>
+                    <p style={{fontSize:36,fontWeight:700,margin:0,color:"#fff"}}>€ {fmt(puntoBE)}</p>
+                    <div style={{textAlign:"right"}}>
+                      <p style={{fontSize:13,margin:"0 0 2px",color:"#ccc"}}>€ {fmt(Math.round(costoMensile))}<span style={{fontSize:11,color:"#aaa"}}>/mese</span></p>
+                      {costiBreakevenMode==="fissi"&&totPrevVar>0&&<p style={{fontSize:11,color:"#E67E22",margin:0}}>+€ {fmt(Math.round(totPrevVar))} var. esclusi</p>}
+                      {totConsuntivo>0&&<p style={{fontSize:11,color:"#aaa",margin:0}}>Consuntivo reale: € {fmt(totConsuntivo)}</p>}
+                    </div>
+                  </div>
                 </div>
-                {/* Obiettivi input — 2 campi */}
-                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"14px 18px",marginBottom:"1.25rem"}}>
-                  <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Obiettivi anno {costiAnno}</p>
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+
+                {/* ── BOX 2: QUOTA AGENZIA TOTALE vs BE ── */}
+                <div style={{background:"#fff",borderRadius:12,border:`1.5px solid ${beRaggiuntoTot?"#27AE60":"#E74C3C"}`,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
                     <div>
-                      <label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>
-                        Obiettivo Fatturato Lordo Agenzia (€)
-                        {obFatAgenti>0&&<span style={{color:BRAND.oroD,marginLeft:8,fontWeight:500}}>· da agenti: € {fmt(obFatAgenti)}</span>}
-                      </label>
-                      <input style={{...S.inp,margin:0}} type="number" placeholder="es. 300000" value={obiettivoFatturato||""} onChange={e=>setObiettivoFatturato(Number(e.target.value))}/>
-                      {obFatAgenti>0&&obiettivoFatturato===0&&(
-                        <button style={{fontSize:11,color:BRAND.oroD,background:"none",border:`0.5px solid ${BRAND.oro}`,borderRadius:5,padding:"3px 8px",cursor:"pointer",marginTop:4}} onClick={()=>setObiettivoFatturato(obFatAgenti)}>
-                          Usa somma agenti: € {fmt(obFatAgenti)}
-                        </button>
-                      )}
+                      <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 4px"}}>💰 Quota Agenzia — Fatturato totale (incassato + da incassare)</p>
+                      <p style={{fontSize:28,fontWeight:700,margin:0,color:beRaggiuntoTot?"#27AE60":"#2C2C2C"}}>€ {fmt(quotaAgTot)}</p>
                     </div>
-                    <div>
-                      <label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>
-                        Obiettivo Quota Agenzia (Break Even) (€)
-                        {totPrevAnnuo>0&&<span style={{color:"#E74C3C",marginLeft:8,fontWeight:500}}>· costi prev.: € {fmt(totPrevAnnuo)}</span>}
-                      </label>
-                      <input style={{...S.inp,margin:0}} type="number" placeholder={`es. ${fmt(totPrevAnnuo||180000)}`} value={obiettivoQuotaAgenzia||""} onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value))}/>
-                      {totPrevAnnuo>0&&obiettivoQuotaAgenzia===0&&(
-                        <button style={{fontSize:11,color:"#E74C3C",background:"none",border:"0.5px solid #E74C3C",borderRadius:5,padding:"3px 8px",cursor:"pointer",marginTop:4}} onClick={()=>setObiettivoQuotaAgenzia(totPrevAnnuo)}>
-                          Usa costi previsionali: € {fmt(totPrevAnnuo)}
-                        </button>
-                      )}
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:22,fontWeight:700,color:beRaggiuntoTot?"#27AE60":"#E74C3C"}}>{percTot}%</div>
+                      <div style={{fontSize:11,color:"#aaa"}}>del break even</div>
                     </div>
+                  </div>
+                  {/* Barra principale */}
+                  <div style={{height:18,background:"#f0f0f0",borderRadius:9,overflow:"hidden",position:"relative",marginBottom:8}}>
+                    <div style={{height:"100%",width:`${percTot}%`,background:beRaggiuntoTot?"#27AE60":"linear-gradient(90deg,#E74C3C,#C0392B)",borderRadius:9,transition:"width .6s ease",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:8}}>
+                      {percTot>15&&<span style={{fontSize:11,fontWeight:600,color:"#fff"}}>€ {fmt(quotaAgTot)}</span>}
+                    </div>
+                    {/* Linea BE */}
+                    <div style={{position:"absolute",top:0,bottom:0,left:"100%",width:2,background:"#2C2C2C",opacity:.3}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888"}}>
+                    <span>Break Even: <strong style={{color:"#E74C3C"}}>€ {fmt(puntoBE)}</strong></span>
+                    {beRaggiuntoTot
+                      ?<span style={{color:"#27AE60",fontWeight:600}}>✅ Break Even raggiunto! Utile: +€ {fmt(quotaAgTot-puntoBE)}</span>
+                      :<span style={{color:"#E74C3C",fontWeight:500}}>⚠ Mancano: <strong>€ {fmt(puntoBE-quotaAgTot)}</strong></span>}
                   </div>
                 </div>
 
-                {/* KPI 4 cards */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <div style={S.card("#27AE60")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota Agenzia {costiAnno}</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>Incassato · Totale: € {fmt(quotaAgenziaTot)}</p>
+                {/* ── BOX 3: SITUAZIONE CASSA + PROIEZIONE ── */}
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                  <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>✅ Situazione cassa e proiezione</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:"1rem"}}>
+                    <div style={{background:"#E9F7EF",borderRadius:8,padding:"12px 14px"}}>
+                      <div style={{fontSize:11,color:"#27AE60",fontWeight:500,marginBottom:4}}>Incassato oggi</div>
+                      <div style={{fontSize:22,fontWeight:700,color:"#27AE60"}}>€ {fmt(quotaAgInc)}</div>
+                      <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{meseInc} mesi di costi coperti</div>
+                    </div>
+                    <div style={{background:"#EAF4FB",borderRadius:8,padding:"12px 14px"}}>
+                      <div style={{fontSize:11,color:"#2980B9",fontWeight:500,marginBottom:4}}>Da incassare (già tuoi)</div>
+                      <div style={{fontSize:22,fontWeight:700,color:"#2980B9"}}>€ {fmt(quotaAgDaInc)}</div>
+                      <div style={{fontSize:11,color:"#aaa",marginTop:2}}>Clienti che devono ancora pagare</div>
+                    </div>
                   </div>
-                  <div style={S.card("#E74C3C")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi previsionali annui</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E74C3C"}}>€ {fmt(totPrevAnnuo)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>€ {fmt(Math.round(totPrevMensile))}/mese</p>
+                  {/* Barra incassato + da incassare */}
+                  <div style={{marginBottom:8}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:4}}>
+                      <span>Incassato: <strong style={{color:"#27AE60"}}>€ {fmt(quotaAgInc)}</strong> + Da incassare: <strong style={{color:"#2980B9"}}>€ {fmt(quotaAgDaInc)}</strong></span>
+                      <span>BE: <strong>€ {fmt(puntoBE)}</strong></span>
+                    </div>
+                    <div style={{height:14,background:"#f0f0f0",borderRadius:7,overflow:"hidden",display:"flex"}}>
+                      <div style={{height:"100%",width:`${percInc}%`,background:"#27AE60",transition:"width .6s ease"}}/>
+                      <div style={{height:"100%",width:`${Math.min(100-percInc,Math.max(0,percTot-percInc))}%`,background:"#2980B9",opacity:.7,transition:"width .6s ease"}}/>
+                    </div>
+                    <div style={{display:"flex",gap:12,marginTop:4,fontSize:10,color:"#aaa"}}>
+                      <span style={{color:"#27AE60"}}>■ Incassato {percInc}%</span>
+                      <span style={{color:"#2980B9"}}>■ Da incassare {Math.max(0,percTot-percInc)}%</span>
+                      <span>□ Mancante {Math.max(0,100-percTot)}%</span>
+                    </div>
                   </div>
-                  <div style={S.card("#E67E22")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Costi {costiBreakevenMode==="fissi"?"fissi":"totali"} {costiSpRif>0?"consuntivi":"previsionali"}</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#E67E22"}}>€ {fmt(costiRif)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{costiBreakevenMode==="fissi"?`+€ ${fmt(totPrevVariabiliKPI)} var. esclusi`:`€ ${fmt(Math.round(costiRif/12))}/mese`}</p>
-                  </div>
-                  <div style={S.card(margine>=0?"#27AE60":"#E74C3C")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Margine agenzia</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:margine>=0?"#27AE60":"#E74C3C"}}>{margine>=0?"+":""}€ {fmt(margine)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totConsuntivo>0?"vs consuntivi":"vs previsionali"}</p>
+                  {/* Analisi mesi */}
+                  <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",marginTop:8}}>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,fontSize:12}}>
+                      <div style={{textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Costo mensile</div>
+                        <div style={{fontSize:16,fontWeight:600,color:"#E74C3C"}}>€ {fmt(Math.round(costoMensile))}</div>
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Mesi coperti (incassato)</div>
+                        <div style={{fontSize:16,fontWeight:600,color:meseInc>=meseCoperti?"#27AE60":"#E67E22"}}>{meseInc}</div>
+                        <div style={{fontSize:10,color:"#aaa"}}>{meseInc>=meseCoperti?"✅ in pari":"su "+meseCoperti+" trascorsi"}</div>
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Mesi coperti (totale)</div>
+                        <div style={{fontSize:16,fontWeight:600,color:meseTot>=meseCoperti?"#27AE60":"#E67E22"}}>{meseTot}</div>
+                        <div style={{fontSize:10,color:"#aaa"}}>{meseTot>=12?"✅ anno coperto":meseTot>=meseCoperti?"✅ in pari":"su "+meseCoperti+" trascorsi"}</div>
+                      </div>
+                    </div>
+                    {quotaAgInc<costoMensile*meseCoperti&&quotaAgTot>=costoMensile*meseCoperti&&(
+                      <div style={{marginTop:8,padding:"6px 10px",background:"#EAF4FB",borderRadius:6,fontSize:11,color:"#2980B9",fontWeight:500}}>
+                        💡 Sei sotto con il solo incassato, ma con i {fmt(Math.round(quotaAgDaInc))}€ già maturati da incassare saresti in pari — stai aspettando i pagamenti dei clienti.
+                      </div>
+                    )}
+                    {quotaAgTot<costoMensile*meseCoperti&&(
+                      <div style={{marginTop:8,padding:"6px 10px",background:"#FDECEA",borderRadius:6,fontSize:11,color:"#E74C3C",fontWeight:500}}>
+                        ⚠ Anche considerando i crediti da incassare, la quota agenzia non copre ancora le spese del periodo. Mancano: € {fmt(Math.round(costoMensile*meseCoperti-quotaAgTot))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Riepilogo quote */}
-                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1.25rem"}}>
-                  <p style={{fontSize:12,fontWeight:500,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 10px"}}>Composizione fatturato {costiAnno}</p>
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10}}>
-                    <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
-                      <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenzia</p>
-                      <p style={{fontSize:16,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(quotaAgenzia)}</p>
-                      <p style={{fontSize:10,color:"#aaa",margin:"2px 0 1px"}}>{fatturatoLordo>0?((quotaAgenzia/fatturatoLordo)*100).toFixed(1)+"% incassato":""}</p>
-                      <p style={{fontSize:10,color:"#2980B9",margin:0}}>Totale: € {fmt(quotaAgenziaTot)}</p>
+                {/* ── BOX 4: OBIETTIVI ── */}
+                {(obiettivoFatturato>0||obiettivoQuotaAgenzia>0)&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem"}}>
+                  <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>🎯 Obiettivi annuali</p>
+                  {obiettivoFatturato>0&&(<div style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                      <span style={{color:"#555"}}>Fatturato lordo vs obiettivo</span>
+                      <span style={{fontWeight:600,color:BRAND.oroD}}>{Math.round((vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0))/obiettivoFatturato*100)}%</span>
                     </div>
-                    <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
-                      <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Agenti</p>
-                      <p style={{fontSize:16,fontWeight:600,margin:0,color:"#2980B9"}}>€ {fmt(quotaAgenti)}</p>
-                      <p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>{fatturatoLordo>0?((quotaAgenti/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                    <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${Math.min(100,Math.round(vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0)/obiettivoFatturato*100))}%`,background:BRAND.oro,borderRadius:4}}/>
                     </div>
-                    <div style={{textAlign:"center",padding:"10px",background:BRAND.beige,borderRadius:8}}>
-                      <p style={{fontSize:11,color:"#888",margin:"0 0 3px"}}>Quota Buyer</p>
-                      <p style={{fontSize:16,fontWeight:600,margin:0,color:"#8E44AD"}}>€ {fmt(quotaBuyer)}</p>
-                      <p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>{fatturatoLordo>0?((quotaBuyer/fatturatoLordo)*100).toFixed(1)+"% del lordo":"—"}</p>
+                  </div>)}
+                  {obiettivoQuotaAgenzia>0&&(<div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                      <span style={{color:"#555"}}>Quota agenzia vs obiettivo quota</span>
+                      <span style={{fontWeight:600,color:quotaAgTot>=obiettivoQuotaAgenzia?"#27AE60":"#E67E22"}}>{Math.round(quotaAgTot/obiettivoQuotaAgenzia*100)}%</span>
                     </div>
-                  </div>
-                  <div style={{marginTop:8,padding:"6px 10px",background:"#f0f0f0",borderRadius:6,fontSize:11,color:"#555",display:"flex",justifyContent:"space-between"}}>
-                    <span>Fatturato lordo incassato: <strong>€ {fmt(fatturatoLordo)}</strong></span>
-                    <span>Totale pattuito: <strong style={{color:"#2980B9"}}>€ {fmt(fatturatoLordoTot)}</strong></span>
-                    <span>Da incassare: <strong style={{color:"#E67E22"}}>€ {fmt(fatturatoLordoTot-fatturatoLordo)}</strong></span>
-                  </div>
-                </div>
-
-                {/* BARRA 1 — Fatturato lordo vs Obiettivo fatturato */}
-                {obiettivoFatturato>0&&(
-                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,flexWrap:"wrap",gap:4}}>
-                      <div>
-                        <span style={{fontSize:13,fontWeight:600,color:BRAND.grigio}}>📊 Obiettivo 1 — Fatturato lordo agenzia</span>
-                        <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Tutte le provvigioni incassate (V+A), prima della distribuzione agli agenti</p>
-                      </div>
-                      <span style={{fontSize:14,fontWeight:700,color:fatturatoLordo>=obiettivoFatturato?"#27AE60":BRAND.oroD}}>€ {fmt(fatturatoLordo)} / € {fmt(obiettivoFatturato)}</span>
+                    <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${Math.min(100,Math.round(quotaAgTot/obiettivoQuotaAgenzia*100))}%`,background:quotaAgTot>=obiettivoQuotaAgenzia?"#27AE60":"#E67E22",borderRadius:4}}/>
                     </div>
-                    <div style={{background:"#f0f0f0",borderRadius:8,height:20,overflow:"hidden",position:"relative"}}>
-                      <div style={{height:"100%",borderRadius:8,background:fatturatoLordo>=obiettivoFatturato?"#27AE60":`linear-gradient(90deg,${BRAND.oro},#A8863A)`,width:`${Math.min(100,fatturatoLordo/obiettivoFatturato*100)}%`,transition:"width 0.5s ease"}}/>
+                  </div>)}
+                  <div style={{marginTop:"1rem",display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:140}}>
+                      <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Obiettivo fatturato lordo</label>
+                      <input type="number" style={S.inp} value={obiettivoFatturato||""} placeholder="es. 300000" onChange={e=>setObiettivoFatturato(Number(e.target.value))}/>
                     </div>
-                    <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:"#aaa",flexWrap:"wrap",gap:4}}>
-                      <span>Raggiunto: <strong style={{color:BRAND.oroD}}>{(fatturatoLordo/obiettivoFatturato*100).toFixed(1)}%</strong></span>
-                      {fatturatoLordo<obiettivoFatturato
-                        ?<span style={{color:"#E67E22"}}>Mancano <strong>€ {fmt(obiettivoFatturato-fatturatoLordo)}</strong> al fatturato obiettivo</span>
-                        :<span style={{color:"#27AE60",fontWeight:600}}>🎉 Obiettivo fatturato raggiunto!</span>}
+                    <div style={{flex:1,minWidth:140}}>
+                      <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>Obiettivo quota agenzia</label>
+                      <input type="number" style={S.inp} value={obiettivoQuotaAgenzia||""} placeholder="es. 150000" onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value))}/>
                     </div>
                   </div>
-                )}
-
-                {/* BARRA 2 — Quota Agenzia vs Break Even (costi) — doppia: incassato e totale */}
-                {(obiettivoQuotaAgenzia>0||costiRif>0)&&(
-                  <div style={{background:"#fff",borderRadius:10,border:`1px solid ${quotaAgenzia>=costiRif?"#27AE6044":"#E74C3C44"}`,padding:"1rem",marginBottom:"1.25rem"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:4}}>
-                      <div>
-                        <span style={{fontSize:13,fontWeight:600,color:BRAND.grigio}}>🎯 Obiettivo 2 — Quota Agenzia vs Break Even</span>
-                        <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Ciò che resta all'agenzia dopo le provvigioni agenti — deve coprire i costi</p>
-                      </div>
-                      <span style={{fontSize:14,fontWeight:700,color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C"}}>€ {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)} target</span>
-                    </div>
-
-                    {/* Barra A: su incassato */}
-                    <div style={{marginBottom:10}}>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
-                        <span style={{color:"#555",fontWeight:500}}>💰 Su incassato</span>
-                        <span style={{color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C",fontWeight:600}}>€ {fmt(quotaAgenzia)} / € {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)}</span>
-                      </div>
-                      <div style={{background:"#f0f0f0",borderRadius:6,height:14,overflow:"hidden",position:"relative"}}>
-                        <div style={{height:"100%",borderRadius:6,background:quotaAgenzia>=costiRif?"#27AE60":"linear-gradient(90deg,#E74C3C,#C0392B)",width:`${Math.min(100,quotaAgenzia/Math.max(obiettivoQuotaAgenzia||costiRif,1)*100)}%`,transition:"width 0.5s ease"}}/>
-                        {obiettivoQuotaAgenzia>0&&costiRif>0&&obiettivoQuotaAgenzia!==costiRif&&(
-                          <div style={{position:"absolute",top:0,bottom:0,left:`${Math.min(100,costiRif/obiettivoQuotaAgenzia*100)}%`,width:2,background:"#888",opacity:0.6}}/>
-                        )}
-                      </div>
-                      <div style={{fontSize:10,color:quotaAgenzia>=costiRif?"#27AE60":"#E74C3C",marginTop:2,textAlign:"right"}}>
-                        {quotaAgenzia>=costiRif?"✅ Break Even raggiunto!":`⚠ Deficit: € ${fmt(costiRif-quotaAgenzia)} da coprire`}
-                      </div>
-                    </div>
-
-                    {/* Barra B: su totale pattuito (incassato + da incassare) */}
-                    <div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}>
-                        <span style={{color:"#555",fontWeight:500}}>📋 Su totale pattuito (incl. da incassare)</span>
-                        <span style={{color:quotaAgenziaTot>=costiRif?"#27AE60":"#2980B9",fontWeight:600}}>€ {fmt(quotaAgenziaTot)} / € {fmt(obiettivoQuotaAgenzia>0?obiettivoQuotaAgenzia:costiRif)}</span>
-                      </div>
-                      <div style={{background:"#f0f0f0",borderRadius:6,height:14,overflow:"hidden",position:"relative"}}>
-                        <div style={{height:"100%",borderRadius:6,background:quotaAgenziaTot>=costiRif?"#27AE60":"linear-gradient(90deg,#2980B9,#1A5276)",width:`${Math.min(100,quotaAgenziaTot/Math.max(obiettivoQuotaAgenzia||costiRif,1)*100)}%`,transition:"width 0.5s ease"}}/>
-                      </div>
-                      <div style={{fontSize:10,color:"#aaa",marginTop:2,textAlign:"right"}}>
-                        {quotaAgenziaTot>=costiRif
-                          ?`✅ Break Even raggiunto anche sul pattuito! Margine potenziale: +€ ${fmt(quotaAgenziaTot-costiRif)}`
-                          :`Da incassare per break even: € ${fmt(costiRif-quotaAgenziaTot)}`}
-                      </div>
-                    </div>
-
-                    <div style={{marginTop:8,fontSize:11,color:"#aaa",borderTop:"0.5px solid #f0f0f0",paddingTop:6}}>
-                      Break Even ({totConsuntivo>0?"consuntivo":"previsionale"}): <strong style={{color:"#E74C3C"}}>€ {fmt(costiRif)}</strong>
-                      {totPrevMensile>0&&<span> · € {fmt(Math.round(totPrevMensile))}/mese</span>}
-                      {obiettivoQuotaAgenzia>0&&<span> · Obiettivo quota: {(quotaAgenzia/obiettivoQuotaAgenzia*100).toFixed(1)}% raggiunto</span>}
-                    </div>
-                  </div>
-                )}
-                {obiettivoFatturato===0&&obiettivoQuotaAgenzia===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"0 0 1rem"}}>💡 Imposta gli obiettivi qui sopra per visualizzare le barre di avanzamento</p>}
+                </div>)}
               </>);
             })()}
           </div>)}
 
-          {/* ── TAB BREAK EVEN ── */}
-          {tab==="Break Even"&&isBroker&&(<div style={S.sec}>
-            <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
-              <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📉 Break Even</h2>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <label style={{fontSize:13,color:"#888"}}>Anno:</label>
-                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);}}>
-                  {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>)}
 
           {/* ── TAB COSTI — Gestione voci ── */}
           {tab==="Costi"&&isBroker&&(<div style={S.sec}>
