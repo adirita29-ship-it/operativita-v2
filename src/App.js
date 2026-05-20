@@ -530,6 +530,10 @@ export default function App() {
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [warAnno,setWarAnno]=useState(annoCorrente);
   const [warMese,setWarMese]=useState(String(new Date().getMonth()+1).padStart(2,"0"));
+  const [warPeriodo,setWarPeriodo]=useState("settimana");
+  const [warDal,setWarDal]=useState(todayStr());
+  const [warAl,setWarAl]=useState(todayStr());
+  const [warRiunione,setWarRiunione]=useState(false);
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
@@ -4385,12 +4389,7 @@ export default function App() {
             const PODIO_CLR=["#D4AC0D","#888","#CD7F32","#555","#777"];
             const PODIO_EMOJI=["🥇","🥈","🥉","4°","5°"];
 
-            // Periodo selezionato
-            const [warPeriodo,setWarPeriodo]=React.useState("settimana");
-            const [warDal,setWarDal]=React.useState(todayStr());
-            const [warAl,setWarAl]=React.useState(todayStr());
-            const [warRiunione,setWarRiunione]=React.useState(false);
-
+            // Periodo selezionato — stati a livello App
             const getPeriodo=()=>{
               const d=new Date(); const y=d.getFullYear(); const m=d.getMonth();
               if(warPeriodo==="settimana"){const day=d.getDay()||7;const lun=new Date(d);lun.setDate(d.getDate()-day+1);const sab=new Date(lun);sab.setDate(lun.getDate()+5);return[lun.toISOString().slice(0,10),sab.toISOString().slice(0,10)];}
