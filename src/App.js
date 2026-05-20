@@ -631,6 +631,7 @@ export default function App() {
   // War Room — traguardi volanti
   const [sfide,setSfide]=useState(_ls?.sfide||[]);
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
+  const [showFormSfida,setShowFormSfida]=useState(false);
   const [warAnno,setWarAnno]=useState(annoCorrente);
   const [warMese,setWarMese]=useState(String(new Date().getMonth()+1).padStart(2,"0"));
   // Cache form giornata per evitare re-render a ogni carattere
@@ -4393,7 +4394,19 @@ export default function App() {
             const oggi2=todayStr();
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
-            const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",oh:"🚪 Open House",proposte:"📝 Proposte"};
+            const METR2={
+              acquisizioni:"🏠 Acquisizioni",
+              fatturato:"💰 Fatturato prodotto",
+              chiamate:"📞 Chiamate totali",
+              chiamate_ci:"📞 Centri d'influenza",
+              chiamate_cp:"📞 Clienti passati",
+              chiamate_freddo:"📞 Chiamate a freddo",
+              oh:"🚪 Open House",
+              proposte:"📝 Proposte presentate",
+              appuntamenti:"🤝 Appuntamenti acq.",
+              immVisitati:"👁 Immobili visitati",
+              postSocial:"📱 Post social",
+            };
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
             const PEMOJI2=["🥇","🥈","🥉","4°","5°"];
             const getPeriodo=()=>{
@@ -4406,16 +4419,24 @@ export default function App() {
             const [dal2,al2]=getPeriodo();
             const calcM2=(agId,metr,d1,d2)=>{
               const incP=incarichi.filter(i=>i.agenteListing===agId&&i.dataInizio>=d1&&i.dataInizio<=d2);
-              const vendP=venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&(v.dataAtto||"")>=d1&&(v.dataAtto||"")<=d2);
+              const vendP=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(v.agenteListing===agId||v.agenteAcquirente===agId)&&dc>=d1&&dc<=d2;});
               const gg=Object.entries(operativita[agId]||{}).filter(([d])=>d>=d1&&d<=d2);
-              const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+              const sumOp=k=>gg.reduce((s,[,g])=>s+Number(g[k]||0),0);
+              const sumCt=k=>gg.reduce((s,[,g])=>s+Number((g.chiamate_tipi||{})[k]||0),0);
+              const chTot=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
               switch(metr){
-                case "acquisizioni":return incP.length;
-                case "fatturato":return vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-                case "chiamate":return ch;
-                case "oh":return gg.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
-                case "proposte":return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;
-                default:return 0;
+                case "acquisizioni": return incP.length;
+                case "fatturato": return vendP.reduce((s,v)=>{let p=0;if(v.agenteListing===agId)p+=Number(v.provvVenditore||0);if(v.agenteAcquirente===agId)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                case "chiamate": return chTot;
+                case "chiamate_ci": return sumCt("centri_inf");
+                case "chiamate_cp": return sumCt("clienti_pass");
+                case "chiamate_freddo": return sumCt("freddo");
+                case "oh": return gg.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
+                case "proposte": return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;
+                case "appuntamenti": return sumOp("appuntamenti");
+                case "immVisitati": return sumOp("immVisitati");
+                case "postSocial": return sumOp("postSocial");
+                default: return 0;
               }
             };
             const prodAg=agenti.map(ag=>{
@@ -4462,7 +4483,7 @@ export default function App() {
                     </button>
                   </div>
                   <button style={{...S.btnP,fontSize:12,padding:"5px 14px",background:warRiunione?"#27AE60":"#2C2C2C",borderColor:warRiunione?"#27AE60":"#2C2C2C"}} onClick={()=>setWarRiunione(!warRiunione)}>{warRiunione?"✕ Esci":"📽 Riunione"}</button>
-                  {isBroker&&<button style={{...S.btn,fontSize:11,padding:"4px 12px",borderColor:"#E67E22",color:"#E67E22"}} onClick={()=>setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""})}>+ Traguardo</button>}
+                  {isBroker&&<button style={{...S.btn,fontSize:11,padding:"4px 12px",borderColor:"#E67E22",color:"#E67E22"}} onClick={()=>setShowFormSfida(!showFormSfida)}>{showFormSfida?"✕ Chiudi":"+ Traguardo"}</button>}
                 </div>
               </div>
               <div style={{fontSize:11,color:"#aaa",marginBottom:"1rem"}}>Periodo: {fmtD(dal2)} → {fmtD(al2)}</div>
@@ -4512,20 +4533,56 @@ export default function App() {
                   </tr>))}</tbody>
                 </table></div>
               </div>
-              {sfideStor.length>0&&!warRiunione&&(<div style={sezW}>
-                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>Storico traguardi</p>
-                {sfideStor.map((s,i)=>{const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);const w=cl[0];return(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap",gap:4}}><div><span style={{fontSize:12,fontWeight:500}}>{s.nome}</span><span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{METR2[s.metrica]} · {fmtD(s.dal)}–{fmtD(s.al)}</span></div><div style={{display:"flex",gap:8}}>{w&&w.val>0&&<span style={{fontSize:12,color:"#D4AC0D",fontWeight:600}}>🥇 {w.ag.nome}: {s.metrica==="fatturato"?`€ ${fmt(w.val)}`:w.val}</span>}<span style={{fontSize:11,color:"#aaa"}}>🎁 {s.premio}</span></div></div>);})}
-              </div>)}
-              {isBroker&&!warRiunione&&(<div style={sezW}>
-                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>⚡ Crea traguardo volante</p>
+              {isBroker&&showFormSfida&&(<div style={sezW}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:0}}>⚡ Crea traguardo volante</p>
+                  <button style={{...S.btn,fontSize:11,padding:"2px 8px"}} onClick={()=>setShowFormSfida(false)}>✕</button>
+                </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Nome</label><input style={S.inp} value={formSfida.nome} placeholder="es. Maggio Sprint" onChange={e=>setFormSfida({...formSfida,nome:e.target.value})}/></div>
+                  <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Nome sfida</label><input style={S.inp} value={formSfida.nome} placeholder="es. Maggio Sprint" onChange={e=>setFormSfida({...formSfida,nome:e.target.value})}/></div>
                   <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Metrica</label><select style={S.sel} value={formSfida.metrica} onChange={e=>setFormSfida({...formSfida,metrica:e.target.value})}>{Object.entries(METR2).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
                   <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Dal</label><input type="date" style={S.inp} value={formSfida.dal} onChange={e=>setFormSfida({...formSfida,dal:e.target.value})}/></div>
                   <div><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Al</label><input type="date" style={S.inp} value={formSfida.al} onChange={e=>setFormSfida({...formSfida,al:e.target.value})}/></div>
                 </div>
                 <div style={{marginBottom:8}}><label style={{fontSize:11,color:"#888",display:"block",marginBottom:2}}>Premio 🎁</label><input style={S.inp} value={formSfida.premio} placeholder="es. Cena, buono €100..." onChange={e=>setFormSfida({...formSfida,premio:e.target.value})}/></div>
-                <button style={{...S.btnP,width:"100%",padding:9}} onClick={()=>{if(!formSfida.nome||!formSfida.al){alert("Inserisci nome e data fine");return;}setSfide([...sfide,{...formSfida,id:Date.now(),conclusa:false}]);setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});}}>🏆 Avvia traguardo</button>
+                <button style={{...S.btnP,width:"100%",padding:9}} onClick={()=>{
+                  if(!formSfida.nome||!formSfida.al){alert("Inserisci nome e data fine");return;}
+                  setSfide([...sfide,{...formSfida,id:Date.now(),conclusa:false}]);
+                  setFormSfida({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
+                  setShowFormSfida(false);
+                }}>🏆 Avvia traguardo</button>
+              </div>)}
+
+              {/* Storico sfide — sempre visibile, non solo se !warRiunione */}
+              {sfideStor.length>0&&(<div style={sezW}>
+                <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>🏅 Storico traguardi volanti ({sfideStor.length})</p>
+                {sfideStor.map((s,i)=>{
+                  const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
+                  const isExpanded=false; // potremmo aggiungere expand
+                  return(<div key={i} style={{background:i%2===0?"#fafaf8":"#fff",borderRadius:8,padding:"10px 12px",marginBottom:6,border:"0.5px solid #f0f0f0"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,marginBottom:2}}>{s.nome}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{METR2[s.metrica]||s.metrica} · {fmtD(s.dal)} → {fmtD(s.al)}</div>
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        <div style={{fontSize:11,color:"#aaa"}}>Premio: <strong style={{color:BRAND.oroD}}>{s.premio||"—"}</strong></div>
+                      </div>
+                    </div>
+                    {/* Podio compatto */}
+                    <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                      {cl.filter(x=>x.val>0).slice(0,3).map(({ag,val},idx)=>(
+                        <div key={ag.id} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:idx===0?"#FDF6EC":"#f5f5f5",border:idx===0?"0.5px solid #D4AC0D":"0.5px solid #eee"}}>
+                          <span style={{fontSize:12}}>{["🥇","🥈","🥉"][idx]}</span>
+                          <span style={{fontSize:11,fontWeight:idx===0?600:400,color:idx===0?BRAND.oroD:"#555"}}>{ag.nome}</span>
+                          <span style={{fontSize:11,fontWeight:600,color:PCLR2[idx]}}>{s.metrica==="fatturato"?`€ ${fmt(val)}`:val}</span>
+                        </div>
+                      ))}
+                      {cl.filter(x=>x.val>0).length===0&&<span style={{fontSize:11,color:"#aaa"}}>Nessun dato registrato</span>}
+                    </div>
+                    {isBroker&&<button style={{...S.btnD,fontSize:10,padding:"2px 8px",marginTop:6}} onClick={()=>setSfide(sfide.filter((_,j)=>j!==sfide.indexOf(s)))}>Elimina</button>}
+                  </div>);
+                })}
               </div>)}
             </div>);
           })()}
