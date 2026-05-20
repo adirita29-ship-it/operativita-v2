@@ -477,6 +477,103 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
   </div>);
 }
 
+
+// ── FASI GESTIONE PRATICHE (a livello modulo per accesso globale) ──
+const FASI=[
+  {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
+    {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
+    {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
+    {k:"gestim",lbl:"Inserimento su GESTIM",ruolo:"agente"},
+    {k:"vendilo",lbl:"Aggiornamento VENDILO",ruolo:"agente"},
+    {k:"consegnaErica",lbl:"Consegna documenti a Erica",ruolo:"agente"},
+  ]},
+  {k:"f2",n:"Attivazione pratica",fase:2,timing:"Entro 48h",azioni:[
+    {k:"numPratica",lbl:"N° pratica generato su GESTIM",ruolo:"erica"},
+    {k:"fascicolo",lbl:"Fascicolo cartaceo + 8 sottocartelle",ruolo:"erica"},
+    {k:"cartellaNav",lbl:"Cartella NAS creata",ruolo:"erica"},
+    {k:"visuraCat",lbl:"Visura catastale storica",ruolo:"erica",alert:true},
+    {k:"visuraIpo",lbl:"Visura ipotecaria su immobile e proprietari",ruolo:"erica",alert:true},
+    {k:"mailPropr",lbl:"Mail al proprietario + lista documenti mancanti",ruolo:"erica"},
+    {k:"checkDoc",lbl:"Checklist documentale aperta (vedi A)",ruolo:"erica"},
+  ]},
+  {k:"f3",n:"Lancio commerciale",fase:3,timing:"Entro 5 gg",azioni:[
+    {k:"fotografo",lbl:"Sopralluogo fotografo concordato",ruolo:"agente"},
+    {k:"schedaGestim",lbl:"Scheda immobile compilata su GESTIM",ruolo:"agente"},
+    {k:"pubblicazione",lbl:"Pubblicazione completa su portali",ruolo:"erica"},
+    {k:"cartello",lbl:"Cartello VENDESI preparato e affisso",ruolo:"entrambi"},
+    {k:"mailLink",lbl:"Mail ringraziamento + link annuncio",ruolo:"erica"},
+    {k:"letteraZona",lbl:"Lettera dedicata per zona preparata",ruolo:"erica"},
+  ]},
+  {k:"f4",n:"Prima visita / Open House",fase:4,timing:"Entro 15 gg",azioni:[
+    {k:"cartelloOH",lbl:"Cartello Open House preparato",ruolo:"erica"},
+    {k:"brochure",lbl:"Brochure immobile per slot preparata",ruolo:"erica"},
+    {k:"prequalifica",lbl:"Prequalifica telefonica interessati",ruolo:"agente"},
+    {k:"ohEseguito",lbl:"Open House eseguito",ruolo:"agente"},
+    {k:"feedback",lbl:"Feedback da ogni visitatore raccolto (entro 24h)",ruolo:"agente"},
+    {k:"followUp",lbl:"Follow-up profili interessati (entro 48h)",ruolo:"agente"},
+    {k:"aggGestim",lbl:"GESTIM aggiornato con nominativi e feedback",ruolo:"erica"},
+  ]},
+  {k:"f5",n:"Proposta ricevuta",fase:5,timing:"Stesso giorno",azioni:[
+    {k:"propCompilata",lbl:"Proposta compilata (UNAFIAIP mod. 14)",ruolo:"agente",alert:true},
+    {k:"copieCI",lbl:"Copie CI/CF proponente + fotocopia assegno",ruolo:"agente"},
+    {k:"lavagnaProp",lbl:"Lavagna aggiornata sezione Proposte",ruolo:"agente"},
+    {k:"gestimProp",lbl:"Proposta inserita su GESTIM (entro 2h)",ruolo:"agente",alert:true},
+    {k:"vendiloProp",lbl:"VENDILO spostato in 'In Proposta' (entro 2h)",ruolo:"agente"},
+    {k:"notificaErica",lbl:"Notifica WhatsApp a Erica",ruolo:"agente"},
+    {k:"assegnoDeposito",lbl:"Assegno caparra consegnato a Erica/Broker",ruolo:"agente",alert:true},
+    {k:"appAccettazione",lbl:"Appuntamento accettazione fissato (entro 48h)",ruolo:"agente"},
+  ]},
+  {k:"f6",n:"Proposta accettata",fase:6,timing:"Entro 48h",azioni:[
+    {k:"firmaProp",lbl:"Proposta firmata per accettazione",ruolo:"agente"},
+    {k:"datePrelim",lbl:"2 date possibili per preliminare concordate",ruolo:"agente"},
+    {k:"visuraPrePrelim",lbl:"Visura ipotecaria aggiornata (giorno prima prelim.)",ruolo:"erica",alert:true},
+    {k:"cartellaRogito",lbl:"Cartella 'Da Rogitare' NAS aperta",ruolo:"erica"},
+    {k:"contattoMutuo",lbl:"Contatto broker/banca per mutuo avviato",ruolo:"agente"},
+  ]},
+  {k:"f7",n:"Preliminare firmato",fase:7,timing:"Data concordata",azioni:[
+    {k:"bozzaPrelim",lbl:"Bozza preliminare preparata da Erica",ruolo:"erica",alert:true},
+    {k:"invioParti",lbl:"Bozza inviata alle parti (almeno 48h prima)",ruolo:"erica",alert:true},
+    {k:"antiricicl",lbl:"Antiriciclaggio completato PRIMA della firma",ruolo:"erica",alert:true},
+    {k:"firmaEseguita",lbl:"Firma preliminare eseguita",ruolo:"entrambi"},
+    {k:"copieAssegni",lbl:"Fotocopia tutti gli assegni",ruolo:"erica"},
+    {k:"regold",lbl:"Registrazione Regold (entro 30 gg dalla firma)",ruolo:"erica",alert:true},
+    {k:"fatturaPrelim",lbl:"Fatture provvigioni emesse (entro 48h)",ruolo:"erica"},
+  ]},
+  {k:"f8",n:"Dal prelim. al rogito",fase:8,timing:"Monitoraggio costante",azioni:[
+    {k:"docBanca",lbl:"Documentazione inviata alla banca (entro 48h)",ruolo:"erica"},
+    {k:"monitorMutuo",lbl:"Iter mutuo monitorato settimanalmente",ruolo:"entrambi"},
+    {k:"contNotaio",lbl:"Contatti con notaio — invio documenti",ruolo:"erica",alert:true},
+    {k:"docNotaio7gg",lbl:"Documenti al notaio (almeno 7 gg prima rogito)",ruolo:"erica",alert:true},
+    {k:"checkFinale",lbl:"Check finale 1 gg prima con agente e Broker",ruolo:"erica"},
+  ]},
+  {k:"f9",n:"Il rogito",fase:9,timing:"Giorno rogito",azioni:[
+    {k:"presenzaRogito",lbl:"Agente presente al rogito con pratica completa",ruolo:"agente"},
+    {k:"giftAcquirente",lbl:"Pacchetto gift consegnato all'acquirente",ruolo:"agente"},
+    {k:"recensioni",lbl:"Recensioni richieste alle parti",ruolo:"agente"},
+    {k:"notificaStipula",lbl:"Comunicazione stipula avvenuta a Erica",ruolo:"agente"},
+    {k:"aggGestimVend",lbl:"GESTIM aggiornato come 'Venduto'",ruolo:"erica"},
+    {k:"portaliVend",lbl:"Portali aggiornati 'Venduto' (entro 24h)",ruolo:"erica",alert:true},
+  ]},
+  {k:"f10",n:"Post rogito",fase:10,timing:"Entro 48h",azioni:[
+    {k:"cartelloVend",lbl:"Cartello VENDUTO affisso",ruolo:"erica"},
+    {k:"fattureFinali",lbl:"Fatture definitive emesse (entro 48h)",ruolo:"erica"},
+    {k:"archiviazioneNas",lbl:"Pratica archiviata su NAS",ruolo:"erica"},
+    {k:"lettCongratul",lbl:"Lettera congratulazioni al venditore inviata",ruolo:"agente"},
+    {k:"lettBenvenuto",lbl:"Lettera benvenuto all'acquirente inviata",ruolo:"agente"},
+    {k:"cartolineZona",lbl:"Cartoline 'Appena Venduto' distribuite in zona",ruolo:"agente"},
+    {k:"recensioneGoogle",lbl:"Recensione Google richiesta (entro 7 gg)",ruolo:"agente",alert:true},
+  ]},
+];
+
+const getAlertFasi = (pratiche, incId) => {
+  const pr=(pratiche||{})[incId]||{fasi:{}};
+  const al=[];
+  FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
+    if(!(pr.fasi[f.k]||{})[a.k]?.fatto) al.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
+  }));
+  return al;
+};
+
 export default function App() {
   const isMobile=useIsMobile();
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
@@ -1340,7 +1437,53 @@ export default function App() {
                 </div>
               </>);
             })()}
-
+            {!isBroker&&(()=>{
+              const oggiD=new Date();oggiD.setHours(0,0,0,0);
+              const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
+              const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
+              const sfidaAtt=sfide.find(s=>s.dal<=todayStr()&&s.al>=todayStr()&&!s.conclusa);
+              const PCLR=["#D4AC0D","#888","#CD7F32","#555"];
+              const PEMOJI=["🥇","🥈","🥉","4°"];
+              const calcMet=(agId,metr,d1,d2)=>{
+                const incP=incarichi.filter(i=>i.agenteListing===agId&&i.dataInizio>=d1&&i.dataInizio<=d2);
+                const vendP=venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&(v.dataAtto||"")>=d1&&(v.dataAtto||"")<=d2);
+                const gg=Object.entries(operativita[agId]||{}).filter(([d])=>d>=d1&&d<=d2);
+                const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+                switch(metr){case "acquisizioni":return incP.length;case "fatturato":return vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);case "chiamate":return ch;case "oh":return gg.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);case "proposte":return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;default:return 0;}
+              };
+              const myRog=venduti.filter(v=>{if(!v.dataAtto||(v.agenteListing!==myAgentId&&v.agenteAcquirente!==myAgentId))return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
+              const myAl=incarichi.filter(i=>!i.archiviato&&i.agenteListing===myAgentId).map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
+              return(<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":sfidaAtt?"1fr 1fr 1fr":"1fr 1fr",gap:10,marginTop:"1rem"}}>
+                {sfidaAtt&&(()=>{
+                  const cl=agenti.map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
+                  const miaPos=cl.findIndex(x=>x.ag.id===myAgentId);
+                  const mioVal=cl[miaPos]?.val||0;
+                  const ggR=Math.max(0,Math.round((toD(sfidaAtt.al)-oggiD)/86400000));
+                  return(<div style={{background:"linear-gradient(135deg,#FDF6EC,#FAEEDA)",borderRadius:10,border:"1px solid #D4AC0D44",padding:"1rem"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                      <div><div style={{fontSize:11,fontWeight:600,color:"#D4AC0D",marginBottom:2}}>🏆 {sfidaAtt.nome}</div><div style={{fontSize:10,color:"#aaa"}}>🎁 {sfidaAtt.premio}</div></div>
+                      <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Scade tra</div><div style={{fontSize:16,fontWeight:700,color:ggR<7?"#E74C3C":"#E67E22"}}>{ggR}gg</div></div>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:8,padding:"8px",marginBottom:8,textAlign:"center"}}>
+                      <div style={{fontSize:20}}>{PEMOJI[miaPos]||"—"}</div>
+                      <div style={{fontSize:18,fontWeight:700,color:PCLR[miaPos]||"#555"}}>{sfidaAtt.metrica==="fatturato"?`€ ${fmt(mioVal)}`:mioVal}</div>
+                      <div style={{fontSize:10,color:"#aaa"}}>Sei {miaPos+1}° su {agenti.length}</div>
+                    </div>
+                    {cl.slice(0,3).map(({ag,val},i)=>(<div key={ag.id} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"2px 4px",background:ag.id===myAgentId?"#FEF0E0":"transparent",borderRadius:3,fontWeight:ag.id===myAgentId?600:400}}><span>{PEMOJI[i]} {ag.nome}</span><span style={{color:PCLR[i]}}>{sfidaAtt.metrica==="fatturato"?`€ ${fmt(val)}`:val}</span></div>))}
+                  </div>);
+                })()}
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                  <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>📅 Prossimi rogiti</p>
+                  {myRog.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
+                  :myRog.map(v=>{const gg=Math.round((toD(v.dataAtto)-oggiD)/86400000);return(<div key={v.id} style={{padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}><div style={{fontSize:12,fontWeight:500}}>{v.comuneImmobile} — {v.indirizzoImmobile}</div><div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span style={{fontSize:11,color:"#888"}}>{v.nominativoVenditore}</span><span style={{fontSize:11,fontWeight:600,color:gg<=7?"#E74C3C":gg<=15?"#E67E22":"#27AE60"}}>{gg===0?"Oggi!":gg===1?"Domani":gg+" gg"}</span></div></div>);})}
+                </div>
+                <div style={{background:"#fff",borderRadius:10,border:`0.5px solid ${myAl.length>0?"#E74C3C44":"#e8e5e0"}`,padding:"1rem"}}>
+                  <p style={{fontSize:11,fontWeight:600,color:myAl.length>0?"#E74C3C":"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>{myAl.length>0?"⚠ Alert pratiche":"✅ Pratiche"}{myAl.length>0&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:3,background:"#FDECEA"}}>{myAl.length}</span>}</p>
+                  {myAl.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Tutto in regola!</p>
+                  :myAl.slice(0,3).map(({inc,al})=>(<div key={inc.id} style={{padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}><div style={{fontSize:12,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#E74C3C",marginTop:2}}>{al[0].lbl}{al.length>1?` +${al.length-1}`:""}</div></div>))}
+                </div>
+              </div>);
+            })()}
             {/* ── DASHBOARD BROKER (invariata) ── */}
             {isBroker&&(<>
             <div style={S.fRow}><Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel></div>
@@ -1487,7 +1630,7 @@ export default function App() {
               const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
               const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
               const prossimiR=venduti.filter(v=>{if(!v.dataAtto)return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
-              const alertP=incarichi.filter(i=>!i.archiviato&&statoInc(i)!=="Venduto").map(i=>({inc:i,al:getAlert(i.id)})).filter(x=>x.al.length>0);
+              const alertP=incarichi.filter(i=>!i.archiviato&&statoInc(i)!=="Venduto").map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
               return(<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginTop:"1rem"}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
