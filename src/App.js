@@ -627,6 +627,7 @@ export default function App() {
   const [gpFiltroFase,setGpFiltroFase]=useState("attive");
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
+  const [gpAnno,setGpAnno]=useState(annoCorrente);
   const [rowOpen,setRowOpen]=useState(null);
   const [warPeriodo,setWarPeriodo]=useState("settimana");
   const [warDal,setWarDal]=useState(todayStr());
@@ -4210,6 +4211,7 @@ export default function App() {
             // Pratica "attiva" = incarico senza venduto concluso collegato
             const isAttiva=(inc)=>!venduti.find(v=>v.incaricoId===inc.id||proposte.find(p=>p.incaricoId===inc.id&&p.id===v.propostaId));
             const incFiltrati=incAttivi.filter(i=>{
+              if(gpAnno!=="Tutti"&&(i.dataInizio||"").slice(0,4)!==gpAnno)return false;
               if(gpFiltroFase==="attive"&&!isAttiva(i))return false;
               if(gpFiltroFase!=="Tutte"&&gpFiltroFase!=="attive"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
@@ -4318,10 +4320,16 @@ export default function App() {
               {/* Header */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
                 <h2 style={{fontSize:16,fontWeight:600,margin:0}}>Gestione Pratiche <span style={{fontSize:13,color:"#888",fontWeight:400}}>({incFiltrati.length} pratiche)</span></h2>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <select style={S.sel} value={gpAnno} onChange={e=>setGpAnno(e.target.value)}>
+                  <option value="Tutti">Tutti gli anni</option>
+                  {[...new Set([annoCorrente,...incarichi.map(i=>(i.dataInizio||"").slice(0,4)).filter(Boolean)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                </select>
                 <div style={{display:"flex",gap:6,background:"#f0f0f0",borderRadius:7,padding:3}}>
                   {[["lista","☰ Lista"],["kanban","⧉ Kanban"]].map(([v,l])=>(
                     <button key={v} onClick={()=>setGpVista(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:gpVista===v?"#fff":"transparent",color:gpVista===v?"#A8863A":"#888",fontWeight:gpVista===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:gpVista===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
                   ))}
+                </div>
                 </div>
               </div>
               {/* Filtri */}
