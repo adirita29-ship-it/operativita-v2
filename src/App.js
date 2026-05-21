@@ -225,10 +225,10 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isReadOnly = isCoach;
   const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
   const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
-  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
+  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
   const TAB_COACH=coachIsAgenzia
     ?["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
-    :["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
+    :["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
@@ -4688,29 +4688,58 @@ export default function App() {
               const mieFatt=calcM2(myAgentId,"fatturato",dal2,al2);
               const mieAcq=calcM2(myAgentId,"acquisizioni",dal2,al2);
               const mieCh=calcM2(myAgentId,"chiamate",dal2,al2);
+              const mieCi=calcM2(myAgentId,"chiamate_ci",dal2,al2);
               const mieAppt=calcM2(myAgentId,"appuntamenti",dal2,al2);
               const mieOH=calcM2(myAgentId,"oh",dal2,al2);
               const mieVol=calcM2(myAgentId,"volantini",dal2,al2);
               const mieSocial=calcM2(myAgentId,"postSocial",dal2,al2);
               const mieOreT=calcM2(myAgentId,"oreTel",dal2,al2);
+              const mieVisit=calcM2(myAgentId,"immVisitati",dal2,al2);
               const percFatt=obFatt>0?Math.min(100,Math.round(mieFatt/obFatt*100)):null;
               const miaPos=clTeam.findIndex(x=>x.ag.id===myAgentId);
               const mioVal=clTeam[miaPos]?.val||0;
-              const C={card:{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem"},
-                sec:{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px"},
-                lbl:{fontSize:11,color:"#888",marginBottom:4},
-                val:{fontSize:22,fontWeight:500,color:"#2c2c2c"}};
+              const CARD={background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem"};
+              const MSEC={background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px",textAlign:"center"};
               return(<div style={S.sec}>
-                {/* Header */}
+                {/* Header agente */}
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:8}}>
                   <div>
-                    <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room — {ag.nome} {ag.cognome}</h2>
-                    <div style={{fontSize:12,color:"#888",marginTop:3}}>{fmtD(dal2)} → {fmtD(al2)}</div>
+                    <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room</h2>
+                    <div style={{fontSize:12,color:"#888",marginTop:3}}>{ag.nome} {ag.cognome} · {fmtD(dal2)} → {fmtD(al2)}</div>
                   </div>
                   <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
                     {[["settimana","Settimana"],["mese","Mese"],["anno","Anno"]].map(([v,l])=>(
                       <button key={v} onClick={()=>setWarPeriodo(v)} style={{padding:"4px 10px",fontSize:11,borderRadius:5,border:"none",background:warPeriodo===v?"#fff":"transparent",color:warPeriodo===v?"#A8863A":"#888",fontWeight:warPeriodo===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:warPeriodo===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
                     ))}
+                  </div>
+                </div>
+
+                {/* KPI risultati agente — stile bozza */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  <div style={MSEC}>
+                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>💰 Fatturato</div>
+                    <div style={{fontSize:22,fontWeight:600,color:"#085041"}}>€ {fmt(mieFatt)}</div>
+                    {percFatt!==null&&<>
+                      <div style={{height:4,background:"#e0e0e0",borderRadius:2,overflow:"hidden",margin:"6px 0 3px"}}>
+                        <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":percFatt>=70?"#E67E22":"#0F6E56",borderRadius:2}}/>
+                      </div>
+                      <div style={{fontSize:10,color:"#3B6D11"}}>{percFatt}% — obj € {fmt(obFatt)}</div>
+                    </>}
+                  </div>
+                  <div style={MSEC}>
+                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>🏠 Acquisizioni</div>
+                    <div style={{fontSize:22,fontWeight:600,color:"#185FA5"}}>{mieAcq}</div>
+                    <div style={{fontSize:10,color:"#888",marginTop:6}}>nel periodo</div>
+                  </div>
+                  <div style={MSEC}>
+                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>📞 Chiamate</div>
+                    <div style={{fontSize:22,fontWeight:600,color:"#533AB7"}}>{mieCh}</div>
+                    <div style={{fontSize:10,color:"#888",marginTop:6}}>di cui {mieCi} CI</div>
+                  </div>
+                  <div style={MSEC}>
+                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>🤝 Appuntamenti</div>
+                    <div style={{fontSize:22,fontWeight:600,color:"#854F0B"}}>{mieAppt}</div>
+                    <div style={{fontSize:10,color:"#888",marginTop:6}}>acquisizione</div>
                   </div>
                 </div>
 
@@ -4751,38 +4780,18 @@ export default function App() {
                   </div>
                 </div>}
 
-                {/* KPI risultati */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
-                  <div style={{...C.card}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-                      <div style={{width:4,height:16,borderRadius:2,background:"#0F6E56"}}/>
-                      <span style={{fontSize:12,fontWeight:500,color:"#088",textTransform:"uppercase",letterSpacing:".06em",fontSize:11}}>Fatturato</span>
-                    </div>
-                    <div style={{fontSize:24,fontWeight:600,color:"#085041",marginBottom:4}}>€ {fmt(mieFatt)}</div>
-                    {percFatt!==null&&<>
-                      <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:4}}>
-                        <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":percFatt>=70?"#E67E22":"#0F6E56",borderRadius:3}}/>
-                      </div>
-                      <div style={{fontSize:11,color:"#888"}}>{percFatt}% — obj € {fmt(obFatt)}</div>
-                    </>}
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
-                      <div style={C.sec}><div style={C.lbl}>Acquisizioni</div><div style={{...C.val,fontSize:18}}>{mieAcq}</div></div>
-                      <div style={C.sec}><div style={C.lbl}>OH effettuati</div><div style={{...C.val,fontSize:18}}>{mieOH}</div></div>
-                    </div>
+                {/* Attività di processo agente */}
+                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                  <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{width:4,height:14,borderRadius:2,background:"#533AB7"}}/>Attività di processo
                   </div>
-                  <div style={{...C.card}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
-                      <div style={{width:4,height:16,borderRadius:2,background:"#185FA5"}}/>
-                      <span style={{fontSize:11,fontWeight:500,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em"}}>Attività</span>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                      {[["📞 Chiamate",mieCh],["🤝 Appunt. acq.",mieAppt],["📄 Volantini",mieVol],["📱 Post social",mieSocial],["⏱ Ore telefono",`${mieOreT}h`],["🏠 Imm. visitati",calcM2(myAgentId,"immVisitati",dal2,al2)]].map(([lbl,val])=>(
-                        <div key={lbl} style={C.sec}>
-                          <div style={C.lbl}>{lbl}</div>
-                          <div style={{...C.val,fontSize:18}}>{val}</div>
-                        </div>
-                      ))}
-                    </div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+                    {[["📞 Chiamate tot.",mieCh,"#533AB7"],["👥 C.Influenza",mieCi,"#185FA5"],["📄 Volantini",mieVol,"#854F0B"],["📱 Social",mieSocial,"#3C3489"],["⏱ Ore tel.",`${mieOreT}h`,"#888"],["🏠 Visitati",mieVisit,"#0F6E56"],["🚪 OH",mieOH,"#D85A30"],["🤝 Appt.",mieAppt,"#A8863A"]].map(([lbl,val,clr])=>(
+                      <div key={lbl} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",marginBottom:5}}>{lbl}</div>
+                        <div style={{fontSize:18,fontWeight:600,color:clr}}>{val}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -4792,21 +4801,25 @@ export default function App() {
                   const byFonte=mieInc.reduce((acc,i)=>{const f=i.fonte||"Altro";acc[f]=(acc[f]||0)+1;return acc;},{});
                   const sorted=Object.entries(byFonte).sort((a,b)=>b[1]-a[1]);
                   if(sorted.length===0)return null;
-                  return(<div style={C.card}>
-                    <div style={{fontSize:12,fontWeight:500,marginBottom:10,color:"#533AB7"}}>📊 Fonti incarichi nel periodo</div>
+                  const totF=mieInc.length;
+                  return(<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{width:4,height:14,borderRadius:2,background:"#185FA5"}}/>Fonti incarichi nel periodo
+                    </div>
                     {sorted.map(([f,n])=>(
-                      <div key={f} style={{marginBottom:8}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                          <span style={{fontSize:12}}>{f}</span>
-                          <span style={{fontSize:12,fontWeight:500}}>{n}</span>
+                      <div key={f} style={{marginBottom:10}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                          <span style={{fontSize:12,fontWeight:500}}>{f}</span>
+                          <span style={{fontSize:12,fontWeight:600,color:"#185FA5"}}>{n} <span style={{color:"#aaa",fontWeight:400}}>({Math.round(n/totF*100)}%)</span></span>
                         </div>
-                        <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:`${Math.round(n/mieInc.length*100)}%`,background:"#533AB7",borderRadius:2}}/>
+                        <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${Math.round(n/totF*100)}%`,background:"#185FA5",borderRadius:3}}/>
                         </div>
                       </div>
                     ))}
                   </div>);
                 })()}
+
               </div>);
             }
 
