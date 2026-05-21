@@ -2642,13 +2642,88 @@ export default function App() {
 
 
           {/* ── TAB COSTI — Gestione voci ── */}
-          {tab==="Costi"&&isReadOnly&&(<div style={S.sec}>
-            <div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"12px 16px",marginBottom:"1.5rem",display:"flex",alignItems:"center",gap:10}}>
-              <span style={{fontSize:20}}>👁</span>
-              <div><div style={{fontSize:13,fontWeight:500,color:"#0C447C"}}>Modalità sola lettura</div><div style={{fontSize:11,color:"#2980B9"}}>Puoi vedere i dati ma non modificarli</div></div>
-            </div>
-            <p style={{color:"#888",fontSize:13}}>I costi sono visibili nella modalità di sola lettura ma non modificabili. Contatta il Broker per aggiornare i dati.</p>
-          </div>)}
+          {tab==="Costi"&&isReadOnly&&(()=>{
+            // Vista costi sola lettura per Coach
+            const agId=coachIsAgenzia?null:myAgentId;
+            const annoSel=annoCorrente;
+            return(<div style={S.sec}>
+              <div style={{background:"#EAF4FB",border:"0.5px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#0C447C"}}>
+                👁 <strong>Sola lettura</strong> — puoi vedere i dati ma non modificarli
+              </div>
+              {/* Costi agenzia */}
+              {(isBroker||isBackOffice||coachIsAgenzia)&&(()=>{
+                const voci=costi[annoSel]||mkCosti();
+                const totPrev=voci.reduce((s,v)=>s+Number(v.prevMensile||0)*12,0);
+                const totCons=voci.reduce((s,v)=>s+(v.spese||[]).reduce((a,x)=>a+Number(x.importo||0),0),0);
+                return(<div>
+                  <div style={{display:"flex",gap:10,marginBottom:"1rem",flexWrap:"wrap"}}>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:4}}>Previsto anno {annoSel}</div>
+                      <div style={{fontSize:20,fontWeight:600,color:"#2c2c2c"}}>€ {fmt(totPrev)}</div>
+                    </div>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 16px",flex:1,minWidth:140}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:4}}>Consuntivo</div>
+                      <div style={{fontSize:20,fontWeight:600,color:totCons>totPrev?"#E74C3C":"#27AE60"}}>€ {fmt(totCons)}</div>
+                    </div>
+                  </div>
+                  <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead><tr style={{background:"#fafaf8"}}>
+                        {["Voce","Tipo","Prev. mensile","Prev. annuo","Consuntivo"].map(h=><th key={h} style={{padding:"8px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {voci.map((v,i)=>(
+                          <tr key={i} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                            <td style={{padding:"7px 12px",fontSize:12,fontWeight:500}}>{v.voce}</td>
+                            <td style={{padding:"7px 12px",fontSize:11,color:"#888"}}>{v.tipo||"fisso"}</td>
+                            <td style={{padding:"7px 12px",fontSize:12}}>€ {fmt(Number(v.prevMensile||0))}</td>
+                            <td style={{padding:"7px 12px",fontSize:12}}>€ {fmt(Number(v.prevMensile||0)*12)}</td>
+                            <td style={{padding:"7px 12px",fontSize:12,color:(v.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0)>Number(v.prevMensile||0)*12?"#E74C3C":"#27AE60",fontWeight:500}}>€ {fmt((v.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>);
+              })()}
+              {/* Costi agente */}
+              {!coachIsAgenzia&&agId&&(()=>{
+                const mieVoci=costiAgente[agId]?.[annoSel]||mkCosti();
+                const totPrev=mieVoci.reduce((s,v)=>s+Number(v.prevMensile||0)*12,0);
+                const totCons=mieVoci.reduce((s,v)=>s+(v.spese||[]).reduce((a,x)=>a+Number(x.importo||0),0),0);
+                const ag=agenti.find(a=>a.id===agId);
+                return(<div>
+                  <h3 style={{fontSize:14,fontWeight:600,margin:"1.25rem 0 0.75rem"}}>Costi personali — {ag?.nome} {ag?.cognome}</h3>
+                  <div style={{display:"flex",gap:10,marginBottom:"1rem",flexWrap:"wrap"}}>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 16px",flex:1}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:4}}>Previsto anno {annoSel}</div>
+                      <div style={{fontSize:20,fontWeight:600}}>€ {fmt(totPrev)}</div>
+                    </div>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 16px",flex:1}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:4}}>Consuntivo</div>
+                      <div style={{fontSize:20,fontWeight:600,color:totCons>totPrev?"#E74C3C":"#27AE60"}}>€ {fmt(totCons)}</div>
+                    </div>
+                  </div>
+                  <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead><tr style={{background:"#fafaf8"}}>
+                        {["Voce","Prev. mensile","Consuntivo"].map(h=><th key={h} style={{padding:"8px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {mieVoci.map((v,i)=>(
+                          <tr key={i} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                            <td style={{padding:"7px 12px",fontSize:12,fontWeight:500}}>{v.voce}</td>
+                            <td style={{padding:"7px 12px",fontSize:12}}>€ {fmt(Number(v.prevMensile||0))}</td>
+                            <td style={{padding:"7px 12px",fontSize:12,fontWeight:500,color:(v.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0)>Number(v.prevMensile||0)*12?"#E74C3C":"#27AE60"}}>€ {fmt((v.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>);
+              })()}
+            </div>);
+          })()}
           {tab==="Costi"&&isBroker&&!isReadOnly&&(<div style={S.sec}>
             <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Voci di Costo — {costiAnno}</h2>
