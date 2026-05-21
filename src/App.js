@@ -2642,8 +2642,14 @@ export default function App() {
 
 
           {/* ── TAB COSTI — Gestione voci ── */}
-          {tab==="Costi"&&isBroker&&(<div style={{...S.sec,pointerEvents:isReadOnly?"none":"auto"}}>
-            {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#2980B9"}}>👁 Sola lettura — non puoi modificare i costi</div>}
+          {tab==="Costi"&&isReadOnly&&(<div style={S.sec}>
+            <div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"12px 16px",marginBottom:"1.5rem",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>👁</span>
+              <div><div style={{fontSize:13,fontWeight:500,color:"#0C447C"}}>Modalità sola lettura</div><div style={{fontSize:11,color:"#2980B9"}}>Puoi vedere i dati ma non modificarli</div></div>
+            </div>
+            <p style={{color:"#888",fontSize:13}}>I costi sono visibili nella modalità di sola lettura ma non modificabili. Contatta il Broker per aggiornare i dati.</p>
+          </div>)}
+          {tab==="Costi"&&isBroker&&!isReadOnly&&(<div style={S.sec}>
             <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Voci di Costo — {costiAnno}</h2>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -2842,7 +2848,7 @@ export default function App() {
           </div>)}
 
           {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
-          {tab==="Costi"&&!isBroker&&myAgentId&&(()=>{
+          {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
             const ag = agenti.find(a=>a.id===myAgentId);
             const mieVoci = costiAgente[myAgentId]?.[costiAgenteAnno] || mkCostiAgente();
             const salvaMieVoci = (nuove) => setCostiAgente({...costiAgente,[myAgentId]:{...(costiAgente[myAgentId]||{}),[costiAgenteAnno]:nuove}});
@@ -2851,8 +2857,7 @@ export default function App() {
             const totPrevAnno = mieVoci.reduce((s,v)=>s+prevAnnuoVoceAg(v),0);
             const totConsuntivo = mieVoci.reduce((s,v)=>s+totSpeseVoceAg(v),0);
             return(
-              <div style={{...S.sec,pointerEvents:isReadOnly?"none":"auto"}}>
-                {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#2980B9"}}>👁 Sola lettura — non puoi modificare i costi</div>}
+              <div style={S.sec}>
                 {/* Header anno */}
                 <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
                   <div>
