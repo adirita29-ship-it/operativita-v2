@@ -5385,20 +5385,17 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
-            {/* Selector sezione impostazioni */}
             <div style={{display:"flex",gap:6,marginBottom:"1.5rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
-              {[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setImpFasiTab(v==="fasi"?-1:0)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${(v==="fasi"?impFasiTab===-1:impFasiTab>=0)?"#A8863A":"transparent"}`,color:(v==="fasi"?impFasiTab===-1:impFasiTab>=0)?"#A8863A":"#666",fontWeight:(v==="fasi"?impFasiTab===-1:impFasiTab>=0)?600:400,fontFamily:"inherit"}}>{l}</button>
+              {[["gen","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setImpFasiTab(v==="fasi"?0:-1)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${(v==="fasi"?impFasiTab>=0:impFasiTab<0)?"#A8863A":"transparent"}`,color:(v==="fasi"?impFasiTab>=0:impFasiTab<0)?"#A8863A":"#666",fontWeight:(v==="fasi"?impFasiTab>=0:impFasiTab<0)?600:400,fontFamily:"inherit"}}>{l}</button>
               ))}
             </div>
 
-            {isBroker&&impFasiTab===-1&&(()=>{
+            {isBroker&&impFasiTab>=0&&(()=>{
               const fasi=fasiConfig||FASI;
               const RUOLI=["agente","erica","broker","entrambi","tutti"];
               const RUOLO_LBL={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Agente+Erica",tutti:"Tutti"};
-              const faseAtt=fasi[impFasiTab===-1?0:impFasiTab]||fasi[0];
-              const faseSel=Number(sessionStorage.getItem("faseSel")||0);
-              const setFaseSel=(n)=>sessionStorage.setItem("faseSel",n);
+              const faseSel=Math.min(impFasiTab,fasi.length-1);
               const faseSelObj=fasi[faseSel]||fasi[0];
               const updAzione=(fIdx,aIdx,updates)=>{
                 const nuove=fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:f.azioni.map((a,j)=>j!==aIdx?a:{...a,...updates})});
@@ -5422,7 +5419,7 @@ export default function App() {
                 {/* Selector fasi */}
                 <div style={{display:"flex",gap:4,marginBottom:"1rem",flexWrap:"wrap"}}>
                   {fasi.map((f,i)=>(
-                    <button key={f.k} onClick={()=>{sessionStorage.setItem("faseSel",i);setFasiConfig([...fasi]);}} style={{padding:"4px 12px",fontSize:11,borderRadius:20,border:`0.5px solid ${faseSel===i?"#A8863A":"#ddd"}`,background:faseSel===i?"#FEF9E7":"#fff",color:faseSel===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:faseSel===i?500:400}}>
+                    <button key={f.k} onClick={()=>setImpFasiTab(i)} style={{padding:"4px 12px",fontSize:11,borderRadius:20,border:`0.5px solid ${faseSel===i?"#A8863A":"#ddd"}`,background:faseSel===i?"#FEF9E7":"#fff",color:faseSel===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:faseSel===i?500:400}}>
                       {i+1}. {f.n}
                     </button>
                   ))}
@@ -5466,7 +5463,7 @@ export default function App() {
             })()}
 
             {/* Generali */}
-            <div>
+            {impFasiTab<0&&<div>
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
@@ -5524,7 +5521,7 @@ export default function App() {
               <button style={S.btn} onClick={()=>importRef.current.click()}>⬆ Importa JSON</button>
               <button style={{...S.btnD,marginLeft:"auto"}} onClick={()=>{if(window.confirm("Attenzione: questa operazione cancella TUTTI i dati dal browser e ripristina i dati di esempio. Sei sicuro?")){{localStorage.removeItem(LS_KEY);window.location.reload();}}}}>🗑 Azzera tutti i dati</button>
             </div>
-            </div>
+            </div>}
           </div>)}
         </div>
       </div>
