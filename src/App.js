@@ -4197,7 +4197,8 @@ export default function App() {
             const isErica = myAgentId===5;
             const canEditErica = isBroker||isErica;
             const canEditAgente = (inc) => isBroker||isErica||(inc&&inc.agenteListing===myAgentId);
-            const incAttivi=incarichi.filter(i=>!i.archiviato&&i.categoria==="vendita"&&(isBroker||isErica||i.agenteListing===myAgentId||i.agenteListing===myAgentId));
+            const canSee2=(i)=>isBroker||isErica||i.agenteListing===myAgentId;
+            const incAttivi=incarichi.filter(i=>!i.archiviato&&i.categoria==="vendita"&&canSee2(i));
             const fasi=fasiConfig||FASI;
 
             // Calcola avanzamento pratica
@@ -4208,17 +4209,13 @@ export default function App() {
             const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));return al;};
             const faseCorrente=(incId)=>{const pr=getPr(incId);let last=null;fasi.forEach(f=>{if(Object.values(pr.fasi[f.k]||{}).some(a=>a.fatto))last=f;});return last||fasi[0];};
 
-            // Categorie
-            const hasVenduto=(inc)=>!!venduti.find(v=>proposte.find(p=>p.incaricoId===inc.id&&p.id===v.propostaId)||v.incaricoId===inc.id);
-            const isScaduto=(inc)=>!hasVenduto(inc)&&inc.scadenza&&inc.scadenza<todayStr();
-            const isAttiva=(inc)=>!hasVenduto(inc)&&!isScaduto(inc);
-
-            // Pool base per categoria
+            // Categorie — usa statoInc che è già calcolato correttamente
+            const tuttiVendita=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&canSee2(i));
             const poolBase=gpCategoria==="attive"
-              ? incAttivi.filter(i=>isAttiva(i))
+              ? tuttiVendita.filter(i=>statoInc(i)==="Attivo")
               : gpCategoria==="venduti"
-              ? incarichi.filter(i=>i.categoria==="vendita"&&hasVenduto(i)&&(isBroker||isErica||i.agenteListing===myAgentId))
-              : incarichi.filter(i=>i.categoria==="vendita"&&isScaduto(i)&&(isBroker||isErica||i.agenteListing===myAgentId));
+              ? tuttiVendita.filter(i=>statoInc(i)==="Venduto")
+              : tuttiVendita.filter(i=>statoInc(i)==="Scaduto");
 
             const incFiltrati=poolBase.filter(i=>{
               // Anno filtro: per attive non ha senso (vedi tutto ciò che è vivo)
