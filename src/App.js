@@ -624,7 +624,7 @@ export default function App() {
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
   const [gpVista,setGpVista]=useState("lista");
-  const [gpFiltroFase,setGpFiltroFase]=useState("attive");
+  const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
   const [gpAnno,setGpAnno]=useState("Tutti");
