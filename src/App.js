@@ -4473,11 +4473,13 @@ export default function App() {
                 const annoPiano=new Date().getFullYear();
                 const oggi4=todayStr();
 
-                // Provvigione media reale dai venduti
+                // Provvigione media reale = (media provvV + media provvA) / 2
                 const tuttiVend=venduti.filter(v=>v.dataAtto);
-                const provvTot=tuttiVend.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-                const provvN=tuttiVend.filter(v=>Number(v.provvVenditore||0)>0||Number(v.provvAcquirente||0)>0).length;
-                const provvMediaReale=provvN>0?Math.round(provvTot/provvN):8000;
+                const transV2=tuttiVend.filter(v=>Number(v.provvVenditore||0)>0);
+                const transA2=tuttiVend.filter(v=>Number(v.provvAcquirente||0)>0);
+                const mediaV2=transV2.length>0?transV2.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/transV2.length:0;
+                const mediaA2=transA2.length>0?transA2.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/transA2.length:0;
+                const provvMediaReale=Math.round((mediaV2+mediaA2)/2)||8000;
 
                 // Obiettivi salvati per questo agente
                 const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
@@ -5778,8 +5780,19 @@ export default function App() {
                   {/* Sezione TRANSAZIONI */}
                   <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Transazioni</p>
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                    {/* Valore medio transazione Càsa — (provvV + provvA) / 2 */}
+                    {(()=>{
+                      const provvV=nTransV>0?transV.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/nTransV:0;
+                      const provvA=nTransA>0?transA.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/nTransA:0;
+                      const mediaCasa=(provvV+provvA)/2;
+                      return(<div style={{...sCard,borderTop:`3px solid ${BRAND.oroD}`,gridColumn:"1"}}>
+                        <p style={sLbl}>Valore medio transazione Càsa</p>
+                        <p style={{fontSize:28,fontWeight:700,color:BRAND.oroD,margin:"4px 0 2px"}}>€ {fmt(Math.round(mediaCasa))}</p>
+                        <p style={{fontSize:11,color:"#888",margin:0}}>media (provv.V + provv.A) ÷ 2</p>
+                      </div>);
+                    })()}
                     {/* Transazioni totali */}
-                    <div style={{...sCard,borderTop:`3px solid ${BRAND.oroD}`}}>
+                    <div style={{...sCard,borderTop:`3px solid ${BRAND.grigio}`}}>
                       <p style={sLbl}>Transazioni totali</p>
                       <p style={{fontSize:32,fontWeight:700,color:BRAND.oroD,margin:"4px 0 2px"}}>{nTransTot}</p>
                       <p style={{fontSize:11,color:"#888",margin:0}}>
@@ -5799,12 +5812,6 @@ export default function App() {
                       <p style={sLbl}>Valore medio trans. Acquirente</p>
                       <p style={{fontSize:22,fontWeight:700,color:"#8E44AD",margin:"4px 0 2px"}}>€ {fmt(valMedioA)}</p>
                       <p style={{fontSize:11,color:"#888",margin:0}}>{percMedioA>0?`${percMedioA.toFixed(2)}% sul prezzo`:"—"}</p>
-                    </div>
-                    {/* Incarichi acquisiti */}
-                    <div style={{...sCard,borderTop:"3px solid #27AE60"}}>
-                      <p style={sLbl}>Incarichi acquisiti</p>
-                      <p style={{fontSize:32,fontWeight:700,color:"#27AE60",margin:"4px 0 2px"}}>{incStat.length}</p>
-                      <p style={{fontSize:11,color:"#888",margin:0}}>vendite{statAnno!=="Tutti"?` nel ${statAnno}`:""}</p>
                     </div>
                   </div>
 
