@@ -4489,7 +4489,7 @@ export default function App() {
                 const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
                 const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
                 const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0):Number(obAnnPiano.fatturato||0);
-                const provvCustom=Number(obAnnPiano.provvMedia||provvMediaReale);
+                const provvCustom=Number(obAnnPiano.provvMedia||0)||provvMediaReale;
 
                 // Calcoli piano (per agente singolo o totale)
                 const transazNec=provvCustom>0?Math.ceil(obFattPiano/provvCustom):0;
@@ -4609,7 +4609,7 @@ export default function App() {
                   </>}
 
                   {/* Piano derivato */}
-                  {obFattPiano>0&&<>
+                  {(obFattPiano>0||!vistaTotale)&&<>
                     <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>{vistaTotale?"Piano agenzia — derivato dalla somma obiettivi":"Piano derivato automaticamente"}</p>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                       {[
@@ -4628,7 +4628,7 @@ export default function App() {
                   </>}
 
                   {/* Dove sei oggi */}
-                  {obFattPiano>0&&<>
+                  {(obFattPiano>0||!vistaTotale)&&<>
                     <p style={{fontSize:11,fontWeight:600,color:"#27AE60",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Dove sei oggi — {annoPiano}</p>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10,marginBottom:"1rem"}}>
                       {[
