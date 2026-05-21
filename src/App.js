@@ -228,7 +228,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
   const TAB_COACH=coachIsAgenzia
     ?["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
-    :["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
+    :["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One"];
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
@@ -3399,7 +3399,6 @@ export default function App() {
             // Helper: ottieni/salva giornata
             const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
             const salvaGiornata = (agId,data,dati) => {
-              if(isReadOnly) return;
               setOperativita(prev=>({...prev,[agId]:{...(prev[agId]||{}),[data]:{...(getGiornata(agId,data)),...dati}}}));
             };
 
@@ -3467,12 +3466,10 @@ export default function App() {
               const g={...autoCompila(agId,data),...(opFormCache[cacheKey]||{})};
               const isSabato=new Date(data).getDay()===6;
               const upd=(k,v)=>{
-                if(isReadOnly) return;
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[k]:v}}));
                 salvaGiornata(agId,data,{[k]:v});
               };
               const updCh=(k,v)=>{
-                if(isReadOnly) return;
                 const n={...(g.chiamate_tipi||{}),[k]:Math.max(0,Number(v))};
                 const tot=Object.values(n).reduce((s,x)=>s+Number(x||0),0);
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),chiamate_tipi:n,chiamate:tot}}));
@@ -3774,8 +3771,7 @@ export default function App() {
                   <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📅 Operatività</h2>
                 </div>
 
-                {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:13,color:"#2980B9",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>👁</span><span><strong>Modalità sola lettura</strong> — puoi vedere i dati ma non modificarli</span></div>}
-              {/* Sotto-tab */}
+                {/* Sotto-tab */}
                 <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
                   {[{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
                     <button key={o.v} onClick={()=>setOpSubTab(o.v)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${opSubTab===o.v?"#A8863A":"transparent"}`,color:opSubTab===o.v?"#A8863A":"#666",fontWeight:opSubTab===o.v?600:400,fontFamily:"inherit"}}>
@@ -3897,7 +3893,6 @@ export default function App() {
                     const updS=(k,delta)=>setOpFormSett(p=>({...totSett,...p,[k]:Math.max(0,(Number({...totSett,...p}[k]||0))+delta)}));
 
                     const salvaSett=()=>{
-                      if(isReadOnly){alert("Modalità sola lettura");return;}
                       const ggLav=giorniSett.filter((_,i)=>i<5);
                       const d5=(tot,i)=>{const n=Number(tot||0);return Math.floor(n/5)+(i===4?n%5:0);};
                       ggLav.forEach((d,i)=>{
@@ -4262,7 +4257,6 @@ export default function App() {
 
             // Salva azione pratica con data automatica
             const toggleAzione=(incId,faseK,azK)=>{
-              if(isReadOnly) return;
               const pr=getPr(incId);
               const fasiPr={...pr.fasi};
               const fasePr={...(fasiPr[faseK]||{})};
