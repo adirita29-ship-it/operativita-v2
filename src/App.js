@@ -705,18 +705,6 @@ export default function App() {
   const [mioFatMese,setMioFatMese]=useState("Tutti");
   const [mioFatStato,setMioFatStato]=useState("Tutti");
 
-  const isBroker = utente?.ruolo==="Broker";
-  const isBackOffice = utente?.ruolo==="BackOffice";
-  const isCoach = utente?.ruolo==="Coach";
-  const isCollab = utente?.profilo==="Collaborazione Agenzia";
-  const coachIsAgenzia = isCoach&&(!utente?.coachTarget||utente.coachTarget==="agenzia");
-  const coachAgentId = isCoach&&!coachIsAgenzia?Number(utente?.coachTarget):null;
-  const canViewAll = isBroker||isBackOffice||(isCoach&&coachIsAgenzia);
-  const isReadOnly = isCoach;
-  const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
-  const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
-  const myAgentId = coachAgentId||utente?.agentId||null;
-
   // Costi personali agente (per agente loggato)
   const [costiAgente,setCostiAgente]=useState(_ls?.costiAgente||{});
   const [costiAgenteAnno,setCostiAgenteAnno]=useState(annoCorrente);
@@ -1927,7 +1915,7 @@ export default function App() {
                             </div>);
                           })
                         }
-                        {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={{...S.btnG,width:"100%",marginTop:4,fontSize:12}} onClick={e=>{e.stopPropagation();if(isReadOnly)return;setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Nuova proposta</button>}
+                        {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={{...S.btnG,width:"100%",marginTop:4,fontSize:12}} onClick={e=>{e.stopPropagation();setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Nuova proposta</button>}
                         <button style={{...S.btn,width:"100%",marginTop:6,fontSize:12,color:"#533AB7",borderColor:"#533AB7"}} onClick={e=>{e.stopPropagation();setGpPraticaSel(inc.id);setTab("Gestione Pratiche");}}>📋 Apri pratica RT</button>
                       </div>
                     </div>
@@ -3410,7 +3398,8 @@ export default function App() {
 
             // Helper: ottieni/salva giornata
             const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
-            const salvaGiornata = (agId,data,dati) => { if(isReadOnly) return;
+            const salvaGiornata = (agId,data,dati) => {
+              if(isReadOnly) return;
               setOperativita(prev=>({...prev,[agId]:{...(prev[agId]||{}),[data]:{...(getGiornata(agId,data)),...dati}}}));
             };
 
@@ -3477,11 +3466,13 @@ export default function App() {
               const cacheKey=`${agId}_${data}`;
               const g={...autoCompila(agId,data),...(opFormCache[cacheKey]||{})};
               const isSabato=new Date(data).getDay()===6;
-              const upd=(k,v)=>{ if(isReadOnly) return;
+              const upd=(k,v)=>{
+                if(isReadOnly) return;
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[k]:v}}));
                 salvaGiornata(agId,data,{[k]:v});
               };
-              const updCh=(k,v)=>{ if(isReadOnly) return;
+              const updCh=(k,v)=>{
+                if(isReadOnly) return;
                 const n={...(g.chiamate_tipi||{}),[k]:Math.max(0,Number(v))};
                 const tot=Object.values(n).reduce((s,x)=>s+Number(x||0),0);
                 setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),chiamate_tipi:n,chiamate:tot}}));
@@ -3783,7 +3774,8 @@ export default function App() {
                   <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📅 Operatività</h2>
                 </div>
 
-                {/* Sotto-tab */}
+                {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:13,color:"#2980B9",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>👁</span><span><strong>Modalità sola lettura</strong> — puoi vedere i dati ma non modificarli</span></div>}
+              {/* Sotto-tab */}
                 <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
                   {[{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
                     <button key={o.v} onClick={()=>setOpSubTab(o.v)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${opSubTab===o.v?"#A8863A":"transparent"}`,color:opSubTab===o.v?"#A8863A":"#666",fontWeight:opSubTab===o.v?600:400,fontFamily:"inherit"}}>
@@ -3877,8 +3869,7 @@ export default function App() {
                       {opModoInserimento==="giorno"?fmtD(opDataSel):`Settimana dal ${fmtD(lunedi)} al ${fmtD(sabato)}`}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
                     </span>
                   </div>
-                  {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:10,fontSize:12,color:"#2980B9"}}>👁 Modalità sola lettura — puoi vedere ma non modificare i dati</div>}
-              {opModoInserimento==="giorno"&&(()=>{
+                  {opModoInserimento==="giorno"&&(()=>{
                     const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
                     if(!agId) return null;
                     return <FormGiornata agId={agId} data={opDataSel}/>;
@@ -3905,7 +3896,8 @@ export default function App() {
                     const setFormSett=setOpFormSett;
                     const updS=(k,delta)=>setOpFormSett(p=>({...totSett,...p,[k]:Math.max(0,(Number({...totSett,...p}[k]||0))+delta)}));
 
-                    const salvaSett=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}
+                    const salvaSett=()=>{
+                      if(isReadOnly){alert("Modalità sola lettura");return;}
                       const ggLav=giorniSett.filter((_,i)=>i<5);
                       const d5=(tot,i)=>{const n=Number(tot||0);return Math.floor(n/5)+(i===4?n%5:0);};
                       ggLav.forEach((d,i)=>{
@@ -4269,7 +4261,8 @@ export default function App() {
             const RUOLO_CLR={agente:{bg:"#EEEDFE",cl:"#3C3489"},erica:{bg:"#E1F5EE",cl:"#085041"},broker:{bg:"#E6F1FB",cl:"#0C447C"},entrambi:{bg:"#FAEEDA",cl:"#633806"},tutti:{bg:"#EAF3DE",cl:"#3B6D11"}};
 
             // Salva azione pratica con data automatica
-            const toggleAzione=(incId,faseK,azK)=>{ if(isReadOnly) return;
+            const toggleAzione=(incId,faseK,azK)=>{
+              if(isReadOnly) return;
               const pr=getPr(incId);
               const fasiPr={...pr.fasi};
               const fasePr={...(fasiPr[faseK]||{})};
@@ -4279,7 +4272,7 @@ export default function App() {
               fasePr[azK]=azPr;fasiPr[faseK]=fasePr;
               setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
             };
-            const setDataAzione=(incId,faseK,azK,data)=>{ if(isReadOnly) return;
+            const setDataAzione=(incId,faseK,azK,data)=>{
               const pr=getPr(incId);
               const fasiPr={...pr.fasi,[faseK]:{...(pr.fasi[faseK]||{}),[azK]:{...(pr.fasi[faseK]?.[azK]||{}),data}}};
               setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
