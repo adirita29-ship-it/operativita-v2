@@ -4212,7 +4212,7 @@ export default function App() {
             };
 
             // Fasi pipeline dal manuale
-            const FASI=[
+            const FASI_GP=[
               {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
                 {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
                 {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
@@ -4323,8 +4323,8 @@ export default function App() {
             // Calcola avanzamento pratica
             const avanzamento = (incId) => {
               const pr=getPratica(incId);
-              const totFasi=FASI_ATTIVE.reduce((s,f)=>s+f.azioni.length,0);
-              const fatte=FASI_ATTIVE.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
+              const totFasi=FASI_GP.reduce((s,f)=>s+f.azioni.length,0);
+              const fatte=FASI_GP.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
               return totFasi>0?Math.round(fatte/totFasi*100):0;
             };
 
@@ -4332,7 +4332,7 @@ export default function App() {
             const getAlert = (incId) => {
               const pr=getPratica(incId);
               const alerts=[];
-              FASI_ATTIVE.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
+              FASI_GP.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
                 if(!(pr.fasi[f.k]||{})[a.k]?.fatto) alerts.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
               }));
               return alerts;
@@ -4384,7 +4384,7 @@ export default function App() {
                         {/* Fase corrente */}
                         {(()=>{
                           const p2=getPratica(inc.id);
-                          const ultimaFase=FASI_ATTIVE.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
+                          const ultimaFase=FASI_GP.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
                           return <p style={{fontSize:11,color:"#aaa",margin:0}}>Fase corrente: {ultimaFase?ultimaFase.n:"Non avviata"}</p>;
                         })()}
                       </div>);
@@ -4438,7 +4438,7 @@ export default function App() {
                         ))}
                       </div>
                     )}
-                    {FASI_ATTIVE.map(fase=>{
+                    {FASI_GP.map(fase=>{
                       const fasiPr=pr.fasi[fase.k]||{};
                       const fatte=fase.azioni.filter(a=>fasiPr[a.k]?.fatto).length;
                       const completa=fatte===fase.azioni.length;
