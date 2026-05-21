@@ -730,10 +730,14 @@ export default function App() {
   const [showMobileMenu,setShowMobileMenu]=useState(false);
 
   // Carica dati da Supabase all'avvio
-  // Migrazione inReport per agenti esistenti
+  // Migrazione inReport per agenti esistenti - runs once after DB load
   useEffect(()=>{
-    setAgenti(prev=>prev.map(a=>a.inReport!==undefined?a:{...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)}));
-  },[]);
+    if(!dbLoaded) return;
+    const needsMigration=agenti.some(a=>a.inReport===undefined);
+    if(needsMigration){
+      setAgenti(prev=>prev.map(a=>a.inReport!==undefined?a:{...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)}));
+    }
+  },[dbLoaded]);
 
     useEffect(()=>{
     caricaDB().then(data=>{
@@ -6525,7 +6529,7 @@ export default function App() {
               {(!formAgente.email||!formAgente.password)&&<p style={{fontSize:11,color:"#aaa",margin:"6px 0 0"}}>Senza email e password l'agente non può accedere al gestionale.</p>}
             </div>
           </>)}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false,inReport:formAgente.inReport===true}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id,inReport:formAgente.inReport===true}:a));setShowAgente(null);}}>Salva</button></div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false,inReport:formAgente.inReport===true||(formAgente.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente"))}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id,inReport:formAgente.inReport===true||(formAgente.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente"))}:a));setShowAgente(null);}}>Salva</button></div>
         </div>
       </div>)}
 
