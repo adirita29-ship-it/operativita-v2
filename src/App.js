@@ -730,10 +730,18 @@ export default function App() {
   const [showMobileMenu,setShowMobileMenu]=useState(false);
 
   // Carica dati da Supabase all'avvio
+  // Migrazione inReport per agenti esistenti
   useEffect(()=>{
+    setAgenti(prev=>prev.map(a=>a.inReport!==undefined?a:{...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)}));
+  },[]);
+
+    useEffect(()=>{
     caricaDB().then(data=>{
       if(data&&Object.keys(data).length>0){
-        if(data.agenti) setAgenti(data.agenti);
+        if(data.agenti) setAgenti(data.agenti.map(a=>({
+          ...a,
+          inReport: a.inReport!==undefined ? a.inReport : ["Broker","Consulente","Collaboratore"].includes(a.profilo)
+        })));
         if(data.incarichi) setIncarichi(data.incarichi);
         if(data.proposte) setProposte(data.proposte);
         if(data.venduti) setVenduti(data.venduti);
@@ -6517,7 +6525,7 @@ export default function App() {
               {(!formAgente.email||!formAgente.password)&&<p style={{fontSize:11,color:"#aaa",margin:"6px 0 0"}}>Senza email e password l'agente non può accedere al gestionale.</p>}
             </div>
           </>)}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false,inReport:formAgente.inReport!==false}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id,inReport:formAgente.inReport!==false}:a));setShowAgente(null);}}>Salva</button></div>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false,inReport:formAgente.inReport===true}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id,inReport:formAgente.inReport===true}:a));setShowAgente(null);}}>Salva</button></div>
         </div>
       </div>)}
 
