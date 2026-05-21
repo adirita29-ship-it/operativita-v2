@@ -763,14 +763,14 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
       salvaDB(payload).finally(()=>setDbSaving(false));
     },1500); // debounce 1.5s per non sovraccaricare
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -4297,6 +4297,128 @@ export default function App() {
                           </table>
                         </div>
                       </div>)}
+                    {/* ── SEZIONE ANNUALE ── */}
+                    {(()=>{
+                      const agId2=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
+                      if(!agId2) return null;
+                      const annoSel2=opMeseSel.slice(0,4);
+                      const obAnn=(obiettivoAgente[agId2])||{};
+                      const obFattAnn=Number(obAnn.fatturato||0);
+                      const obAcqAnn=Number(obAnn.acquisizioni||0);
+                      const obChSett=Number(obAnn.chiamate||0);
+                      const obChAnn=obChSett*52;
+                      // Calcola YTD
+                      const oggi3=todayStr();
+                      const dal3=`${annoSel2}-01-01`;
+                      const al3=`${annoSel2}-12-31`;
+                      const vendAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId2||Number(v.agenteAcquirente)===agId2)&&dc>=dal3&&dc<=oggi3;});
+                      const fattYTD=vendAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agId2)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agId2)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                      const acqYTD=incarichi.filter(i=>Number(i.agenteListing)===agId2&&i.dataInizio>=dal3&&i.dataInizio<=oggi3).length;
+                      const opAg2=operativita[agId2]||operativita[String(agId2)]||{};
+                      const ggYTD=Object.entries(opAg2).filter(([d])=>d>=dal3&&d<=oggi3);
+                      const chYTD=ggYTD.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v2)=>a+Number(v2||0),0);},0);
+                      const percF=obFattAnn>0?Math.min(100,Math.round(fattYTD/obFattAnn*100)):null;
+                      const percA=obAcqAnn>0?Math.min(100,Math.round(acqYTD/obAcqAnn*100)):null;
+                      const percC=obChAnn>0?Math.min(100,Math.round(chYTD/obChAnn*100)):null;
+                      // Report mese per mese
+                      const mesi=Array.from({length:12},(_,i)=>`${annoSel2}-${String(i+1).padStart(2,"0")}`);
+                      const obMensile=obFattAnn>0?Math.round(obFattAnn/12):null;
+                      return(<>
+                        {/* Imposta obiettivi annuali agente */}
+                        <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem",marginTop:"1.5rem",marginBottom:"1rem"}}>
+                          <div style={{fontSize:12,fontWeight:600,color:"#A8863A",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:4,height:16,borderRadius:2,background:"#A8863A"}}/>
+                            Obiettivi annuali {annoSel2}
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                            {[["💰 Fatturato annuale","fatturato","€","es. 200000"],["🏠 Acquisizioni annuali","acquisizioni","","es. 24"],["📞 Chiamate / settimana","chiamate","","es. 40"]].map(([lbl,k,pre,ph])=>(
+                              <div key={k} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px"}}>
+                                <div style={{fontSize:11,color:"#888",marginBottom:6}}>{lbl}</div>
+                                <div style={{display:"flex",alignItems:"center",gap:4}}>
+                                  {pre&&<span style={{fontSize:13,color:"#888"}}>{pre}</span>}
+                                  <input type="number" min="0" style={{width:"100%",fontSize:16,fontWeight:600,border:"none",background:"transparent",color:"#2c2c2c",outline:"none",fontFamily:"inherit"}}
+                                    value={obAnn[k]||""} placeholder={ph}
+                                    onChange={e=>setObiettivoAgente(prev=>({...prev,[agId2]:{...(prev[agId2]||{}),[k]:Number(e.target.value)}}))}/>
+                                </div>
+                                <div style={{fontSize:10,color:"#aaa",marginTop:4}}>
+                                  {k==="fatturato"&&obFattAnn>0?`= € ${fmt(Math.round(obFattAnn/12))} / mese`:""}
+                                  {k==="acquisizioni"&&obAcqAnn>0?`= ${Math.ceil(obAcqAnn/12)} / mese`:""}
+                                  {k==="chiamate"&&obChSett>0?`= ${Math.round(obChSett/5)} / giorno lavorativo`:""}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* YTD vs obiettivo */}
+                        <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem",marginBottom:"1rem"}}>
+                          <div style={{fontSize:12,fontWeight:600,color:"#0F6E56",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:4,height:16,borderRadius:2,background:"#0F6E56"}}/>
+                            Produzione YTD — {annoSel2}
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+                            {[
+                              ["💰 Fatturato","€ "+fmt(fattYTD),"#0F6E56",percF,obFattAnn>0?"obj € "+fmt(obFattAnn):"Nessun obiettivo",obFattAnn>0?"mancano € "+fmt(Math.max(0,obFattAnn-fattYTD)):""],
+                              ["🏠 Acquisizioni",acqYTD,"#185FA5",percA,obAcqAnn>0?"obj "+obAcqAnn:"Nessun obiettivo",obAcqAnn>0?"mancano "+(Math.max(0,obAcqAnn-acqYTD)):""],
+                              ["📞 Chiamate YTD",chYTD,"#533AB7",percC,obChAnn>0?"obj "+obChAnn+" ann.":"Nessun obiettivo",obChAnn>0?"mancano "+(Math.max(0,obChAnn-chYTD)):""],
+                            ].map(([lbl,val,clr,perc,sub,manca])=>(
+                              <div key={lbl} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"12px",textAlign:"center"}}>
+                                <div style={{fontSize:11,color:"#888",marginBottom:6}}>{lbl}</div>
+                                <div style={{fontSize:22,fontWeight:600,color:clr}}>{val}</div>
+                                {perc!=null&&<>
+                                  <div style={{height:5,background:"#e0e0e0",borderRadius:3,overflow:"hidden",margin:"6px 0 3px"}}>
+                                    <div style={{height:"100%",width:perc+"%",background:perc>=100?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:3}}/>
+                                  </div>
+                                  <div style={{fontSize:10,color:perc>=100?"#27AE60":perc>=70?"#E67E22":"#888"}}>{perc}% — {manca}</div>
+                                </>}
+                                {perc==null&&<div style={{fontSize:10,color:"#aaa",marginTop:6}}>{sub}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Report annuale mese per mese */}
+                        <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                          <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:4,height:16,borderRadius:2,background:"#533AB7",flexShrink:0}}/>
+                            <span style={{fontSize:13,fontWeight:600,color:"#533AB7"}}>Report annuale — mese per mese</span>
+                          </div>
+                          <div style={{overflowX:"auto"}}>
+                            <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
+                              <thead><tr style={{background:"#fafaf8"}}>
+                                <th style={{padding:"7px 12px",fontSize:11,fontWeight:600,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Mese</th>
+                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>Fatturato</th>
+                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>vs obj</th>
+                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>Acq.</th>
+                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>Chiam.</th>
+                                <th style={{padding:"7px 14px",fontSize:11,fontWeight:600,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Progress</th>
+                              </tr></thead>
+                              <tbody>
+                                {mesi.map(m=>{
+                                  const isFut=m>oggi3.slice(0,7);
+                                  const r=calcReport(agId2,m);
+                                  const vAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId2||Number(v.agenteAcquirente)===agId2)&&dc.startsWith(m);});
+                                  const fM=vAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agId2)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agId2)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                                  const aM=incarichi.filter(i=>Number(i.agenteListing)===agId2&&i.dataInizio?.startsWith(m)).length;
+                                  const cM=Object.entries(opAg2).filter(([d])=>d.startsWith(m)).reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v2)=>a+Number(v2||0),0);},0);
+                                  const percM=obMensile&&!isFut?Math.min(100,Math.round(fM/obMensile*100)):null;
+                                  const MNOMI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
+                                  const mIdx=Number(m.slice(5))-1;
+                                  return(<tr key={m} style={{borderBottom:"0.5px solid #f5f5f5",background:m===opMeseSel?"#FFFBF0":"#fff",opacity:isFut?.4:1}}>
+                                    <td style={{padding:"7px 12px",fontSize:12,fontWeight:m===opMeseSel?600:400}}>{MNOMI[mIdx]}</td>
+                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right",color:fM>0?"#085041":"#aaa"}}>{fM>0?"€ "+fmt(fM):"—"}</td>
+                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right",fontWeight:500,color:percM===null?"#aaa":percM>=100?"#27AE60":percM>=70?"#E67E22":"#E74C3C"}}>{percM!==null?percM+"%":"—"}</td>
+                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right"}}>{aM>0?aM:"—"}</td>
+                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right"}}>{cM>0?cM:"—"}</td>
+                                    <td style={{padding:"7px 14px"}}>{!isFut&&obMensile&&<div style={{height:4,width:80,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(100,percM||0)+"%",background:percM>=100?"#27AE60":percM>=70?"#E67E22":"#185FA5",borderRadius:2}}/></div>}</td>
+                                  </tr>);
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </>);
+                    })()}
                     </>);
                   })()}
                 </>)}
