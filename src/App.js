@@ -705,6 +705,18 @@ export default function App() {
   const [mioFatMese,setMioFatMese]=useState("Tutti");
   const [mioFatStato,setMioFatStato]=useState("Tutti");
 
+  const isBroker = utente?.ruolo==="Broker";
+  const isBackOffice = utente?.ruolo==="BackOffice";
+  const isCoach = utente?.ruolo==="Coach";
+  const isCollab = utente?.profilo==="Collaborazione Agenzia";
+  const coachIsAgenzia = isCoach&&(!utente?.coachTarget||utente.coachTarget==="agenzia");
+  const coachAgentId = isCoach&&!coachIsAgenzia?Number(utente?.coachTarget):null;
+  const canViewAll = isBroker||isBackOffice||(isCoach&&coachIsAgenzia);
+  const isReadOnly = isCoach;
+  const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
+  const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
+  const myAgentId = coachAgentId||utente?.agentId||null;
+
   // Costi personali agente (per agente loggato)
   const [costiAgente,setCostiAgente]=useState(_ls?.costiAgente||{});
   const [costiAgenteAnno,setCostiAgenteAnno]=useState(annoCorrente);
