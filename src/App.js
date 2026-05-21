@@ -624,7 +624,7 @@ export default function App() {
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
   const [gpVista,setGpVista]=useState("lista");
-  const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
+  const [gpFiltroFase,setGpFiltroFase]=useState("attive");
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
   const [rowOpen,setRowOpen]=useState(null);
@@ -1901,6 +1901,7 @@ export default function App() {
                           })
                         }
                         {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={{...S.btnG,width:"100%",marginTop:4,fontSize:12}} onClick={e=>{e.stopPropagation();setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Nuova proposta</button>}
+                        <button style={{...S.btn,width:"100%",marginTop:6,fontSize:12,color:"#533AB7",borderColor:"#533AB7"}} onClick={e=>{e.stopPropagation();setGpPraticaSel(inc.id);setTab("Gestione Pratiche");}}>📋 Apri pratica RT</button>
                       </div>
                     </div>
                   </td>
@@ -4206,8 +4207,11 @@ export default function App() {
             const faseCorrente=(incId)=>{const pr=getPr(incId);let last=null;fasi.forEach(f=>{if(Object.values(pr.fasi[f.k]||{}).some(a=>a.fatto))last=f;});return last||fasi[0];};
 
             // Filtri
+            // Pratica "attiva" = incarico senza venduto concluso collegato
+            const isAttiva=(inc)=>!venduti.find(v=>v.incaricoId===inc.id||proposte.find(p=>p.incaricoId===inc.id&&p.id===v.propostaId));
             const incFiltrati=incAttivi.filter(i=>{
-              if(gpFiltroFase!=="Tutte"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
+              if(gpFiltroFase==="attive"&&!isAttiva(i))return false;
+              if(gpFiltroFase!=="Tutte"&&gpFiltroFase!=="attive"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
               return true;
             });
@@ -4249,6 +4253,7 @@ export default function App() {
               return(<div style={S.sec}>
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",flexWrap:"wrap"}}>
                   <button style={{...S.btn,fontSize:12}} onClick={()=>setGpPraticaSel(null)}>← Lista pratiche</button>
+                  <button style={{...S.btn,fontSize:12,color:"#A8863A",borderColor:"#A8863A"}} onClick={()=>{setGpPraticaSel(null);setTab("Incarichi");}}>🏠 Vai all'incarico</button>
                   <div style={{flex:1}}>
                     <div style={{fontSize:16,fontWeight:600}}>{inc.comune} — {inc.indirizzo}</div>
                     <div style={{fontSize:12,color:"#888"}}>{inc.nominativo} · {nomAg(inc.agenteListing)}</div>
@@ -4321,6 +4326,7 @@ export default function App() {
               </div>
               {/* Filtri */}
               <div style={{display:"flex",gap:6,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"}}>
+                <button onClick={()=>setGpFiltroFase("attive")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="attive"?"#27AE60":"#ddd"}`,background:gpFiltroFase==="attive"?"#E9F7EF":"#fff",color:gpFiltroFase==="attive"?"#085041":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:gpFiltroFase==="attive"?500:400}}>✅ Attive ({incAttivi.filter(i=>!venduti.find(v=>v.incaricoId===i.id||proposte.find(p=>p.incaricoId===i.id&&p.id===v.propostaId))).length})</button>
                 <button onClick={()=>setGpFiltroFase("Tutte")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="Tutte"?"#185FA5":"#ddd"}`,background:gpFiltroFase==="Tutte"?"#E6F1FB":"#fff",color:gpFiltroFase==="Tutte"?"#0C447C":"#888",cursor:"pointer",fontFamily:"inherit"}}>Tutte ({incAttivi.length})</button>
                 {fasi.filter((_,i)=>[0,4,7,9].includes(i)).map(f=>{
                   const n=incAttivi.filter(i=>faseCorrente(i.id)?.k===f.k).length;
