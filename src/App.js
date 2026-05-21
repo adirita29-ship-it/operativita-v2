@@ -4218,9 +4218,14 @@ export default function App() {
               : tuttiVendita.filter(i=>statoInc(i)==="Scaduto");
 
             const incFiltrati=poolBase.filter(i=>{
-              // Anno filtro: per attive non ha senso (vedi tutto ciò che è vivo)
               if(gpCategoria!=="attive"&&gpAnno!=="Tutti"&&(i.dataInizio||"").slice(0,4)!==gpAnno)return false;
-              if(gpFiltroFase!=="Tutte"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
+              if(gpFiltroFase!=="Tutte"){
+                const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);
+                if(gpFiltroFase==="acq"&&fi>=3)return false;
+                if(gpFiltroFase==="prop"&&(fi<3||fi>=7))return false;
+                if(gpFiltroFase==="rogito"&&(fi<7||fi>=9))return false;
+                if(gpFiltroFase==="post"&&fi<9)return false;
+              }
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
               return true;
             });
@@ -4346,15 +4351,18 @@ export default function App() {
                 </div>
                 </div>
               </div>
-              {/* Filtri */}
+              {/* Filtri macro-fase */}
               <div style={{display:"flex",gap:6,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"}}>
-                <button onClick={()=>setGpFiltroFase("Tutte")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="Tutte"?"#185FA5":"#ddd"}`,background:gpFiltroFase==="Tutte"?"#E6F1FB":"#fff",color:gpFiltroFase==="Tutte"?"#0C447C":"#888",cursor:"pointer",fontFamily:"inherit"}}>Tutte ({poolBase.length})</button>
-                {fasi.filter((_,i)=>[0,4,7,9].includes(i)).map(f=>{
-                  const n=incAttivi.filter(i=>faseCorrente(i.id)?.k===f.k).length;
-                  const clr=faseClr(f.k);
-                  return(<button key={f.k} onClick={()=>setGpFiltroFase(gpFiltroFase===f.k?"Tutte":f.k)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase===f.k?clr:"#ddd"}`,background:gpFiltroFase===f.k?clr+"18":"#fff",color:gpFiltroFase===f.k?clr:"#888",cursor:"pointer",fontFamily:"inherit"}}>{f.n.split(" ").slice(0,2).join(" ")} ({n})</button>);
-                })}
-                <button onClick={()=>setGpFiltroAlert(!gpFiltroAlert)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroAlert?"#E74C3C":"#ddd"}`,background:gpFiltroAlert?"#FCEBEB":"#fff",color:gpFiltroAlert?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>⚠ Alert ({incAttivi.filter(i=>alertsInc(i.id).length>0).length})</button>
+                {[
+                  ["Tutte","Tutte","#185FA5",poolBase.length],
+                  ["acq","Acquisizione","#185FA5",poolBase.filter(i=>fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k)<3).length],
+                  ["prop","Proposta / Prelim.","#854F0B",poolBase.filter(i=>{const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);return fi>=3&&fi<7;}).length],
+                  ["rogito","Rogito","#533AB7",poolBase.filter(i=>{const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);return fi>=7&&fi<9;}).length],
+                  ["post","Post rogito","#3B6D11",poolBase.filter(i=>fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k)>=9).length],
+                ].map(([v,lbl,clr,n])=>(
+                  <button key={v} onClick={()=>setGpFiltroFase(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase===v?clr:"#ddd"}`,background:gpFiltroFase===v?clr+"18":"#fff",color:gpFiltroFase===v?clr:"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:gpFiltroFase===v?500:400}}>{lbl} ({n})</button>
+                ))}
+                <button onClick={()=>setGpFiltroAlert(!gpFiltroAlert)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroAlert?"#E74C3C":"#ddd"}`,background:gpFiltroAlert?"#FCEBEB":"#fff",color:gpFiltroAlert?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>⚠ Alert ({poolBase.filter(i=>alertsInc(i.id).length>0).length})</button>
               </div>
 
               {/* VISTA LISTA */}
