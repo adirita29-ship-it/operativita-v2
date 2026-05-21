@@ -925,7 +925,7 @@ export default function App() {
     return s+Math.max(0,qAg);
   },0),[propVincolo,agenti]);
 
-  const agentiFattura=useMemo(()=>agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5),[agenti]);
+  const agentiFattura=useMemo(()=>agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5),[agenti]);
   const fatAg=agenti.find(a=>a.id===Number(fatAgente));
   const fatturaDati=useMemo(()=>{
     if(!fatAgente) return [];
@@ -4642,7 +4642,7 @@ export default function App() {
             const oggi2=todayStr();
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
-            const agentiProd=agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5);
+            const agentiProd=agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5);
             const agentiTabelle=agenti.filter(a=>!["Coach","Collaborazione Agenzia","Back Office"].includes(a.profilo)&&a.id!==5);
             const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 C.Passati",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
@@ -4829,7 +4829,7 @@ export default function App() {
             }
 
             // ── VISTA BROKER / BACKOFFICE ──
-            if(warRiunione) return(<div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:9000,overflowY:"auto",padding:"1.5rem"}}>
+            if(warRiunione) return(<div style={{position:"fixed",inset:0,background:"#1C1C1E",zIndex:9000,overflowY:"auto",padding:"1.5rem"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
                 <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>🏆 WAR ROOM · {fmtD(dal2)} → {fmtD(al2)}</div>
                 <div style={{display:"flex",gap:8}}>
@@ -4849,7 +4849,7 @@ export default function App() {
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                       {[["💰 Fatturato",warOscura?"••••":"€ "+fmt(calcM2(ag.id,"fatturato",dal2,al2))],["🏠 Acquisizioni",""+calcM2(ag.id,"acquisizioni",dal2,al2)],["📞 Chiamate",""+calcM2(ag.id,"chiamate",dal2,al2)],["🤝 Appt. acq.",""+calcM2(ag.id,"appuntamenti",dal2,al2)]].map(([lbl,val])=>(
-                        <div key={lbl} style={{background:"#151B27",borderRadius:8,padding:"8px",textAlign:"center"}}>
+                        <div key={lbl} style={{background:"#323236",borderRadius:8,padding:"8px",textAlign:"center"}}>
                           <div style={{fontSize:10,color:"#666",marginBottom:4}}>{lbl}</div>
                           <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>{val}</div>
                         </div>
@@ -4858,14 +4858,14 @@ export default function App() {
                   </div>);
                 })}
               </div>
-              {sfidaAtt2&&<div style={{background:"#1A1F2E",borderRadius:12,border:"0.5px solid #D4AC0D44",padding:"1.25rem"}}>
+              {sfidaAtt2&&<div style={{background:"#28282E",borderRadius:12,border:"0.5px solid #D4AC0D44",padding:"1.25rem"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
                   <div><div style={{fontSize:16,fontWeight:700,color:"#D4AC0D"}}>🏆 {sfidaAtt2.nome}</div><div style={{fontSize:12,color:"#888"}}>{METR2[sfidaAtt2.metrica]} · 🎁 {sfidaAtt2.premio}</div></div>
                   <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#666"}}>Scade tra</div><div style={{fontSize:28,fontWeight:700,color:ggR<=3?"#E74C3C":"#D4AC0D"}}>{ggR}gg</div></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agentiProd.length,4)},1fr)`,gap:8}}>
                   {clTeam.slice(0,4).map(({ag,val},i)=>(
-                    <div key={ag.id} style={{background:"#151B27",borderRadius:8,padding:"10px",textAlign:"center",border:`0.5px solid ${PCLR2[i]}44`}}>
+                    <div key={ag.id} style={{background:"#323236",borderRadius:8,padding:"10px",textAlign:"center",border:`0.5px solid ${PCLR2[i]}44`}}>
                       <div style={{fontSize:20}}>{PEMOJI2[i]}</div>
                       <div style={{fontSize:12,color:"#ccc",marginTop:4}}>{ag.nome}</div>
                       <div style={{fontSize:16,fontWeight:700,color:PCLR2[i]}}>{warOscura&&sfidaAtt2.metrica==="fatturato"?"••••":sfidaAtt2.metrica==="fatturato"?"€"+fmt(val):val}</div>
@@ -4962,7 +4962,7 @@ export default function App() {
                   const AVCL=["#412402","#0C447C","#3C3489","#173404"];
                   return(<div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
-                      {[["💰 Fatturato team",warOscura?"€ ••••••":(warOscura?"€ ••••":"€ "+fmt(tF)),"#0F6E56",pF,pF!=null?pF+"% — obj € "+fmt(obiettivoFatturato):""],
+                      {[["💰 Fatturato team",warOscura?"€ ••••••":(warOscura?"€ ••••":"€ "+fmt(tF)),"#0F6E56",warOscura?null:pF,warOscura?"":pF!=null?pF+"% — obj € "+fmt(obiettivoFatturato):""],
                         ["🏠 Acquisizioni",tA,"#185FA5",null,"nel periodo"],
                         ["📞 Chiamate",tC,"#533AB7",null,"totali"],
                         ["🤝 Appunt. acq.",agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"appuntamenti",dal2,al2),0),"#854F0B",null,"acquisizione"]
