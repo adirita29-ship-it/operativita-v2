@@ -4640,15 +4640,15 @@ export default function App() {
             const oggi2=todayStr();
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
+            const agentiProd=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo);
             const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 C.Passati",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
             const PEMOJI2=["🥇","🥈","🥉","4°","5°"];
-            const agentiProd=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo);
             const getPeriodo=()=>{
               const d=new Date();const y=d.getFullYear();const m=d.getMonth();
               if(warPeriodo==="settimana"){const day=d.getDay()||7;const lun=new Date(d);lun.setDate(d.getDate()-day+1);const sab=new Date(lun);sab.setDate(lun.getDate()+5);return[lun.toISOString().slice(0,10),sab.toISOString().slice(0,10)];}
               if(warPeriodo==="mese"){return[`${y}-${String(m+1).padStart(2,"0")}-01`,new Date(y,m+1,0).toISOString().slice(0,10)];}
-              if(warPeriodo==="anno"){return[`${warAnno}-01-01`,`${warAnno}-12-31`];}
+              if(warPeriodo==="anno"){return[`${warAnno||y}-01-01`,`${warAnno||y}-12-31`];}
               return[warDal,warAl];
             };
             const [dal2,al2]=getPeriodo();
@@ -4659,6 +4659,7 @@ export default function App() {
               const sumOp=k=>gg.reduce((s,[,g])=>s+Number(g[k]||0),0);
               const sumCt=k=>gg.reduce((s,[,g])=>s+Number((g.chiamate_tipi||{})[k]||0),0);
               const chTot=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+              const volant=gg.reduce((s,[,g])=>s+((g.attImm||[]).filter(x=>x.lettAMV||x.lettOH).length),0);
               switch(metr){
                 case "acquisizioni": return incP.length;
                 case "fatturato": return vendP.reduce((s,v)=>{let p=0;if(v.agenteListing===agId)p+=Number(v.provvVenditore||0);if(v.agenteAcquirente===agId)p+=Number(v.provvAcquirente||0);return s+p;},0);
@@ -4671,106 +4672,153 @@ export default function App() {
                 case "appuntamenti": return sumOp("appuntamenti");
                 case "immVisitati": return sumOp("immVisitati");
                 case "postSocial": return sumOp("postSocial");
+                case "volantini": return volant;
+                case "oreTel": return sumOp("oreTel");
                 default: return 0;
               }
             };
-            // Classifica team per metrica corrente sfida o acquisizioni di default
-            const metraDash=sfidaAtt2?sfidaAtt2.metrica:"acquisizioni";
-            const clTeam=agentiProd.map(ag=>({ag,val:calcM2(ag.id,metraDash,dal2,al2)})).sort((a,b)=>b.val-a.val);
-            const totTeam=clTeam.reduce((s,x)=>s+x.val,0);
-            const obTeam=sfidaAtt2?null:obiettivoFatturato;
+            const clTeam=agentiProd.map(ag=>({ag,val:calcM2(ag.id,sfidaAtt2?sfidaAtt2.metrica:"acquisizioni",dal2,al2)})).sort((a,b)=>b.val-a.val);
             const ggR=sfidaAtt2?Math.max(0,Math.round((new Date(sfidaAtt2.al)-new Date())/86400000)):0;
-            const percOb=sfidaAtt2&&sfidaAtt2.obiettivo?Math.min(100,Math.round(totTeam/sfidaAtt2.obiettivo*100)):null;
 
-            if(warRiunione){
-              // ── MODALITA RIUNIONE FULLSCREEN ──
-              return(<div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:9000,display:"flex",flexDirection:"column",overflow:"auto",padding:"1.5rem"}}>
+            // ── VISTA AGENTE ──
+            if(!isBroker&&!isBackOffice&&myAgentId){
+              const ag=agenti.find(a=>a.id===myAgentId)||{};
+              const obAg=obiettivoAgente[myAgentId]||{};
+              const obFatt=Number(obAg.fatturato||0);
+              const mieFatt=calcM2(myAgentId,"fatturato",dal2,al2);
+              const mieAcq=calcM2(myAgentId,"acquisizioni",dal2,al2);
+              const mieCh=calcM2(myAgentId,"chiamate",dal2,al2);
+              const mieAppt=calcM2(myAgentId,"appuntamenti",dal2,al2);
+              const mieOH=calcM2(myAgentId,"oh",dal2,al2);
+              const mieVol=calcM2(myAgentId,"volantini",dal2,al2);
+              const mieSocial=calcM2(myAgentId,"postSocial",dal2,al2);
+              const mieOreT=calcM2(myAgentId,"oreTel",dal2,al2);
+              const percFatt=obFatt>0?Math.min(100,Math.round(mieFatt/obFatt*100)):null;
+              const miaPos=clTeam.findIndex(x=>x.ag.id===myAgentId);
+              const mioVal=clTeam[miaPos]?.val||0;
+              const C={card:{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem"},
+                sec:{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px"},
+                lbl:{fontSize:11,color:"#888",marginBottom:4},
+                val:{fontSize:22,fontWeight:500,color:"#2c2c2c"}};
+              return(<div style={S.sec}>
                 {/* Header */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:8}}>
                   <div>
-                    <div style={{fontSize:22,fontWeight:700,color:"#fff",letterSpacing:".02em"}}>🏆 WAR ROOM</div>
-                    <div style={{fontSize:13,color:"#666",marginTop:2}}>Càsa Immobiliare Varese · {fmtD(dal2)} → {fmtD(al2)}</div>
+                    <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room — {ag.nome} {ag.cognome}</h2>
+                    <div style={{fontSize:12,color:"#888",marginTop:3}}>{fmtD(dal2)} → {fmtD(al2)}</div>
                   </div>
-                  <button onClick={()=>setWarRiunione(false)} style={{background:"#1C2333",color:"#888",border:"0.5px solid #2D3748",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>✕ Esci</button>
+                  <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
+                    {[["settimana","Settimana"],["mese","Mese"],["anno","Anno"]].map(([v,l])=>(
+                      <button key={v} onClick={()=>setWarPeriodo(v)} style={{padding:"4px 10px",fontSize:11,borderRadius:5,border:"none",background:warPeriodo===v?"#fff":"transparent",color:warPeriodo===v?"#A8863A":"#888",fontWeight:warPeriodo===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:warPeriodo===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Sfida attiva */}
-                {sfidaAtt2&&(<div style={{background:"linear-gradient(135deg,#1A1F2E,#242B3D)",border:"0.5px solid #D4AC0D44",borderRadius:12,padding:"1.25rem",marginBottom:"1.5rem"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+                {/* Traguardo volante agente */}
+                {sfidaAtt2&&<div style={{background:"linear-gradient(135deg,#FAEEDA,#FDF6EC)",border:"0.5px solid #D4AC0D44",borderRadius:10,padding:"1rem",marginBottom:"1rem"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
                     <div>
-                      <div style={{fontSize:18,fontWeight:700,color:"#D4AC0D"}}>🏆 {sfidaAtt2.nome}</div>
-                      <div style={{fontSize:13,color:"#888"}}>{METR2[sfidaAtt2.metrica]} · 🎁 {sfidaAtt2.premio}</div>
+                      <div style={{fontSize:13,fontWeight:600,color:"#633806"}}>🏆 {sfidaAtt2.nome}</div>
+                      <div style={{fontSize:11,color:"#888"}}>{METR2[sfidaAtt2.metrica]} · 🎁 {sfidaAtt2.premio}</div>
                     </div>
                     <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:11,color:"#666"}}>Scade tra</div>
-                      <div style={{fontSize:32,fontWeight:700,color:ggR<=3?"#E74C3C":ggR<=7?"#E67E22":"#D4AC0D",lineHeight:1}}>{ggR}</div>
-                      <div style={{fontSize:11,color:"#666"}}>giorni</div>
+                      <div style={{fontSize:10,color:"#888"}}>Scade tra</div>
+                      <div style={{fontSize:22,fontWeight:600,color:ggR<=3?"#E74C3C":ggR<=7?"#E67E22":"#D4AC0D",lineHeight:1}}>{ggR}gg</div>
                     </div>
                   </div>
-                  {percOb!==null&&(<div style={{marginBottom:"1rem"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                      <span style={{fontSize:12,color:"#888"}}>Obiettivo team: {sfidaAtt2.metrica==="fatturato"?`€ ${fmt(sfidaAtt2.obiettivo)}`:sfidaAtt2.obiettivo}</span>
-                      <span style={{fontSize:13,fontWeight:600,color:percOb>=100?"#27AE60":percOb>=70?"#E67E22":"#E74C3C"}}>{percOb}%</span>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:8,padding:"10px 12px",textAlign:"center",border:"0.5px solid #D4AC0D44"}}>
+                      <div style={{fontSize:28,marginBottom:4}}>{PEMOJI2[miaPos>=0?miaPos:4]}</div>
+                      <div style={{fontSize:11,color:"#888"}}>La tua posizione</div>
+                      <div style={{fontSize:20,fontWeight:600,color:PCLR2[miaPos>=0?miaPos:4]}}>{miaPos+1}° su {agentiProd.length}</div>
                     </div>
-                    <div style={{height:8,background:"#1C2333",borderRadius:4,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${percOb}%`,background:percOb>=100?"#27AE60":percOb>=70?"#E67E22":"#D4AC0D",borderRadius:4,transition:"width .5s"}}/>
+                    <div style={{background:"#fff",borderRadius:8,padding:"10px 12px",textAlign:"center",border:"0.5px solid #f0f0f0"}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:6}}>Il tuo risultato</div>
+                      <div style={{fontSize:22,fontWeight:600,color:"#633806"}}>{sfidaAtt2.metrica==="fatturato"?`€ ${fmt(mioVal)}`:mioVal}</div>
+                      {clTeam[0]&&miaPos>0&&<div style={{fontSize:10,color:"#aaa",marginTop:3}}>
+                        {sfidaAtt2.metrica==="fatturato"?`€ ${fmt(clTeam[0].val-mioVal)}`:(clTeam[0].val-mioVal)} dal 1°
+                      </div>}
                     </div>
-                  </div>)}
-                  {/* Podio fullscreen */}
-                  <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agentiProd.length,4)},1fr)`,gap:10}}>
-                    {clTeam.slice(0,4).map(({ag,val},i)=>(
-                      <div key={ag.id} style={{background:i===0?"#1A2A0A":"#1C2333",borderRadius:10,padding:"1rem",textAlign:"center",border:`0.5px solid ${i===0?"#D4AC0D44":"#2D3748"}`}}>
-                        <div style={{fontSize:28,marginBottom:6}}>{PEMOJI2[i]}</div>
-                        <div style={{fontSize:14,fontWeight:600,color:"#fff",marginBottom:4}}>{ag.nome}<br/><span style={{fontSize:12,fontWeight:400,color:"#888"}}>{ag.cognome}</span></div>
-                        <div style={{fontSize:24,fontWeight:700,color:PCLR2[i]}}>{sfidaAtt2.metrica==="fatturato"?`€${fmt(val)}`:val}</div>
+                  </div>
+                  {/* Mini classifica */}
+                  <div style={{marginTop:10}}>
+                    {clTeam.slice(0,3).map(({ag:agC,val},i)=>(
+                      <div key={agC.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 8px",borderRadius:5,background:agC.id===myAgentId?"#FDF6EC":"transparent",marginBottom:2}}>
+                        <span style={{fontSize:12,fontWeight:agC.id===myAgentId?600:400,color:agC.id===myAgentId?"#633806":"#555"}}>{PEMOJI2[i]} {agC.nome} {agC.cognome||""}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:PCLR2[i]}}>{sfidaAtt2.metrica==="fatturato"?`€ ${fmt(val)}`:val}</span>
                       </div>
                     ))}
                   </div>
-                </div>)}
+                </div>}
 
-                {/* Tabella produzione */}
-                <div style={{background:"#1C2333",borderRadius:12,border:"0.5px solid #2D3748",overflow:"hidden"}}>
-                  <div style={{padding:"10px 16px",borderBottom:"0.5px solid #2D3748",display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:13,fontWeight:600,color:"#fff"}}>Produzione team</span>
-                    <span style={{fontSize:11,color:"#666",marginLeft:"auto"}}>{fmtD(dal2)} → {fmtD(al2)}</span>
+                {/* KPI risultati */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                  <div style={{...C.card}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                      <div style={{width:4,height:16,borderRadius:2,background:"#0F6E56"}}/>
+                      <span style={{fontSize:12,fontWeight:500,color:"#088",textTransform:"uppercase",letterSpacing:".06em",fontSize:11}}>Fatturato</span>
+                    </div>
+                    <div style={{fontSize:24,fontWeight:600,color:"#085041",marginBottom:4}}>€ {fmt(mieFatt)}</div>
+                    {percFatt!==null&&<>
+                      <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                        <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":percFatt>=70?"#E67E22":"#0F6E56",borderRadius:3}}/>
+                      </div>
+                      <div style={{fontSize:11,color:"#888"}}>{percFatt}% — obj € {fmt(obFatt)}</div>
+                    </>}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
+                      <div style={C.sec}><div style={C.lbl}>Acquisizioni</div><div style={{...C.val,fontSize:18}}>{mieAcq}</div></div>
+                      <div style={C.sec}><div style={C.lbl}>OH effettuati</div><div style={{...C.val,fontSize:18}}>{mieOH}</div></div>
+                    </div>
                   </div>
-                  <table style={{width:"100%",borderCollapse:"collapse"}}>
-                    <thead><tr style={{background:"#151B27"}}>
-                      {["","Agente","Acquisizioni","Chiamate","Appt.","OH","Proposte","Fatturato"].map((h,i)=>(
-                        <th key={i} style={{padding:"8px 12px",fontSize:11,fontWeight:500,color:"#666",textAlign:i<2?"left":"right"}}>{h}</th>
+                  <div style={{...C.card}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+                      <div style={{width:4,height:16,borderRadius:2,background:"#185FA5"}}/>
+                      <span style={{fontSize:11,fontWeight:500,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em"}}>Attività</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                      {[["📞 Chiamate",mieCh],["🤝 Appunt. acq.",mieAppt],["📄 Volantini",mieVol],["📱 Post social",mieSocial],["⏱ Ore telefono",`${mieOreT}h`],["🏠 Imm. visitati",calcM2(myAgentId,"immVisitati",dal2,al2)]].map(([lbl,val])=>(
+                        <div key={lbl} style={C.sec}>
+                          <div style={C.lbl}>{lbl}</div>
+                          <div style={{...C.val,fontSize:18}}>{val}</div>
+                        </div>
                       ))}
-                    </tr></thead>
-                    <tbody>
-                      {clTeam.map(({ag},i)=>(
-                        <tr key={ag.id} style={{borderBottom:"0.5px solid #2D3748",background:i===0?"#1A2A0A33":"transparent"}}>
-                          <td style={{padding:"10px 12px",fontSize:14,color:PCLR2[i]}}>{PEMOJI2[i]||""}</td>
-                          <td style={{padding:"10px 12px",fontSize:13,fontWeight:500,color:"#fff"}}>{ag.nome} {ag.cognome}</td>
-                          {["acquisizioni","chiamate","appuntamenti","oh","proposte","fatturato"].map(m=>(
-                            <td key={m} style={{padding:"10px 12px",fontSize:13,textAlign:"right",color:m===metraDash?"#D4AC0D":"#ccc",fontWeight:m===metraDash?600:400}}>
-                              {m==="fatturato"?`€${fmt(calcM2(ag.id,m,dal2,al2))}`:calcM2(ag.id,m,dal2,al2)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Fonti incarichi agente */}
+                {(()=>{
+                  const mieInc=incarichi.filter(i=>i.agenteListing===myAgentId&&i.dataInizio>=dal2&&i.dataInizio<=al2);
+                  const byFonte=mieInc.reduce((acc,i)=>{const f=i.fonte||"Altro";acc[f]=(acc[f]||0)+1;return acc;},{});
+                  const sorted=Object.entries(byFonte).sort((a,b)=>b[1]-a[1]);
+                  if(sorted.length===0)return null;
+                  return(<div style={C.card}>
+                    <div style={{fontSize:12,fontWeight:500,marginBottom:10,color:"#533AB7"}}>📊 Fonti incarichi nel periodo</div>
+                    {sorted.map(([f,n])=>(
+                      <div key={f} style={{marginBottom:8}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                          <span style={{fontSize:12}}>{f}</span>
+                          <span style={{fontSize:12,fontWeight:500}}>{n}</span>
+                        </div>
+                        <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${Math.round(n/mieInc.length*100)}%`,background:"#533AB7",borderRadius:2}}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>);
+                })()}
               </div>);
             }
 
-            // ── VISTA NORMALE ──
+            // ── VISTA BROKER / BACKOFFICE ──
             return(<div style={S.sec}>
-              {/* Header con controlli */}
+              {/* Header */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:10}}>
                 <div>
-                  <h2 style={{fontSize:16,fontWeight:600,margin:0,display:"flex",alignItems:"center",gap:8}}>
-                    🏆 War Room
-                    {sfidaAtt2&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#FEF9E7",color:"#A8863A",border:"0.5px solid #D4AC0D44",fontWeight:500}}>Sfida attiva</span>}
-                  </h2>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room</h2>
                   <div style={{fontSize:12,color:"#888",marginTop:3}}>{fmtD(dal2)} → {fmtD(al2)}</div>
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  {/* Filtro periodo */}
                   <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
                     {[["settimana","Settimana"],["mese","Mese"],["anno","Anno"],["custom","Custom"]].map(([v,l])=>(
                       <button key={v} onClick={()=>setWarPeriodo(v)} style={{padding:"4px 10px",fontSize:11,borderRadius:5,border:"none",background:warPeriodo===v?"#fff":"transparent",color:warPeriodo===v?"#A8863A":"#888",fontWeight:warPeriodo===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:warPeriodo===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
@@ -4781,101 +4829,124 @@ export default function App() {
                     <span style={{fontSize:12,color:"#888"}}>→</span>
                     <input type="date" style={S.sel} value={warAl} onChange={e=>setWarAl(e.target.value)}/>
                   </div>}
-                  {warPeriodo==="anno"&&<select style={S.sel} value={warAnno||annoCorrente} onChange={e=>setWarAnno(e.target.value)}>
-                    {[annoCorrente,String(Number(annoCorrente)-1)].map(y=><option key={y}>{y}</option>)}
-                  </select>}
-                  <button onClick={()=>setWarRiunione(true)} style={{...S.btn,background:"#0D1117",color:"#D4AC0D",borderColor:"#D4AC0D44",fontSize:12,padding:"6px 14px"}}>📺 Riunione</button>
                 </div>
               </div>
 
-              {/* SFIDA ATTIVA */}
+              {/* KPI team */}
+              {(()=>{
+                const totFatt=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"fatturato",dal2,al2),0);
+                const totAcq=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"acquisizioni",dal2,al2),0);
+                const totCh=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"chiamate",dal2,al2),0);
+                const totOH=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"oh",dal2,al2),0);
+                const percFatt=obiettivoFatturato>0?Math.min(100,Math.round(totFatt/obiettivoFatturato*100)):null;
+                return(<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                  {[
+                    ["💰 Fatturato team",`€ ${fmt(totFatt)}`,percFatt!==null?`${percFatt}% — obj € ${fmt(obiettivoFatturato)}`:"","#0F6E56",percFatt],
+                    ["🏠 Acquisizioni",totAcq,null,"#185FA5",null],
+                    ["📞 Chiamate totali",totCh,null,"#533AB7",null],
+                    ["🚪 Open House",totOH,null,"#854F0B",null],
+                  ].map(([lbl,val,sub,clr,perc])=>(
+                    <div key={lbl} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"12px",textAlign:"center"}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:6}}>{lbl}</div>
+                      <div style={{fontSize:22,fontWeight:600,color:clr}}>{val}</div>
+                      {perc!==null&&perc!==undefined&&<div style={{height:4,background:"#e0e0e0",borderRadius:2,overflow:"hidden",margin:"6px 0 3px"}}>
+                        <div style={{height:"100%",width:`${perc}%`,background:perc>=100?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:2}}/>
+                      </div>}
+                      {sub&&<div style={{fontSize:10,color:"#888"}}>{sub}</div>}
+                    </div>
+                  ))}
+                </div>);
+              })()}
+
+              {/* Traguardo volante */}
               {sfidaAtt2?(
-                <div style={{background:"linear-gradient(135deg,#1A1F2E,#1E2640)",borderRadius:14,padding:"1.25rem",marginBottom:"1.25rem",border:"0.5px solid #D4AC0D44"}}>
+                <div style={{background:"linear-gradient(135deg,#FAEEDA,#FDF6EC)",border:"0.5px solid #D4AC0D44",borderRadius:12,padding:"1.25rem",marginBottom:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
                     <div>
-                      <div style={{fontSize:15,fontWeight:700,color:"#D4AC0D",marginBottom:3}}>🏆 {sfidaAtt2.nome}</div>
-                      <div style={{fontSize:12,color:"#888"}}>{METR2[sfidaAtt2.metrica]} · {fmtD(sfidaAtt2.dal)} → {fmtD(sfidaAtt2.al)} · 🎁 {sfidaAtt2.premio}</div>
+                      <div style={{fontSize:15,fontWeight:600,color:"#633806"}}>🏆 {sfidaAtt2.nome}</div>
+                      <div style={{fontSize:12,color:"#888",marginTop:3}}>{METR2[sfidaAtt2.metrica]} · {fmtD(sfidaAtt2.dal)} → {fmtD(sfidaAtt2.al)} · 🎁 {sfidaAtt2.premio}</div>
                     </div>
-                    <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-                      <div style={{textAlign:"center"}}>
-                        <div style={{fontSize:28,fontWeight:700,color:ggR<=3?"#E74C3C":ggR<=7?"#E67E22":"#D4AC0D",lineHeight:1}}>{ggR}</div>
-                        <div style={{fontSize:10,color:"#666"}}>giorni</div>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:10,color:"#888"}}>Scade tra</div>
+                        <div style={{fontSize:28,fontWeight:600,color:ggR<=3?"#E74C3C":ggR<=7?"#E67E22":"#D4AC0D",lineHeight:1}}>{ggR}<span style={{fontSize:14,fontWeight:400,color:"#888"}}> gg</span></div>
                       </div>
-                      {isBroker&&<button onClick={()=>{const snap=agentiProd.map(ag=>({agId:ag.id,nome:ag.nome,cognome:ag.cognome||"",val:calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al)})).sort((a,b)=>b.val-a.val);setSfide(sfide.map(s=>s===sfidaAtt2?{...s,conclusa:true,snapshot:snap}:s));}} style={{...S.btnD,fontSize:11,padding:"4px 10px"}}>Concludi</button>}
+                      <button onClick={()=>{const snap=agentiProd.map(ag=>({agId:ag.id,nome:ag.nome,cognome:ag.cognome||"",val:calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al)})).sort((a,b)=>b.val-a.val);setSfide(sfide.map(s=>s===sfidaAtt2?{...s,conclusa:true,snapshot:snap}:s));}} style={{...S.btnD,fontSize:11,padding:"5px 12px"}}>Concludi</button>
                     </div>
                   </div>
-                  {/* Barra obiettivo */}
-                  {sfidaAtt2.obiettivo&&(()=>{
-                    const perc=Math.min(100,Math.round(totTeam/sfidaAtt2.obiettivo*100));
+                  {sfidaAtt2.obiettivo>0&&(()=>{
+                    const tot=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al),0);
+                    const perc=Math.min(100,Math.round(tot/sfidaAtt2.obiettivo*100));
                     return(<div style={{marginBottom:"1rem"}}>
                       <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-                        <span style={{fontSize:12,color:"#888"}}>Obiettivo: {sfidaAtt2.metrica==="fatturato"?`€ ${fmt(sfidaAtt2.obiettivo)}`:sfidaAtt2.obiettivo}</span>
-                        <span style={{fontSize:12,fontWeight:600,color:perc>=100?"#27AE60":perc>=70?"#E67E22":"#E74C3C"}}>{perc}%</span>
+                        <span style={{fontSize:12,color:"#888"}}>Obiettivo team: {sfidaAtt2.metrica==="fatturato"?`€ ${fmt(sfidaAtt2.obiettivo)}`:sfidaAtt2.obiettivo}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:perc>=100?"#27AE60":perc>=70?"#E67E22":"#854F0B"}}>{perc}%</span>
                       </div>
-                      <div style={{height:6,background:"#2D3748",borderRadius:3,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:`${perc}%`,background:perc>=100?"#27AE60":perc>=70?"#E67E22":"#D4AC0D",borderRadius:3,transition:"width .5s"}}/>
+                      <div style={{height:6,background:"#e8d9b0",borderRadius:3,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${perc}%`,background:perc>=100?"#27AE60":perc>=70?"#E67E22":"#EF9F27",borderRadius:3}}/>
                       </div>
                     </div>);
                   })()}
-                  {/* Podio */}
                   <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agentiProd.length,4)},1fr)`,gap:8}}>
                     {clTeam.slice(0,4).map(({ag,val},i)=>(
-                      <div key={ag.id} style={{background:i===0?"rgba(212,172,13,.15)":"rgba(255,255,255,.04)",borderRadius:10,padding:"10px 8px",textAlign:"center",border:`0.5px solid ${i===0?"#D4AC0D44":"rgba(255,255,255,.08)"}`}}>
-                        <div style={{fontSize:20,marginBottom:4}}>{PEMOJI2[i]}</div>
-                        <div style={{fontSize:12,fontWeight:500,color:"#ccc"}}>{ag.nome}</div>
-                        <div style={{fontSize:11,color:"#666"}}>{ag.cognome}</div>
-                        <div style={{fontSize:18,fontWeight:700,color:PCLR2[i],marginTop:4}}>{sfidaAtt2.metrica==="fatturato"?`€${fmt(val)}`:val}</div>
+                      <div key={ag.id} style={{background:i===0?"#fff":"rgba(255,255,255,.6)",borderRadius:10,padding:"10px 8px",textAlign:"center",border:`0.5px solid ${i===0?"#D4AC0D44":"#e8d9b044"}`}}>
+                        <div style={{fontSize:20,marginBottom:5}}>{PEMOJI2[i]}</div>
+                        <div style={{width:32,height:32,borderRadius:"50%",background:i===0?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:i===0?"#412402":"#888",margin:"0 auto 6px"}}>{ag.nome.charAt(0)}</div>
+                        <div style={{fontSize:12,fontWeight:500,color:"#2c2c2c"}}>{ag.nome}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{ag.cognome||""}</div>
+                        <div style={{fontSize:18,fontWeight:600,color:PCLR2[i],marginTop:5}}>{sfidaAtt2.metrica==="fatturato"?`€${fmt(val)}`:val}</div>
                       </div>
                     ))}
                   </div>
                 </div>
               ):(
-                /* Nessuna sfida */
-                <div style={{background:"#fafaf8",borderRadius:12,border:"0.5px dashed #ddd",padding:"1.5rem",marginBottom:"1.25rem",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div style={{background:"#fafaf8",borderRadius:12,border:"0.5px dashed #ddd",padding:"1.25rem",marginBottom:"1.25rem",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:500,color:"#aaa",marginBottom:4}}>Nessun traguardo volante attivo</div>
-                    <div style={{fontSize:12,color:"#bbb"}}>Crea una sfida per motivare il team</div>
+                    <div style={{fontSize:13,fontWeight:500,color:"#aaa"}}>Nessun traguardo volante attivo</div>
+                    <div style={{fontSize:12,color:"#bbb",marginTop:3}}>Crea una sfida per motivare il team</div>
                   </div>
-                  {isBroker&&<button onClick={()=>setShowFormSfida(true)} style={{...S.btnP,fontSize:12,padding:"7px 16px"}}>+ Crea sfida</button>}
+                  <button onClick={()=>setShowFormSfida(true)} style={{...S.btnP,fontSize:12,padding:"7px 16px"}}>+ Crea sfida</button>
                 </div>
               )}
 
-              {/* TABELLA PRODUZIONE */}
+              {/* Tabella attività di processo */}
               <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
-                <div style={{background:"#fafaf8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                  <span style={{fontSize:13,fontWeight:600}}>Produzione team</span>
-                  <div style={{display:"flex",gap:4,marginLeft:"auto",flexWrap:"wrap"}}>
-                    {[["Obiettivo","warShowObiettivo",warShowObiettivo],["Produzione","warShowProduzione",warShowProduzione]].map(([lbl,k,val])=>(
-                      <button key={lbl} onClick={()=>k==="warShowObiettivo"?setWarShowObiettivo(!val):setWarShowProduzione(!val)} style={{fontSize:11,padding:"3px 10px",borderRadius:6,border:`0.5px solid ${val?"#A8863A":"#ddd"}`,background:val?"#FEF9E7":"transparent",color:val?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit"}}>{lbl}</button>
-                    ))}
-                  </div>
+                <div style={{background:"#fafaf8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:13,fontWeight:600}}>⚙ Attività di processo</span>
+                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{fmtD(dal2)} → {fmtD(al2)}</span>
                 </div>
                 <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:620}}>
                     <thead><tr style={{background:"#fafaf8"}}>
-                      <th style={{padding:"8px 14px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Agente</th>
-                      {["Acquisizioni","Chiamate","Appt.","OH","Proposte","Fatturato"].map(h=>(
-                        <th key={h} style={{padding:"8px 10px",fontSize:11,fontWeight:500,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
+                      <th style={{padding:"7px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee",minWidth:140}}>Agente</th>
+                      {["📞 Chiamate","CI","🤝 Appt.","🏠 Visitati","⏱ Ore tel.","📄 Volant.","📱 Social","🚪 OH"].map(h=>(
+                        <th key={h} style={{padding:"7px 10px",fontSize:11,fontWeight:500,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
-                      {agentiProd.map((ag,i)=>{
-                        const vals=["acquisizioni","chiamate","appuntamenti","oh","proposte","fatturato"].map(m=>calcM2(ag.id,m,dal2,al2));
-                        const isFirst=clTeam[0]?.ag?.id===ag.id;
-                        return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isFirst?"#FFFBF0":"transparent"}}>
-                          <td style={{padding:"10px 14px"}}>
+                      {agentiProd.map((ag,idx)=>{
+                        const isLdr=clTeam[0]?.ag?.id===ag.id;
+                        return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"transparent"}}>
+                          <td style={{padding:"9px 12px"}}>
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,#A8863A,#D4AC0D)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
+                              <div style={{width:28,height:28,borderRadius:"50%",background:isLdr?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:isLdr?"#412402":"#888",flexShrink:0}}>{ag.nome.charAt(0)}</div>
                               <div>
                                 <div style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</div>
-                                {isFirst&&<div style={{fontSize:10,color:"#D4AC0D"}}>🥇 Leader</div>}
+                                {isLdr&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:"#E1F5EE",color:"#085041"}}>🥇 Leader</span>}
                               </div>
                             </div>
                           </td>
-                          {vals.map((v,j)=>(
-                            <td key={j} style={{padding:"10px 10px",fontSize:13,textAlign:"right",fontWeight:isFirst?600:400,color:isFirst?"#A8863A":"#2c2c2c"}}>
-                              {j===5?`€ ${fmt(v)}`:v}
-                            </td>
+                          {[
+                            calcM2(ag.id,"chiamate",dal2,al2),
+                            calcM2(ag.id,"chiamate_ci",dal2,al2),
+                            calcM2(ag.id,"appuntamenti",dal2,al2),
+                            calcM2(ag.id,"immVisitati",dal2,al2),
+                            calcM2(ag.id,"oreTel",dal2,al2)+"h",
+                            calcM2(ag.id,"volantini",dal2,al2),
+                            calcM2(ag.id,"postSocial",dal2,al2),
+                            calcM2(ag.id,"oh",dal2,al2),
+                          ].map((v,j)=>(
+                            <td key={j} style={{padding:"9px 10px",fontSize:12,textAlign:"right",fontWeight:isLdr?500:400,color:isLdr?"#854F0B":"#2c2c2c"}}>{v}</td>
                           ))}
                         </tr>);
                       })}
@@ -4884,48 +4955,110 @@ export default function App() {
                 </div>
               </div>
 
-              {/* STORICO SFIDE */}
-              {sfideStor.length>0&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+              {/* Risultati finali */}
+              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
                 <div style={{background:"#fafaf8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
-                  <span style={{fontSize:13,fontWeight:600}}>Storico traguardi ({sfideStor.length})</span>
+                  <span style={{fontSize:13,fontWeight:600}}>🏁 Risultati finali</span>
+                </div>
+                <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr style={{background:"#fafal8"}}>
+                    <th style={{padding:"7px 14px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Agente</th>
+                    {["Acquisizioni","Transazioni","Proposte","T. medio","Fatturato"].map(h=>(
+                      <th key={h} style={{padding:"7px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {agentiProd.map(ag=>{
+                      const isLdr=clTeam[0]?.ag?.id===ag.id;
+                      const vendAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(v.agenteListing===ag.id||v.agenteAcquirente===ag.id)&&dc>=dal2&&dc<=al2;});
+                      const tMed=vendAg.length>0?Math.round(vendAg.reduce((s,v)=>{const inc=incarichi.find(i=>proposte.find(p=>p.id===v.propostaId&&p.incaricoId===i.id));if(!inc||!inc.dataInizio||!v.dataAtto)return s;return s+Math.round((new Date(v.dataAtto)-new Date(inc.dataInizio))/86400000);},0)/vendAg.length):null;
+                      return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"transparent"}}>
+                        <td style={{padding:"9px 14px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:28,height:28,borderRadius:"50%",background:isLdr?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:isLdr?"#412402":"#888"}}>{ag.nome.charAt(0)}</div>
+                            <span style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</span>
+                          </div>
+                        </td>
+                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",fontWeight:isLdr?500:400}}>{calcM2(ag.id,"acquisizioni",dal2,al2)}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right"}}>{vendAg.length}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right"}}>{calcM2(ag.id,"proposte",dal2,al2)}</td>
+                        <td style={{padding:"9px 12px",fontSize:12,textAlign:"right",color:"#888"}}>{tMed!==null?`${tMed} gg`:"—"}</td>
+                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",fontWeight:500,color:"#085041"}}>€ {fmt(calcM2(ag.id,"fatturato",dal2,al2))}</td>
+                      </tr>);
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Fonti incarichi team */}
+              {(()=>{
+                const incPer=incarichi.filter(i=>i.dataInizio>=dal2&&i.dataInizio<=al2&&i.categoria==="vendita"&&agentiProd.find(a=>a.id===i.agenteListing));
+                const byFonte=incPer.reduce((acc,i)=>{const f=i.fonte||"Altro";acc[f]=(acc[f]||0)+1;return acc;},{});
+                const sorted=Object.entries(byFonte).sort((a,b)=>b[1]-a[1]);
+                if(sorted.length===0)return null;
+                const totF=incPer.length;
+                return(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                  <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>📊 Fonti incarichi team</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:12}}>
+                    {sorted.slice(0,5).map(([f,n])=>(
+                      <div key={f} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px",textAlign:"center"}}>
+                        <div style={{fontSize:18,fontWeight:600,color:"#185FA5"}}>{n}</div>
+                        <div style={{fontSize:11,color:"#888",marginTop:3}}>{f}</div>
+                        <div style={{fontSize:10,color:"#aaa"}}>{Math.round(n/totF*100)}%</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",gap:1}}>
+                    {sorted.map(([f,n],i)=>{
+                      const clrs=["#185FA5","#0F6E56","#854F0B","#533AB7","#A32D2D","#5F5E5A"];
+                      return(<div key={f} title={`${f}: ${n}`} style={{flex:n,background:clrs[i%clrs.length]}}/>);
+                    })}
+                  </div>
+                </div>);
+              })()}
+
+              {/* Storico sfide */}
+              {sfideStor.length>0&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+                <div style={{background:"#fafal8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                  <span style={{fontSize:13,fontWeight:600}}>🏅 Storico traguardi ({sfideStor.length})</span>
                 </div>
                 <div style={{padding:"12px 16px",display:"flex",flexDirection:"column",gap:8}}>
                   {sfideStor.map((s,i)=>{
                     const cl=s.snapshot?s.snapshot.map(x=>({ag:agenti.find(a=>a.id===x.agId)||{nome:x.nome,cognome:""},val:x.val})):agentiProd.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
                     const top3=cl.filter(x=>x.val>0).slice(0,3);
-                    return(<div key={i} style={{background:"#fafal8",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                      <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
+                    return(<div key={i} style={{borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                      <div style={{background:"#2C2C2A",padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
                         <div>
                           <div style={{fontSize:12,fontWeight:600,color:"#fff"}}>🏆 {s.nome}</div>
-                          <div style={{fontSize:11,color:"#aaa"}}>{fmtD(s.dal)} → {fmtD(s.al)} · {METR2[s.metrica]||s.metrica}</div>
+                          <div style={{fontSize:11,color:"#888"}}>{fmtD(s.dal)} → {fmtD(s.al)} · {METR2[s.metrica]||s.metrica}</div>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <div style={{fontSize:11,color:"#D4AC0D"}}>🎁 {s.premio||"—"}</div>
-                          {s.snapshot&&<span style={{fontSize:10,color:"#27AE60"}}>✓ snapshot</span>}
-                          {isBroker&&<button style={{...S.btnD,fontSize:10,padding:"2px 8px"}} onClick={()=>setSfide(sfide.filter((_,j)=>j!==sfide.indexOf(s)))}>Elimina</button>}
+                          <span style={{fontSize:11,color:"#EF9F27"}}>🎁 {s.premio||"—"}</span>
+                          {s.snapshot&&<span style={{fontSize:10,color:"#27AE60"}}>✓</span>}
+                          <button style={{...S.btnD,fontSize:10,padding:"2px 8px"}} onClick={()=>setSfide(sfide.filter((_,j)=>j!==sfide.indexOf(s)))}>Elimina</button>
                         </div>
                       </div>
                       <div style={{padding:"10px 14px",display:"flex",gap:8,flexWrap:"wrap"}}>
-                        {top3.length===0&&<span style={{fontSize:12,color:"#aaa",fontStyle:"italic"}}>Nessun dato</span>}
                         {top3.map(({ag,val},idx)=>(
-                          <div key={ag?.id||idx} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",borderRadius:8,background:idx===0?"#FDF6EC":idx===1?"#f5f5f5":"#faf5ef",border:`0.5px solid ${PCLR2[idx]}44`,flex:idx===0?"1 1 auto":"0 0 auto"}}>
-                            <span style={{fontSize:idx===0?20:16}}>{["🥇","🥈","🥉"][idx]}</span>
+                          <div key={ag?.id||idx} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",borderRadius:8,background:idx===0?"#FDF6EC":"var(--color-background-secondary)",border:`0.5px solid ${["#D4AC0D44","#88888844","#CD7F3244"][idx]}`,flex:idx===0?"1 1 auto":"0 0 auto"}}>
+                            <span style={{fontSize:idx===0?20:15}}>{["🥇","🥈","🥉"][idx]}</span>
                             <div>
                               <div style={{fontSize:idx===0?13:11,fontWeight:500,color:PCLR2[idx]}}>{ag?.nome||"—"} {ag?.cognome||""}</div>
-                              <div style={{fontSize:idx===0?16:13,fontWeight:700,color:PCLR2[idx]}}>{s.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
+                              <div style={{fontSize:idx===0?16:13,fontWeight:600,color:PCLR2[idx]}}>{s.metrica==="fatturato"?`€ ${fmt(val)}`:val}</div>
                             </div>
                           </div>
                         ))}
+                        {top3.length===0&&<span style={{fontSize:12,color:"#aaa",fontStyle:"italic"}}>Nessun dato</span>}
                       </div>
                     </div>);
                   })}
                 </div>
               </div>)}
 
-              {/* FORM NUOVA SFIDA */}
-              {isBroker&&showFormSfida&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem",marginBottom:"1.25rem"}}>
+              {/* Form nuova sfida */}
+              {showFormSfida&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem",marginBottom:"1.25rem"}}>
                 <div style={{fontSize:13,fontWeight:600,marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  + Nuova sfida<button style={{...S.btn,fontSize:11}} onClick={()=>setShowFormSfida(false)}>✕ Chiudi</button>
+                  + Nuova sfida <button style={{...S.btn,fontSize:11}} onClick={()=>setShowFormSfida(false)}>✕</button>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
                   <div><label style={S.lbl}>Nome sfida</label><input style={S.inp} value={formSfida.nome||""} placeholder="es. Sprint maggio" onChange={e=>setFormSfida({...formSfida,nome:e.target.value})}/></div>
@@ -4937,12 +5070,10 @@ export default function App() {
                   <div><label style={S.lbl}>Premio</label><input style={S.inp} value={formSfida.premio||""} placeholder="es. Cena per 2" onChange={e=>setFormSfida({...formSfida,premio:e.target.value})}/></div>
                   <div><label style={S.lbl}>Obiettivo team (opz.)</label><input type="number" style={S.inp} value={formSfida.obiettivo||""} placeholder="0" onChange={e=>setFormSfida({...formSfida,obiettivo:Number(e.target.value)})}/></div>
                 </div>
-                <button style={{...S.btnP,width:"100%",padding:9}} onClick={()=>{
-                  if(!formSfida.nome||!formSfida.dal||!formSfida.al)return;
-                  setSfide([...sfide,{...formSfida,metrica:formSfida.metrica||"acquisizioni"}]);
-                  setFormSfida({});setShowFormSfida(false);
-                }}>🏆 Crea sfida</button>
+                <button style={{...S.btnP,width:"100%",padding:9}} onClick={()=>{if(!formSfida.nome||!formSfida.dal||!formSfida.al)return;setSfide([...sfide,{...formSfida,metrica:formSfida.metrica||"acquisizioni"}]);setFormSfida({});setShowFormSfida(false);}}>🏆 Crea sfida</button>
               </div>)}
+
+              {!showFormSfida&&isBroker&&!sfidaAtt2&&<button onClick={()=>setShowFormSfida(true)} style={{...S.btnP,fontSize:12,padding:"8px 18px"}}>+ Crea nuovo traguardo</button>}
 
             </div>);
           })()}
