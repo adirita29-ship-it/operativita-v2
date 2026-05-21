@@ -657,6 +657,7 @@ export default function App() {
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [showFormSfida,setShowFormSfida]=useState(false);
   const [warSubTab,setWarSubTab]=useState("performance");
+  const [warOscura,setWarOscura]=useState(false);
   const [oneToOne,setOneToOne]=useState(_ls?.oneToOne||{});
   const [otoAgSel,setOtoAgSel]=useState(null);
   const [otoForm,setOtoForm]=useState({data:todayStr(),noteIncontro:"",obiettivi:"",criticita:"",azioni:"",notePrivate:""});
@@ -924,7 +925,7 @@ export default function App() {
     return s+Math.max(0,qAg);
   },0),[propVincolo,agenti]);
 
-  const agentiFattura=useMemo(()=>agenti.filter(a=>a.profilo!=="Broker"),[agenti]);
+  const agentiFattura=useMemo(()=>agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5),[agenti]);
   const fatAg=agenti.find(a=>a.id===Number(fatAgente));
   const fatturaDati=useMemo(()=>{
     if(!fatAgente) return [];
@@ -1510,7 +1511,7 @@ export default function App() {
                 {/* Traguardo volante agente — sempre visibile */}
                 <div style={{background:sfidaAtt?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAtt?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
                   {sfidaAtt?(()=>{
-                    const cl=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo).map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
+                    const cl=agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5).map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
                     const miaPos=cl.findIndex(x=>x.ag.id===myAgentId);
                     const mioVal=cl[miaPos]?.val||0;
                     const ggR=Math.max(0,Math.round((toD(sfidaAtt.al)-oggiD)/86400000));
@@ -1728,7 +1729,7 @@ export default function App() {
               {/* Traguardo volante — sempre visibile */}
               <div style={{background:sfidaAttBr?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAttBr?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
                 {sfidaAttBr?(()=>{
-                  const cl=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo).map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
+                  const cl=agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5).map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
                   const ggR=Math.max(0,Math.round((toD(sfidaAttBr.al)-oggiD)/86400000));
                   return(<>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
@@ -4641,7 +4642,8 @@ export default function App() {
             const oggi2=todayStr();
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
-            const agentiProd=agenti.filter(a=>a.profilo!=="Broker"&&a.profilo!=="Back Office"&&a.profilo!=="Coach"&&a.profilo!=="Collaborazione Agenzia");
+            const agentiProd=agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5);
+            const agentiTabelle=agenti.filter(a=>!["Coach","Collaborazione Agenzia","Back Office"].includes(a.profilo)&&a.id!==5);
             const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 C.Passati",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
             const PEMOJI2=["🥇","🥈","🥉","4°","5°"];
@@ -4827,6 +4829,51 @@ export default function App() {
             }
 
             // ── VISTA BROKER / BACKOFFICE ──
+            if(warRiunione) return(<div style={{position:"fixed",inset:0,background:"#0D1117",zIndex:9000,overflowY:"auto",padding:"1.5rem"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.5rem"}}>
+                <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>🏆 WAR ROOM · {fmtD(dal2)} → {fmtD(al2)}</div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setWarOscura(!warOscura)} style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:`0.5px solid ${warOscura?"#E74C3C":"#444"}`,background:warOscura?"#A32D2D":"transparent",color:warOscura?"#fff":"#aaa",cursor:"pointer",fontFamily:"inherit"}}>{warOscura?"👁 Mostra":"🔒 Oscura €"}</button>
+                  <button onClick={()=>setWarRiunione(false)} style={{fontSize:12,padding:"5px 14px",borderRadius:6,border:"0.5px solid #444",background:"transparent",color:"#aaa",cursor:"pointer",fontFamily:"inherit"}}>✕ Esci</button>
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agentiProd.length,4)},1fr)`,gap:12,marginBottom:"1.5rem"}}>
+                {agentiProd.map((ag,idx)=>{
+                  const AVBG=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE"];
+                  const AVCL=["#412402","#0C447C","#3C3489","#173404"];
+                  const isLdr=clTeam[0]?.ag?.id===ag.id;
+                  return(<div key={ag.id} style={{background:isLdr?"#1A2A0A":"#1C2333",borderRadius:12,padding:"1.25rem",border:`0.5px solid ${isLdr?"#D4AC0D44":"#2D3748"}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                      <div style={{width:40,height:40,borderRadius:"50%",background:isLdr?"#EF9F27":AVBG[idx%4],display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:isLdr?"#412402":AVCL[idx%4]}}>{ag.nome.charAt(0)}</div>
+                      <div><div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{ag.nome} {ag.cognome||""}</div>{isLdr&&<span style={{fontSize:11,color:"#D4AC0D"}}>🥇 Leader</span>}</div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                      {[["💰 Fatturato",warOscura?"••••":"€ "+fmt(calcM2(ag.id,"fatturato",dal2,al2))],["🏠 Acquisizioni",""+calcM2(ag.id,"acquisizioni",dal2,al2)],["📞 Chiamate",""+calcM2(ag.id,"chiamate",dal2,al2)],["🤝 Appt. acq.",""+calcM2(ag.id,"appuntamenti",dal2,al2)]].map(([lbl,val])=>(
+                        <div key={lbl} style={{background:"#151B27",borderRadius:8,padding:"8px",textAlign:"center"}}>
+                          <div style={{fontSize:10,color:"#666",marginBottom:4}}>{lbl}</div>
+                          <div style={{fontSize:18,fontWeight:700,color:"#fff"}}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>);
+                })}
+              </div>
+              {sfidaAtt2&&<div style={{background:"#1A1F2E",borderRadius:12,border:"0.5px solid #D4AC0D44",padding:"1.25rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <div><div style={{fontSize:16,fontWeight:700,color:"#D4AC0D"}}>🏆 {sfidaAtt2.nome}</div><div style={{fontSize:12,color:"#888"}}>{METR2[sfidaAtt2.metrica]} · 🎁 {sfidaAtt2.premio}</div></div>
+                  <div style={{textAlign:"center"}}><div style={{fontSize:10,color:"#666"}}>Scade tra</div><div style={{fontSize:28,fontWeight:700,color:ggR<=3?"#E74C3C":"#D4AC0D"}}>{ggR}gg</div></div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:`repeat(${Math.min(agentiProd.length,4)},1fr)`,gap:8}}>
+                  {clTeam.slice(0,4).map(({ag,val},i)=>(
+                    <div key={ag.id} style={{background:"#151B27",borderRadius:8,padding:"10px",textAlign:"center",border:`0.5px solid ${PCLR2[i]}44`}}>
+                      <div style={{fontSize:20}}>{PEMOJI2[i]}</div>
+                      <div style={{fontSize:12,color:"#ccc",marginTop:4}}>{ag.nome}</div>
+                      <div style={{fontSize:16,fontWeight:700,color:PCLR2[i]}}>{warOscura&&sfidaAtt2.metrica==="fatturato"?"••••":sfidaAtt2.metrica==="fatturato"?"€"+fmt(val):val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>}
+            </div>);
             return(<div style={S.sec}>
               {/* Header con sub-tab e periodo */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:10}}>
@@ -4847,6 +4894,8 @@ export default function App() {
                     <input type="date" style={S.sel} value={warAl} onChange={e=>setWarAl(e.target.value)}/>
                   </div>}
                   <span style={{fontSize:11,color:"#aaa"}}>{fmtD(dal2)} → {fmtD(al2)}</span>
+                  <button onClick={()=>setWarOscura(!warOscura)} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:`0.5px solid ${warOscura?"#E74C3C":"#ddd"}`,background:warOscura?"#FCEBEB":"transparent",color:warOscura?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>{warOscura?"👁 Mostra €":"🔒 Oscura €"}</button>
+                  <button onClick={()=>setWarRiunione(true)} style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px solid #2C2C2A",background:"#2C2C2A",color:"#D4AC0D",cursor:"pointer",fontFamily:"inherit"}}>📺 Riunione</button>
                 </div>
               </div>
               {warSubTab==="traguardo"&&<div>
@@ -4913,10 +4962,10 @@ export default function App() {
                   const AVCL=["#412402","#0C447C","#3C3489","#173404"];
                   return(<div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
-                      {[["💰 Fatturato team","€ "+fmt(tF),"#0F6E56",pF,pF!=null?pF+"% — obj € "+fmt(obiettivoFatturato):""],
+                      {[["💰 Fatturato team",warOscura?"€ ••••••":(warOscura?"€ ••••":"€ "+fmt(tF)),"#0F6E56",pF,pF!=null?pF+"% — obj € "+fmt(obiettivoFatturato):""],
                         ["🏠 Acquisizioni",tA,"#185FA5",null,"nel periodo"],
                         ["📞 Chiamate",tC,"#533AB7",null,"totali"],
-                        ["🚪 Open House",tO,"#854F0B",null,"effettuati"]
+                        ["🤝 Appunt. acq.",agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"appuntamenti",dal2,al2),0),"#854F0B",null,"acquisizione"]
                       ].map(([l,v,c,p,s])=>(
                         <div key={l} style={{background:"#fff",borderRadius:10,padding:"1rem",textAlign:"center",boxShadow:"inset 0 3px 0 "+c+", 0 0 0 1px "+c+"33"}}>
                           <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>{l}</div>
@@ -4975,7 +5024,7 @@ export default function App() {
                           ))}
                         </tr></thead>
                         <tbody>
-                          {agentiProd.map((ag,idx)=>{
+                          {agentiTabelle.map((ag,idx)=>{
                             const isLdr=clTeam[0]?.ag?.id===ag.id;
                             const vendAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&dc>=dal2&&dc<=al2;});
                             const tMed=vendAg.length>0?Math.round(vendAg.reduce((s,v)=>{const inc=incarichi.find(i=>proposte.find(p=>p.id===v.propostaId&&p.incaricoId===i.id));if(!inc?.dataInizio||!v.dataAtto)return s;return s+Math.round((new Date(v.dataAtto)-new Date(inc.dataInizio))/86400000);},0)/vendAg.length):null;
@@ -4990,7 +5039,7 @@ export default function App() {
                               <td style={{padding:"10px 12px",fontSize:13,textAlign:"right"}}>{vendAg.length}</td>
                               <td style={{padding:"10px 12px",fontSize:13,textAlign:"right"}}>{calcM2(ag.id,"proposte",dal2,al2)}</td>
                               <td style={{padding:"10px 12px",fontSize:12,textAlign:"right",color:"#888"}}>{tMed!=null?tMed+" gg":"—"}</td>
-                              <td style={{padding:"10px 12px",fontSize:13,textAlign:"right",fontWeight:600,color:"#085041"}}>{"€ "+fmt(calcM2(ag.id,"fatturato",dal2,al2))}</td>
+                              <td style={{padding:"10px 12px",fontSize:13,textAlign:"right",fontWeight:600,color:"#085041"}}>{warOscura?"€ ••••":"€ "+fmt(calcM2(ag.id,"fatturato",dal2,al2))}</td>
                             </tr>);
                           })}
                         </tbody>
@@ -5069,7 +5118,7 @@ export default function App() {
             </div>
             {/* Selezione agente */}
             <div style={{display:"flex",gap:8,marginBottom:"1.25rem",flexWrap:"wrap"}}>
-              {agenti.filter(a=>a.profilo!=="Broker"&&a.profilo!=="Back Office"&&a.profilo!=="Coach"&&a.profilo!=="Collaborazione Agenzia").map(ag=>{
+              {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5).map(ag=>{
                 const nInc=(oneToOne[ag.id]||[]).length;
                 const isSel=otoAgSel===ag.id;
                 return(<button key={ag.id} onClick={()=>setOtoAgSel(ag.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:8,border:`1.5px solid ${isSel?BRAND.oro:"var(--color-border-tertiary)"}`,background:isSel?"#FDF6EC":"var(--color-background-primary)",cursor:"pointer"}}>
