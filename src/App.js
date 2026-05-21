@@ -631,6 +631,7 @@ export default function App() {
   // Obiettivi operatività: {agentId: {"2026-05": {obiettivi mese...}}}
   const [obiettiviOp,setObiettiviOp]=useState(_ls?.obiettiviOp||{});
   const [opSubTab,setOpSubTab]=useState("settimana");
+  const [opMainTab,setOpMainTab]=useState("attivita");
   const [opDataSel,setOpDataSel]=useState(todayStr());
   const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
   const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
@@ -3869,6 +3870,13 @@ export default function App() {
                 </div>
 
                 {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:13,color:"#2980B9",display:"flex",alignItems:"center",gap:8}}><span>👁</span><strong>Modalità sola lettura</strong></div>}
+                {/* Main tab: Attività vs Piano Produzione */}
+                <div style={{display:"flex",gap:4,background:"#f0f0f0",borderRadius:8,padding:4,width:"fit-content",marginBottom:"1.25rem"}}>
+                  {[["attivita","⚙ Attività"],["piano","🎯 Piano Produzione"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setOpMainTab(v)} style={{padding:"7px 18px",fontSize:12,borderRadius:6,border:"none",background:opMainTab===v?"#fff":"transparent",color:opMainTab===v?"#A8863A":"#888",fontWeight:opMainTab===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:opMainTab===v?"0 1px 4px rgba(0,0,0,.12)":"none"}}>{l}</button>
+                  ))}
+                </div>
+                {opMainTab==="attivita"&&<div>
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
                   {[{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
@@ -4456,7 +4464,191 @@ export default function App() {
                     </>);
                   })()}
                 </>)}
-              </div>
+              </div>}
+
+              {opMainTab==="piano"&&(()=>{
+                // ── PIANO PRODUZIONE ──
+                const agIdPiano=isBroker?(Number(opAgenteSel==="Tutti"?agenti.find(a=>a.profilo==="Broker")?.id||agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
+                const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
+                const annoPiano=new Date().getFullYear();
+                const oggi4=todayStr();
+
+                // Provvigione media reale dai venduti
+                const tuttiVend=venduti.filter(v=>v.dataAtto);
+                const provvTot=tuttiVend.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+                const provvN=tuttiVend.filter(v=>Number(v.provvVenditore||0)>0||Number(v.provvAcquirente||0)>0).length;
+                const provvMediaReale=provvN>0?Math.round(provvTot/provvN):8000;
+
+                // Obiettivi salvati per questo agente
+                const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
+                const obFattPiano=Number(obAnnPiano.fatturato||0);
+                const provvCustom=Number(obAnnPiano.provvMedia||provvMediaReale);
+                const CONV=0.65; // ratio acquisizioni→rogito
+                const APPT=0.40; // ratio appuntamenti→acquisizione
+
+                // Calcoli piano
+                const transazNec=provvCustom>0?Math.ceil(obFattPiano/provvCustom):0;
+                const immobiliVend=Math.ceil(transazNec/2); // ogni immobile = 2 transazioni
+                const acquisizioniNec=Math.ceil(immobiliVend/CONV);
+                const acquisizioniMese=Math.ceil(acquisizioniNec/12);
+                const apptAnno=Math.ceil(acquisizioniNec/APPT);
+                const apptMese=Math.ceil(apptAnno/12);
+                const apptSett=Math.ceil(apptAnno/52);
+
+                // YTD reali
+                const dal4=`${annoPiano}-01-01`;
+                const vendAgPiano=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agIdPiano||Number(v.agenteAcquirente)===agIdPiano)&&dc>=dal4&&dc<=oggi4;});
+                const fattYTD4=vendAgPiano.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agIdPiano)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agIdPiano)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                const acqYTD4=incarichi.filter(i=>Number(i.agenteListing)===agIdPiano&&i.dataInizio>=dal4&&i.dataInizio<=oggi4).length;
+                const transYTD4=vendAgPiano.length;
+
+                // Proiezione fine anno
+                const meseCorr=new Date().getMonth()+1;
+                const proiezioneFineAnno=meseCorr>0?Math.round(fattYTD4/meseCorr*12):0;
+
+                // Revisioni salvate
+                const revisioni=(obAnnPiano.revisioni||[]);
+
+                const percF4=obFattPiano>0?Math.min(100,Math.round(fattYTD4/obFattPiano*100)):null;
+                const percA4=acquisizioniNec>0?Math.min(100,Math.round(acqYTD4/acquisizioniNec*100)):null;
+                const percT4=transazNec>0?Math.min(100,Math.round(transYTD4/transazNec*100)):null;
+                const clrPerc=(p)=>p>=100?"#27AE60":p>=70?"#E67E22":"#E74C3C";
+
+                const BAR=({perc,clr,val,obj,lbl})=>(
+                  <div>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:12,color:"#666"}}>{lbl}</span>
+                      {perc!=null&&<span style={{fontSize:12,fontWeight:600,color:clrPerc(perc)}}>{perc}%</span>}
+                    </div>
+                    <div style={{height:10,background:"#f0f0f0",borderRadius:5,overflow:"hidden",marginBottom:4}}>
+                      <div style={{height:"100%",width:(perc||0)+"%",background:perc>=100?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:5,transition:"width .4s"}}/>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:11,color:"#888"}}>{val}</span>
+                      <span style={{fontSize:11,color:"#aaa"}}>obj {obj}</span>
+                    </div>
+                  </div>
+                );
+
+                return(<div>
+                  {/* Selettore agente broker */}
+                  {isBroker&&<div style={{marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:12,color:"#888"}}>Piano di:</span>
+                    <select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>
+                    <span style={{fontSize:12,color:"#A8863A",fontWeight:500}}>{agPiano.nome} {agPiano.cognome}</span>
+                  </div>}
+
+                  {/* Input obiettivi */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,padding:"1.25rem",borderTop:"3px solid #0F6E56",border:"1px solid #0F6E5622",borderTopWidth:3}}>
+                      <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Obiettivo fatturato annuale</div>
+                      <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:4}}>
+                        <span style={{fontSize:20,color:"#888"}}>€</span>
+                        <input type="number" style={{width:"100%",fontSize:28,fontWeight:600,border:"none",background:"transparent",color:"#085041",outline:"none",fontFamily:"inherit"}}
+                          value={obFattPiano||""} placeholder="200000"
+                          onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),"fatturato":Number(e.target.value)}}))}/>
+                      </div>
+                      {obFattPiano>0&&<div style={{fontSize:12,color:"#0F6E56"}}>= € {fmt(Math.round(obFattPiano/12))} / mese</div>}
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,padding:"1.25rem",borderTop:"3px solid #854F0B",border:"1px solid #854F0B22",borderTopWidth:3}}>
+                      <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Provv. media Càsa Immobiliare</div>
+                      <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:4}}>
+                        <span style={{fontSize:20,color:"#888"}}>€</span>
+                        <input type="number" style={{width:"100%",fontSize:28,fontWeight:600,border:"none",background:"transparent",color:"#633806",outline:"none",fontFamily:"inherit"}}
+                          value={provvCustom||""} placeholder={String(provvMediaReale)}
+                          onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),"provvMedia":Number(e.target.value)}}))}/>
+                      </div>
+                      <div style={{fontSize:12,color:"#854F0B"}}>media reale agenzia: € {fmt(provvMediaReale)}</div>
+                    </div>
+                  </div>
+
+                  {/* Piano derivato */}
+                  {obFattPiano>0&&provvCustom>0&&<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem",marginBottom:"1.25rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"1rem"}}>
+                      <div style={{width:4,height:18,borderRadius:2,background:"#185FA5"}}/>
+                      <span style={{fontSize:13,fontWeight:600,color:"#185FA5"}}>Piano derivato automaticamente</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+                      {[
+                        ["Transazioni","(rogiti)","#185FA5",transazNec,"ogni immobile = 2 transaz."],
+                        ["Immobili venduti","(rogiti ÷ 2)","#0F6E56",immobiliVend,"immobili da vendere"],
+                        ["Acquisizioni","(conv. 65%)","#533AB7",acquisizioniNec,acquisizioniMese+"/mese"],
+                        ["Appt. acq./sett.","(conv. 40%)","#854F0B",apptSett,apptMese+"/mese"],
+                      ].map(([lbl,sub,clr,val,note])=>(
+                        <div key={lbl} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"12px",textAlign:"center"}}>
+                          <div style={{fontSize:10,color:"#888",marginBottom:6,textTransform:"uppercase",letterSpacing:".04em"}}>{lbl}</div>
+                          <div style={{fontSize:32,fontWeight:700,color:clr,lineHeight:1,marginBottom:4}}>{val}</div>
+                          <div style={{fontSize:10,color:"#aaa"}}>{note}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>}
+
+                  {/* Dove sei oggi */}
+                  {obFattPiano>0&&<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem",marginBottom:"1.25rem"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:4,height:18,borderRadius:2,background:"#0F6E56"}}/>
+                        <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>Dove sei oggi — {annoPiano}</span>
+                      </div>
+                      <span style={{fontSize:11,color:"#aaa"}}>aggiornato a oggi</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:"1rem"}}>
+                      <BAR perc={percF4} clr="#0F6E56" lbl="💰 Fatturato YTD" val={"€ "+fmt(fattYTD4)} obj={"€ "+fmt(obFattPiano)}/>
+                      <BAR perc={percA4} clr="#533AB7" lbl="🏠 Acquisizioni YTD" val={acqYTD4+" acq."} obj={acquisizioniNec}/>
+                      <BAR perc={percT4} clr="#185FA5" lbl="📋 Transazioni YTD" val={transYTD4+" rogiti"} obj={transazNec}/>
+                    </div>
+                    <div style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontSize:22}}>📅</span>
+                      <div>
+                        {proiezioneFineAnno>=obFattPiano
+                          ?<div style={{fontSize:13,fontWeight:500,color:"#27AE60"}}>🎉 A questo ritmo supererai l'obiettivo — proiezione € {fmt(proiezioneFineAnno)}</div>
+                          :<div style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>A questo ritmo chiuderai a € {fmt(proiezioneFineAnno)} — mancano € {fmt(Math.max(0,obFattPiano-proiezioneFineAnno))}</div>
+                        }
+                        {obFattPiano>proiezioneFineAnno&&<div style={{fontSize:11,color:"#888",marginTop:2}}>
+                          Devi accelerare di +€ {fmt(Math.round((obFattPiano-fattYTD4)/Math.max(1,12-meseCorr)))} / mese nei prossimi {12-meseCorr} mesi
+                        </div>}
+                      </div>
+                    </div>
+                  </div>}
+
+                  {/* Revisioni obiettivo */}
+                  <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:4,height:18,borderRadius:2,background:"#854F0B"}}/>
+                        <span style={{fontSize:13,fontWeight:600,color:"#854F0B"}}>Revisioni obiettivo</span>
+                      </div>
+                      {!isReadOnly&&<button onClick={()=>{
+                        const motivo=prompt("Motivo della revisione:");
+                        if(!motivo) return;
+                        const nuovoOb=Number(prompt("Nuovo obiettivo fatturato €:"));
+                        if(!nuovoOb) return;
+                        const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb};
+                        setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:nuovoOb,revisioni:[...(prev[agIdPiano]?.revisioni||[]),rev]}}));
+                      }} style={{...S.btn,fontSize:11,padding:"4px 12px"}}>+ Revisiona</button>}
+                    </div>
+                    {revisioni.length===0
+                      ?<div style={{textAlign:"center",padding:"1.5rem",color:"#aaa",fontSize:12,fontStyle:"italic"}}>Nessuna revisione registrata</div>
+                      :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {revisioni.map((r,i)=>(
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:"var(--color-background-secondary)"}}>
+                            <div style={{width:8,height:8,borderRadius:"50%",background:r.nuovo>r.vecchio?"#27AE60":"#E67E22",flexShrink:0}}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:12,fontWeight:500}}>{r.motivo}</div>
+                              <div style={{fontSize:11,color:"#888"}}>{fmtD(r.data)} · da € {fmt(r.vecchio)} → € {fmt(r.nuovo)}</div>
+                            </div>
+                            <div style={{fontSize:13,fontWeight:600,color:r.nuovo>r.vecchio?"#27AE60":"#E67E22"}}>€ {fmt(r.nuovo)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    }
+                  </div>
+                </div>);
+              })()}
+            </div>
             );
           })()}
 
