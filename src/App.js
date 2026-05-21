@@ -578,6 +578,7 @@ const getAlertFasi = (pratiche, incId) => {
 const METRB_LABELS={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 Clienti pass.",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
 export default function App() {
   const isMobile=useIsMobile();
+  const FASI_ATTIVE=fasiConfig||FASI;
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
   const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
@@ -730,7 +731,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -4322,8 +4323,8 @@ export default function App() {
             // Calcola avanzamento pratica
             const avanzamento = (incId) => {
               const pr=getPratica(incId);
-              const totFasi=FASI.reduce((s,f)=>s+f.azioni.length,0);
-              const fatte=FASI.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
+              const totFasi=FASI_ATTIVE.reduce((s,f)=>s+f.azioni.length,0);
+              const fatte=FASI_ATTIVE.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
               return totFasi>0?Math.round(fatte/totFasi*100):0;
             };
 
@@ -4331,7 +4332,7 @@ export default function App() {
             const getAlert = (incId) => {
               const pr=getPratica(incId);
               const alerts=[];
-              FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
+              FASI_ATTIVE.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
                 if(!(pr.fasi[f.k]||{})[a.k]?.fatto) alerts.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
               }));
               return alerts;
@@ -4383,7 +4384,7 @@ export default function App() {
                         {/* Fase corrente */}
                         {(()=>{
                           const p2=getPratica(inc.id);
-                          const ultimaFase=FASI.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
+                          const ultimaFase=FASI_ATTIVE.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
                           return <p style={{fontSize:11,color:"#aaa",margin:0}}>Fase corrente: {ultimaFase?ultimaFase.n:"Non avviata"}</p>;
                         })()}
                       </div>);
@@ -4437,7 +4438,7 @@ export default function App() {
                         ))}
                       </div>
                     )}
-                    {FASI.map(fase=>{
+                    {FASI_ATTIVE.map(fase=>{
                       const fasiPr=pr.fasi[fase.k]||{};
                       const fatte=fase.azioni.filter(a=>fasiPr[a.k]?.fatto).length;
                       const completa=fatte===fase.azioni.length;
@@ -5381,6 +5382,64 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
+            <div style={{display:"flex",borderBottom:"1px solid #eee",marginBottom:"1.5rem"}}>
+              {[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setImpSezione(v)} style={{padding:"8px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${impSezione===v?"#A8863A":"transparent"}`,color:impSezione===v?"#A8863A":"#666",fontWeight:impSezione===v?600:400,fontFamily:"inherit",marginBottom:-1}}>{l}</button>
+              ))}
+            </div>
+            {impSezione==="fasi"&&isBroker&&(()=>{
+              const fasi=FASI_ATTIVE;
+              const RUOLI=["agente","erica","broker","entrambi","tutti"];
+              const RLB={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Ag+Erica",tutti:"Tutti"};
+              const fi=Math.min(impFaseSel,fasi.length-1);
+              const fo=fasi[fi]||fasi[0];
+              const setFasi=(nuove)=>setFasiConfig(nuove);
+              const updAz=(ai,upd)=>setFasi(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.map((a,j)=>j!==ai?a:{...a,...upd})}));
+              const delAz=(ai)=>setFasi(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.filter((_,j)=>j!==ai)}));
+              const mvAz=(ai,d)=>{const nf=fasi.map((f,i)=>{if(i!==fi)return f;const az=[...f.azioni];[az[ai],az[ai+d]]=[az[ai+d],az[ai]];return{...f,azioni:az};});setFasi(nf);};
+              const addAz=()=>{if(!formNuovaAzione.lbl.trim())return;setFasi(fasi.map((f,i)=>i!==fi?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false});};
+              return(<div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+                  <span style={{fontSize:12,color:"#888"}}>{fasi.length} fasi · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni</span>
+                  {fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare default?"))setFasiConfig(null);}}>↺ Default</button>}
+                </div>
+                <div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>
+                  {fasi.map((f,i)=><button key={f.k} onClick={()=>setImpFaseSel(i)} style={{padding:"4px 10px",fontSize:11,borderRadius:16,border:`0.5px solid ${fi===i?"#A8863A":"#ddd"}`,background:fi===i?"#FEF9E7":"#fff",color:fi===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:fi===i?500:400}}>{i+1}. {f.n}</button>)}
+                </div>
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:10}}>
+                  <div style={{background:"#fafaf8",padding:"8px 14px",borderBottom:"0.5px solid #e8e5e0",display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{fontSize:13,fontWeight:600}}>{fo.n}</span>
+                    <span style={{fontSize:11,color:"#aaa"}}>{fo.timing}</span>
+                    <span style={{fontSize:11,color:"#888",marginLeft:"auto"}}>{fo.azioni.length} azioni</span>
+                  </div>
+                  {fo.azioni.map((az,ai)=>(
+                    <div key={az.k} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderBottom:"0.5px solid #f5f5f5"}}>
+                      <div style={{display:"flex",gap:1}}>
+                        <button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:ai===0?0.3:1}} disabled={ai===0} onClick={()=>mvAz(ai,-1)}>▲</button>
+                        <button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:ai===fo.azioni.length-1?0.3:1}} disabled={ai===fo.azioni.length-1} onClick={()=>mvAz(ai,1)}>▼</button>
+                      </div>
+                      <input style={{...S.inp,margin:0,flex:1,fontSize:12}} value={az.lbl} onChange={e=>updAz(ai,{lbl:e.target.value})}/>
+                      <select style={{...S.sel,fontSize:11,padding:"4px 6px"}} value={az.ruolo||"agente"} onChange={e=>updAz(ai,{ruolo:e.target.value})}>
+                        {RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}
+                      </select>
+                      <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#E74C3C",cursor:"pointer",whiteSpace:"nowrap"}}>
+                        <input type="checkbox" checked={az.alert||false} onChange={e=>updAz(ai,{alert:e.target.checked})}/> Alert
+                      </label>
+                      <button style={{...S.btnD,padding:"2px 6px",fontSize:11}} onClick={()=>delAz(ai)}>✕</button>
+                    </div>
+                  ))}
+                  <div style={{padding:"8px 14px",background:"#fafaf8",borderTop:"0.5px solid #e8e5e0",display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                    <input style={{...S.inp,margin:0,flex:2,minWidth:140,fontSize:12}} value={formNuovaAzione.lbl} placeholder="+ Nuova azione..." onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addAz()}/>
+                    <select style={{...S.sel,fontSize:11}} value={formNuovaAzione.ruolo} onChange={e=>setFormNuovaAzione({...formNuovaAzione,ruolo:e.target.value})}>
+                      {RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}
+                    </select>
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={formNuovaAzione.alert||false} onChange={e=>setFormNuovaAzione({...formNuovaAzione,alert:e.target.checked})}/> Alert</label>
+                    <button style={{...S.btnP,fontSize:12,padding:"5px 12px"}} onClick={addAz}>+ Aggiungi</button>
+                  </div>
+                </div>
+              </div>);
+            })()}
+            {impSezione==="generale"&&<div>
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
@@ -5438,6 +5497,7 @@ export default function App() {
               <button style={S.btn} onClick={()=>importRef.current.click()}>⬆ Importa JSON</button>
               <button style={{...S.btnD,marginLeft:"auto"}} onClick={()=>{if(window.confirm("Attenzione: questa operazione cancella TUTTI i dati dal browser e ripristina i dati di esempio. Sei sicuro?")){{localStorage.removeItem(LS_KEY);window.location.reload();}}}}>🗑 Azzera tutti i dati</button>
             </div>
+          </div>}
           </div>)}
 
         </div>
