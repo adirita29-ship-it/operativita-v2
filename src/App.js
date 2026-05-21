@@ -188,7 +188,8 @@ function LoginPage({onLogin}) {
         if(ag){
           if(ag.attivo===false){setErr("Account disabilitato. Contatta il responsabile.");setLoad(false);return;}
           const ruolo=ag.profilo==="Broker"?"Broker":ag.profilo==="Back Office"?"BackOffice":ag.profilo==="Coach"?"Coach":"Agente";
-          onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo,agentId:ag.id,profilo:ag.profilo});
+          const coachTarget=ag.profilo==="Coach"?(ag.coachTarget||"agenzia"):null;
+          onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo,agentId:ag.id,profilo:ag.profilo,coachTarget});
         } else {
           setErr("Credenziali non corrette.");setLoad(false);
         }
@@ -220,7 +221,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isCoach = utente?.ruolo==="Coach";
   const isCollab = utente?.profilo==="Collaborazione Agenzia";
   // BackOffice e Coach vedono tutto come Broker (read), BackOffice può anche scrivere
-  const canViewAll = isBroker||isBackOffice||isCoach;
+  const canViewAll = isBroker||isBackOffice||(isCoach&&coachIsAgenzia);
   // Chi può compilare pratiche (ruolo Erica RT)
   const canEditPratiche = isBroker||isBackOffice||(myAgentId===5);
   // Chi NON appare nei report/classifiche/fatture
@@ -228,7 +229,9 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   // Read only: Coach non può inserire dati
   const isReadOnly = isCoach;
   const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
-  const TAB_COACH=["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","Report Agenti","Fatture Agenti","One-to-One","Agenti"];
+  const TAB_COACH_AGENZIA=["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","Report Agenti","Fatture Agenti","One-to-One","Agenti"];
+  const TAB_COACH_AGENTE=["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One"];
+  const TAB_COACH=coachIsAgenzia?TAB_COACH_AGENZIA:TAB_COACH_AGENTE;
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
@@ -241,7 +244,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
       <div style={{padding:"1.5rem 1.25rem 1.25rem",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
         <div style={{fontSize:28,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>à</span>sa</div>
         <div style={{fontSize:8,letterSpacing:"0.3em",color:"rgba(255,255,255,0.4)",borderTop:"1px solid rgba(255,255,255,0.2)",paddingTop:3,marginTop:3}}>IMMOBILIARE</div>
-        <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>{isBroker?"Broker":isBackOffice?"Back Office":isCoach?"Coach 👁":isCollab?"Collaborazione":"Agente"}</div>
+        <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>{isBroker?"Broker":isBackOffice?"Back Office":isCoach?(coachIsAgenzia?"Coach Agenzia 👁":"Coach Agente 👁"):isCollab?"Collaborazione":"Agente"}</div>
       </div>
       <nav style={{flex:1,padding:"0.75rem 0",overflowY:"auto"}}>
         {tabsVisibili.map(t=>{
@@ -710,14 +713,17 @@ export default function App() {
   const isCoach = utente?.ruolo==="Coach";
   const isCollab = utente?.profilo==="Collaborazione Agenzia";
   // BackOffice e Coach vedono tutto come Broker (read), BackOffice può anche scrivere
-  const canViewAll = isBroker||isBackOffice||isCoach;
+  const canViewAll = isBroker||isBackOffice||(isCoach&&coachIsAgenzia);
   // Chi può compilare pratiche (ruolo Erica RT)
   const canEditPratiche = isBroker||isBackOffice||(myAgentId===5);
   // Chi NON appare nei report/classifiche/fatture
   const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
   // Read only: Coach non può inserire dati
   const isReadOnly = isCoach;
-  const myAgentId = utente?.agentId||null;
+  const myAgentId = isCoach&&utente?.coachTarget&&utente.coachTarget!=="agenzia"
+    ? Number(utente.coachTarget)
+    : utente?.agentId||null;
+  const coachIsAgenzia = isCoach&&(!utente?.coachTarget||utente.coachTarget==="agenzia");
 
   // Costi personali agente (per agente loggato)
   const [costiAgente,setCostiAgente]=useState(_ls?.costiAgente||{});
@@ -5748,7 +5754,8 @@ export default function App() {
         <div style={{...S.modal,width:"min(96vw,480px)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem"}}><h2 style={{fontSize:17,fontWeight:500,margin:0}}>{showAgente==="new"?"Nuovo agente":"Modifica agente"}</h2><button onClick={()=>setShowAgente(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>x</button></div>
           <div style={S.g2}><div><label style={S.lbl}>Nome</label><input style={S.inp} value={formAgente.nome||""} onChange={e=>setFormAgente({...formAgente,nome:e.target.value})}/></div><div><label style={S.lbl}>Cognome</label><input style={S.inp} value={formAgente.cognome||""} onChange={e=>setFormAgente({...formAgente,cognome:e.target.value})}/></div></div>
-          <div style={S.g2}><div><label style={S.lbl}>Profilo</label><select style={S.inp} value={formAgente.profilo||"Consulente"} onChange={e=>setFormAgente({...formAgente,profilo:e.target.value,percListing:e.target.value==="Broker"?0:formAgente.percListing,percAcquirente:e.target.value==="Broker"?0:formAgente.percAcquirente})}><option>Broker</option><option>Consulente</option><option>Collaboratore</option></select></div><div><label style={S.lbl}>Tipo</label><select style={S.inp} value={formAgente.tipo||"Interno"} onChange={e=>setFormAgente({...formAgente,tipo:e.target.value})}><option>Interno</option><option>Esterno</option></select></div></div>
+          <div style={S.g2}><div><label style={S.lbl}>Profilo</label><select style={S.inp} value={formAgente.profilo||"Consulente"} onChange={e=>setFormAgente({...formAgente,profilo:e.target.value,percListing:e.target.value==="Broker"?0:formAgente.percListing,percAcquirente:e.target.value==="Broker"?0:formAgente.percAcquirente})}><option>Broker</option><option>Consulente</option><option>Collaboratore</option><option>Collaborazione Agenzia</option><option>Back Office</option><option>Coach</option></select></div><div><label style={S.lbl}>Tipo</label><select style={S.inp} value={formAgente.tipo||"Interno"} onChange={e=>setFormAgente({...formAgente,tipo:e.target.value})}><option>Interno</option><option>Esterno</option></select></div></div>
+                            {formAgente.profilo==="Coach"&&<div style={{marginBottom:10}}><label style={S.lbl}>Agente seguito (Coach)</label><select style={S.inp} value={formAgente.coachTarget||"agenzia"} onChange={e=>setFormAgente({...formAgente,coachTarget:e.target.value})}><option value="agenzia">Tutta l'agenzia</option>{agenti.filter(a=>a.profilo!=="Broker"&&a.profilo!=="Coach"&&a.profilo!=="Back Office").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>}
           {formAgente.profilo!=="Broker"&&(<div style={S.g2}><div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percListing||""} onChange={e=>setFormAgente({...formAgente,percListing:Number(e.target.value)})}/></div><div><label style={S.lbl}>% Provv. Acquirente</label><input style={S.inp} type="number" min="0" max="100" step="0.5" value={formAgente.percAcquirente||""} onChange={e=>setFormAgente({...formAgente,percAcquirente:Number(e.target.value)})}/></div></div>)}
           {/* Accesso al gestionale */}
           {formAgente.profilo!=="Broker"&&(<>
