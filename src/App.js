@@ -3852,20 +3852,15 @@ export default function App() {
                     const nomG=["Lun","Mar","Mer","Gio","Ven","Sab"];
                     // Totali settimana dai dati esistenti
                     const totSett={};
-                    const CAMPI=[["chiamate_ci","centri_inf"],["chiamate_cp","clienti_pass"],["chiamate_freddo","freddo"],["chiamate_zona","zona_vol"],["chiamate_priv","privati"],["appuntamenti","appuntamenti"],["immVisitati","immVisitati"],["apptAcq","apptAcq"],["ohNum","ohNum"],["postSocial","postSocial"]];
                     giorniSett.forEach(d=>{
                       const g=operativita[agId]?.[d]||{};
                       const ct=g.chiamate_tipi||{};
-                      totSett.centri_inf=(totSett.centri_inf||0)+Number(ct.centri_inf||0);
-                      totSett.clienti_pass=(totSett.clienti_pass||0)+Number(ct.clienti_pass||0);
-                      totSett.freddo=(totSett.freddo||0)+Number(ct.freddo||0);
-                      totSett.zona_vol=(totSett.zona_vol||0)+Number(ct.zona_vol||0);
-                      totSett.privati=(totSett.privati||0)+Number(ct.privati||0);
-                      totSett.appuntamenti=(totSett.appuntamenti||0)+Number(g.appuntamenti||0);
-                      totSett.immVisitati=(totSett.immVisitati||0)+Number(g.immVisitati||0);
-                      totSett.apptAcq=(totSett.apptAcq||0)+Number(g.apptAcq||0);
-                      totSett.ohNum=(totSett.ohNum||0)+Number(g.ohNum||0);
-                      totSett.postSocial=(totSett.postSocial||0)+Number(g.postSocial||0);
+                      ["centri_inf","clienti_pass","freddo","zona_vol","privati","followup"].forEach(k=>{
+                        totSett[k]=(totSett[k]||0)+Number(ct[k]||0);
+                      });
+                      ["appuntamenti","valutazioni","immVisitati","apptAcq","ohNum","propPresentate","preliminari","rogiti","postSocial","video","stories","oreTel","oreZona","oreSviluppo","oreAmm"].forEach(k=>{
+                        totSett[k]=(totSett[k]||0)+Number(g[k]||0);
+                      });
                     });
                     // Stato locale per il form massivo
                     const formSett={...totSett,...opFormSett};
@@ -3873,31 +3868,19 @@ export default function App() {
                     const updS=(k,delta)=>setOpFormSett(p=>({...totSett,...p,[k]:Math.max(0,(Number({...totSett,...p}[k]||0))+delta)}));
 
                     const salvaSett=()=>{
-                      // Distribuisce i totali equamente sui giorni lavorativi
-                      const ggLav=giorniSett.filter((_,i)=>i<5); // lun-ven
-                      const dividi=(tot,n)=>Math.floor(tot/n);
-                      const resto=(tot,n)=>tot%n;
+                      const ggLav=giorniSett.filter((_,i)=>i<5);
+                      const d5=(tot,i)=>{const n=Number(tot||0);return Math.floor(n/5)+(i===4?n%5:0);};
                       ggLav.forEach((d,i)=>{
-                        const isLast=i===ggLav.length-1;
-                        const g={};
                         const ct={};
-                        ["centri_inf","clienti_pass","freddo","zona_vol","privati"].forEach(k=>{
-                          const tot=Number(formSett[k]||0);
-                          ct[k]=dividi(tot,5)+(isLast?resto(tot,5):0);
-                        });
+                        ["centri_inf","clienti_pass","freddo","zona_vol","privati","followup"].forEach(k=>{ct[k]=d5(formSett[k],i);});
                         const totCh=Object.values(ct).reduce((s,v)=>s+v,0);
-                        g.chiamate_tipi=ct; g.chiamate=totCh;
-                        ["appuntamenti","immVisitati","apptAcq","ohNum","postSocial"].forEach(k=>{
-                          const tot=Number(formSett[k]||0);
-                          g[k]=dividi(tot,5)+(isLast?resto(tot,5):0);
-                        });
+                        const g={chiamate_tipi:ct,chiamate:totCh};
+                        ["appuntamenti","valutazioni","immVisitati","apptAcq","propPresentate","preliminari","rogiti","postSocial","video","stories","oreTel","oreZona","oreSviluppo","oreAmm"].forEach(k=>{g[k]=d5(formSett[k],i);});
                         salvaGiornata(agId,d,g);
                       });
-                      // Sabato: se c'è OH lo mette lì
-                      if(formSett.ohNum>0){
-                        salvaGiornata(agId,giorniSett[5],{ohNum:Number(formSett.ohNum||0)});
-                      }
-                      alert("✓ Dati settimanali salvati e distribuiti sui giorni!");
+                      // OH va al sabato
+                      if(Number(formSett.ohNum||0)>0) salvaGiornata(agId,giorniSett[5],{ohNum:Number(formSett.ohNum||0)});
+                      alert("✓ Dati settimanali salvati!");
                     };
                     const Stepper2=({label,k,clr="#2c2c2c"})=>(
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
@@ -3925,24 +3908,45 @@ export default function App() {
                       <div style={{background:"#EAF4FB",borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:11,color:"#2980B9"}}>
                         💡 Inserisci i <strong>totali settimanali</strong> — verranno distribuiti automaticamente sui giorni lavorativi (Lun-Ven)
                       </div>
-                      {/* Form massivo */}
+                      {/* Form massivo completo */}
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                        {/* CHIAMATE */}
                         <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
-                          <div style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>📞 Chiamate</div>
+                          <div style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>📞 Chiamate settimanali</div>
                           <Stepper2 label="Centri d'influenza" k="centri_inf"/>
                           <Stepper2 label="Clienti passati" k="clienti_pass"/>
                           <Stepper2 label="Privati" k="privati"/>
                           <Stepper2 label="Generica / Freddo" k="freddo"/>
                           <Stepper2 label="Zona post volantino" k="zona_vol"/>
+                          <Stepper2 label="Follow-up notizie" k="followup"/>
                         </div>
+                        {/* ACQUISIZIONE */}
                         <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
                           <div style={{fontSize:11,fontWeight:600,color:"#A8863A",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🏠 Acquisizione</div>
-                          <Stepper2 label="Appt. acquisizione" k="appuntamenti"/>
+                          <Stepper2 label="Appt. fissati" k="appuntamenti"/>
+                          <Stepper2 label="Presentaz./Valutaz." k="valutazioni"/>
                           <Stepper2 label="Immobili visitati" k="immVisitati"/>
-                          <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8,marginTop:12}}>🤝 Vendita</div>
+                          <Stepper2 label="Ore telefono" k="oreTel"/>
+                          <Stepper2 label="Ore zona" k="oreZona"/>
+                        </div>
+                        {/* VENDITA */}
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
+                          <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🤝 Vendita</div>
                           <Stepper2 label="Appt. acquirenti" k="apptAcq"/>
                           <Stepper2 label="OH effettuati" k="ohNum"/>
-                          <Stepper2 label="Post social" k="postSocial"/>
+                          <Stepper2 label="Proposte presentate" k="propPresentate"/>
+                          <Stepper2 label="Preliminari" k="preliminari"/>
+                          <Stepper2 label="Rogiti" k="rogiti"/>
+                        </div>
+                        {/* SOCIAL + SVILUPPO */}
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
+                          <div style={{fontSize:11,fontWeight:600,color:"#3C3489",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>📱 Social</div>
+                          <Stepper2 label="Post pubblicati" k="postSocial"/>
+                          <Stepper2 label="Video" k="video"/>
+                          <Stepper2 label="Stories / Reels" k="stories"/>
+                          <div style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8,marginTop:10}}>⏱ Ore</div>
+                          <Stepper2 label="Ore sviluppo" k="oreSviluppo"/>
+                          <Stepper2 label="Ore amministrativo" k="oreAmm"/>
                         </div>
                       </div>
                       <button style={{width:"100%",padding:11,background:"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={salvaSett}>
