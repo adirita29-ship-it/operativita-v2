@@ -1172,7 +1172,10 @@ export default function App() {
             <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={handleLogout}>Esci</button>
           </div>
         </div>
-        <div style={{flex:1,overflowY:"auto"}}>
+        <div style={{flex:1,overflowY:"auto",position:"relative"}}>
+          {/* READONLY OVERLAY per Coach */}
+          {isReadOnly&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:9998,cursor:"not-allowed"}} onClick={e=>{e.stopPropagation();e.preventDefault();}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();}}/>}
+          {isReadOnly&&<div style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",zIndex:9999,background:"#0C447C",color:"#fff",padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:500,pointerEvents:"none",boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>👁 Modalità sola lettura</div>}
 
           {/* DASHBOARD */}
           {tab==="Dashboard"&&(<div style={S.sec}>
