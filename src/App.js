@@ -926,7 +926,7 @@ export default function App() {
     return s+Math.max(0,qAg);
   },0),[propVincolo,agenti]);
 
-  const agentiFattura=useMemo(()=>agenti.filter(a=>a.inReport!==false),[agenti]);
+  const agentiFattura=useMemo(()=>agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo)))),[agenti]);
   const fatAg=agenti.find(a=>a.id===Number(fatAgente));
   const fatturaDati=useMemo(()=>{
     if(!fatAgente) return [];
@@ -3892,7 +3892,7 @@ export default function App() {
                     <input type="date" style={{...S.sel}} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.filter(a=>a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo)))).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                     <span style={{fontSize:12,color:"#aaa"}}>{fmtD(lunedi)} – {fmtD(sabato)}</span>
                   </div>
@@ -3966,7 +3966,7 @@ export default function App() {
                     <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.filter(a=>a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo)))).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                     <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FEF9E7",color:"#A8863A",border:"0.5px solid #C9A96E"}}>
                       {opModoInserimento==="giorno"?fmtD(opDataSel):`Settimana dal ${fmtD(lunedi)} al ${fmtD(sabato)}`}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
@@ -4094,7 +4094,7 @@ export default function App() {
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.filter(a=>a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo)))).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                   </div>
 
@@ -4182,7 +4182,7 @@ export default function App() {
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.filter(a=>a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo)))).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                   </div>
                   {(()=>{
@@ -4467,7 +4467,7 @@ export default function App() {
               </div>}
 
               {opMainTab==="piano"&&(()=>{
-                const agentiProd2=agenti.filter(a=>a.inReport!==false);
+                const agentiProd2=agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo))));
                 const annoPiano=new Date().getFullYear();
                 const oggi4=todayStr();
                 const dal4=`${annoPiano}-01-01`;
@@ -5034,7 +5034,7 @@ export default function App() {
             const oggi2=todayStr();
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
-            const agentiProd=agenti.filter(a=>a.inReport!==false);
+            const agentiProd=agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo))));
             const agentiTabelle=agenti.filter(a=>!["Coach","Collaborazione Agenzia","Back Office"].includes(a.profilo)&&a.id!==5);
             const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 C.Passati",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
@@ -5757,7 +5757,7 @@ export default function App() {
             const maxTip = Math.max(...tipOrd.map(t=>t[1]),1);
 
             // ── REPORT AGENTI ────────────────────────────────────────────────
-            const agentiReport = agenti.filter(a=>a.inReport!==false).map(ag=>{
+            const agentiReport = agenti.filter(a=>(a.inReport===true||(a.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(a.profilo)))).map(ag=>{
               // Vendite dove l'agente è LISTING o ACQUIRENTE (non solo buyer)
               const vendAg = vendStat.filter(v=>{
                 const isListing = v.agenteListing===ag.id && Number(v.provvVenditore||0)>0 && !v.agenziaEsterna;
@@ -6510,7 +6510,7 @@ export default function App() {
                 {formAgente.attivo===false&&<span style={{fontSize:11,color:"#E74C3C",fontWeight:500}}>⚠ Agente bloccato — non può accedere</span>}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
-                <input type="checkbox" id="inReportChk" checked={formAgente.inReport!==false} onChange={e=>setFormAgente({...formAgente,inReport:e.target.checked})}/>
+                <input type="checkbox" id="inReportChk" checked={formAgente.inReport===true||(formAgente.inReport===undefined&&["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente"))} onChange={e=>setFormAgente({...formAgente,inReport:e.target.checked})}/>
                 <label htmlFor="inReportChk" style={{fontSize:13,cursor:"pointer"}}>Includi in report, statistiche e classifiche</label>
                 {formAgente.inReport===false&&<span style={{fontSize:11,color:"#888",fontWeight:500}}>👁 Escluso da War Room, Report Agenti, Statistiche</span>}
               </div>
