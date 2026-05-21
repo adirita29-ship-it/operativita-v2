@@ -3884,7 +3884,7 @@ export default function App() {
                     <input type="date" style={{...S.sel}} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                     <span style={{fontSize:12,color:"#aaa"}}>{fmtD(lunedi)} – {fmtD(sabato)}</span>
                   </div>
@@ -3956,8 +3956,9 @@ export default function App() {
                       ))}
                     </div>
                     <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                    {isBroker&&<select style={S.sel} value={opAgenteSel==="Tutti"?String(agenti[0]?.id||""):opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
-                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      <option value="Tutti">Tutti gli agenti</option>
+                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                     <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FEF9E7",color:"#A8863A",border:"0.5px solid #C9A96E"}}>
                       {opModoInserimento==="giorno"?fmtD(opDataSel):`Settimana dal ${fmtD(lunedi)} al ${fmtD(sabato)}`}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
@@ -4085,7 +4086,7 @@ export default function App() {
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
                     {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                   </div>
 
@@ -4171,8 +4172,9 @@ export default function App() {
                 {opSubTab==="obiettivi"&&(<>
                   <div style={{display:"flex",gap:8,marginBottom:"1.25rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
-                    {isBroker&&<select style={S.sel} value={opAgenteSel==="Tutti"?String(agenti[0]?.id||""):opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
-                      {agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      <option value="Tutti">Tutti gli agenti</option>
+                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
                   </div>
                   {(()=>{
@@ -4378,41 +4380,73 @@ export default function App() {
                         </div>
 
                         {/* Report annuale mese per mese */}
-                        <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                          <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{width:4,height:16,borderRadius:2,background:"#533AB7",flexShrink:0}}/>
-                            <span style={{fontSize:13,fontWeight:600,color:"#533AB7"}}>Report annuale — mese per mese</span>
+                        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e8e5e0",overflow:"hidden",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+                          <div style={{padding:"12px 16px",borderBottom:"2px solid #533AB7",display:"flex",alignItems:"center",gap:8}}>
+                            <div style={{width:4,height:18,borderRadius:2,background:"#533AB7",flexShrink:0}}/>
+                            <span style={{fontSize:13,fontWeight:600,color:"#533AB7"}}>Report annuale {annoSel2} — mese per mese</span>
+                            {obMensile>0&&<span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>obj mensile: € {fmt(obMensile)}</span>}
                           </div>
                           <div style={{overflowX:"auto"}}>
-                            <table style={{width:"100%",borderCollapse:"collapse",minWidth:480}}>
-                              <thead><tr style={{background:"#fafaf8"}}>
-                                <th style={{padding:"7px 12px",fontSize:11,fontWeight:600,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Mese</th>
-                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>Fatturato</th>
-                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>vs obj</th>
-                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>Acq.</th>
-                                <th style={{padding:"7px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>Chiam.</th>
-                                <th style={{padding:"7px 14px",fontSize:11,fontWeight:600,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Progress</th>
+                            <table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
+                              <thead><tr style={{background:"#F4F1FA"}}>
+                                <th style={{padding:"8px 14px",fontSize:11,fontWeight:600,color:"#533AB7",textAlign:"left",borderBottom:"2px solid #EEEDFE"}}>Mese</th>
+                                <th style={{padding:"8px 12px",fontSize:11,fontWeight:600,color:"#533AB7",textAlign:"right",borderBottom:"2px solid #EEEDFE"}}>Fatturato</th>
+                                <th style={{padding:"8px 12px",fontSize:11,fontWeight:600,color:"#533AB7",textAlign:"right",borderBottom:"2px solid #EEEDFE"}}>vs obj</th>
+                                <th style={{padding:"8px 12px",fontSize:11,fontWeight:600,color:"#533AB7",textAlign:"right",borderBottom:"2px solid #EEEDFE"}}>Acq.</th>
+                                <th style={{padding:"8px 12px",fontSize:11,fontWeight:600,color:"#533AB7",textAlign:"right",borderBottom:"2px solid #EEEDFE"}}>Chiam.</th>
+                                <th style={{padding:"8px 14px",fontSize:11,fontWeight:600,color:"#533AB7",textAlign:"left",borderBottom:"2px solid #EEEDFE",minWidth:100}}>Progress</th>
                               </tr></thead>
                               <tbody>
-                                {mesi.map(m=>{
+                                {mesi.map((m,mIdx)=>{
                                   const isFut=m>oggi3.slice(0,7);
-                                  const r=calcReport(agId2,m);
+                                  const isCurr=m===oggi3.slice(0,7);
                                   const vAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId2||Number(v.agenteAcquirente)===agId2)&&dc.startsWith(m);});
                                   const fM=vAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agId2)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agId2)p+=Number(v.provvAcquirente||0);return s+p;},0);
                                   const aM=incarichi.filter(i=>Number(i.agenteListing)===agId2&&i.dataInizio?.startsWith(m)).length;
                                   const cM=Object.entries(opAg2).filter(([d])=>d.startsWith(m)).reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v2)=>a+Number(v2||0),0);},0);
                                   const percM=obMensile&&!isFut?Math.min(100,Math.round(fM/obMensile*100)):null;
                                   const MNOMI=["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
-                                  const mIdx=Number(m.slice(5))-1;
-                                  return(<tr key={m} style={{borderBottom:"0.5px solid #f5f5f5",background:m===opMeseSel?"#FFFBF0":"#fff",opacity:isFut?.4:1}}>
-                                    <td style={{padding:"7px 12px",fontSize:12,fontWeight:m===opMeseSel?600:400}}>{MNOMI[mIdx]}</td>
-                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right",color:fM>0?"#085041":"#aaa"}}>{fM>0?"€ "+fmt(fM):"—"}</td>
-                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right",fontWeight:500,color:percM===null?"#aaa":percM>=100?"#27AE60":percM>=70?"#E67E22":"#E74C3C"}}>{percM!==null?percM+"%":"—"}</td>
-                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right"}}>{aM>0?aM:"—"}</td>
-                                    <td style={{padding:"7px 10px",fontSize:12,textAlign:"right"}}>{cM>0?cM:"—"}</td>
-                                    <td style={{padding:"7px 14px"}}>{!isFut&&obMensile&&<div style={{height:4,width:80,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:Math.min(100,percM||0)+"%",background:percM>=100?"#27AE60":percM>=70?"#E67E22":"#185FA5",borderRadius:2}}/></div>}</td>
+                                  const clrPerc=percM===null?"#aaa":percM>=100?"#27AE60":percM>=70?"#E67E22":"#E74C3C";
+                                  const bgPerc=percM===null?"transparent":percM>=100?"#E1F5EE":percM>=70?"#FEF3E2":"#FDECEC";
+                                  return(<tr key={m} style={{borderBottom:"0.5px solid #EEEDFE",background:isCurr?"#F4F1FA":isFut?"transparent":"#fff"}}>
+                                    <td style={{padding:"9px 14px",fontSize:12,fontWeight:isCurr?600:400,color:isFut?"#bbb":"#2c2c2c",borderLeft:isCurr?"3px solid #533AB7":"3px solid transparent"}}>
+                                      {MNOMI[mIdx]}{isCurr&&<span style={{fontSize:10,marginLeft:6,padding:"1px 6px",borderRadius:6,background:"#533AB7",color:"#fff"}}>in corso</span>}
+                                    </td>
+                                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",fontWeight:fM>0?500:400,color:isFut?"#bbb":fM>0?"#085041":"#ccc"}}>{isFut?"—":fM>0?"€ "+fmt(fM):"€ 0"}</td>
+                                    <td style={{padding:"9px 12px",textAlign:"right"}}>
+                                      {percM!==null?<span style={{fontSize:12,fontWeight:600,color:clrPerc,background:bgPerc,padding:"2px 8px",borderRadius:6}}>{percM}%</span>:<span style={{color:"#ccc",fontSize:12}}>—</span>}
+                                    </td>
+                                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",color:isFut?"#bbb":aM>0?"#185FA5":"#ccc"}}>{isFut?"—":aM||"—"}</td>
+                                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",color:isFut?"#bbb":cM>0?"#533AB7":"#ccc"}}>{isFut?"—":cM||"—"}</td>
+                                    <td style={{padding:"9px 14px"}}>
+                                      {!isFut&&<div style={{display:"flex",alignItems:"center",gap:6}}>
+                                        <div style={{flex:1,height:6,background:"#EEEDFE",borderRadius:3,overflow:"hidden",minWidth:60}}>
+                                          <div style={{height:"100%",width:Math.min(100,percM||0)+"%",background:percM>=100?"#27AE60":percM>=70?"#E67E22":"#533AB7",borderRadius:3,transition:"width .3s"}}/>
+                                        </div>
+                                      </div>}
+                                    </td>
                                   </tr>);
                                 })}
+                                {/* Totale anno */}
+                                {(()=>{
+                                  const totF=mesi.reduce((s,m)=>{if(m>oggi3.slice(0,7))return s;const vAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId2||Number(v.agenteAcquirente)===agId2)&&dc.startsWith(m);});return s+vAg.reduce((a,v)=>{let p=0;if(Number(v.agenteListing)===agId2)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agId2)p+=Number(v.provvAcquirente||0);return a+p;},0);},0);
+                                  const totA=incarichi.filter(i=>Number(i.agenteListing)===agId2&&i.dataInizio?.startsWith(annoSel2)).length;
+                                  const percTot=obFattAnn>0?Math.min(100,Math.round(totF/obFattAnn*100)):null;
+                                  return(<tr style={{background:"#F4F1FA",borderTop:"2px solid #EEEDFE"}}>
+                                    <td style={{padding:"10px 14px",fontSize:12,fontWeight:600,color:"#533AB7",borderLeft:"3px solid #533AB7"}}>Totale {annoSel2}</td>
+                                    <td style={{padding:"10px 12px",fontSize:13,textAlign:"right",fontWeight:700,color:"#085041"}}>{"€ "+fmt(totF)}</td>
+                                    <td style={{padding:"10px 12px",textAlign:"right"}}>{percTot!==null?<span style={{fontSize:12,fontWeight:700,color:percTot>=100?"#27AE60":percTot>=70?"#E67E22":"#E74C3C",background:percTot>=100?"#E1F5EE":percTot>=70?"#FEF3E2":"#FDECEC",padding:"2px 8px",borderRadius:6}}>{percTot}%</span>:<span style={{color:"#ccc",fontSize:12}}>—</span>}</td>
+                                    <td style={{padding:"10px 12px",fontSize:13,textAlign:"right",fontWeight:600,color:"#185FA5"}}>{totA||"—"}</td>
+                                    <td style={{padding:"10px 12px",fontSize:12,textAlign:"right",color:"#aaa"}}>YTD</td>
+                                    <td style={{padding:"10px 14px"}}>
+                                      {percTot!==null&&<div style={{display:"flex",alignItems:"center",gap:6}}>
+                                        <div style={{flex:1,height:6,background:"#EEEDFE",borderRadius:3,overflow:"hidden",minWidth:60}}>
+                                          <div style={{height:"100%",width:percTot+"%",background:percTot>=100?"#27AE60":percTot>=70?"#E67E22":"#533AB7",borderRadius:3}}/>
+                                        </div>
+                                      </div>}
+                                    </td>
+                                  </tr>);
+                                })()}
                               </tbody>
                             </table>
                           </div>
