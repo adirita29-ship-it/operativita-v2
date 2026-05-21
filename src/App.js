@@ -4850,35 +4850,6 @@ export default function App() {
                 </div>
               </div>
               {warSubTab==="traguardo"&&<div>
-
-              </div>}
-              {warSubTab==="performance"&&<div>
-              {/* KPI team */}
-              {(()=>{
-                const totFatt=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"fatturato",dal2,al2),0);
-                const totAcq=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"acquisizioni",dal2,al2),0);
-                const totCh=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"chiamate",dal2,al2),0);
-                const totOH=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"oh",dal2,al2),0);
-                const percFatt=obiettivoFatturato>0?Math.min(100,Math.round(totFatt/obiettivoFatturato*100)):null;
-                return(<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  {[
-                    ["💰 Fatturato team",`€ ${fmt(totFatt)}`,percFatt!==null?`${percFatt}% — obj € ${fmt(obiettivoFatturato)}`:"","#0F6E56",percFatt],
-                    ["🏠 Acquisizioni",totAcq,null,"#185FA5",null],
-                    ["📞 Chiamate totali",totCh,null,"#533AB7",null],
-                    ["🚪 Open House",totOH,null,"#854F0B",null],
-                  ].map(([lbl,val,sub,clr,perc])=>(
-                    <div key={lbl} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"12px",textAlign:"center"}}>
-                      <div style={{fontSize:11,color:"#888",marginBottom:6}}>{lbl}</div>
-                      <div style={{fontSize:22,fontWeight:600,color:clr}}>{val}</div>
-                      {perc!==null&&perc!==undefined&&<div style={{height:4,background:"#e0e0e0",borderRadius:2,overflow:"hidden",margin:"6px 0 3px"}}>
-                        <div style={{height:"100%",width:`${perc}%`,background:perc>=100?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:2}}/>
-                      </div>}
-                      {sub&&<div style={{fontSize:10,color:"#888"}}>{sub}</div>}
-                    </div>
-                  ))}
-                </div>);
-              })()}
-
               {/* Traguardo volante */}
               {sfidaAtt2?(
                 <div style={{background:"linear-gradient(135deg,#FAEEDA,#FDF6EC)",border:"0.5px solid #D4AC0D44",borderRadius:12,padding:"1.25rem",marginBottom:"1.25rem"}}>
@@ -4930,114 +4901,133 @@ export default function App() {
                 </div>
               )}
 
-              {/* Tabella attività di processo */}
-              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
-                <div style={{background:"#fafaf8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:13,fontWeight:600}}>⚙ Attività di processo</span>
-                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{fmtD(dal2)} → {fmtD(al2)}</span>
+              </div>}
+              {warSubTab==="performance"&&<div>
+                {/* KPI team — barre colorate in cima */}
+                {(()=>{
+                  const totFatt=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"fatturato",dal2,al2),0);
+                  const totAcq=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"acquisizioni",dal2,al2),0);
+                  const totCh=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"chiamate",dal2,al2),0);
+                  const totOH=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"oh",dal2,al2),0);
+                  const percFatt=obiettivoFatturato>0?Math.min(100,Math.round(totFatt/obiettivoFatturato*100)):null;
+                  const kpiCard=(lbl,val,sub,clr,perc)=>(
+                    <div key={lbl} style={{background:"#fff",borderRadius:10,padding:"1rem",textAlign:"center",borderTop:`3px solid ${clr}`,border:`1px solid ${clr}22`,borderTopWidth:3}}>
+                      <div style={{fontSize:11,color:"#888",marginBottom:8,textTransform:"uppercase",letterSpacing:".04em"}}>{lbl}</div>
+                      <div style={{fontSize:26,fontWeight:600,color:clr,marginBottom:perc!=null?4:0}}>{val}</div>
+                      {perc!=null&&<><div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden",margin:"4px 0"}}><div style={{height:"100%",width:`${perc}%`,background:perc>=100?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:3}}/></div></>}
+                      <div style={{fontSize:10,color:"#aaa",marginTop:4}}>{sub}</div>
+                    </div>
+                  );
+                  return(<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
+                    {kpiCard("💰 Fatturato team",`€ ${fmt(totFatt)}`,percFatt!=null?`${percFatt}% — obj € ${fmt(obiettivoFatturato)}`:"nessun obiettivo","#0F6E56",percFatt)}
+                    {kpiCard("🏠 Acquisizioni",totAcq,"nel periodo","#185FA5",null)}
+                    {kpiCard("📞 Chiamate team",totCh,"totali","#533AB7",null)}
+                    {kpiCard("🚪 Open House",totOH,"effettuati","#854F0B",null)}
+                  </div>);
+                })()}
+
+                {/* Tabella attività di processo */}
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
+                  <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{width:4,height:18,borderRadius:2,background:"#533AB7",flexShrink:0}}/>
+                    <span style={{fontSize:13,fontWeight:600,color:"#533AB7"}}>Attività di processo</span>
+                    <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{fmtD(dal2)} → {fmtD(al2)}</span>
+                  </div>
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",minWidth:620}}>
+                      <thead><tr style={{background:"#fafaf8"}}>
+                        <th style={{padding:"8px 14px",fontSize:11,fontWeight:600,color:"#888",textAlign:"left",borderBottom:"1px solid #eee",minWidth:160}}>Agente</th>
+                        {["📞 Chiam.","CI","🤝 Appt.","🏠 Visit.","⏱ Ore tel.","📄 Volant.","📱 Social","🚪 OH"].map(h=>(
+                          <th key={h} style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {agentiProd.map((ag)=>{
+                          const isLdr=clTeam[0]?.ag?.id===ag.id;
+                          return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"#fff"}}>
+                            <td style={{padding:"10px 14px"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                <div style={{width:32,height:32,borderRadius:"50%",background:isLdr?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:isLdr?"#412402":"#888",flexShrink:0}}>{ag.nome.charAt(0)}</div>
+                                <div>
+                                  <div style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</div>
+                                  {isLdr&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#E1F5EE",color:"#085041",fontWeight:600}}>🥇 Leader</span>}
+                                </div>
+                              </div>
+                            </td>
+                            {[calcM2(ag.id,"chiamate",dal2,al2),calcM2(ag.id,"chiamate_ci",dal2,al2),calcM2(ag.id,"appuntamenti",dal2,al2),calcM2(ag.id,"immVisitati",dal2,al2),calcM2(ag.id,"oreTel",dal2,al2)+"h",calcM2(ag.id,"volantini",dal2,al2),calcM2(ag.id,"postSocial",dal2,al2),calcM2(ag.id,"oh",dal2,al2)].map((v,j)=>(
+                              <td key={j} style={{padding:"10px 10px",fontSize:13,textAlign:"right",fontWeight:isLdr?600:400,color:isLdr?"#854F0B":"#2c2c2c"}}>{v}</td>
+                            ))}
+                          </tr>);
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:620}}>
+
+                {/* Risultati finali */}
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
+                  <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{width:4,height:18,borderRadius:2,background:"#0F6E56",flexShrink:0}}/>
+                    <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>Risultati finali</span>
+                  </div>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
                     <thead><tr style={{background:"#fafaf8"}}>
-                      <th style={{padding:"7px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee",minWidth:140}}>Agente</th>
-                      {["📞 Chiamate","CI","🤝 Appt.","🏠 Visitati","⏱ Ore tel.","📄 Volant.","📱 Social","🚪 OH"].map(h=>(
-                        <th key={h} style={{padding:"7px 10px",fontSize:11,fontWeight:500,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
+                      <th style={{padding:"8px 14px",fontSize:11,fontWeight:600,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Agente</th>
+                      {["Acquisizioni","Transazioni","Proposte","T. medio","Fatturato"].map(h=>(
+                        <th key={h} style={{padding:"8px 12px",fontSize:11,fontWeight:600,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
-                      {agentiProd.map((ag,idx)=>{
+                      {agentiProd.map(ag=>{
                         const isLdr=clTeam[0]?.ag?.id===ag.id;
-                        return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"transparent"}}>
-                          <td style={{padding:"9px 12px"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <div style={{width:28,height:28,borderRadius:"50%",background:isLdr?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:isLdr?"#412402":"#888",flexShrink:0}}>{ag.nome.charAt(0)}</div>
-                              <div>
-                                <div style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</div>
-                                {isLdr&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:"#E1F5EE",color:"#085041"}}>🥇 Leader</span>}
-                              </div>
+                        const vendAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&dc>=dal2&&dc<=al2;});
+                        const tMed=vendAg.length>0?Math.round(vendAg.reduce((s,v)=>{const inc=incarichi.find(i=>proposte.find(p=>p.id===v.propostaId&&p.incaricoId===i.id));if(!inc?.dataInizio||!v.dataAtto)return s;return s+Math.round((new Date(v.dataAtto)-new Date(inc.dataInizio))/86400000);},0)/vendAg.length):null;
+                        return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"#fff"}}>
+                          <td style={{padding:"10px 14px"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:32,height:32,borderRadius:"50%",background:isLdr?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:isLdr?"#412402":"#888"}}>{ag.nome.charAt(0)}</div>
+                              <span style={{fontSize:13,fontWeight:isLdr?600:400}}>{ag.nome} {ag.cognome||""}</span>
                             </div>
                           </td>
-                          {[
-                            calcM2(ag.id,"chiamate",dal2,al2),
-                            calcM2(ag.id,"chiamate_ci",dal2,al2),
-                            calcM2(ag.id,"appuntamenti",dal2,al2),
-                            calcM2(ag.id,"immVisitati",dal2,al2),
-                            calcM2(ag.id,"oreTel",dal2,al2)+"h",
-                            calcM2(ag.id,"volantini",dal2,al2),
-                            calcM2(ag.id,"postSocial",dal2,al2),
-                            calcM2(ag.id,"oh",dal2,al2),
-                          ].map((v,j)=>(
-                            <td key={j} style={{padding:"9px 10px",fontSize:12,textAlign:"right",fontWeight:isLdr?500:400,color:isLdr?"#854F0B":"#2c2c2c"}}>{v}</td>
-                          ))}
+                          <td style={{padding:"10px 12px",fontSize:13,textAlign:"right"}}>{calcM2(ag.id,"acquisizioni",dal2,al2)}</td>
+                          <td style={{padding:"10px 12px",fontSize:13,textAlign:"right"}}>{vendAg.length}</td>
+                          <td style={{padding:"10px 12px",fontSize:13,textAlign:"right"}}>{calcM2(ag.id,"proposte",dal2,al2)}</td>
+                          <td style={{padding:"10px 12px",fontSize:12,textAlign:"right",color:"#888"}}>{tMed!=null?`${tMed} gg`:"—"}</td>
+                          <td style={{padding:"10px 12px",fontSize:13,textAlign:"right",fontWeight:600,color:"#085041"}}>€ {fmt(calcM2(ag.id,"fatturato",dal2,al2))}</td>
                         </tr>);
                       })}
                     </tbody>
                   </table>
                 </div>
-              </div>
 
-              {/* Risultati finali */}
-              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
-                <div style={{background:"#fafaf8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
-                  <span style={{fontSize:13,fontWeight:600}}>🏁 Risultati finali</span>
-                </div>
-                <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr style={{background:"#fafal8"}}>
-                    <th style={{padding:"7px 14px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>Agente</th>
-                    {["Acquisizioni","Transazioni","Proposte","T. medio","Fatturato"].map(h=>(
-                      <th key={h} style={{padding:"7px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"right",borderBottom:"1px solid #eee"}}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {agentiProd.map(ag=>{
-                      const isLdr=clTeam[0]?.ag?.id===ag.id;
-                      const vendAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(v.agenteListing===ag.id||v.agenteAcquirente===ag.id)&&dc>=dal2&&dc<=al2;});
-                      const tMed=vendAg.length>0?Math.round(vendAg.reduce((s,v)=>{const inc=incarichi.find(i=>proposte.find(p=>p.id===v.propostaId&&p.incaricoId===i.id));if(!inc||!inc.dataInizio||!v.dataAtto)return s;return s+Math.round((new Date(v.dataAtto)-new Date(inc.dataInizio))/86400000);},0)/vendAg.length):null;
-                      return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"transparent"}}>
-                        <td style={{padding:"9px 14px"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <div style={{width:28,height:28,borderRadius:"50%",background:isLdr?"#EF9F27":"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:isLdr?"#412402":"#888"}}>{ag.nome.charAt(0)}</div>
-                            <span style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</span>
-                          </div>
-                        </td>
-                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",fontWeight:isLdr?500:400}}>{calcM2(ag.id,"acquisizioni",dal2,al2)}</td>
-                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right"}}>{vendAg.length}</td>
-                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right"}}>{calcM2(ag.id,"proposte",dal2,al2)}</td>
-                        <td style={{padding:"9px 12px",fontSize:12,textAlign:"right",color:"#888"}}>{tMed!==null?`${tMed} gg`:"—"}</td>
-                        <td style={{padding:"9px 12px",fontSize:13,textAlign:"right",fontWeight:500,color:"#085041"}}>€ {fmt(calcM2(ag.id,"fatturato",dal2,al2))}</td>
-                      </tr>);
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Fonti incarichi team */}
-              {(()=>{
-                const incPer=incarichi.filter(i=>i.dataInizio>=dal2&&i.dataInizio<=al2&&i.categoria==="vendita"&&agentiProd.find(a=>a.id===i.agenteListing));
-                const byFonte=incPer.reduce((acc,i)=>{const f=i.fonte||"Altro";acc[f]=(acc[f]||0)+1;return acc;},{});
-                const sorted=Object.entries(byFonte).sort((a,b)=>b[1]-a[1]);
-                if(sorted.length===0)return null;
-                const totF=incPer.length;
-                return(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
-                  <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>📊 Fonti incarichi team</div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:12}}>
-                    {sorted.slice(0,5).map(([f,n])=>(
-                      <div key={f} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px",textAlign:"center"}}>
-                        <div style={{fontSize:18,fontWeight:600,color:"#185FA5"}}>{n}</div>
-                        <div style={{fontSize:11,color:"#888",marginTop:3}}>{f}</div>
-                        <div style={{fontSize:10,color:"#aaa"}}>{Math.round(n/totF*100)}%</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",gap:1}}>
-                    {sorted.map(([f,n],i)=>{
-                      const clrs=["#185FA5","#0F6E56","#854F0B","#533AB7","#A32D2D","#5F5E5A"];
-                      return(<div key={f} title={`${f}: ${n}`} style={{flex:n,background:clrs[i%clrs.length]}}/>);
-                    })}
-                  </div>
-                </div>);
-              })()}
-
+                {/* Fonti incarichi */}
+                {(()=>{
+                  const incPer=incarichi.filter(i=>i.dataInizio>=dal2&&i.dataInizio<=al2&&i.categoria==="vendita"&&agentiProd.find(a=>a.id===Number(i.agenteListing)));
+                  const byFonte=incPer.reduce((acc,i)=>{const f=i.fonte||"Altro";acc[f]=(acc[f]||0)+1;return acc;},{});
+                  const sorted=Object.entries(byFonte).sort((a,b)=>b[1]-a[1]);
+                  if(sorted.length===0)return(<div style={{background:"#fafaf8",borderRadius:12,border:"0.5px dashed #ddd",padding:"1.25rem",textAlign:"center",color:"#aaa",fontSize:12}}>Nessuna fonte incarichi nel periodo selezionato</div>);
+                  const totF=incPer.length;
+                  const FCLR=["#185FA5","#0F6E56","#854F0B","#533AB7","#A32D2D","#5F5E5A"];
+                  return(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"1rem"}}>
+                      <div style={{width:4,height:18,borderRadius:2,background:"#185FA5",flexShrink:0}}/>
+                      <span style={{fontSize:13,fontWeight:600,color:"#185FA5"}}>Fonti incarichi</span>
+                      <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{totF} incarichi nel periodo</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(100px,1fr))",gap:10,marginBottom:14}}>
+                      {sorted.slice(0,6).map(([f,n],i)=>(
+                        <div key={f} style={{borderRadius:8,padding:"10px",textAlign:"center",background:FCLR[i%FCLR.length]+"10",border:`1px solid ${FCLR[i%FCLR.length]}22`}}>
+                          <div style={{fontSize:22,fontWeight:700,color:FCLR[i%FCLR.length]}}>{n}</div>
+                          <div style={{fontSize:11,color:"#888",marginTop:3}}>{f}</div>
+                          <div style={{fontSize:10,color:"#aaa"}}>{Math.round(n/totF*100)}%</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",height:8,borderRadius:4,overflow:"hidden",gap:1}}>
+                      {sorted.map(([f,n],i)=><div key={f} title={`${f}: ${n}`} style={{flex:n,background:FCLR[i%FCLR.length]}}/>)}
+                    </div>
+                  </div>);
+                })()}
               </div>}
               {warSubTab==="traguardo"&&<div>
               {/* Storico sfide */}
