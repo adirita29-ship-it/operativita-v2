@@ -623,6 +623,10 @@ export default function App() {
   const [gpIncSel,setGpIncSel]=useState(null);
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
+  const [gpVista,setGpVista]=useState("lista");
+  const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
+  const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
+  const [gpPraticaSel,setGpPraticaSel]=useState(null);
   const [rowOpen,setRowOpen]=useState(null);
   const [warPeriodo,setWarPeriodo]=useState("settimana");
   const [warDal,setWarDal]=useState(todayStr());
@@ -4187,331 +4191,207 @@ export default function App() {
 
           {/* GESTIONE PRATICHE */}
           {tab==="Gestione Pratiche"&&(()=>{
-            // Permessi: agente=solo sue, Erica (id=5 o profilo RT) tutto, Broker tutto
-            const isErica = myAgentId===5; // Collaborazione Agenzia = Erica
+            const isErica = myAgentId===5;
             const canEditErica = isBroker||isErica;
             const canEditAgente = (inc) => isBroker||isErica||(inc&&inc.agenteListing===myAgentId);
-
-            // Incarichi visibili
-            const incVis = isBroker||isErica
-              ? incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato)
-              : incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&i.agenteListing===myAgentId);
-
-            const getPratica = (incId) => pratiche[incId]||{fasi:{},clA:{},clB:{},clC:{},note:""};
-            const salvaPratica = (incId,dati) => setPratiche(p=>({...p,[incId]:{...getPratica(incId),...dati}}));
-            const toggleFase = (incId,faseK,attK,ruolo) => {
-              const pr=getPratica(incId);
-              const val=!(pr.fasi[faseK]||{})[attK];
-              salvaPratica(incId,{fasi:{...pr.fasi,[faseK]:{...(pr.fasi[faseK]||{}),[attK]:{fatto:val,data:val?todayStr():"",chi:ruolo}}}});
-            };
-            const toggleCl = (incId,lista,k) => {
-              const pr=getPratica(incId);
-              const val=!(pr[lista]||{})[k];
-              salvaPratica(incId,{[lista]:{...(pr[lista]||{}),[k]:{fatto:val,data:val?todayStr():""}}});
-            };
-
-            // Fasi pipeline dal manuale
-            const FASI=[
-              {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
-                {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
-                {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
-                {k:"gestim",lbl:"Inserimento su GESTIM",ruolo:"agente"},
-                {k:"vendilo",lbl:"Aggiornamento VENDILO",ruolo:"agente"},
-                {k:"consegnaErica",lbl:"Consegna documenti a Erica",ruolo:"agente"},
-              ]},
-              {k:"f2",n:"Attivazione pratica",fase:2,timing:"Entro 48h",azioni:[
-                {k:"numPratica",lbl:"N° pratica generato su GESTIM",ruolo:"erica"},
-                {k:"fascicolo",lbl:"Fascicolo cartaceo + 8 sottocartelle",ruolo:"erica"},
-                {k:"cartellaNav",lbl:"Cartella NAS creata",ruolo:"erica"},
-                {k:"visuraCat",lbl:"Visura catastale storica",ruolo:"erica",alert:true},
-                {k:"visuraIpo",lbl:"Visura ipotecaria su immobile e proprietari",ruolo:"erica",alert:true},
-                {k:"mailPropr",lbl:"Mail al proprietario + lista documenti mancanti",ruolo:"erica"},
-                {k:"checkDoc",lbl:"Checklist documentale aperta (vedi A)",ruolo:"erica"},
-              ]},
-              {k:"f3",n:"Lancio commerciale",fase:3,timing:"Entro 5 gg",azioni:[
-                {k:"fotografo",lbl:"Sopralluogo fotografo concordato",ruolo:"agente"},
-                {k:"schedaGestim",lbl:"Scheda immobile compilata su GESTIM",ruolo:"agente"},
-                {k:"pubblicazione",lbl:"Pubblicazione completa su portali",ruolo:"erica"},
-                {k:"cartello",lbl:"Cartello VENDESI preparato e affisso",ruolo:"entrambi"},
-                {k:"mailLink",lbl:"Mail ringraziamento + link annuncio",ruolo:"erica"},
-                {k:"letteraZona",lbl:"Lettera dedicata per zona preparata",ruolo:"erica"},
-              ]},
-              {k:"f4",n:"Prima visita / Open House",fase:4,timing:"Entro 15 gg",azioni:[
-                {k:"cartelloOH",lbl:"Cartello Open House preparato",ruolo:"erica"},
-                {k:"brochure",lbl:"Brochure immobile per slot preparata",ruolo:"erica"},
-                {k:"prequalifica",lbl:"Prequalifica telefonica interessati",ruolo:"agente"},
-                {k:"ohEseguito",lbl:"Open House eseguito",ruolo:"agente"},
-                {k:"feedback",lbl:"Feedback da ogni visitatore raccolto (entro 24h)",ruolo:"agente"},
-                {k:"followUp",lbl:"Follow-up profili interessati (entro 48h)",ruolo:"agente"},
-                {k:"aggGestim",lbl:"GESTIM aggiornato con nominativi e feedback",ruolo:"erica"},
-              ]},
-              {k:"f5",n:"Proposta ricevuta",fase:5,timing:"Stesso giorno",azioni:[
-                {k:"propCompilata",lbl:"Proposta compilata (UNAFIAIP mod. 14)",ruolo:"agente",alert:true},
-                {k:"copieCI",lbl:"Copie CI/CF proponente + fotocopia assegno",ruolo:"agente"},
-                {k:"lavagnaProp",lbl:"Lavagna aggiornata sezione Proposte",ruolo:"agente"},
-                {k:"gestimProp",lbl:"Proposta inserita su GESTIM (entro 2h)",ruolo:"agente",alert:true},
-                {k:"vendiloProp",lbl:"VENDILO spostato in 'In Proposta' (entro 2h)",ruolo:"agente"},
-                {k:"notificaErica",lbl:"Notifica WhatsApp a Erica",ruolo:"agente"},
-                {k:"assegnoDeposito",lbl:"Assegno caparra consegnato a Erica/Broker",ruolo:"agente",alert:true},
-                {k:"appAccettazione",lbl:"Appuntamento accettazione fissato (entro 48h)",ruolo:"agente"},
-              ]},
-              {k:"f6",n:"Proposta accettata",fase:6,timing:"Entro 48h",azioni:[
-                {k:"firmaProp",lbl:"Proposta firmata per accettazione",ruolo:"agente"},
-                {k:"datePrelim",lbl:"2 date possibili per preliminare concordate",ruolo:"agente"},
-                {k:"visuraPrePrelim",lbl:"Visura ipotecaria aggiornata (giorno prima prelim.)",ruolo:"erica",alert:true},
-                {k:"cartellaRogito",lbl:"Cartella 'Da Rogitare' NAS aperta",ruolo:"erica"},
-                {k:"contattoMutuo",lbl:"Contatto broker/banca per mutuo avviato",ruolo:"agente"},
-              ]},
-              {k:"f7",n:"Preliminare firmato",fase:7,timing:"Data concordata",azioni:[
-                {k:"bozzaPrelim",lbl:"Bozza preliminare preparata da Erica",ruolo:"erica",alert:true},
-                {k:"invioParti",lbl:"Bozza inviata alle parti (almeno 48h prima)",ruolo:"erica",alert:true},
-                {k:"antiricicl",lbl:"Antiriciclaggio completato PRIMA della firma",ruolo:"erica",alert:true},
-                {k:"firmaEseguita",lbl:"Firma preliminare eseguita",ruolo:"entrambi"},
-                {k:"copieAssegni",lbl:"Fotocopia tutti gli assegni",ruolo:"erica"},
-                {k:"regold",lbl:"Registrazione Regold (entro 30 gg dalla firma)",ruolo:"erica",alert:true},
-                {k:"fatturaPrelim",lbl:"Fatture provvigioni emesse (entro 48h)",ruolo:"erica"},
-              ]},
-              {k:"f8",n:"Dal prelim. al rogito",fase:8,timing:"Monitoraggio costante",azioni:[
-                {k:"docBanca",lbl:"Documentazione inviata alla banca (entro 48h)",ruolo:"erica"},
-                {k:"monitorMutuo",lbl:"Iter mutuo monitorato settimanalmente",ruolo:"entrambi"},
-                {k:"contNotaio",lbl:"Contatti con notaio — invio documenti",ruolo:"erica",alert:true},
-                {k:"docNotaio7gg",lbl:"Documenti al notaio (almeno 7 gg prima rogito)",ruolo:"erica",alert:true},
-                {k:"checkFinale",lbl:"Check finale 1 gg prima con agente e Broker",ruolo:"erica"},
-              ]},
-              {k:"f9",n:"Il rogito",fase:9,timing:"Giorno rogito",azioni:[
-                {k:"presenzaRogito",lbl:"Agente presente al rogito con pratica completa",ruolo:"agente"},
-                {k:"giftAcquirente",lbl:"Pacchetto gift consegnato all'acquirente",ruolo:"agente"},
-                {k:"recensioni",lbl:"Recensioni richieste alle parti",ruolo:"agente"},
-                {k:"notificaStipula",lbl:"Comunicazione stipula avvenuta a Erica",ruolo:"agente"},
-                {k:"aggGestimVend",lbl:"GESTIM aggiornato come 'Venduto'",ruolo:"erica"},
-                {k:"portaliVend",lbl:"Portali aggiornati 'Venduto' (entro 24h)",ruolo:"erica",alert:true},
-              ]},
-              {k:"f10",n:"Post rogito",fase:10,timing:"Entro 48h",azioni:[
-                {k:"cartelloVend",lbl:"Cartello VENDUTO affisso",ruolo:"erica"},
-                {k:"fattureFinali",lbl:"Fatture definitive emesse (entro 48h)",ruolo:"erica"},
-                {k:"archiviazioneNas",lbl:"Pratica archiviata su NAS",ruolo:"erica"},
-                {k:"lettCongratul",lbl:"Lettera congratulazioni al venditore inviata",ruolo:"agente"},
-                {k:"lettBenvenuto",lbl:"Lettera benvenuto all'acquirente inviata",ruolo:"agente"},
-                {k:"cartolineZona",lbl:"Cartoline 'Appena Venduto' distribuite in zona",ruolo:"agente"},
-                {k:"recensioneGoogle",lbl:"Recensione Google richiesta (entro 7 gg)",ruolo:"agente",alert:true},
-              ]},
-            ];
-
-            // Checklist A
-            const CL_A=[
-              "Incarico di mediazione firmato (UNAFIAIP)","Copia CI di tutti i proprietari","Copia CF di tutti i proprietari",
-              "Consenso privacy firmato","Scheda antiriciclaggio compilata","Atto di provenienza (rogito/successione/donazione)",
-              "Visura catastale storica","Visura ipotecaria su immobile e proprietari","Copia atto di mutuo (se ipoteca)",
-              "APE in corso di validità","Certificato di agibilità/abitabilità","Planimetria catastale",
-              "Permesso di costruire / DIA / SCIA / CILA","Regolamento condominiale (se cond.)","Ultime 3 delibere assemblea (se cond.)",
-              "Bilancio condominiale (se cond.)","Certificazioni impianti (se disponibili)","Questionario primo appuntamento",
-            ];
-            const CL_B=[
-              "Visura ipotecaria aggiornata (giorno prima)","Bozza preliminare approvata dal Broker","Bozza inviata alle parti (almeno 48h prima)",
-              "Sala riunioni prenotata","CI/CF di tutte le parti","Moduli antiriciclaggio per tutte le parti",
-              "Attestazione compenso provvigionale","Fotocopiatrice disponibile per copie assegni","Conteggio spese dettagliato",
-              "Spese condominiali documentate (se cond.)","3 copie contratto da firmare","Assegni verificati (intestaz. + non trasf.)",
-            ];
-            const CL_C=[
-              "Tutti i documenti consegnati al notaio","Visura ipotecaria aggiornata","Liberatoria condominiale per morosità",
-              "Dichiarazione amministratore spese straordinarie","Estinzione mutuo venditore coordinata","Mutuo acquirente: conferma erogazione e data",
-              "Importi e assegni verificati con agente e Broker","Dichiarazioni parti sulla mediazione (L.203/2024)","Chiavi disponibili per consegna",
-              "Letture contatori concordate con le parti","Fatture provvigioni emesse","Portali aggiornati come Venduto",
-            ];
+            const incAttivi=incarichi.filter(i=>!i.archiviato&&i.categoria==="vendita"&&(isBroker||isErica||i.agenteListing===myAgentId||i.agenteListing===myAgentId));
+            const fasi=fasiConfig||FASI;
 
             // Calcola avanzamento pratica
-            const avanzamento = (incId) => {
-              const pr=getPratica(incId);
-              const totFasi=FASI.reduce((s,f)=>s+f.azioni.length,0);
-              const fatte=FASI.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
-              return totFasi>0?Math.round(fatte/totFasi*100):0;
+            const getPr=(incId)=>(pratiche||{})[incId]||{fasi:{}};
+            const totAzioni=fasi.reduce((s,f)=>s+f.azioni.length,0);
+            const fatte=(incId)=>fasi.reduce((s,f)=>s+f.azioni.filter(a=>(getPr(incId).fasi[f.k]||{})[a.k]?.fatto).length,0);
+            const percAv=(incId)=>totAzioni>0?Math.round(fatte(incId)/totAzioni*100):0;
+            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));return al;};
+            const faseCorrente=(incId)=>{const pr=getPr(incId);let last=null;fasi.forEach(f=>{if(Object.values(pr.fasi[f.k]||{}).some(a=>a.fatto))last=f;});return last||fasi[0];};
+
+            // Filtri
+            const incFiltrati=incAttivi.filter(i=>{
+              if(gpFiltroFase!=="Tutte"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
+              if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
+              return true;
+            });
+
+            // Colori fase
+            const faseClr=(k)=>{
+              const f=fasi.find(f=>f.k===k);
+              if(!f)return"#888";
+              if(f.fase<=3)return"#185FA5";
+              if(f.fase<=6)return"#854F0B";
+              if(f.fase<=8)return"#533AB7";
+              return"#3B6D11";
+            };
+            const RUOLO_CLR={agente:{bg:"#EEEDFE",cl:"#3C3489"},erica:{bg:"#E1F5EE",cl:"#085041"},broker:{bg:"#E6F1FB",cl:"#0C447C"},entrambi:{bg:"#FAEEDA",cl:"#633806"},tutti:{bg:"#EAF3DE",cl:"#3B6D11"}};
+
+            // Salva azione pratica con data automatica
+            const toggleAzione=(incId,faseK,azK)=>{
+              const pr=getPr(incId);
+              const fasiPr={...pr.fasi};
+              const fasePr={...(fasiPr[faseK]||{})};
+              const azPr={...(fasePr[azK]||{})};
+              if(azPr.fatto){delete azPr.data;azPr.fatto=false;}
+              else{azPr.fatto=true;azPr.data=todayStr();azPr.daChi=utente?.nome||"?";}
+              fasePr[azK]=azPr;fasiPr[faseK]=fasePr;
+              setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
+            };
+            const setDataAzione=(incId,faseK,azK,data)=>{
+              const pr=getPr(incId);
+              const fasiPr={...pr.fasi,[faseK]:{...(pr.fasi[faseK]||{}),[azK]:{...(pr.fasi[faseK]?.[azK]||{}),data}}};
+              setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
             };
 
-            // Alert: azioni obbligatorie non fatte
-            const getAlert = (incId) => {
-              const pr=getPratica(incId);
-              const alerts=[];
-              FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
-                if(!(pr.fasi[f.k]||{})[a.k]?.fatto) alerts.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
-              }));
-              return alerts;
-            };
-
-            const RUOLO_CFG={agente:{clr:"#A8863A",bg:"#FDF6EC",label:"Agente"},erica:{clr:"#185FA5",bg:"#E6F1FB",label:"Erica RT"},entrambi:{clr:"#533AB7",bg:"#EEEDFE",label:"Entrambi"}};
-            const incSel = gpIncSel ? incarichi.find(i=>i.id===gpIncSel) : null;
-            const pr = incSel ? getPratica(incSel.id) : null;
-
-            return(
-              <div style={S.sec}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
-                  <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📁 Gestione Pratiche</h2>
-                  <p style={{fontSize:12,color:"#888",margin:0}}>Tracciamento operativo dall'incarico al rogito</p>
+            // Vista SCHEDA pratica singola
+            if(gpPraticaSel){
+              const inc=incAttivi.find(i=>i.id===gpPraticaSel);
+              if(!inc)return(<div style={S.sec}><button style={S.btn} onClick={()=>setGpPraticaSel(null)}>← Torna alla lista</button></div>);
+              const pr=getPr(inc.id);
+              const al=alertsInc(inc.id);
+              return(<div style={S.sec}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",flexWrap:"wrap"}}>
+                  <button style={{...S.btn,fontSize:12}} onClick={()=>setGpPraticaSel(null)}>← Lista pratiche</button>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:16,fontWeight:600}}>{inc.comune} — {inc.indirizzo}</div>
+                    <div style={{fontSize:12,color:"#888"}}>{inc.nominativo} · {nomAg(inc.agenteListing)}</div>
+                  </div>
+                  {al.length>0&&<span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>⚠ {al.length} alert</span>}
                 </div>
-
-                {/* Lista incarichi se nessuno selezionato */}
-                {!gpIncSel&&(<>
-                  <div style={{display:"flex",gap:8,marginBottom:"1rem",flexWrap:"wrap"}}>
-                    <Sel value={gpFiltroStato} onChange={setGpFiltroStato}>
-                      <option value="Tutti">Tutti gli stati</option>
-                      <option value="Attivo">Attivi</option>
-                      <option value="Venduto">Venduti</option>
-                    </Sel>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
-                    {incVis.filter(i=>gpFiltroStato==="Tutti"||statoInc(i)===gpFiltroStato).map(inc=>{
-                      const av=avanzamento(inc.id);
-                      const al=getAlert(inc.id);
-                      const ag=agenti.find(a=>a.id===inc.agenteListing);
-                      return(<div key={inc.id} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${al.length>0?"#E74C3C44":"#e8e5e0"}`,padding:"1rem",cursor:"pointer",transition:"box-shadow 0.2s"}}
-                        onClick={()=>setGpIncSel(inc.id)}
-                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,0.08)"}
-                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                          <div>
-                            <p style={{fontSize:13,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{inc.comune} — {inc.indirizzo}</p>
-                            <p style={{fontSize:11,color:"#888",margin:0}}>{ag?.nome} {ag?.cognome} · € {fmtN(inc.prezzoRichiesto)}</p>
+                {/* Timeline */}
+                <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:"1.25rem",overflowX:"auto",padding:"4px 0"}}>
+                  {fasi.map((f,i)=>{
+                    const hasFatto=Object.values(pr.fasi[f.k]||{}).some(a=>a.fatto);
+                    const isAtt=faseCorrente(inc.id)?.k===f.k;
+                    const clr=faseClr(f.k);
+                    return(<React.Fragment key={f.k}>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,flexShrink:0,cursor:"pointer"}} title={f.n}>
+                        <div style={{width:28,height:28,borderRadius:"50%",background:hasFatto?clr:isAtt?clr+"33":"#f0f0f0",border:`2px solid ${hasFatto||isAtt?clr:"#ddd"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:hasFatto?"#fff":isAtt?clr:"#aaa"}}>{i+1}</div>
+                        <div style={{fontSize:9,color:hasFatto?clr:isAtt?clr:"#aaa",whiteSpace:"nowrap",maxWidth:50,textAlign:"center",overflow:"hidden",textOverflow:"ellipsis"}}>{f.n.split(" ")[0]}</div>
+                      </div>
+                      {i<fasi.length-1&&<div style={{height:2,width:20,background:hasFatto?clr:"#eee",flexShrink:0,marginBottom:12}}/>}
+                    </React.Fragment>);
+                  })}
+                </div>
+                {/* Fasi con azioni */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
+                  {fasi.map(f=>{
+                    const clr=faseClr(f.k);
+                    const fatte2=f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length;
+                    const perc=f.azioni.length>0?Math.round(fatte2/f.azioni.length*100):0;
+                    return(<div key={f.k} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${clr}44`,overflow:"hidden"}}>
+                      <div style={{background:clr+"18",padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:600,color:clr}}>{f.n}</div>
+                          <div style={{height:3,background:"#f0f0f0",borderRadius:2,marginTop:4,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:clr,borderRadius:2}}/></div>
+                        </div>
+                        <span style={{fontSize:11,color:clr,fontWeight:500}}>{fatte2}/{f.azioni.length}</span>
+                      </div>
+                      {f.azioni.map(az=>{
+                        const azPr=(pr.fasi[f.k]||{})[az.k]||{};
+                        const rclr=RUOLO_CLR[az.ruolo]||RUOLO_CLR.agente;
+                        return(<div key={az.k} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 12px",borderBottom:"0.5px solid #f5f5f5",opacity:canEditAgente(inc)?1:0.7}}>
+                          <div onClick={()=>canEditAgente(inc)&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?clr:"#ddd"}`,background:azPr.fatto?clr:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:1}}>
+                            {azPr.fatto&&<span style={{fontSize:10,color:"#fff",lineHeight:1}}>✓</span>}
                           </div>
-                          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
-                            {al.length>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ {al.length} alert</span>}
-                            <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:"#EAF3DE",color:"#27500A"}}>{av}%</span>
-                          </div>
-                        </div>
-                        {/* Barra avanzamento */}
-                        <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:6}}>
-                          <div style={{height:"100%",width:`${av}%`,background:av>=80?"#27AE60":av>=40?"#D4AC0D":"#E67E22",borderRadius:3,transition:"width 0.5s"}}/>
-                        </div>
-                        {/* Fase corrente */}
-                        {(()=>{
-                          const p2=getPratica(inc.id);
-                          const ultimaFase=FASI.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
-                          return <p style={{fontSize:11,color:"#aaa",margin:0}}>Fase corrente: {ultimaFase?ultimaFase.n:"Non avviata"}</p>;
-                        })()}
-                      </div>);
-                    })}
-                    {incVis.length===0&&<div style={{gridColumn:"1/-1",textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessun incarico attivo</div>}
-                  </div>
-                </>)}
-
-                {/* Scheda pratica selezionata */}
-                {gpIncSel&&incSel&&(<>
-                  {/* Header */}
-                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                      <div style={{display:"flex",alignItems:"center",gap:12}}>
-                        <button style={{background:"none",border:"none",cursor:"pointer",color:"#888",fontSize:20,padding:0}} onClick={()=>setGpIncSel(null)}>←</button>
-                        <div>
-                          <p style={{fontSize:15,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{incSel.comune} — {incSel.indirizzo}</p>
-                          <p style={{fontSize:11,color:"#888",margin:0}}>
-                            {agenti.find(a=>a.id===incSel.agenteListing)?.nome} · € {fmtN(incSel.prezzoRichiesto)}
-                            {incSel.dataInizio?` · Incarico: ${fmtD(incSel.dataInizio)}`:""}
-                          </p>
-                        </div>
-                      </div>
-                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                        {getAlert(gpIncSel).length>0&&<span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ {getAlert(gpIncSel).length} alert obbligatori</span>}
-                        <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:600}}>{avanzamento(gpIncSel)}% completato</span>
-                      </div>
-                    </div>
-                    {/* Barra avanzamento grande */}
-                    <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden",marginTop:12}}>
-                      <div style={{height:"100%",width:`${avanzamento(gpIncSel)}%`,background:`linear-gradient(90deg,${BRAND.oro},#27AE60)`,borderRadius:4,transition:"width 0.5s"}}/>
-                    </div>
-                  </div>
-
-                  {/* Sub-tab scheda */}
-                  <div style={{display:"flex",gap:4,marginBottom:"1rem",borderBottom:"1px solid #eee",paddingBottom:"0.5rem",flexWrap:"wrap"}}>
-                    {[{v:"pipeline",l:"🔄 Pipeline 10 fasi"},{v:"clA",l:"📋 Checklist A — Incarico"},{v:"clB",l:"📋 Checklist B — Prelim."},{v:"clC",l:"📋 Checklist C — Rogito"},{v:"note",l:"📝 Note"}].map(o=>(
-                      <button key={o.v} onClick={()=>setGpSubTab(o.v)} style={{padding:"5px 14px",fontSize:12,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${gpSubTab===o.v?"#A8863A":"transparent"}`,color:gpSubTab===o.v?"#A8863A":"#666",fontWeight:gpSubTab===o.v?600:400,fontFamily:"inherit"}}>
-                        {o.l}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* PIPELINE */}
-                  {gpSubTab==="pipeline"&&(<div>
-                    {getAlert(gpIncSel).length>0&&(
-                      <div style={{background:"#FDECEA",border:"1px solid #E74C3C44",borderRadius:8,padding:"10px 14px",marginBottom:"1rem"}}>
-                        <p style={{fontSize:12,fontWeight:600,color:"#E74C3C",margin:"0 0 6px"}}>⚠ Azioni obbligatorie non completate:</p>
-                        {getAlert(gpIncSel).map((al,i)=>(
-                          <div key={i} style={{fontSize:11,color:"#E74C3C",marginBottom:2}}>· <strong>{al.fase}</strong> — {al.lbl} <span style={{color:"#aaa"}}>({al.ruolo})</span></div>
-                        ))}
-                      </div>
-                    )}
-                    {FASI.map(fase=>{
-                      const fasiPr=pr.fasi[fase.k]||{};
-                      const fatte=fase.azioni.filter(a=>fasiPr[a.k]?.fatto).length;
-                      const completa=fatte===fase.azioni.length;
-                      return(<div key={fase.k} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${completa?"#27AE6044":"#e8e5e0"}`,marginBottom:10,overflow:"hidden"}}>
-                        <div style={{padding:"10px 14px",background:completa?"#E9F7EF":"#fafaf8",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #eee"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <span style={{fontSize:18,fontWeight:700,color:completa?"#27AE60":"#ccc"}}>{completa?"✓":fase.fase}</span>
-                            <div>
-                              <span style={{fontSize:13,fontWeight:600,color:"#2C2C2C"}}>Fase {fase.fase} — {fase.n}</span>
-                              <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{fase.timing}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:11,color:azPr.fatto?"#888":"#2c2c2c",textDecoration:azPr.fatto?"line-through":"none"}}>{az.lbl}</div>
+                            <div style={{display:"flex",gap:5,marginTop:3,alignItems:"center",flexWrap:"wrap"}}>
+                              <span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:rclr.bg,color:rclr.cl,fontWeight:500}}>{az.ruolo==="agente"?"Agente":az.ruolo==="erica"?"Erica RT":az.ruolo==="broker"?"Broker":az.ruolo==="entrambi"?"Ag+Erica":"Tutti"}</span>
+                              {azPr.fatto&&<input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#27AE60",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>}
+                              {azPr.fatto&&azPr.daChi&&azPr.daChi!==az.ruolo&&<span style={{fontSize:10,color:"#aaa",fontStyle:"italic"}}>da {azPr.daChi}</span>}
+                              {!azPr.fatto&&az.alert&&<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>}
                             </div>
                           </div>
-                          <span style={{fontSize:11,color:"#888"}}>{fatte}/{fase.azioni.length}</span>
-                        </div>
-                        <div style={{padding:"8px 14px"}}>
-                          {fase.azioni.map(az=>{
-                            const stato=fasiPr[az.k]||{};
-                            const cfgR=RUOLO_CFG[az.ruolo]||RUOLO_CFG.agente;
-                            const puoModificare=(az.ruolo==="erica"&&canEditErica)||(az.ruolo==="agente"&&(canEditAgente(incSel)||canEditErica))||(az.ruolo==="entrambi");
-                            return(<div key={az.k} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"0.5px solid #f8f8f8"}}>
-                              <input type="checkbox" checked={stato.fatto||false} disabled={!puoModificare}
-                                onChange={()=>puoModificare&&toggleFase(gpIncSel,fase.k,az.k,az.ruolo)}
-                                style={{cursor:puoModificare?"pointer":"default",flexShrink:0}}/>
-                              <span style={{flex:1,fontSize:12,color:stato.fatto?"#27AE60":"#555",textDecoration:stato.fatto?"line-through":"none"}}>{az.lbl}</span>
-                              {az.alert&&!stato.fatto&&<span style={{fontSize:10,color:"#E74C3C",fontWeight:600,flexShrink:0}}>⚠</span>}
-                              <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:cfgR.bg,color:cfgR.clr,flexShrink:0}}>{cfgR.label}</span>
-                              {stato.fatto&&stato.data&&<span style={{fontSize:10,color:"#aaa",flexShrink:0}}>{fmtD(stato.data)}</span>}
-                            </div>);
-                          })}
-                        </div>
-                      </div>);
-                    })}
-                  </div>)}
-
-                  {/* CHECKLIST */}
-                  {["clA","clB","clC"].includes(gpSubTab)&&(()=>{
-                    const items=gpSubTab==="clA"?CL_A:gpSubTab==="clB"?CL_B:CL_C;
-                    const titoli={clA:"Documentazione incarico",clB:"Documentazione preliminare",clC:"Documentazione rogito"};
-                    const scadenze={clA:"Entro 10 giorni dalla firma incarico",clB:"Da verificare il giorno prima del preliminare",clC:"Almeno 7 giorni prima del rogito"};
-                    const fatte=items.filter((_,i)=>(pr[gpSubTab]||{})[i]?.fatto).length;
-                    return(<div>
-                      <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                          <p style={{fontSize:14,fontWeight:600,margin:0}}>Checklist {gpSubTab.replace("cl","").toUpperCase()} — {titoli[gpSubTab]}</p>
-                          <span style={{fontSize:12,color:fatte===items.length?"#27AE60":"#888"}}>{fatte}/{items.length} completati</span>
-                        </div>
-                        <p style={{fontSize:11,color:"#aaa",margin:"0 0 12px"}}>{scadenze[gpSubTab]}</p>
-                        <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:"1rem"}}>
-                          <div style={{height:"100%",width:`${Math.round(fatte/items.length*100)}%`,background:fatte===items.length?"#27AE60":"#A8863A",borderRadius:3}}/>
-                        </div>
-                        {items.map((item,i)=>{
-                          const s=(pr[gpSubTab]||{})[i]||{};
-                          return(<label key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 0",borderBottom:"0.5px solid #f5f5f5",cursor:"pointer"}}>
-                            <input type="checkbox" checked={s.fatto||false} onChange={()=>toggleCl(gpIncSel,gpSubTab,i)} style={{marginTop:2,cursor:"pointer",flexShrink:0}}/>
-                            <div style={{flex:1}}>
-                              <span style={{fontSize:12,color:s.fatto?"#27AE60":"#555",textDecoration:s.fatto?"line-through":"none"}}>{item}</span>
-                              {s.fatto&&s.data&&<span style={{fontSize:10,color:"#aaa",marginLeft:8}}>{fmtD(s.data)}</span>}
-                            </div>
-                          </label>);
-                        })}
-                      </div>
+                        </div>);
+                      })}
                     </div>);
-                  })()}
+                  })}
+                </div>
+              </div>);
+            }
 
-                  {/* NOTE */}
-                  {gpSubTab==="note"&&(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                    <p style={{fontSize:13,fontWeight:500,margin:"0 0 8px"}}>Note pratica</p>
-                    <textarea style={{...S.inp,width:"100%",minHeight:180,resize:"vertical",fontSize:13}}
-                      value={pr.note||""} placeholder="Annotazioni, comunicazioni, criticità..."
-                      onChange={e=>salvaPratica(gpIncSel,{note:e.target.value})}/>
-                  </div>)}
-                </>)}
+            // Vista LISTA o KANBAN
+            return(<div style={S.sec}>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                <h2 style={{fontSize:16,fontWeight:600,margin:0}}>Gestione Pratiche <span style={{fontSize:13,color:"#888",fontWeight:400}}>({incFiltrati.length} pratiche)</span></h2>
+                <div style={{display:"flex",gap:6,background:"#f0f0f0",borderRadius:7,padding:3}}>
+                  {[["lista","☰ Lista"],["kanban","⧉ Kanban"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setGpVista(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:gpVista===v?"#fff":"transparent",color:gpVista===v?"#A8863A":"#888",fontWeight:gpVista===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:gpVista===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
+                  ))}
+                </div>
               </div>
-            );
+              {/* Filtri */}
+              <div style={{display:"flex",gap:6,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"}}>
+                <button onClick={()=>setGpFiltroFase("Tutte")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="Tutte"?"#185FA5":"#ddd"}`,background:gpFiltroFase==="Tutte"?"#E6F1FB":"#fff",color:gpFiltroFase==="Tutte"?"#0C447C":"#888",cursor:"pointer",fontFamily:"inherit"}}>Tutte ({incAttivi.length})</button>
+                {fasi.filter((_,i)=>[0,4,7,9].includes(i)).map(f=>{
+                  const n=incAttivi.filter(i=>faseCorrente(i.id)?.k===f.k).length;
+                  const clr=faseClr(f.k);
+                  return(<button key={f.k} onClick={()=>setGpFiltroFase(gpFiltroFase===f.k?"Tutte":f.k)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase===f.k?clr:"#ddd"}`,background:gpFiltroFase===f.k?clr+"18":"#fff",color:gpFiltroFase===f.k?clr:"#888",cursor:"pointer",fontFamily:"inherit"}}>{f.n.split(" ").slice(0,2).join(" ")} ({n})</button>);
+                })}
+                <button onClick={()=>setGpFiltroAlert(!gpFiltroAlert)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroAlert?"#E74C3C":"#ddd"}`,background:gpFiltroAlert?"#FCEBEB":"#fff",color:gpFiltroAlert?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>⚠ Alert ({incAttivi.filter(i=>alertsInc(i.id).length>0).length})</button>
+              </div>
+
+              {/* VISTA LISTA */}
+              {gpVista==="lista"&&<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
+                <div style={{display:"grid",gridTemplateColumns:"2fr 80px 100px 100px 100px 60px",padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
+                  {["Immobile / Venditore","Agente","Fase attuale","Avanzamento","Prossima azione","Alert"].map(h=><span key={h} style={{fontSize:11,color:"#888",fontWeight:500}}>{h}</span>)}
+                </div>
+                {incFiltrati.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:13}}>Nessuna pratica trovata</div>}
+                {incFiltrati.map(inc=>{
+                  const al=alertsInc(inc.id);
+                  const fc=faseCorrente(inc.id);
+                  const clr=faseClr(fc?.k);
+                  const prossima=fasi.flatMap(f=>f.azioni.map(a=>({...a,faseK:f.k}))).find(a=>!(getPr(inc.id).fasi[a.faseK]||{})[a.k]?.fatto);
+                  const perc=percAv(inc.id);
+                  return(<div key={inc.id} style={{display:"grid",gridTemplateColumns:"2fr 80px 100px 100px 100px 60px",padding:"10px 14px",borderBottom:"0.5px solid #f5f5f5",borderLeft:`3px solid ${al.length>0?"#E74C3C":perc===100?"#27AE60":clr}`,cursor:"pointer",alignItems:"center"}} onClick={()=>setGpPraticaSel(inc.id)}>
+                    <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2}}>{inc.nominativo}</div></div>
+                    <div style={{fontSize:11,color:"#888"}}>{nomAg(inc.agenteListing)}</div>
+                    <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" ").slice(0,2).join(" ")||"—"}</span></div>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{flex:1,height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:perc===100?"#27AE60":clr,borderRadius:2}}/></div>
+                      <span style={{fontSize:10,color:"#888",minWidth:28}}>{perc}%</span>
+                    </div>
+                    <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{prossima?.lbl?.split(" ").slice(0,3).join(" ")||"—"}</div>
+                    <div>{al.length>0?<span style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>{al.length} ⚠</span>:<span style={{fontSize:11,color:"#aaa"}}>—</span>}</div>
+                  </div>);
+                })}
+              </div>}
+
+              {/* VISTA KANBAN */}
+              {gpVista==="kanban"&&(()=>{
+                const gruppi=[
+                  {lbl:"Fase 1-3",clr:"#185FA5",ks:fasi.filter(f=>f.fase<=3).map(f=>f.k)},
+                  {lbl:"Fase 4-6",clr:"#854F0B",ks:fasi.filter(f=>f.fase>3&&f.fase<=6).map(f=>f.k)},
+                  {lbl:"Fase 7-8",clr:"#533AB7",ks:fasi.filter(f=>f.fase>6&&f.fase<=8).map(f=>f.k)},
+                  {lbl:"Fase 9-10",clr:"#3B6D11",ks:fasi.filter(f=>f.fase>8).map(f=>f.k)},
+                ];
+                return(<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
+                  {gruppi.map(({lbl,clr,ks})=>{
+                    const incGruppo=incFiltrati.filter(i=>ks.includes(faseCorrente(i.id)?.k));
+                    return(<div key={lbl} style={{background:"#fafal8",borderRadius:10,padding:8,border:`0.5px solid ${clr}33`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:clr}}/>
+                        <span style={{fontSize:12,fontWeight:500,color:clr,flex:1}}>{lbl}</span>
+                        <span style={{fontSize:11,padding:"1px 6px",borderRadius:8,background:clr+"18",color:clr}}>{incGruppo.length}</span>
+                      </div>
+                      {incGruppo.map(inc=>{
+                        const al=alertsInc(inc.id);
+                        const perc=percAv(inc.id);
+                        return(<div key={inc.id} style={{background:"#fff",borderRadius:8,padding:"8px 10px",marginBottom:6,border:`0.5px solid ${al.length>0?"#E74C3C44":"#e8e5e0"}`,cursor:"pointer",borderLeft:`3px solid ${al.length>0?"#E74C3C":clr}`}} onClick={()=>setGpPraticaSel(inc.id)}>
+                          <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{inc.comune} — {inc.indirizzo}</div>
+                          <div style={{fontSize:11,color:"#888",marginBottom:5}}>{inc.nominativo} · {nomAg(inc.agenteListing)}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <div style={{flex:1,height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:perc===100?"#27AE60":clr,borderRadius:2}}/></div>
+                            <span style={{fontSize:10,color:"#888"}}>{perc}%</span>
+                            {al.length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:"#FCEBEB",color:"#A32D2D"}}>{al.length}⚠</span>}
+                          </div>
+                        </div>);
+                      })}
+                      {incGruppo.length===0&&<div style={{fontSize:11,color:"#bbb",textAlign:"center",padding:"8px 0"}}>Nessuna pratica</div>}
+                    </div>);
+                  })}
+                </div>);
+              })()}
+            </div>);
           })()}
 
           {/* IL MIO REPORT (solo agente) */}
