@@ -1172,19 +1172,9 @@ export default function App() {
             <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={handleLogout}>Esci</button>
           </div>
         </div>
-        <div style={{flex:1,overflowY:"auto",position:"relative"}}>
+        <div style={{flex:1,overflowY:"auto"}}>
 
           {isReadOnly&&<div style={{position:"sticky",top:0,zIndex:50,background:"#0C447C",color:"#fff",padding:"6px 0",fontSize:12,fontWeight:500,textAlign:"center",letterSpacing:".02em"}}>👁 Sola lettura — navigazione permessa, modifiche bloccate</div>}
-          {/* READONLY OVERLAY — intercetta click sui form per Coach */}
-          {isReadOnly&&<div style={{position:"fixed",top:0,left:260,right:0,bottom:0,zIndex:9999}} onClickCapture={e=>{
-            const tag=e.target.tagName;
-            const type=e.target.type;
-            // Blocca solo input/select/button/textarea
-            if(['INPUT','SELECT','TEXTAREA','BUTTON'].includes(tag)){
-              e.stopPropagation();
-              e.preventDefault();
-            }
-          }} onChangeCapture={e=>{e.stopPropagation();e.preventDefault();}}/>}
           {/* DASHBOARD */}
           {tab==="Dashboard"&&(<div style={S.sec}>
 
@@ -2652,8 +2642,8 @@ export default function App() {
 
 
           {/* ── TAB COSTI — Gestione voci ── */}
-          {tab==="Costi"&&isBroker&&(<div style={S.sec}>
-            {isReadOnly&&<div style={{position:"absolute",inset:0,zIndex:999,cursor:"not-allowed",background:"transparent"}} onClickCapture={e=>{e.stopPropagation();e.preventDefault();alert("Modalità sola lettura");}} onMouseDownCapture={e=>e.stopPropagation()}/>}
+          {tab==="Costi"&&isBroker&&(<div style={{...S.sec,pointerEvents:isReadOnly?"none":"auto"}}>
+            {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#2980B9"}}>👁 Sola lettura — non puoi modificare i costi</div>}
             <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Voci di Costo — {costiAnno}</h2>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -2861,7 +2851,8 @@ export default function App() {
             const totPrevAnno = mieVoci.reduce((s,v)=>s+prevAnnuoVoceAg(v),0);
             const totConsuntivo = mieVoci.reduce((s,v)=>s+totSpeseVoceAg(v),0);
             return(
-              <div style={S.sec}>
+              <div style={{...S.sec,pointerEvents:isReadOnly?"none":"auto"}}>
+                {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:12,fontSize:12,color:"#2980B9"}}>👁 Sola lettura — non puoi modificare i costi</div>}
                 {/* Header anno */}
                 <div style={{display:"flex",gap:12,marginBottom:"1.25rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
                   <div>
