@@ -4467,79 +4467,150 @@ export default function App() {
               </div>}
 
               {opMainTab==="piano"&&(()=>{
-                const agIdPiano=isBroker?(Number(opAgenteSel==="Tutti"?agenti.find(a=>a.profilo==="Broker")?.id||agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
-                const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
+                const agentiProd2=agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova");
                 const annoPiano=new Date().getFullYear();
                 const oggi4=todayStr();
+                const dal4=`${annoPiano}-01-01`;
                 const transV2=venduti.filter(v=>Number(v.provvVenditore||0)>0);
                 const transA2=venduti.filter(v=>Number(v.provvAcquirente||0)>0);
                 const mediaV2=transV2.length>0?transV2.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/transV2.length:0;
                 const mediaA2=transA2.length>0?transA2.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/transA2.length:0;
                 const provvMediaReale=Math.round((mediaV2+mediaA2)/2)||8000;
-                const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
-                const obFattPiano=Number(obAnnPiano.fatturato||0);
-                const provvCustom=Number(obAnnPiano.provvMedia||provvMediaReale);
                 const CONV=0.65; const APPT=0.40;
+                const sCard2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
+                const sLbl2={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"};
+                const clrP=(p)=>p>=100?"#27AE60":p>=70?"#E67E22":"#E74C3C";
+
+                // Vista agenzia: somma obiettivi e YTD di tutti gli agenti
+                const vistaTotale=isBroker&&opAgenteSel==="Tutti";
+
+                // Dati per agente singolo
+                const agIdPiano=isBroker&&!vistaTotale?(Number(opAgenteSel)||agenti.find(a=>a.profilo==="Broker")?.id||agentiProd2[0]?.id):myAgentId;
+                const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
+                const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
+                const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0):Number(obAnnPiano.fatturato||0);
+                const provvCustom=Number(obAnnPiano.provvMedia||provvMediaReale);
+
+                // Calcoli piano (per agente singolo o totale)
                 const transazNec=provvCustom>0?Math.ceil(obFattPiano/provvCustom):0;
                 const immobiliVend=Math.ceil(transazNec/2);
                 const acquisizioniNec=Math.ceil(immobiliVend/CONV);
                 const acquisizioniMese=Math.ceil(acquisizioniNec/12);
-                const apptAnno=Math.ceil(acquisizioniNec/APPT);
-                const apptSett=Math.ceil(apptAnno/52);
-                const apptMese=Math.ceil(apptAnno/12);
-                const dal4=`${annoPiano}-01-01`;
-                const vendAgPiano=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agIdPiano||Number(v.agenteAcquirente)===agIdPiano)&&dc>=dal4&&dc<=oggi4;});
-                const fattYTD4=vendAgPiano.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agIdPiano)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agIdPiano)p+=Number(v.provvAcquirente||0);return s+p;},0);
-                const acqYTD4=incarichi.filter(i=>Number(i.agenteListing)===agIdPiano&&i.dataInizio>=dal4&&i.dataInizio<=oggi4).length;
-                const transYTD4=vendAgPiano.length;
+                const apptSett=Math.ceil(acquisizioniNec/APPT/52);
+                const apptMese=Math.ceil(acquisizioniNec/APPT/12);
+
+                // YTD
+                const calcFattYTD=(agId)=>venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId||Number(v.agenteAcquirente)===agId)&&dc>=dal4&&dc<=oggi4;}).reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agId)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agId)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                const calcAcqYTD=(agId)=>incarichi.filter(i=>Number(i.agenteListing)===agId&&i.dataInizio>=dal4&&i.dataInizio<=oggi4).length;
+                const calcTransYTD=(agId)=>venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId||Number(v.agenteAcquirente)===agId)&&dc>=dal4&&dc<=oggi4;}).length;
+
+                const fattYTD4=vistaTotale?agentiProd2.reduce((s,a)=>s+calcFattYTD(a.id),0):calcFattYTD(agIdPiano);
+                const acqYTD4=vistaTotale?agentiProd2.reduce((s,a)=>s+calcAcqYTD(a.id),0):calcAcqYTD(agIdPiano);
+                const transYTD4=vistaTotale?agentiProd2.reduce((s,a)=>s+calcTransYTD(a.id),0):calcTransYTD(agIdPiano);
+
                 const meseCorr=new Date().getMonth()+1;
                 const proiezioneFineAnno=meseCorr>0?Math.round(fattYTD4/meseCorr*12):0;
                 const percF4=obFattPiano>0?Math.min(100,Math.round(fattYTD4/obFattPiano*100)):null;
                 const percA4=acquisizioniNec>0?Math.min(100,Math.round(acqYTD4/acquisizioniNec*100)):null;
                 const percT4=transazNec>0?Math.min(100,Math.round(transYTD4/transazNec*100)):null;
-                const revisioni=(obAnnPiano.revisioni||[]);
-                const sCard2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
-                const sLbl2={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"};
-                const clrP=(p)=>p>=100?"#27AE60":p>=70?"#E67E22":"#E74C3C";
+                const revisioni=vistaTotale?[]:(obAnnPiano.revisioni||[]);
+
                 return(<div>
-                  {/* Selettore agente broker */}
+                  {/* Selettore broker */}
                   {isBroker&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",padding:"10px 14px",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
                     <span style={{fontSize:12,color:"#888",flexShrink:0}}>Piano di:</span>
                     <select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
-                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.id!==5&&a.nome!=="Anto Prova").map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      <option value="Tutti">🏢 Tutta l'agenzia</option>
+                      {agentiProd2.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>
-                    <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#A8863A,#D4AC0D)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff",flexShrink:0}}>{agPiano.nome?.charAt(0)||"?"}</div>
-                    <div><div style={{fontSize:13,fontWeight:600}}>{agPiano.nome} {agPiano.cognome}</div><div style={{fontSize:11,color:"#888"}}>{agPiano.profilo}</div></div>
+                    {!vistaTotale&&<>
+                      <div style={{width:36,height:36,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff",flexShrink:0}}>{agPiano.nome?.charAt(0)||"?"}</div>
+                      <div><div style={{fontSize:13,fontWeight:600}}>{agPiano.nome} {agPiano.cognome}</div><div style={{fontSize:11,color:"#888"}}>{agPiano.profilo}</div></div>
+                    </>}
+                    {vistaTotale&&<div style={{fontSize:13,fontWeight:600,color:BRAND.oroD}}>Visione totale agenzia — somma obiettivi agenti</div>}
                   </div>}
 
-                  {/* Input obiettivi */}
-                  <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Imposta obiettivo</p>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1.25rem"}}>
-                    <div style={{...sCard2,borderTop:`3px solid ${BRAND.oroD}`}}>
-                      <p style={sLbl2}>Obiettivo fatturato annuale</p>
-                      <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
-                        <span style={{fontSize:18,color:"#aaa",fontWeight:400}}>€</span>
-                        <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:BRAND.oroD,outline:"none",fontFamily:"inherit",width:"100%"}}
-                          value={obFattPiano||""} placeholder="200000"
-                          onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:Number(e.target.value)}}))}/>
-                      </div>
-                      {obFattPiano>0&&<p style={{fontSize:12,color:BRAND.oroD,margin:0}}>= € {fmt(Math.round(obFattPiano/12))} / mese</p>}
+                  {/* Vista totale agenzia — tabella agenti */}
+                  {vistaTotale&&obFattPiano>0&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Obiettivi per agente — {annoPiano}</p>
+                    <div style={{...sCard2,marginBottom:"1.25rem",overflow:"hidden",padding:0}}>
+                      <table style={{width:"100%",borderCollapse:"collapse"}}>
+                        <thead><tr style={{background:"#fafaf8"}}>
+                          {["Agente","Obiettivo","Fatturato YTD","% raggiunto","Acquisizioni","Transazioni"].map(h=>(
+                            <th key={h} style={{padding:"8px 14px",fontSize:11,fontWeight:600,color:"#888",textAlign:h==="Agente"?"left":"right",borderBottom:"1px solid #eee"}}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {agentiProd2.map((ag,idx)=>{
+                            const ob=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+                            const fYTD=calcFattYTD(ag.id);
+                            const aYTD=calcAcqYTD(ag.id);
+                            const tYTD=calcTransYTD(ag.id);
+                            const perc=ob>0?Math.min(100,Math.round(fYTD/ob*100)):null;
+                            const AVBG=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE","#F1EFE8"];
+                            const AVCL=["#412402","#0C447C","#3C3489","#173404","#444441"];
+                            return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                              <td style={{padding:"10px 14px"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <div style={{width:28,height:28,borderRadius:"50%",background:AVBG[idx%5],display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:AVCL[idx%5]}}>{ag.nome.charAt(0)}</div>
+                                  <span style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</span>
+                                </div>
+                              </td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",color:ob>0?BRAND.oroD:"#bbb",fontWeight:ob>0?600:400}}>{ob>0?"€ "+fmt(ob):"—"}</td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",color:fYTD>0?"#085041":"#bbb",fontWeight:fYTD>0?500:400}}>{fYTD>0?"€ "+fmt(fYTD):"—"}</td>
+                              <td style={{padding:"10px 14px",textAlign:"right"}}>
+                                {perc!=null?<span style={{fontSize:12,fontWeight:600,color:clrP(perc),background:clrP(perc)+"15",padding:"2px 8px",borderRadius:6}}>{perc}%</span>:<span style={{color:"#bbb",fontSize:12}}>—</span>}
+                              </td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right"}}>{aYTD||"—"}</td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right"}}>{tYTD||"—"}</td>
+                            </tr>);
+                          })}
+                          {/* Riga totale */}
+                          <tr style={{background:"#FFFBF0",borderTop:"2px solid #f0e8d0"}}>
+                            <td style={{padding:"10px 14px",fontSize:12,fontWeight:700,color:BRAND.oroD}}>TOTALE AGENZIA</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:BRAND.oroD}}>€ {fmt(obFattPiano)}</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:"#085041"}}>€ {fmt(fattYTD4)}</td>
+                            <td style={{padding:"10px 14px",textAlign:"right"}}>
+                              {percF4!=null?<span style={{fontSize:13,fontWeight:700,color:clrP(percF4),background:clrP(percF4)+"15",padding:"2px 10px",borderRadius:6}}>{percF4}%</span>:<span style={{color:"#bbb"}}>—</span>}
+                            </td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700}}>{acqYTD4||"—"}</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700}}>{transYTD4||"—"}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <div style={{...sCard2,borderTop:"3px solid #854F0B"}}>
-                      <p style={sLbl2}>Provv. media Càsa Immobiliare</p>
-                      <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
-                        <span style={{fontSize:18,color:"#aaa",fontWeight:400}}>€</span>
-                        <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:"#633806",outline:"none",fontFamily:"inherit",width:"100%"}}
-                          value={provvCustom||""} placeholder={String(provvMediaReale)}
-                          onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),provvMedia:Number(e.target.value)}}))}/>
+                  </>}
+
+                  {/* Input obiettivi — solo agente singolo */}
+                  {!vistaTotale&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Imposta obiettivo</p>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1.25rem"}}>
+                      <div style={{...sCard2,borderTop:`3px solid ${BRAND.oroD}`}}>
+                        <p style={sLbl2}>Obiettivo fatturato annuale</p>
+                        <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
+                          <span style={{fontSize:18,color:"#aaa"}}>€</span>
+                          <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:BRAND.oroD,outline:"none",fontFamily:"inherit",width:"100%"}}
+                            value={obFattPiano||""} placeholder="200000"
+                            onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:Number(e.target.value)}}))}/>
+                        </div>
+                        {obFattPiano>0&&<p style={{fontSize:12,color:BRAND.oroD,margin:0}}>= € {fmt(Math.round(obFattPiano/12))} / mese</p>}
                       </div>
-                      <p style={{fontSize:12,color:"#888",margin:0}}>media reale agenzia: <strong style={{color:"#633806"}}>€ {fmt(provvMediaReale)}</strong></p>
+                      <div style={{...sCard2,borderTop:"3px solid #854F0B"}}>
+                        <p style={sLbl2}>Provv. media Càsa Immobiliare</p>
+                        <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
+                          <span style={{fontSize:18,color:"#aaa"}}>€</span>
+                          <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:"#633806",outline:"none",fontFamily:"inherit",width:"100%"}}
+                            value={provvCustom||""} placeholder={String(provvMediaReale)}
+                            onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),provvMedia:Number(e.target.value)}}))}/>
+                        </div>
+                        <p style={{fontSize:12,color:"#888",margin:0}}>media reale agenzia: <strong style={{color:"#633806"}}>€ {fmt(provvMediaReale)}</strong></p>
+                      </div>
                     </div>
-                  </div>
+                  </>}
 
                   {/* Piano derivato */}
-                  {obFattPiano>0&&provvCustom>0&&<>
-                    <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Piano derivato automaticamente</p>
+                  {obFattPiano>0&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>{vistaTotale?"Piano agenzia — derivato dalla somma obiettivi":"Piano derivato automaticamente"}</p>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                       {[
                         ["Transazioni necessarie",transazNec,BRAND.oroD,"ogni imm. = 2 transaz."],
@@ -4590,33 +4661,35 @@ export default function App() {
                     </div>
                   </>}
 
-                  {/* Revisioni */}
-                  <p style={{fontSize:11,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Revisioni obiettivo</p>
-                  <div style={sCard2}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:revisioni.length>0?"1rem":0}}>
-                      <span style={{fontSize:12,color:"#888"}}>{revisioni.length===0?"Nessuna revisione registrata":revisioni.length+" revisioni"}</span>
-                      {!isReadOnly&&<button onClick={()=>{
-                        const motivo=prompt("Motivo della revisione:");
-                        if(!motivo) return;
-                        const nuovoOb=Number(prompt("Nuovo obiettivo fatturato €:"));
-                        if(!nuovoOb) return;
-                        const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb};
-                        setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:nuovoOb,revisioni:[...(prev[agIdPiano]?.revisioni||[]),rev]}}));
-                      }} style={{...S.btnP,fontSize:11,padding:"4px 14px"}}>+ Revisiona</button>}
-                    </div>
-                    {revisioni.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      {revisioni.map((r,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:"#fafaf8",border:"0.5px solid #eee"}}>
-                          <div style={{width:10,height:10,borderRadius:"50%",background:r.nuovo>r.vecchio?"#27AE60":"#E67E22",flexShrink:0}}/>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:13,fontWeight:500}}>{r.motivo}</div>
-                            <div style={{fontSize:11,color:"#888"}}>{fmtD(r.data)} · da € {fmt(r.vecchio)} → € {fmt(r.nuovo)}</div>
+                  {/* Revisioni — solo agente singolo */}
+                  {!vistaTotale&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Revisioni obiettivo</p>
+                    <div style={sCard2}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:revisioni.length>0?"1rem":0}}>
+                        <span style={{fontSize:12,color:"#888"}}>{revisioni.length===0?"Nessuna revisione registrata":revisioni.length+" revisioni"}</span>
+                        {!isReadOnly&&<button onClick={()=>{
+                          const motivo=prompt("Motivo della revisione:");
+                          if(!motivo) return;
+                          const nuovoOb=Number(prompt("Nuovo obiettivo fatturato €:"));
+                          if(!nuovoOb) return;
+                          const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb};
+                          setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:nuovoOb,revisioni:[...(prev[agIdPiano]?.revisioni||[]),rev]}}));
+                        }} style={{...S.btnP,fontSize:11,padding:"4px 14px"}}>+ Revisiona</button>}
+                      </div>
+                      {revisioni.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {revisioni.map((r,i)=>(
+                          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:"#fafaf8",border:"0.5px solid #eee"}}>
+                            <div style={{width:10,height:10,borderRadius:"50%",background:r.nuovo>r.vecchio?"#27AE60":"#E67E22",flexShrink:0}}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:13,fontWeight:500}}>{r.motivo}</div>
+                              <div style={{fontSize:11,color:"#888"}}>{fmtD(r.data)} · da € {fmt(r.vecchio)} → € {fmt(r.nuovo)}</div>
+                            </div>
+                            <div style={{fontSize:14,fontWeight:700,color:r.nuovo>r.vecchio?"#27AE60":"#E67E22"}}>€ {fmt(r.nuovo)}</div>
                           </div>
-                          <div style={{fontSize:14,fontWeight:700,color:r.nuovo>r.vecchio?"#27AE60":"#E67E22"}}>€ {fmt(r.nuovo)}</div>
-                        </div>
-                      ))}
-                    </div>}
-                  </div>
+                        ))}
+                      </div>}
+                    </div>
+                  </>}
                 </div>);
               })()}
             </div>
