@@ -1043,7 +1043,7 @@ export default function App() {
     const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
     const nuovaSpesa={id:Date.now(),data:formNuovaSpesa.data,importo:Number(formNuovaSpesa.importo),desc:formNuovaSpesa.desc||"Spesa"};
     voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],spese:[...(voci[modalCostoVoce.idx].spese||[]),nuovaSpesa]};
-    setCosti({...costi,[modalCostoVoce.anno]:voci});
+    if(!isReadOnly){setCosti({...costi,[modalCostoVoce.anno]:voci});}
     setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
     setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});
   };
@@ -1509,7 +1509,7 @@ export default function App() {
                 {/* Traguardo volante agente — sempre visibile */}
                 <div style={{background:sfidaAtt?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAtt?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
                   {sfidaAtt?(()=>{
-                    const cl=agenti.map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
+                    const cl=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo).map(ag=>({ag,val:calcMet(ag.id,sfidaAtt.metrica,sfidaAtt.dal,sfidaAtt.al)})).sort((a,b)=>b.val-a.val);
                     const miaPos=cl.findIndex(x=>x.ag.id===myAgentId);
                     const mioVal=cl[miaPos]?.val||0;
                     const ggR=Math.max(0,Math.round((toD(sfidaAtt.al)-oggiD)/86400000));
@@ -1727,7 +1727,7 @@ export default function App() {
               {/* Traguardo volante — sempre visibile */}
               <div style={{background:sfidaAttBr?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAttBr?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
                 {sfidaAttBr?(()=>{
-                  const cl=agenti.map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
+                  const cl=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo).map(ag=>({ag,val:calcMB(ag.id,sfidaAttBr.metrica,sfidaAttBr.dal,sfidaAttBr.al)})).sort((a,b)=>b.val-a.val);
                   const ggR=Math.max(0,Math.round((toD(sfidaAttBr.al)-oggiD)/86400000));
                   return(<>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
@@ -2597,7 +2597,7 @@ export default function App() {
                         Somma obiettivi: {agenti.filter((_,i)=>obFattAutoPerAgente[i]>0).map((a,i)=>`${a.nome}: € ${fmt(obFattAutoPerAgente[agenti.indexOf(a)])}`).join(" · ")}
                       </div>}
                       {obFattTeamAuto===0&&<div style={{marginBottom:8}}>
-                        <input type="number" style={{...S.inp,margin:0}} value={obiettivoFatturato||""} placeholder="es. 300.000" onChange={e=>setObiettivoFatturato(Number(e.target.value))}/>
+                        <input type="number" style={{...S.inp,margin:0}} value={obiettivoFatturato||""} placeholder="es. 300.000" onChange={e=>{if(isReadOnly)return;setObiettivoFatturato(Number(e.target.value))}}/>
                         <div style={{fontSize:10,color:"#aaa",marginTop:4}}>Oppure imposta gli obiettivi mensili degli agenti in Operatività → Obiettivi per il calcolo automatico</div>
                       </div>}
                       {obFattEffettivo>0&&(<>
@@ -2620,7 +2620,7 @@ export default function App() {
                         </div>
                         {obiettivoQuotaAgenzia>0&&<span style={{fontSize:18,fontWeight:700,color:percQuota>=100?"#27AE60":"#E67E22"}}>€ {fmt(obiettivoQuotaAgenzia)}</span>}
                       </div>
-                      <input type="number" style={{...S.inp,margin:"0 0 8px"}} value={obiettivoQuotaAgenzia||""} placeholder={`es. ${fmt(Math.round(puntoBE*1.2))} (BE + 20% utile)`} onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value))}/>
+                      <input type="number" style={{...S.inp,margin:"0 0 8px"}} value={obiettivoQuotaAgenzia||""} placeholder={`es. ${fmt(Math.round(puntoBE*1.2))} (BE + 20% utile)`} onChange={e=>{if(isReadOnly)return;setObiettivoQuotaAgenzia(Number(e.target.value))}}/>
                       {obiettivoQuotaAgenzia>0&&(<>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:3}}>
                           <span>Quota agenzia attuale: € {fmt(quotaAgTot)}</span>
@@ -2647,7 +2647,7 @@ export default function App() {
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📋 Voci di Costo — {costiAnno}</h2>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
                 <label style={{fontSize:13,color:"#888"}}>Anno:</label>
-                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);if(!costi[e.target.value])setCosti({...costi,[e.target.value]:mkCosti()});}}>
+                <select style={S.sel} value={costiAnno} onChange={e=>{setCostiAnno(e.target.value);if(!costi[e.target.value]&&!isReadOnly)setCosti({...costi,[e.target.value]:mkCosti()});}}>
                   {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
                   <option value={String(Number(annoCorrente)+1)}>{Number(annoCorrente)+1}</option>
                 </select>
@@ -2683,16 +2683,16 @@ export default function App() {
                     nuove=[...nuove,...varPrec.map(v=>({...v,id:Date.now()+Math.random(),spese:[]}))];
                   }
                 }
-                setCosti({...costi,[costiAnno]:nuove});
+                if(!isReadOnly){setCosti({...costi,[costiAnno]:nuove});}
               };
 
-              const aggiornaTipo=(idx,tipo)=>{const v=[...vociConTipo];v[idx]={...v[idx],tipo};setCosti({...costi,[costiAnno]:v});};
+              const aggiornaTipo=(idx,tipo)=>{ if(isReadOnly)return; const v=[...vociConTipo];v[idx]={...v[idx],tipo};setCosti({...costi,[costiAnno]:v});};
               const moveVoce=(idx,dir)=>{
                 const v=[...vociConTipo];
                 const to=idx+dir;
                 if(to<0||to>=v.length)return;
                 [v[idx],v[to]]=[v[to],v[idx]];
-                setCosti(prev=>({...prev,[costiAnno]:v}));
+                if(!isReadOnly){setCosti(prev=>({...prev,[costiAnno]:v}));}
               };
 
 
@@ -2733,7 +2733,7 @@ export default function App() {
                         const tipo=window.confirm(`"${n.trim()}" è una voce FISSA?\n\nOK = Fisso   Annulla = Variabile`)?"fisso":"variabile";
                         const v=[...vociConTipo];
                         v.push({id:Date.now(),voce:n.trim(),tipo,prevMensile:0,frequenza:"mensile",spese:[]});
-                        setCosti({...costi,[costiAnno]:v});
+                        if(!isReadOnly){setCosti({...costi,[costiAnno]:v});}
                       }}>+ Aggiungi voce</button>
                     </div>
                   </div>
@@ -2755,7 +2755,7 @@ export default function App() {
                         const prevAnnuo=prevAnnuoVoce(voce);const tot=totSpeseVoce(voce);const diff=tot-prevAnnuo;const nSpese=(voce.spese||[]).length;const isFisso=voce.tipo==="fisso";
                         rows.push(<tr key={voce.id} style={{background:"#fff"}}>
                           <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"fisso"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #2980B9`,background:"#EAF4FB",color:"#2980B9",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span>{(voce.subVoci||[]).length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#EAF4FB",color:"#2980B9",fontWeight:500,marginLeft:4}}>{(voce.subVoci||[]).length} sv {expandedVoci[voce.id]?"▲":"▼"}</span>}</div></td>
-                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>{(voce.subVoci||[]).length>0?<span style={{fontSize:12,color:"#2980B9",fontStyle:"italic"}}>→ sotto-voci</span>:<input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>}</td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>{(voce.subVoci||[]).length>0?<span style={{fontSize:12,color:"#2980B9",fontStyle:"italic"}}>→ sotto-voci</span>:<input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{ if(isReadOnly)return; const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>}</td>
                           <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}} value={voce.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">Mensile ×12</option><option value="trimestrale">Trimestrale ×4</option><option value="semestrale">Semestrale ×2</option><option value="annuale">Annuale ×1</option></select></td>
                           <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
                           <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
@@ -2767,7 +2767,7 @@ export default function App() {
                         // Sub-voci se espanso
                         if(expandedVoci[voce.id]){
                           const subs=voce.subVoci||[];
-                          const addSub=()=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],subVoci:[...subs,{id:Date.now(),voce:"Nuova sotto-voce",prevMensile:0,frequenza:"mensile",spese:[]}]};setCosti({...costi,[costiAnno]:v});};
+                          const addSub=()=>{ if(isReadOnly)return;const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],subVoci:[...subs,{id:Date.now(),voce:"Nuova sotto-voce",prevMensile:0,frequenza:"mensile",spese:[]}]};setCosti({...costi,[costiAnno]:v});};
                           rows.push(<tr key={`sub_${voce.id}`} style={{background:"#F0F7FF"}}>
                             <td colSpan={8} style={{padding:"6px 14px 10px 28px"}}>
                               <div style={{fontSize:11,color:"#2980B9",fontWeight:600,marginBottom:6}}>Sotto-voci di {voce.voce}</div>
@@ -2792,7 +2792,7 @@ export default function App() {
                         const prevAnnuo=prevAnnuoVoce(voce);const tot=totSpeseVoce(voce);const diff=tot-prevAnnuo;const nSpese=(voce.spese||[]).length;
                         rows.push(<tr key={voce.id} style={{background:"#FEFDF8"}}>
                           <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:8}}><select value={voce.tipo||"variabile"} onChange={e=>aggiornaTipo(idxGlobale,e.target.value)} style={{fontSize:10,padding:"2px 5px",borderRadius:4,border:`0.5px solid #E67E22`,background:"#FEF0E0",color:"#E67E22",fontWeight:600,cursor:"pointer"}}><option value="fisso">Fisso</option><option value="variabile">Var.</option></select><span style={{fontWeight:500}}>{voce.voce}</span>{(voce.subVoci||[]).length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:3,background:"#EAF4FB",color:"#2980B9",fontWeight:500,marginLeft:4}}>{(voce.subVoci||[]).length} sv {expandedVoci[voce.id]?"▲":"▼"}</span>}</div></td>
-                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>{(voce.subVoci||[]).length>0?<span style={{fontSize:12,color:"#2980B9",fontStyle:"italic"}}>→ sotto-voci</span>:<input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>}</td>
+                          <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}>{(voce.subVoci||[]).length>0?<span style={{fontSize:12,color:"#2980B9",fontStyle:"italic"}}>→ sotto-voci</span>:<input type="number" style={{width:"100%",fontSize:13,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",textAlign:"right",background:"transparent",boxSizing:"border-box"}} value={voce.prevMensile||""} placeholder="0" onChange={e=>{ if(isReadOnly)return; const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],prevMensile:Number(e.target.value)};setCosti({...costi,[costiAnno]:v});}}/>}</td>
                           <td style={{padding:"6px 8px",borderBottom:"0.5px solid #f5f5f5",background:"#FDF6EC"}}><select style={{fontSize:12,padding:"4px 6px",borderRadius:5,border:"0.5px solid #ddd",background:"transparent",width:"100%",color:BRAND.oroD,fontWeight:500}} value={voce.frequenza||"mensile"} onChange={e=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],frequenza:e.target.value};setCosti({...costi,[costiAnno]:v});}}><option value="mensile">Mensile ×12</option><option value="trimestrale">Trimestrale ×4</option><option value="semestrale">Semestrale ×2</option><option value="annuale">Annuale ×1</option></select></td>
                           <td style={{...S.tdR,fontWeight:500,color:BRAND.oroD,background:"#FDF6EC"}}>€ {fmt(prevAnnuo)}</td>
                           <td style={{...S.tdR,fontWeight:500,color:tot>0?"#27AE60":"#ccc"}}>{tot>0?`€ ${fmt(tot)}`:"—"}</td>
@@ -2803,7 +2803,7 @@ export default function App() {
                         </tr>);
                         if(expandedVoci[voce.id]){
                           const subs=voce.subVoci||[];
-                          const addSub=()=>{const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],subVoci:[...subs,{id:Date.now(),voce:"Nuova sotto-voce",prevMensile:0,frequenza:"mensile",spese:[]}]};setCosti({...costi,[costiAnno]:v});};
+                          const addSub=()=>{ if(isReadOnly)return;const v=[...vociConTipo];v[idxGlobale]={...v[idxGlobale],subVoci:[...subs,{id:Date.now(),voce:"Nuova sotto-voce",prevMensile:0,frequenza:"mensile",spese:[]}]};setCosti({...costi,[costiAnno]:v});};
                           rows.push(<tr key={`sub_${voce.id}`} style={{background:"#FFF8F0"}}>
                             <td colSpan={8} style={{padding:"6px 14px 10px 28px"}}>
                               <div style={{fontSize:11,color:"#E67E22",fontWeight:600,marginBottom:6}}>Sotto-voci di {voce.voce}</div>
@@ -4665,7 +4665,7 @@ export default function App() {
               </div>}
               {sfidaAtt2&&(()=>{
                 const ggR=Math.max(0,Math.round((new Date(sfidaAtt2.al)-new Date())/86400000));
-                const cl=agenti.map(ag=>({ag,val:calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al)})).sort((a,b)=>b.val-a.val);
+                const cl=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo).map(ag=>({ag,val:calcM2(ag.id,sfidaAtt2.metrica,sfidaAtt2.dal,sfidaAtt2.al)})).sort((a,b)=>b.val-a.val);
                 return(<div style={{...sezW,border:"2px solid #D4AC0D"}}>
                   <div style={{display:"flex",justifyContent:"space-between",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
                     <div><div style={{fontSize:warRiunione?20:15,fontWeight:700,color:"#D4AC0D",marginBottom:4}}>🏆 {sfidaAtt2.nome}</div><p style={{fontSize:12,color:"#888",margin:0}}>{METR2[sfidaAtt2.metrica]} · {fmtD(sfidaAtt2.dal)}→{fmtD(sfidaAtt2.al)} · 🎁 {sfidaAtt2.premio}</p></div>
@@ -4727,7 +4727,7 @@ export default function App() {
                 {sfideStor.map((s,i)=>{
                   const cl=s.snapshot
                     ?s.snapshot.map(x=>({ag:agenti.find(a=>a.id===x.agId)||{nome:x.nome,cognome:""},val:x.val}))
-                    :agenti.map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
+                    :agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo).map(ag=>({ag,val:calcM2(ag.id,s.metrica,s.dal,s.al)})).sort((a,b)=>b.val-a.val);
                   const top3=cl.filter(x=>x.val>0).slice(0,3);
                   const PEMOJI3=["🥇","🥈","🥉"];const PCLR3=["#D4AC0D","#888","#CD7F32"];
                   return(<div key={i} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
@@ -5818,7 +5818,7 @@ export default function App() {
                       onClick={()=>{
                         const voci=[...(costi[modalCostoVoce.anno]||mkCosti())];
                         voci[modalCostoVoce.idx]={...voci[modalCostoVoce.idx],spese:voci[modalCostoVoce.idx].spese.filter(x=>x.id!==s.id)};
-                        setCosti({...costi,[modalCostoVoce.anno]:voci});
+                        if(!isReadOnly){setCosti({...costi,[modalCostoVoce.anno]:voci});}
                         setModalCostoVoce({...modalCostoVoce,voce:voci[modalCostoVoce.idx]});
                       }}
                       onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>✕</button>
