@@ -627,7 +627,7 @@ export default function App() {
   const [gpFiltroFase,setGpFiltroFase]=useState("attive");
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
-  const [gpAnno,setGpAnno]=useState(annoCorrente);
+  const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
   const [warPeriodo,setWarPeriodo]=useState("settimana");
@@ -4221,7 +4221,8 @@ export default function App() {
               : incarichi.filter(i=>i.categoria==="vendita"&&isScaduto(i)&&(isBroker||isErica||i.agenteListing===myAgentId));
 
             const incFiltrati=poolBase.filter(i=>{
-              if(gpAnno!=="Tutti"&&(i.dataInizio||"").slice(0,4)!==gpAnno)return false;
+              // Anno filtro: per attive non ha senso (vedi tutto ciò che è vivo)
+              if(gpCategoria!=="attive"&&gpAnno!=="Tutti"&&(i.dataInizio||"").slice(0,4)!==gpAnno)return false;
               if(gpFiltroFase!=="Tutte"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
               return true;
@@ -4333,14 +4334,14 @@ export default function App() {
                 {/* Categoria */}
                 <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
                   {[["attive","✅ Attive"],["venduti","🏆 Venduti"],["scaduti","⏰ Scaduti"]].map(([v,l])=>(
-                    <button key={v} onClick={()=>{setGpCategoria(v);setGpFiltroFase("Tutte");}} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:gpCategoria===v?"#fff":"transparent",color:gpCategoria===v?"#A8863A":"#888",fontWeight:gpCategoria===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:gpCategoria===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
+                    <button key={v} onClick={()=>{setGpCategoria(v);setGpFiltroFase("Tutte");if(v==="attive")setGpAnno("Tutti");else setGpAnno(annoCorrente);}} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:gpCategoria===v?"#fff":"transparent",color:gpCategoria===v?"#A8863A":"#888",fontWeight:gpCategoria===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:gpCategoria===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
                   ))}
                 </div>
-                {/* Anno */}
-                <select style={S.sel} value={gpAnno} onChange={e=>setGpAnno(e.target.value)}>
+                {/* Anno — solo per venduti e scaduti */}
+                {gpCategoria!=="attive"&&<select style={S.sel} value={gpAnno} onChange={e=>setGpAnno(e.target.value)}>
                   <option value="Tutti">Tutti gli anni</option>
                   {[...new Set([annoCorrente,...incarichi.map(i=>(i.dataInizio||"").slice(0,4)).filter(Boolean)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
-                </select>
+                </select>}
                 <div style={{display:"flex",gap:6,background:"#f0f0f0",borderRadius:7,padding:3}}>
                   {[["lista","☰ Lista"],["kanban","⧉ Kanban"]].map(([v,l])=>(
                     <button key={v} onClick={()=>setGpVista(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:gpVista===v?"#fff":"transparent",color:gpVista===v?"#A8863A":"#888",fontWeight:gpVista===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:gpVista===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
