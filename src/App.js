@@ -187,7 +187,8 @@ function LoginPage({onLogin}) {
         const ag = agentiDB.find(a=>a.email&&a.email.trim().toLowerCase()===emTrim&&a.password&&a.password===pw);
         if(ag){
           if(ag.attivo===false){setErr("Account disabilitato. Contatta il responsabile.");setLoad(false);return;}
-          onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo:ag.profilo==="Broker"?"Broker":"Agente",agentId:ag.id});
+          const ruolo=ag.profilo==="Broker"?"Broker":ag.profilo==="Back Office"?"BackOffice":ag.profilo==="Coach"?"Coach":"Agente";
+          onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo,agentId:ag.id,profilo:ag.profilo});
         } else {
           setErr("Credenziali non corrette.");setLoad(false);
         }
@@ -215,9 +216,24 @@ function LoginPage({onLogin}) {
 
 function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isBroker = utente?.ruolo==="Broker";
+  const isBackOffice = utente?.ruolo==="BackOffice";
+  const isCoach = utente?.ruolo==="Coach";
+  const isCollab = utente?.profilo==="Collaborazione Agenzia";
+  // BackOffice e Coach vedono tutto come Broker (read), BackOffice può anche scrivere
+  const canViewAll = isBroker||isBackOffice||isCoach;
+  // Chi può compilare pratiche (ruolo Erica RT)
+  const canEditPratiche = isBroker||isBackOffice||(myAgentId===5);
+  // Chi NON appare nei report/classifiche/fatture
+  const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
+  // Read only: Coach non può inserire dati
+  const isReadOnly = isCoach;
   const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
+  const TAB_COACH=["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","Report Agenti","Fatture Agenti","One-to-One","Agenti"];
+  const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
+    if(isBackOffice) return TAB_BACKOFFICE.includes(t.id);
+    if(isCoach) return TAB_COACH.includes(t.id);
     return TAB_AGENTE.includes(t.id);
   });
   return (
@@ -225,7 +241,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
       <div style={{padding:"1.5rem 1.25rem 1.25rem",borderBottom:"1px solid rgba(255,255,255,0.08)"}}>
         <div style={{fontSize:28,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>à</span>sa</div>
         <div style={{fontSize:8,letterSpacing:"0.3em",color:"rgba(255,255,255,0.4)",borderTop:"1px solid rgba(255,255,255,0.2)",paddingTop:3,marginTop:3}}>IMMOBILIARE</div>
-        <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>{isBroker?"Gestionale interno":"Area agente"}</div>
+        <div style={{marginTop:8,fontSize:11,color:"rgba(255,255,255,0.35)"}}>{isBroker?"Broker":isBackOffice?"Back Office":isCoach?"Coach 👁":isCollab?"Collaborazione":"Agente"}</div>
       </div>
       <nav style={{flex:1,padding:"0.75rem 0",overflowY:"auto"}}>
         {tabsVisibili.map(t=>{
@@ -690,6 +706,17 @@ export default function App() {
   const [mioFatStato,setMioFatStato]=useState("Tutti");
 
   const isBroker = utente?.ruolo==="Broker";
+  const isBackOffice = utente?.ruolo==="BackOffice";
+  const isCoach = utente?.ruolo==="Coach";
+  const isCollab = utente?.profilo==="Collaborazione Agenzia";
+  // BackOffice e Coach vedono tutto come Broker (read), BackOffice può anche scrivere
+  const canViewAll = isBroker||isBackOffice||isCoach;
+  // Chi può compilare pratiche (ruolo Erica RT)
+  const canEditPratiche = isBroker||isBackOffice||(myAgentId===5);
+  // Chi NON appare nei report/classifiche/fatture
+  const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
+  // Read only: Coach non può inserire dati
+  const isReadOnly = isCoach;
   const myAgentId = utente?.agentId||null;
 
   // Costi personali agente (per agente loggato)
@@ -763,7 +790,7 @@ export default function App() {
     if(i.archiviato&&!mostraArchiviati) return false;
     if(i.categoria!==subInc) return false;
     // Agente vede solo i propri incarichi
-    if(!isBroker&&myAgentId&&i.agenteListing!==myAgentId) return false;
+    if(!canViewAll&&myAgentId&&i.agenteListing!==myAgentId) return false;
     const s=statoInc(i);
     if(fIncStato!=="Tutti"&&s!==fIncStato) return false;
     if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno) return false;
@@ -777,7 +804,7 @@ export default function App() {
       if(i.archiviato)return false;
       if(i.categoria!==subInc)return false;
       // Agente vede solo i propri
-      if(!isBroker&&myAgentId&&i.agenteListing!==myAgentId)return false;
+      if(!canViewAll&&myAgentId&&i.agenteListing!==myAgentId)return false;
       if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno)return false;
       if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese)return false;
       if(isBroker&&fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg))return false;
@@ -3703,11 +3730,12 @@ export default function App() {
                 </div>}
 
                 <button style={{width:"100%",padding:11,background:opSaved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background .3s"}} onClick={()=>{
+                  if(isReadOnly)return;
                   const cached=opFormCache[cacheKey]||{};
                   salvaGiornata(agId,data,cached);
                   setOpSaved(true);
                   setTimeout(()=>setOpSaved(false),2000);
-                }}>{opSaved?"✓ Salvato!":"Salva giornata"}</button>
+                }} disabled={isReadOnly} style={{width:"100%",padding:11,background:isReadOnly?"#ccc":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer",transition:"background .3s"}}>{isReadOnly?"👁 Solo lettura":opSaved?"✓ Salvato!":"Salva giornata"}</button>
               </div>);
             };
 
@@ -4195,9 +4223,9 @@ export default function App() {
           {/* GESTIONE PRATICHE */}
           {tab==="Gestione Pratiche"&&(()=>{
             const isErica = myAgentId===5;
-            const canEditErica = isBroker||isErica;
-            const canEditAgente = (inc) => isBroker||isErica||(inc&&inc.agenteListing===myAgentId);
-            const canSee2=(i)=>isBroker||isErica||i.agenteListing===myAgentId;
+            const canEditErica = canEditPratiche;
+            const canEditAgente = (inc) => canEditPratiche||(inc&&inc.agenteListing===myAgentId);
+            const canSee2=(i)=>canViewAll||isErica||i.agenteListing===myAgentId;
             const incAttivi=incarichi.filter(i=>!i.archiviato&&i.categoria==="vendita"&&canSee2(i));
             const fasi=fasiConfig||FASI;
 
@@ -4742,7 +4770,7 @@ export default function App() {
             </div>
             {/* Selezione agente */}
             <div style={{display:"flex",gap:8,marginBottom:"1.25rem",flexWrap:"wrap"}}>
-              {agenti.filter(a=>a.profilo!=="Broker").map(ag=>{
+              {agenti.filter(a=>a.profilo!=="Broker"&&a.profilo!=="Back Office"&&a.profilo!=="Coach"&&a.profilo!=="Collaborazione Agenzia").map(ag=>{
                 const nInc=(oneToOne[ag.id]||[]).length;
                 const isSel=otoAgSel===ag.id;
                 return(<button key={ag.id} onClick={()=>setOtoAgSel(ag.id)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:8,border:`1.5px solid ${isSel?BRAND.oro:"var(--color-border-tertiary)"}`,background:isSel?"#FDF6EC":"var(--color-background-primary)",cursor:"pointer"}}>
