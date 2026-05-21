@@ -1787,7 +1787,7 @@ export default function App() {
                 <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer",color:BRAND.grigio}}>
                   <input type="checkbox" checked={mostraArchiviati} onChange={e=>setMostraArchiviati(e.target.checked)}/> Mostra archiviati
                 </label>
-                <button style={S.btnP} onClick={()=>{setFormInc(emptyInc(subInc));setShowInc("new");}}>+ Nuovo incarico</button>
+                <button style={S.btnP} onClick={()=>{setFormInc(emptyInc(subInc));if(!isReadOnly)setShowInc("new");}}>+ Nuovo incarico</button>
               </div>
             </div>
             <FiltriInc/>
@@ -1888,7 +1888,7 @@ export default function App() {
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
                       {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
-                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Prop.</button>}
+                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
                       {!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
                       :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩</button>}
                     </div>
@@ -1927,7 +1927,7 @@ export default function App() {
                             </div>);
                           })
                         }
-                        {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={{...S.btnG,width:"100%",marginTop:4,fontSize:12}} onClick={e=>{e.stopPropagation();setFormProp(emptyProp(inc.categoria,inc));setShowProp("new");}}>+ Nuova proposta</button>}
+                        {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={{...S.btnG,width:"100%",marginTop:4,fontSize:12}} onClick={e=>{e.stopPropagation();setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Nuova proposta</button>}
                         <button style={{...S.btn,width:"100%",marginTop:6,fontSize:12,color:"#533AB7",borderColor:"#533AB7"}} onClick={e=>{e.stopPropagation();setGpPraticaSel(inc.id);setTab("Gestione Pratiche");}}>📋 Apri pratica RT</button>
                       </div>
                     </div>
@@ -1969,7 +1969,7 @@ export default function App() {
               <SubTabs value={subProp} onChange={v=>{setSubProp(v);setFPropStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Affitti"}]}/>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                 <button style={{...S.btnP,background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>{setCercaIncAg("");setShowSelIncaricoAg(true);}}>🏢 Proposta su immobile agenzia</button>
-                <button style={S.btnP} onClick={()=>{setFormProp(emptyProp(subProp));setShowProp("new");}}>+ Nuova proposta (collab.)</button>
+                <button style={S.btnP} onClick={()=>{setFormProp(emptyProp(subProp));if(!isReadOnly)setShowProp("new");}}>+ Nuova proposta (collab.)</button>
               </div>
             </div>
             <FiltriProp/>
@@ -2049,7 +2049,7 @@ export default function App() {
                       {puoGestire&&<button style={S.btnP} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);}}>Gestisci</button>}
                       {!puoGestire&&["Accettata","Accettata con Vincolo"].includes(p.stato)&&<span style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:600,border:"0.5px solid #27AE6044"}}>✓ Conclusa</span>}
                       {!puoGestire&&!["Accettata","Accettata con Vincolo"].includes(p.stato)&&<span style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>{p.stato}</span>}
-                      <button style={{...S.btn,fontSize:12,padding:"4px 8px"}} title="Modifica proposta" onClick={()=>{setFormProp({...p});setShowProp("edit");}}>✏️</button>
+                      <button style={{...S.btn,fontSize:12,padding:"4px 8px"}} title="Modifica proposta" onClick={()=>{setFormProp({...p});if(!isReadOnly)setShowProp("edit");}}>✏️</button>
                       <button style={{...S.btnD,fontSize:11,padding:"3px 8px"}} title="Archivia" onClick={()=>{if(window.confirm(`Archiviare la proposta per "${p.nomeAcquirente}"?`))archiviaProp(p.id);}}>📦</button>
                     </div>
                   </td>
@@ -2183,7 +2183,7 @@ export default function App() {
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {!v.bloccato&&<><button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
                       <button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
-                      <button style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});setShowGestVend(v);}}>✏️</button></>}
+                      <button style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});if(!isReadOnly)setShowGestVend(v);}}>✏️</button></>}
                       <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:v.bloccato?"#27AE60":"#E67E22"}} onClick={()=>setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x))}>{v.bloccato?"🔓":"🔒"}</button>
                       <button style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>{if(window.confirm("Archiviare?"))archiviaVend(v.id);}}>📦</button>
                     </div>
@@ -4277,12 +4277,12 @@ export default function App() {
               if(azPr.fatto){delete azPr.data;azPr.fatto=false;}
               else{azPr.fatto=true;azPr.data=todayStr();azPr.daChi=utente?.nome||"?";}
               fasePr[azK]=azPr;fasiPr[faseK]=fasePr;
-              setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
+              if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
             };
             const setDataAzione=(incId,faseK,azK,data)=>{
               const pr=getPr(incId);
               const fasiPr={...pr.fasi,[faseK]:{...(pr.fasi[faseK]||{}),[azK]:{...(pr.fasi[faseK]?.[azK]||{}),data}}};
-              setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
+              if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
             };
 
             // Vista SCHEDA pratica singola
@@ -5424,7 +5424,7 @@ export default function App() {
                     setFormProp(emptyProp(subProp,i));
                     // Pre-imposta agente acquirente con l'agente loggato se non broker
                     if(!isBroker&&myAgentId) setFormProp(fp=>({...fp,...emptyProp(subProp,i),agenteAcquirente:myAgentId,percAcquirente:agenti.find(a=>a.id===myAgentId)?.percAcquirente||0}));
-                    setShowProp("new");
+                    if(!isReadOnly)setShowProp("new");
                     setShowSelIncaricoAg(false);
                   }}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -5550,7 +5550,7 @@ export default function App() {
           </div>
           <div><label style={S.lbl}>Note</label><textarea style={{...S.inp,resize:"vertical",minHeight:60}} value={formInc.note||""} onChange={e=>setFormInc({...formInc,note:e.target.value})}/></div>
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem"}}>
-            <div>{showInc!=="new"&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(showInc.categoria,showInc));setShowInc(null);setShowProp("new");}}>+ Crea Proposta</button>}</div>
+            <div>{showInc!=="new"&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(showInc.categoria,showInc));setShowInc(null);if(!isReadOnly)setShowProp("new");}}>+ Crea Proposta</button>}</div>
             <div style={{display:"flex",gap:8}}><button style={S.btn} onClick={()=>setShowInc(null)}>Annulla</button><button style={S.btnP} onClick={salvaInc}>Salva</button></div>
           </div>
         </div>
