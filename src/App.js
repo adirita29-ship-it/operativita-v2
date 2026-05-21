@@ -628,6 +628,7 @@ export default function App() {
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
   const [gpAnno,setGpAnno]=useState(annoCorrente);
+  const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
   const [warPeriodo,setWarPeriodo]=useState("settimana");
   const [warDal,setWarDal]=useState(todayStr());
@@ -4207,13 +4208,21 @@ export default function App() {
             const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));return al;};
             const faseCorrente=(incId)=>{const pr=getPr(incId);let last=null;fasi.forEach(f=>{if(Object.values(pr.fasi[f.k]||{}).some(a=>a.fatto))last=f;});return last||fasi[0];};
 
-            // Filtri
-            // Pratica "attiva" = incarico senza venduto concluso collegato
-            const isAttiva=(inc)=>!venduti.find(v=>v.incaricoId===inc.id||proposte.find(p=>p.incaricoId===inc.id&&p.id===v.propostaId));
-            const incFiltrati=incAttivi.filter(i=>{
+            // Categorie
+            const hasVenduto=(inc)=>!!venduti.find(v=>proposte.find(p=>p.incaricoId===inc.id&&p.id===v.propostaId)||v.incaricoId===inc.id);
+            const isScaduto=(inc)=>!hasVenduto(inc)&&inc.scadenza&&inc.scadenza<todayStr();
+            const isAttiva=(inc)=>!hasVenduto(inc)&&!isScaduto(inc);
+
+            // Pool base per categoria
+            const poolBase=gpCategoria==="attive"
+              ? incAttivi.filter(i=>isAttiva(i))
+              : gpCategoria==="venduti"
+              ? incarichi.filter(i=>i.categoria==="vendita"&&hasVenduto(i)&&(isBroker||isErica||i.agenteListing===myAgentId))
+              : incarichi.filter(i=>i.categoria==="vendita"&&isScaduto(i)&&(isBroker||isErica||i.agenteListing===myAgentId));
+
+            const incFiltrati=poolBase.filter(i=>{
               if(gpAnno!=="Tutti"&&(i.dataInizio||"").slice(0,4)!==gpAnno)return false;
-              if(gpFiltroFase==="attive"&&!isAttiva(i))return false;
-              if(gpFiltroFase!=="Tutte"&&gpFiltroFase!=="attive"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
+              if(gpFiltroFase!=="Tutte"&&faseCorrente(i.id)?.k!==gpFiltroFase)return false;
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
               return true;
             });
@@ -4319,8 +4328,15 @@ export default function App() {
             return(<div style={S.sec}>
               {/* Header */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
-                <h2 style={{fontSize:16,fontWeight:600,margin:0}}>Gestione Pratiche <span style={{fontSize:13,color:"#888",fontWeight:400}}>({incFiltrati.length} pratiche)</span></h2>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <h2 style={{fontSize:16,fontWeight:600,margin:0}}>Gestione Pratiche <span style={{fontSize:13,color:"#888",fontWeight:400}}>({incFiltrati.length} {gpCategoria==="attive"?"attive":gpCategoria==="venduti"?"vendute":"scadute"}{gpAnno!=="Tutti"?` · ${gpAnno}`:""})</span></h2>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                {/* Categoria */}
+                <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
+                  {[["attive","✅ Attive"],["venduti","🏆 Venduti"],["scaduti","⏰ Scaduti"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>{setGpCategoria(v);setGpFiltroFase("Tutte");}} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:gpCategoria===v?"#fff":"transparent",color:gpCategoria===v?"#A8863A":"#888",fontWeight:gpCategoria===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:gpCategoria===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
+                  ))}
+                </div>
+                {/* Anno */}
                 <select style={S.sel} value={gpAnno} onChange={e=>setGpAnno(e.target.value)}>
                   <option value="Tutti">Tutti gli anni</option>
                   {[...new Set([annoCorrente,...incarichi.map(i=>(i.dataInizio||"").slice(0,4)).filter(Boolean)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
@@ -4334,8 +4350,7 @@ export default function App() {
               </div>
               {/* Filtri */}
               <div style={{display:"flex",gap:6,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"}}>
-                <button onClick={()=>setGpFiltroFase("attive")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="attive"?"#27AE60":"#ddd"}`,background:gpFiltroFase==="attive"?"#E9F7EF":"#fff",color:gpFiltroFase==="attive"?"#085041":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:gpFiltroFase==="attive"?500:400}}>✅ Attive ({incAttivi.filter(i=>!venduti.find(v=>v.incaricoId===i.id||proposte.find(p=>p.incaricoId===i.id&&p.id===v.propostaId))).length})</button>
-                <button onClick={()=>setGpFiltroFase("Tutte")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="Tutte"?"#185FA5":"#ddd"}`,background:gpFiltroFase==="Tutte"?"#E6F1FB":"#fff",color:gpFiltroFase==="Tutte"?"#0C447C":"#888",cursor:"pointer",fontFamily:"inherit"}}>Tutte ({incAttivi.length})</button>
+                <button onClick={()=>setGpFiltroFase("Tutte")} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase==="Tutte"?"#185FA5":"#ddd"}`,background:gpFiltroFase==="Tutte"?"#E6F1FB":"#fff",color:gpFiltroFase==="Tutte"?"#0C447C":"#888",cursor:"pointer",fontFamily:"inherit"}}>Tutte ({poolBase.length})</button>
                 {fasi.filter((_,i)=>[0,4,7,9].includes(i)).map(f=>{
                   const n=incAttivi.filter(i=>faseCorrente(i.id)?.k===f.k).length;
                   const clr=faseClr(f.k);
