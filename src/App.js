@@ -656,6 +656,7 @@ export default function App() {
   const [sfide,setSfide]=useState(_ls?.sfide||[]);
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [showFormSfida,setShowFormSfida]=useState(false);
+  const [warSubTab,setWarSubTab]=useState("performance");
   const [oneToOne,setOneToOne]=useState(_ls?.oneToOne||{});
   const [otoAgSel,setOtoAgSel]=useState(null);
   const [otoForm,setOtoForm]=useState({data:todayStr(),noteIncontro:"",obiettivi:"",criticita:"",azioni:"",notePrivate:""});
@@ -4653,16 +4654,18 @@ export default function App() {
             };
             const [dal2,al2]=getPeriodo();
             const calcM2=(agId,metr,d1,d2)=>{
-              const incP=incarichi.filter(i=>i.agenteListing===agId&&i.dataInizio>=d1&&i.dataInizio<=d2);
-              const vendP=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(v.agenteListing===agId||v.agenteAcquirente===agId)&&dc>=d1&&dc<=d2;});
-              const gg=Object.entries(operativita[agId]||{}).filter(([d])=>d>=d1&&d<=d2);
+              const agIdN=Number(agId);
+              const incP=incarichi.filter(i=>Number(i.agenteListing)===agIdN&&i.dataInizio>=d1&&i.dataInizio<=d2);
+              const vendP=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agIdN||Number(v.agenteAcquirente)===agIdN)&&dc>=d1&&dc<=d2;});
+              const opAg=operativita[agIdN]||operativita[String(agIdN)]||{};
+              const gg=Object.entries(opAg).filter(([d])=>d&&d>=d1&&d<=d2);
               const sumOp=k=>gg.reduce((s,[,g])=>s+Number(g[k]||0),0);
               const sumCt=k=>gg.reduce((s,[,g])=>s+Number((g.chiamate_tipi||{})[k]||0),0);
               const chTot=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
               const volant=gg.reduce((s,[,g])=>s+((g.attImm||[]).filter(x=>x.lettAMV||x.lettOH).length),0);
               switch(metr){
                 case "acquisizioni": return incP.length;
-                case "fatturato": return vendP.reduce((s,v)=>{let p=0;if(v.agenteListing===agId)p+=Number(v.provvVenditore||0);if(v.agenteAcquirente===agId)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                case "fatturato": return vendP.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agIdN)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agIdN)p+=Number(v.provvAcquirente||0);return s+p;},0);
                 case "chiamate": return chTot;
                 case "chiamate_ci": return sumCt("centri_inf");
                 case "chiamate_cp": return sumCt("clienti_pass");
@@ -4825,13 +4828,14 @@ export default function App() {
 
             // ── VISTA BROKER / BACKOFFICE ──
             return(<div style={S.sec}>
-              {/* Header */}
+              {/* Header con sub-tab e periodo */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:10}}>
-                <div>
-                  <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room</h2>
-                  <div style={{fontSize:12,color:"#888",marginTop:3}}>{fmtD(dal2)} → {fmtD(al2)}</div>
+                <div style={{display:"flex",gap:0,borderBottom:"2px solid #e8e5e0"}}>
+                  {[["performance","📊 Performance"],["traguardo","🏆 Traguardo Volante"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setWarSubTab(v)} style={{padding:"8px 18px",fontSize:13,border:"none",background:"none",borderBottom:`2px solid ${warSubTab===v?"#A8863A":"transparent"}`,color:warSubTab===v?"#A8863A":"#888",fontWeight:warSubTab===v?600:400,cursor:"pointer",fontFamily:"inherit",marginBottom:-2}}>{l}</button>
+                  ))}
                 </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                   <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
                     {[["settimana","Settimana"],["mese","Mese"],["anno","Anno"],["custom","Custom"]].map(([v,l])=>(
                       <button key={v} onClick={()=>setWarPeriodo(v)} style={{padding:"4px 10px",fontSize:11,borderRadius:5,border:"none",background:warPeriodo===v?"#fff":"transparent",color:warPeriodo===v?"#A8863A":"#888",fontWeight:warPeriodo===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:warPeriodo===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
@@ -4842,9 +4846,13 @@ export default function App() {
                     <span style={{fontSize:12,color:"#888"}}>→</span>
                     <input type="date" style={S.sel} value={warAl} onChange={e=>setWarAl(e.target.value)}/>
                   </div>}
+                  <span style={{fontSize:11,color:"#aaa"}}>{fmtD(dal2)} → {fmtD(al2)}</span>
                 </div>
               </div>
+              {warSubTab==="traguardo"&&<div>
 
+              </div>}
+              {warSubTab==="performance"&&<div>
               {/* KPI team */}
               {(()=>{
                 const totFatt=agentiProd.reduce((s,ag)=>s+calcM2(ag.id,"fatturato",dal2,al2),0);
@@ -5030,6 +5038,8 @@ export default function App() {
                 </div>);
               })()}
 
+              </div>}
+              {warSubTab==="traguardo"&&<div>
               {/* Storico sfide */}
               {sfideStor.length>0&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
                 <div style={{background:"#fafal8",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
@@ -5087,6 +5097,7 @@ export default function App() {
               </div>)}
 
               {!showFormSfida&&isBroker&&!sfidaAtt2&&<button onClick={()=>setShowFormSfida(true)} style={{...S.btnP,fontSize:12,padding:"8px 18px"}}>+ Crea nuovo traguardo</button>}
+              </div>}
 
             </div>);
           })()}
