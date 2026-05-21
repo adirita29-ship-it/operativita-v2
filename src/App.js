@@ -2279,7 +2279,7 @@ export default function App() {
             {reportAnno!=="Tutti"&&<p style={{fontSize:11,color:"#888",margin:"0 0 12px",padding:"6px 10px",background:"#FEF9E7",borderRadius:6,borderLeft:"3px solid #D4AC0D"}}>📅 Filtro per <strong>data di competenza agenzia</strong> — le pratiche con competenza impostata manualmente seguono quella data, non la data atto</p>}
             <div style={{...S.tblWrap,overflowX:"auto"}}><table style={{...S.tbl,minWidth:isMobile?500:400}}>
               <thead><tr>{["Agente","Profilo","Incarichi","N° Trans.","Provv. Agenzia","Incassato","Quota Agente","Quota Buyer","Tot. Ag.+Buyer","da ann. prec."].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-              <tbody>{agenti.map(ag=>{
+              <tbody>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(ag=>{
                 const vAg=vendReport.filter(v=>v.agenteListing===ag.id||v.agenteAcquirente===ag.id||v.buyerListing===ag.id||v.buyer===ag.id);
                 const incAg=incarichi.filter(i=>i.agenteListing===ag.id&&!i.archiviato&&(reportAnno==="Tutti"||getAnno(i.dataInizio)===reportAnno)).length;
                 const nTV=vAg.filter(v=>v.agenteListing===ag.id&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
