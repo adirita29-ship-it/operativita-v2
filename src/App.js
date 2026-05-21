@@ -225,7 +225,6 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isReadOnly = isCoach;
   const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
   const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
-  const myAgentId = coachAgentId||utente?.agentId||null;
   const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","One-to-One","Fatture Agente"];
   const TAB_COACH=coachIsAgenzia
     ?["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
@@ -706,17 +705,17 @@ export default function App() {
   const [mioFatMese,setMioFatMese]=useState("Tutti");
   const [mioFatStato,setMioFatStato]=useState("Tutti");
 
-
-
-
-
-
-
-
-
-
-
-
+  const isBroker = utente?.ruolo==="Broker";
+  const isBackOffice = utente?.ruolo==="BackOffice";
+  const isCoach = utente?.ruolo==="Coach";
+  const isCollab = utente?.profilo==="Collaborazione Agenzia";
+  const coachIsAgenzia = isCoach&&(!utente?.coachTarget||utente.coachTarget==="agenzia");
+  const coachAgentId = isCoach&&!coachIsAgenzia?Number(utente?.coachTarget):null;
+  const canViewAll = isBroker||isBackOffice||(isCoach&&coachIsAgenzia);
+  const isReadOnly = isCoach;
+  const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
+  const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
+  const myAgentId = coachAgentId||utente?.agentId||null;
 
   // Costi personali agente (per agente loggato)
   const [costiAgente,setCostiAgente]=useState(_ls?.costiAgente||{});
@@ -3411,7 +3410,7 @@ export default function App() {
 
             // Helper: ottieni/salva giornata
             const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
-            const salvaGiornata = (agId,data,dati) => {
+            const salvaGiornata = (agId,data,dati) => { if(isReadOnly) return;
               setOperativita(prev=>({...prev,[agId]:{...(prev[agId]||{}),[data]:{...(getGiornata(agId,data)),...dati}}}));
             };
 
@@ -3734,7 +3733,7 @@ export default function App() {
                   salvaGiornata(agId,data,cached);
                   setOpSaved(true);
                   setTimeout(()=>setOpSaved(false),2000);
-                }} disabled={isReadOnly} style={{width:"100%",padding:11,background:isReadOnly?"#ccc":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer",transition:"background .3s"}}>{isReadOnly?"👁 Solo lettura":opSaved?"✓ Salvato!":"Salva giornata"}</button>
+                }} disabled={isReadOnly} style={{width:"100%",padding:11,background:isReadOnly?"#ccc":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer",transition:"background .3s"}}>{isReadOnly?"👁 Solo lettura":isReadOnly?"👁 Solo lettura":opSaved?"✓ Salvato!":"Salva giornata"}</button>
               </div>);
             };
 
@@ -3784,6 +3783,7 @@ export default function App() {
                   <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📅 Operatività</h2>
                 </div>
 
+                {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:13,color:"#2980B9",display:"flex",alignItems:"center",gap:8}}><span>👁</span><strong>Modalità sola lettura</strong></div>}
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
                   {[{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
