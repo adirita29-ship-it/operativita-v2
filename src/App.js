@@ -957,7 +957,7 @@ export default function App() {
   const totPagato=fatturaDati.reduce((s,x)=>s+Number(x.pag.importoPagato||0),0);
 
   const emptyInc=(cat="vendita")=>({categoria:cat,agenteListing:"",percListing:0,buyerListing:"",percBuyerListing:0,fonte:"",nominativo:"",comune:"",indirizzo:"",tipologia:"",dataInizio:todayStr(),scadenza:"",prezzoRichiesto:"",prezzoReale:"",provvPrevista:"",note:"",stato:"Attivo",archiviato:false,storicoRibassi:[]});
-  const salvaInc=()=>{
+  const salvaInc=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}
     if(!formInc.nominativo||!formInc.comune)return;
     const inc={...formInc,id:showInc==="new"?Date.now():showInc.id,prezzoRichiesto:Number(formInc.prezzoRichiesto),prezzoReale:Number(formInc.prezzoReale),provvPrevista:Number(formInc.provvPrevista),agenteListing:Number(formInc.agenteListing)||null,buyerListing:formInc.buyerListing?Number(formInc.buyerListing):null,percListing:Number(formInc.percListing||0),percBuyerListing:Number(formInc.percBuyerListing||0)};
     showInc==="new"?setIncarichi([...incarichi,inc]):setIncarichi(incarichi.map(i=>i.id===showInc.id?inc:i));
@@ -965,7 +965,7 @@ export default function App() {
   };
 
   const emptyProp=(cat="vendita",inc=null)=>({categoria:cat,tipo:inc?"da_incarico":"collaborazione",incaricoId:inc?inc.id:null,agenteListing:inc?inc.agenteListing:null,percListing:inc?inc.percListing:0,buyerListing:inc?inc.buyerListing:null,percBuyerListing:inc?inc.percBuyerListing:0,comuneImmobile:inc?inc.comune:"",indirizzoImmobile:inc?inc.indirizzo:"",tipologia:inc?inc.tipologia:"",nominativoVenditore:inc?inc.nominativo:"",agenziaEsterna:"",agenteAcquirente:"",percAcquirente:"",percProvvVenditore:"",percProvvAcquirente:"",buyer:"",percBuyer:0,nomeAcquirente:"",prezzoOfferto:"",vincolata:false,tipoVincolo:"",termineSubordine:"",scadenzaProposta:"",provvVenditore:inc?inc.provvPrevista:"",provvAcquirente:"",stato:"In attesa",noteStato:"",dataStato:todayStr(),dataVendita:"",dataAccettazione:"",storico:[{stato:"In attesa",data:nowISO()}],controproposte:[]});
-  const salvaProp=()=>{
+  const salvaProp=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}
     if(!formProp.comuneImmobile||!formProp.nomeAcquirente)return;
     if(showProp==="edit"){
       // Modifica proposta - aggiorna stato in base a vincolata
@@ -983,7 +983,7 @@ export default function App() {
     setProposte([...proposte,p]);setShowProp(null);
   };
 
-  const salvaStatoProp=()=>{
+  const salvaStatoProp=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}
     if(!showGestProp)return;
     const p=showGestProp; const ns=formStatoProp.stato||p.stato;
     const oggi=todayStr();
@@ -1015,8 +1015,8 @@ export default function App() {
     setShowGestProp(null);
   };
 
-  const salvaVend=()=>{if(!showGestVend)return;const u={...showGestVend,...formVend};u.statoIncasso=calcolaStatoIncasso(u);setVenduti(venduti.map(v=>v.id===showGestVend.id?u:v));setShowGestVend(null);};
-  const salvaPagamento=()=>{if(!showPagamento)return;setPagamentiFatture({...pagamentiFatture,[showPagamento.key]:{...formPagamento,importoPagato:Number(formPagamento.importoPagato||0)}});setShowPagamento(null);};
+  const salvaVend=()=>{ if(isReadOnly){alert("Sola lettura");return;}if(!showGestVend)return;const u={...showGestVend,...formVend};u.statoIncasso=calcolaStatoIncasso(u);setVenduti(venduti.map(v=>v.id===showGestVend.id?u:v));setShowGestVend(null);};
+  const salvaPagamento=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}if(!showPagamento)return;setPagamentiFatture({...pagamentiFatture,[showPagamento.key]:{...formPagamento,importoPagato:Number(formPagamento.importoPagato||0)}});setShowPagamento(null);};
   const esporta=()=>{const b=new Blob([JSON.stringify({agenti,incarichi,proposte,venduti,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,archiviati},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`gestionale_${todayStr()}.json`;a.click();URL.revokeObjectURL(u);};
   const importa=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.agenti)setAgenti(d.agenti);if(d.incarichi)setIncarichi(d.incarichi);if(d.proposte)setProposte(d.proposte);if(d.venduti)setVenduti(d.venduti);if(d.fonti)setFonti(d.fonti);if(d.tipologie)setTipologie(d.tipologie);if(d.vincoli)setVincoli(d.vincoli);if(d.tipiNeg)setTipiNeg(d.tipiNeg);if(d.pagamentiFatture)setPagamentiFatture(d.pagamentiFatture);if(d.archiviati)setArchiviati(d.archiviati);alert("Importato!");}catch{alert("File non valido.");}};r.readAsText(f);e.target.value="";};
 
@@ -1172,11 +1172,9 @@ export default function App() {
             <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={handleLogout}>Esci</button>
           </div>
         </div>
-        <div style={{flex:1,overflowY:"auto",position:"relative"}}>
-          {/* READONLY OVERLAY per Coach */}
-          {isReadOnly&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:9998,cursor:"not-allowed"}} onClick={e=>{e.stopPropagation();e.preventDefault();}} onMouseDown={e=>{e.stopPropagation();e.preventDefault();}}/>}
-          {isReadOnly&&<div style={{position:"fixed",top:10,left:"50%",transform:"translateX(-50%)",zIndex:9999,background:"#0C447C",color:"#fff",padding:"5px 14px",borderRadius:20,fontSize:12,fontWeight:500,pointerEvents:"none",boxShadow:"0 2px 8px rgba(0,0,0,.2)"}}>👁 Modalità sola lettura</div>}
+        <div style={{flex:1,overflowY:"auto"}}>
 
+          {isReadOnly&&<div style={{position:"sticky",top:0,zIndex:50,background:"#0C447C",color:"#fff",padding:"6px 0",fontSize:12,fontWeight:500,textAlign:"center",letterSpacing:".02em"}}>👁 Sola lettura — navigazione permessa, modifiche bloccate</div>}
           {/* DASHBOARD */}
           {tab==="Dashboard"&&(<div style={S.sec}>
 
