@@ -578,7 +578,7 @@ const getAlertFasi = (pratiche, incId) => {
 const METRB_LABELS={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 Clienti pass.",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
 export default function App() {
   const isMobile=useIsMobile();
-  const FASI_ATTIVE=fasiConfig||FASI; // usa config personalizzata se disponibile
+  const FASI_ATTIVE=fasiConfig||FASI;
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
   const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
@@ -644,13 +644,12 @@ export default function App() {
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
   const [opSaved,setOpSaved]=useState(false);
-  const [fasiConfig,setFasiConfig]=useState(_ls?.fasiConfig||null); // null = use default FASI
-  const [gpVista,setGpVista]=useState("lista"); // lista | kanban
+  const [fasiConfig,setFasiConfig]=useState(null);
+  const [impSezione,setImpSezione]=useState("generale");
+  const [impFaseSel,setImpFaseSel]=useState(0);
+  const [formNuovaAzione,setFormNuovaAzione]=useState({lbl:"",ruolo:"agente",alert:false});
+  const [gpVista,setGpVista]=useState("lista");
   const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
-  const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
-  const [gpPraticaSel,setGpPraticaSel]=useState(null); // incarico selezionato per scheda
-  const [impFasiTab,setImpFasiTab]=useState(0); // tab fase in impostazioni
-  const [formNuovaAzione,setFormNuovaAzione]=useState({lbl:"",ruolo:"agente",alert:false,obbligatoria:true});
   const [opFormSett,setOpFormSett]=useState({});
   const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
@@ -4215,7 +4214,7 @@ export default function App() {
             };
 
             // Fasi pipeline dal manuale
-            const FASI_LOCAL=[
+            const FASI=[
               {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
                 {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
                 {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
@@ -5385,85 +5384,81 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
-            <div style={{display:"flex",gap:6,marginBottom:"1.5rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
-              {[["gen","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(
-                <button key={v} onClick={()=>setImpFasiTab(v==="fasi"?0:-1)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${(v==="fasi"?impFasiTab>=0:impFasiTab<0)?"#A8863A":"transparent"}`,color:(v==="fasi"?impFasiTab>=0:impFasiTab<0)?"#A8863A":"#666",fontWeight:(v==="fasi"?impFasiTab>=0:impFasiTab<0)?600:400,fontFamily:"inherit"}}>{l}</button>
+            {/* Tab selector */}
+            <div style={{display:"flex",gap:0,marginBottom:"1.5rem",borderBottom:"1px solid #eee"}}>
+              {[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setImpSezione(v)} style={{padding:"8px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${impSezione===v?"#A8863A":"transparent"}`,color:impSezione===v?"#A8863A":"#666",fontWeight:impSezione===v?600:400,fontFamily:"inherit",marginBottom:-1}}>{l}</button>
               ))}
             </div>
 
-            {isBroker&&impFasiTab>=0&&(()=>{
+            {/* FASI & AZIONI */}
+            {impSezione==="fasi"&&isBroker&&(()=>{
               const fasi=fasiConfig||FASI;
               const RUOLI=["agente","erica","broker","entrambi","tutti"];
               const RUOLO_LBL={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Agente+Erica",tutti:"Tutti"};
-              const faseSel=Math.min(impFasiTab,fasi.length-1);
-              const faseSelObj=fasi[faseSel]||fasi[0];
-              const updAzione=(fIdx,aIdx,updates)=>{
-                const nuove=fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:f.azioni.map((a,j)=>j!==aIdx?a:{...a,...updates})});
+              const faseSel=Math.min(impFaseSel,fasi.length-1);
+              const faseObj=fasi[faseSel]||fasi[0];
+              const updAzione=(aIdx,updates)=>setFasiConfig(fasi.map((f,i)=>i!==faseSel?f:{...f,azioni:f.azioni.map((a,j)=>j!==aIdx?a:{...a,...updates})}));
+              const delAzione=(aIdx)=>setFasiConfig(fasi.map((f,i)=>i!==faseSel?f:{...f,azioni:f.azioni.filter((_,j)=>j!==aIdx)}));
+              const moveAzione=(aIdx,dir)=>{
+                const nuove=fasi.map((f,i)=>{if(i!==faseSel)return f;const az=[...f.azioni];[az[aIdx],az[aIdx+dir]]=[az[aIdx+dir],az[aIdx]];return{...f,azioni:az};});
                 setFasiConfig(nuove);
               };
-              const delAzione=(fIdx,aIdx)=>setFasiConfig(fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:f.azioni.filter((_,j)=>j!==aIdx)}));
-              const addAzione=(fIdx)=>{
-                if(!formNuovaAzione.lbl.trim()) return;
-                setFasiConfig(fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));
-                setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false,obbligatoria:true});
-              };
-              const moveAzione=(fIdx,aIdx,dir)=>{
-                const nuove=fasi.map((f,i)=>{if(i!==fIdx)return f;const az=[...f.azioni];[az[aIdx],az[aIdx+dir]]=[az[aIdx+dir],az[aIdx]];return{...f,azioni:az};});
-                setFasiConfig(nuove);
+              const addAzione=()=>{
+                if(!formNuovaAzione.lbl.trim())return;
+                setFasiConfig(fasi.map((f,i)=>i!==faseSel?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));
+                setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false});
               };
               return(<div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
-                  <div style={{fontSize:13,color:"#888"}}>{fasi.length} fasi configurate · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni totali</div>
-                  {fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C",borderColor:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare le fasi predefinite?"))setFasiConfig(null);}}>↺ Ripristina default</button>}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <span style={{fontSize:12,color:"#888"}}>{fasi.length} fasi · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni totali</span>
+                  {fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C",borderColor:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare le fasi predefinite?"))setFasiConfig(null);}}>↺ Default</button>}
                 </div>
                 {/* Selector fasi */}
-                <div style={{display:"flex",gap:4,marginBottom:"1rem",flexWrap:"wrap"}}>
+                <div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>
                   {fasi.map((f,i)=>(
-                    <button key={f.k} onClick={()=>setImpFasiTab(i)} style={{padding:"4px 12px",fontSize:11,borderRadius:20,border:`0.5px solid ${faseSel===i?"#A8863A":"#ddd"}`,background:faseSel===i?"#FEF9E7":"#fff",color:faseSel===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:faseSel===i?500:400}}>
+                    <button key={f.k} onClick={()=>setImpFaseSel(i)} style={{padding:"4px 10px",fontSize:11,borderRadius:16,border:`0.5px solid ${faseSel===i?"#A8863A":"#ddd"}`,background:faseSel===i?"#FEF9E7":"#fff",color:faseSel===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:faseSel===i?500:400}}>
                       {i+1}. {f.n}
                     </button>
                   ))}
                 </div>
-                {/* Azioni della fase selezionata */}
-                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
-                  <div style={{background:"#fafal8",padding:"10px 14px",borderBottom:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{fontSize:13,fontWeight:600,color:"#2c2c2c"}}>{faseSelObj.n}</div>
-                    <div style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{faseSelObj.timing}</div>
-                    <div style={{fontSize:11,color:"#888"}}>{faseSelObj.azioni.length} azioni</div>
+                {/* Azioni fase */}
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:10}}>
+                  <div style={{background:"#fafaf8",padding:"8px 14px",borderBottom:"0.5px solid #e8e5e0",display:"flex",gap:8,alignItems:"center"}}>
+                    <span style={{fontSize:13,fontWeight:600}}>{faseObj.n}</span>
+                    <span style={{fontSize:11,color:"#aaa"}}>{faseObj.timing}</span>
+                    <span style={{fontSize:11,color:"#888",marginLeft:"auto"}}>{faseObj.azioni.length} azioni</span>
                   </div>
-                  {faseSelObj.azioni.map((az,aIdx)=>(
-                    <div key={az.k} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderBottom:"0.5px solid #f5f5f5"}}>
-                      <div style={{display:"flex",gap:2}}>
-                        <button style={{...S.btn,padding:"1px 5px",fontSize:10,opacity:aIdx===0?0.3:1}} disabled={aIdx===0} onClick={()=>moveAzione(faseSel,aIdx,-1)}>▲</button>
-                        <button style={{...S.btn,padding:"1px 5px",fontSize:10,opacity:aIdx===faseSelObj.azioni.length-1?0.3:1}} disabled={aIdx===faseSelObj.azioni.length-1} onClick={()=>moveAzione(faseSel,aIdx,1)}>▼</button>
+                  {faseObj.azioni.map((az,aIdx)=>(
+                    <div key={az.k} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderBottom:"0.5px solid #f5f5f5"}}>
+                      <div style={{display:"flex",gap:1}}>
+                        <button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:aIdx===0?0.3:1}} disabled={aIdx===0} onClick={()=>moveAzione(aIdx,-1)}>▲</button>
+                        <button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:aIdx===faseObj.azioni.length-1?0.3:1}} disabled={aIdx===faseObj.azioni.length-1} onClick={()=>moveAzione(aIdx,1)}>▼</button>
                       </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <input style={{...S.inp,margin:0,fontSize:12,width:"100%"}} value={az.lbl} onChange={e=>updAzione(faseSel,aIdx,{lbl:e.target.value})}/>
-                      </div>
-                      <select style={{...S.sel,fontSize:11,padding:"4px 6px",minWidth:100}} value={az.ruolo||"agente"} onChange={e=>updAzione(faseSel,aIdx,{ruolo:e.target.value})}>
+                      <input style={{...S.inp,margin:0,flex:1,fontSize:12}} value={az.lbl} onChange={e=>updAzione(aIdx,{lbl:e.target.value})}/>
+                      <select style={{...S.sel,fontSize:11,padding:"4px 6px",minWidth:90}} value={az.ruolo||"agente"} onChange={e=>updAzione(aIdx,{ruolo:e.target.value})}>
                         {RUOLI.map(r=><option key={r} value={r}>{RUOLO_LBL[r]}</option>)}
                       </select>
                       <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#E74C3C",cursor:"pointer",whiteSpace:"nowrap"}}>
-                        <input type="checkbox" checked={az.alert||false} onChange={e=>updAzione(faseSel,aIdx,{alert:e.target.checked})}/> Alert
+                        <input type="checkbox" checked={az.alert||false} onChange={e=>updAzione(aIdx,{alert:e.target.checked})}/> Alert
                       </label>
-                      <button style={{...S.btnD,fontSize:11,padding:"2px 7px"}} onClick={()=>delAzione(faseSel,aIdx)}>✕</button>
+                      <button style={{...S.btnD,padding:"2px 6px",fontSize:11}} onClick={()=>delAzione(aIdx)}>✕</button>
                     </div>
                   ))}
-                  <div style={{padding:"10px 14px",background:"#fafal8",borderTop:"0.5px solid #e8e5e0",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                    <input style={{...S.inp,margin:0,flex:2,minWidth:150,fontSize:12}} value={formNuovaAzione.lbl} placeholder="+ Nuova azione da aggiungere..." onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})}
-                      onKeyDown={e=>{if(e.key==="Enter")addAzione(faseSel);}}/>
+                  <div style={{padding:"8px 14px",background:"#fafaf8",borderTop:"0.5px solid #e8e5e0",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                    <input style={{...S.inp,margin:0,flex:2,minWidth:140,fontSize:12}} value={formNuovaAzione.lbl} placeholder="+ Nuova azione..." onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addAzione()}/>
                     <select style={{...S.sel,fontSize:11}} value={formNuovaAzione.ruolo} onChange={e=>setFormNuovaAzione({...formNuovaAzione,ruolo:e.target.value})}>
                       {RUOLI.map(r=><option key={r} value={r}>{RUOLO_LBL[r]}</option>)}
                     </select>
-                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={formNuovaAzione.alert} onChange={e=>setFormNuovaAzione({...formNuovaAzione,alert:e.target.checked})}/> Alert</label>
-                    <button style={{...S.btnP,fontSize:12,padding:"5px 14px"}} onClick={()=>addAzione(faseSel)}>+ Aggiungi</button>
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={formNuovaAzione.alert||false} onChange={e=>setFormNuovaAzione({...formNuovaAzione,alert:e.target.checked})}/> Alert</label>
+                    <button style={{...S.btnP,fontSize:12,padding:"5px 12px"}} onClick={addAzione}>+ Aggiungi</button>
                   </div>
                 </div>
               </div>);
             })()}
 
-            {/* Generali */}
-            {impFasiTab<0&&<div>
+            {/* GENERALI */}
+            {impSezione==="generale"&&<div>
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
@@ -5523,6 +5518,7 @@ export default function App() {
             </div>
             </div>}
           </div>)}
+
         </div>
       </div>
 
