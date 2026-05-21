@@ -646,7 +646,7 @@ export default function App() {
   const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
-  const [warPeriodo,setWarPeriodo]=useState("settimana");
+  const [warPeriodo,setWarPeriodo]=useState("anno");
   const [warDal,setWarDal]=useState(todayStr());
   const [warAl,setWarAl]=useState(todayStr());
   const [warRiunione,setWarRiunione]=useState(false);
@@ -4671,7 +4671,7 @@ export default function App() {
                 case "chiamate_cp": return sumCt("clienti_pass");
                 case "chiamate_freddo": return sumCt("freddo");
                 case "oh": return sumOp("ohNum");
-                case "proposte": return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;
+                case "proposte": return proposte.filter(p=>(Number(p.agenteListing)===agIdN||Number(p.agenteAcquirente)===agIdN)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;
                 case "appuntamenti": return sumOp("appuntamenti");
                 case "immVisitati": return sumOp("immVisitati");
                 case "postSocial": return sumOp("postSocial");
