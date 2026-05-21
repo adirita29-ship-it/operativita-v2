@@ -578,6 +578,7 @@ const getAlertFasi = (pratiche, incId) => {
 const METRB_LABELS={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 Clienti pass.",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
 export default function App() {
   const isMobile=useIsMobile();
+  const FASI_ATTIVE=fasiConfig||FASI; // usa config personalizzata se disponibile
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
   const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
@@ -643,6 +644,13 @@ export default function App() {
   // Cache form giornata per evitare re-render a ogni carattere
   const [opFormCache,setOpFormCache]=useState({});
   const [opSaved,setOpSaved]=useState(false);
+  const [fasiConfig,setFasiConfig]=useState(_ls?.fasiConfig||null); // null = use default FASI
+  const [gpVista,setGpVista]=useState("lista"); // lista | kanban
+  const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
+  const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
+  const [gpPraticaSel,setGpPraticaSel]=useState(null); // incarico selezionato per scheda
+  const [impFasiTab,setImpFasiTab]=useState(0); // tab fase in impostazioni
+  const [formNuovaAzione,setFormNuovaAzione]=useState({lbl:"",ruolo:"agente",alert:false,obbligatoria:true});
   const [opFormSett,setOpFormSett]=useState({});
   const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
@@ -726,7 +734,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -4207,7 +4215,7 @@ export default function App() {
             };
 
             // Fasi pipeline dal manuale
-            const FASI=[
+            const FASI_LOCAL=[
               {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
                 {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
                 {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
@@ -4318,8 +4326,8 @@ export default function App() {
             // Calcola avanzamento pratica
             const avanzamento = (incId) => {
               const pr=getPratica(incId);
-              const totFasi=FASI.reduce((s,f)=>s+f.azioni.length,0);
-              const fatte=FASI.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
+              const totFasi=FASI_ATTIVE.reduce((s,f)=>s+f.azioni.length,0);
+              const fatte=FASI_ATTIVE.reduce((s,f)=>s+f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length,0);
               return totFasi>0?Math.round(fatte/totFasi*100):0;
             };
 
@@ -4327,7 +4335,7 @@ export default function App() {
             const getAlert = (incId) => {
               const pr=getPratica(incId);
               const alerts=[];
-              FASI.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
+              FASI_ATTIVE.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{
                 if(!(pr.fasi[f.k]||{})[a.k]?.fatto) alerts.push({fase:f.n,lbl:a.lbl,ruolo:a.ruolo});
               }));
               return alerts;
@@ -4379,7 +4387,7 @@ export default function App() {
                         {/* Fase corrente */}
                         {(()=>{
                           const p2=getPratica(inc.id);
-                          const ultimaFase=FASI.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
+                          const ultimaFase=FASI_ATTIVE.filter(f=>Object.values(p2.fasi[f.k]||{}).some(a=>a.fatto)).pop();
                           return <p style={{fontSize:11,color:"#aaa",margin:0}}>Fase corrente: {ultimaFase?ultimaFase.n:"Non avviata"}</p>;
                         })()}
                       </div>);
@@ -4433,7 +4441,7 @@ export default function App() {
                         ))}
                       </div>
                     )}
-                    {FASI.map(fase=>{
+                    {FASI_ATTIVE.map(fase=>{
                       const fasiPr=pr.fasi[fase.k]||{};
                       const fatte=fase.azioni.filter(a=>fasiPr[a.k]?.fatto).length;
                       const completa=fatte===fase.azioni.length;
@@ -5377,6 +5385,88 @@ export default function App() {
 
           {/* IMPOSTAZIONI */}
           {tab==="Impostazioni"&&(<div style={S.sec}>
+            {/* Selector sezione impostazioni */}
+            <div style={{display:"flex",gap:6,marginBottom:"1.5rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
+              {[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setImpFasiTab(v==="fasi"?-1:0)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${(v==="fasi"?impFasiTab===-1:impFasiTab>=0)?"#A8863A":"transparent"}`,color:(v==="fasi"?impFasiTab===-1:impFasiTab>=0)?"#A8863A":"#666",fontWeight:(v==="fasi"?impFasiTab===-1:impFasiTab>=0)?600:400,fontFamily:"inherit"}}>{l}</button>
+              ))}
+            </div>
+
+            {isBroker&&impFasiTab===-1&&(()=>{
+              const fasi=fasiConfig||FASI;
+              const RUOLI=["agente","erica","broker","entrambi","tutti"];
+              const RUOLO_LBL={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Agente+Erica",tutti:"Tutti"};
+              const faseAtt=fasi[impFasiTab===-1?0:impFasiTab]||fasi[0];
+              const faseSel=Number(sessionStorage.getItem("faseSel")||0);
+              const setFaseSel=(n)=>sessionStorage.setItem("faseSel",n);
+              const faseSelObj=fasi[faseSel]||fasi[0];
+              const updAzione=(fIdx,aIdx,updates)=>{
+                const nuove=fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:f.azioni.map((a,j)=>j!==aIdx?a:{...a,...updates})});
+                setFasiConfig(nuove);
+              };
+              const delAzione=(fIdx,aIdx)=>setFasiConfig(fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:f.azioni.filter((_,j)=>j!==aIdx)}));
+              const addAzione=(fIdx)=>{
+                if(!formNuovaAzione.lbl.trim()) return;
+                setFasiConfig(fasi.map((f,i)=>i!==fIdx?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));
+                setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false,obbligatoria:true});
+              };
+              const moveAzione=(fIdx,aIdx,dir)=>{
+                const nuove=fasi.map((f,i)=>{if(i!==fIdx)return f;const az=[...f.azioni];[az[aIdx],az[aIdx+dir]]=[az[aIdx+dir],az[aIdx]];return{...f,azioni:az};});
+                setFasiConfig(nuove);
+              };
+              return(<div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+                  <div style={{fontSize:13,color:"#888"}}>{fasi.length} fasi configurate · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni totali</div>
+                  {fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C",borderColor:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare le fasi predefinite?"))setFasiConfig(null);}}>↺ Ripristina default</button>}
+                </div>
+                {/* Selector fasi */}
+                <div style={{display:"flex",gap:4,marginBottom:"1rem",flexWrap:"wrap"}}>
+                  {fasi.map((f,i)=>(
+                    <button key={f.k} onClick={()=>{sessionStorage.setItem("faseSel",i);setFasiConfig([...fasi]);}} style={{padding:"4px 12px",fontSize:11,borderRadius:20,border:`0.5px solid ${faseSel===i?"#A8863A":"#ddd"}`,background:faseSel===i?"#FEF9E7":"#fff",color:faseSel===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:faseSel===i?500:400}}>
+                      {i+1}. {f.n}
+                    </button>
+                  ))}
+                </div>
+                {/* Azioni della fase selezionata */}
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
+                  <div style={{background:"#fafal8",padding:"10px 14px",borderBottom:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"#2c2c2c"}}>{faseSelObj.n}</div>
+                    <div style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{faseSelObj.timing}</div>
+                    <div style={{fontSize:11,color:"#888"}}>{faseSelObj.azioni.length} azioni</div>
+                  </div>
+                  {faseSelObj.azioni.map((az,aIdx)=>(
+                    <div key={az.k} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderBottom:"0.5px solid #f5f5f5"}}>
+                      <div style={{display:"flex",gap:2}}>
+                        <button style={{...S.btn,padding:"1px 5px",fontSize:10,opacity:aIdx===0?0.3:1}} disabled={aIdx===0} onClick={()=>moveAzione(faseSel,aIdx,-1)}>▲</button>
+                        <button style={{...S.btn,padding:"1px 5px",fontSize:10,opacity:aIdx===faseSelObj.azioni.length-1?0.3:1}} disabled={aIdx===faseSelObj.azioni.length-1} onClick={()=>moveAzione(faseSel,aIdx,1)}>▼</button>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <input style={{...S.inp,margin:0,fontSize:12,width:"100%"}} value={az.lbl} onChange={e=>updAzione(faseSel,aIdx,{lbl:e.target.value})}/>
+                      </div>
+                      <select style={{...S.sel,fontSize:11,padding:"4px 6px",minWidth:100}} value={az.ruolo||"agente"} onChange={e=>updAzione(faseSel,aIdx,{ruolo:e.target.value})}>
+                        {RUOLI.map(r=><option key={r} value={r}>{RUOLO_LBL[r]}</option>)}
+                      </select>
+                      <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#E74C3C",cursor:"pointer",whiteSpace:"nowrap"}}>
+                        <input type="checkbox" checked={az.alert||false} onChange={e=>updAzione(faseSel,aIdx,{alert:e.target.checked})}/> Alert
+                      </label>
+                      <button style={{...S.btnD,fontSize:11,padding:"2px 7px"}} onClick={()=>delAzione(faseSel,aIdx)}>✕</button>
+                    </div>
+                  ))}
+                  <div style={{padding:"10px 14px",background:"#fafal8",borderTop:"0.5px solid #e8e5e0",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                    <input style={{...S.inp,margin:0,flex:2,minWidth:150,fontSize:12}} value={formNuovaAzione.lbl} placeholder="+ Nuova azione da aggiungere..." onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})}
+                      onKeyDown={e=>{if(e.key==="Enter")addAzione(faseSel);}}/>
+                    <select style={{...S.sel,fontSize:11}} value={formNuovaAzione.ruolo} onChange={e=>setFormNuovaAzione({...formNuovaAzione,ruolo:e.target.value})}>
+                      {RUOLI.map(r=><option key={r} value={r}>{RUOLO_LBL[r]}</option>)}
+                    </select>
+                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={formNuovaAzione.alert} onChange={e=>setFormNuovaAzione({...formNuovaAzione,alert:e.target.checked})}/> Alert</label>
+                    <button style={{...S.btnP,fontSize:12,padding:"5px 14px"}} onClick={()=>addAzione(faseSel)}>+ Aggiungi</button>
+                  </div>
+                </div>
+              </div>);
+            })()}
+
+            {/* Generali */}
+            <div>
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
             <p style={{fontSize:12,color:"#aaa",margin:"0 0 12px"}}>Usati per calcolare lo "sconto" nella sezione Statistiche. Le provvigioni sotto soglia usano i minimi fissi invece della percentuale.</p>
@@ -5434,8 +5524,8 @@ export default function App() {
               <button style={S.btn} onClick={()=>importRef.current.click()}>⬆ Importa JSON</button>
               <button style={{...S.btnD,marginLeft:"auto"}} onClick={()=>{if(window.confirm("Attenzione: questa operazione cancella TUTTI i dati dal browser e ripristina i dati di esempio. Sei sicuro?")){{localStorage.removeItem(LS_KEY);window.location.reload();}}}}>🗑 Azzera tutti i dati</button>
             </div>
+            </div>
           </div>)}
-
         </div>
       </div>
 
