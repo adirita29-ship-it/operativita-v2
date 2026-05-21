@@ -646,7 +646,7 @@ export default function App() {
   const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
-  const [warPeriodo,setWarPeriodo]=useState("settimana");
+  const [warPeriodo,setWarPeriodo]=useState("anno");
   const [warDal,setWarDal]=useState(todayStr());
   const [warAl,setWarAl]=useState(todayStr());
   const [warRiunione,setWarRiunione]=useState(false);
@@ -2669,7 +2669,7 @@ export default function App() {
                   </div>
                   <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
-                      <thead><tr style={{background:"#fafaf8"}}>
+                      <thead><tr style={{background:"#F8F8F6"}}>
                         {["Voce","Tipo","Prev. mensile","Prev. annuo","Consuntivo"].map(h=><th key={h} style={{padding:"8px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>{h}</th>)}
                       </tr></thead>
                       <tbody>
@@ -2707,7 +2707,7 @@ export default function App() {
                   </div>
                   <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
-                      <thead><tr style={{background:"#fafaf8"}}>
+                      <thead><tr style={{background:"#F8F8F6"}}>
                         {["Voce","Prev. mensile","Consuntivo"].map(h=><th key={h} style={{padding:"8px 12px",fontSize:11,fontWeight:500,color:"#888",textAlign:"left",borderBottom:"1px solid #eee"}}>{h}</th>)}
                       </tr></thead>
                       <tbody>
@@ -4641,7 +4641,7 @@ export default function App() {
             const oggi2=todayStr();
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
-            const agentiProd=agenti.filter(a=>!["Broker","Back Office","Coach","Collaborazione Agenzia"].includes(a.profilo)&&a.attivo);
+            const agentiProd=agenti.filter(a=>a.profilo!=="Broker"&&a.profilo!=="Back Office"&&a.profilo!=="Coach"&&a.profilo!=="Collaborazione Agenzia");
             const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 C.Passati",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
             const PEMOJI2=["🥇","🥈","🥉","4°","5°"];
@@ -4918,7 +4918,7 @@ export default function App() {
                         ["📞 Chiamate",tC,"#533AB7",null,"totali"],
                         ["🚪 Open House",tO,"#854F0B",null,"effettuati"]
                       ].map(([l,v,c,p,s])=>(
-                        <div key={l} style={{background:"#fff",borderRadius:10,padding:"1rem",textAlign:"center",borderTop:"3px solid "+c,border:"1px solid "+c+"22",borderTopWidth:3}}>
+                        <div key={l} style={{background:"#fff",borderRadius:10,padding:"1rem",textAlign:"center",boxShadow:"inset 0 3px 0 "+c+", 0 0 0 1px "+c+"33"}}>
                           <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>{l}</div>
                           <div style={{fontSize:26,fontWeight:600,color:c,marginBottom:4}}>{v}</div>
                           {p!=null&&<div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden",margin:"4px 0"}}><div style={{height:"100%",width:p+"%",background:p>=100?"#27AE60":p>=70?"#E67E22":c,borderRadius:3}}/></div>}
@@ -4943,7 +4943,7 @@ export default function App() {
                           <tbody>
                             {agentiProd.map((ag,idx)=>{
                               const isLdr=clTeam[0]?.ag?.id===ag.id;
-                              return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"#fff"}}>
+                              return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FEF9EC":"#fff"}}>
                                 <td style={{padding:"10px 14px"}}>
                                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                                     <div style={{width:32,height:32,borderRadius:"50%",background:isLdr?"#EF9F27":AVBG[idx%4],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:isLdr?"#412402":AVCL[idx%4],flexShrink:0}}>{ag.nome.charAt(0)}</div>
@@ -4979,7 +4979,7 @@ export default function App() {
                             const isLdr=clTeam[0]?.ag?.id===ag.id;
                             const vendAg=venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&dc>=dal2&&dc<=al2;});
                             const tMed=vendAg.length>0?Math.round(vendAg.reduce((s,v)=>{const inc=incarichi.find(i=>proposte.find(p=>p.id===v.propostaId&&p.incaricoId===i.id));if(!inc?.dataInizio||!v.dataAtto)return s;return s+Math.round((new Date(v.dataAtto)-new Date(inc.dataInizio))/86400000);},0)/vendAg.length):null;
-                            return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FFFBF0":"#fff"}}>
+                            return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5",background:isLdr?"#FEF9EC":"#fff"}}>
                               <td style={{padding:"10px 14px"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                                   <div style={{width:32,height:32,borderRadius:"50%",background:isLdr?"#EF9F27":AVBG[idx%4],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:isLdr?"#412402":AVCL[idx%4]}}>{ag.nome.charAt(0)}</div>
