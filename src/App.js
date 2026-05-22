@@ -2352,10 +2352,14 @@ export default function App() {
                   </td>
                   <td style={{padding:"10px 12px",verticalAlign:"top"}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {!v.bloccato&&<><button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
+                      {(v.statoIncasso!=="Incassato"&&!v.bloccato)&&<><button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
                       <button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
                       <button style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});if(!isReadOnly)setShowGestVend(v);}}>✏️</button></>}
-                      <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:v.bloccato?"#27AE60":"#E67E22"}} onClick={()=>setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x))}>{v.bloccato?"🔓":"🔒"}</button>
+                      <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:v.statoIncasso==="Incassato"?"#27AE60":v.bloccato?"#E67E22":"#aaa"}} 
+                        title={v.statoIncasso==="Incassato"?"Incassato — bloccato automaticamente":v.bloccato?"Sbloccato manualmente — clicca per bloccare":"Clicca per bloccare"}
+                        onClick={()=>{if(v.statoIncasso==="Incassato")return;setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x));}}>
+                        {v.statoIncasso==="Incassato"?"🔒":v.bloccato?"🔒":"🔓"}
+                      </button>
                       <button style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>{if(window.confirm("Archiviare?"))archiviaVend(v.id);}}>📦</button>
                     </div>
                   </td>
