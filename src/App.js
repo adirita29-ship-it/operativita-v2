@@ -4003,19 +4003,37 @@ export default function App() {
                         <span style={{fontWeight:400,color:"#888",textTransform:"none",letterSpacing:0}}>— {giornoNome} {fmtD(oggi5)}</span>
                         {isBroker&&agNome5&&<span style={{fontWeight:400,color:"#aaa",textTransform:"none",letterSpacing:0,marginLeft:"auto"}}>{agNome5.nome} {agNome5.cognome||""}</span>}
                       </p>
-                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:"1rem"}}>
-                        {[["📞 Chiamate",chOggi,obChDay,"#533AB7"],["🤝 Appuntamenti",apptOggi,obApptDay,"#A8863A"],["🏠 Acquisizioni",acqOggi,0,"#0F6E56"],["👁 Imm. visitati",visitOggi,0,"#185FA5"],["📱 Post social",socialOggi,obSocDay,"#8E44AD"]].map(([lbl,val,obj,clr])=>{
-                          const perc=obj>0?Math.min(100,Math.round(val/obj*100)):null;
-                          const ok=obj>0&&val>=obj;
-                          return(<div key={lbl} style={{...sC,borderTop:`3px solid ${ok?"#27AE60":clr}`,textAlign:"center",position:"relative"}}>
-                            {ok&&<div style={{position:"absolute",top:6,right:8,fontSize:14}}>✅</div>}
-                            <p style={sL}>{lbl}</p>
-                            <p style={{fontSize:32,fontWeight:700,color:ok?"#27AE60":clr,margin:"4px 0 2px",lineHeight:1}}>{val}</p>
-                            {obj>0&&<><div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",margin:"5px 0 3px"}}><div style={{height:"100%",width:perc+"%",background:ok?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:2,transition:"width .4s"}}/></div><p style={{fontSize:10,color:ok?"#27AE60":"#aaa",margin:0}}>obj {obj} · {perc}%</p></>}
-                            {obj===0&&<p style={{fontSize:10,color:"#ddd",margin:"4px 0 0"}}>—</p>}
-                          </div>);
-                        })}
-                      </div>
+                      {(()=>{
+                        const oreRicOggi=Number(gOggi.oreRicerca||0);
+                        const notizieOggi=Number(gOggi.notizie||0);
+                        const volantiniOggi=Number(gOggi.volantini||0);
+                        const obOreRic=Number(obAg5.oreRicerca||0);
+                        const obNotizie=Number(obAg5.notizie||0);
+                        const obVolantini=Number(obAg5.volantini||0);
+                        const items=[
+                          ["📞 Chiamate",chOggi,obChDay,"#533AB7"],
+                          ["🤝 Appt. acq.",apptOggi,obApptDay,"#A8863A"],
+                          ["🏠 Acquisizioni",acqOggi,0,"#0F6E56"],
+                          ["👁 Imm. visitati",visitOggi,0,"#185FA5"],
+                          ["⏱ Ore ricerca",oreRicOggi,obOreRic,"#854F0B"],
+                          ["📱 Post/Video",socialOggi,obSocDay,"#8E44AD"],
+                          ["📰 Notizie",notizieOggi,obNotizie,"#2980B9"],
+                          ["✉️ Volantini",volantiniOggi,obVolantini,"#D35400"],
+                        ];
+                        return(<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr 1fr":"repeat(8,1fr)",gap:8,marginBottom:"1rem"}}>
+                          {items.map(([lbl,val,obj,clr])=>{
+                            const perc=obj>0?Math.min(100,Math.round(val/obj*100)):null;
+                            const ok=obj>0&&val>=obj;
+                            return(<div key={lbl} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",borderTop:`3px solid ${ok?"#27AE60":clr}`,padding:"8px 6px",textAlign:"center",position:"relative"}}>
+                              {ok&&<span style={{position:"absolute",top:3,right:5,fontSize:10}}>✅</span>}
+                              <p style={{fontSize:9,color:"#888",textTransform:"uppercase",letterSpacing:".05em",margin:"0 0 3px",lineHeight:1.2}}>{lbl}</p>
+                              <p style={{fontSize:24,fontWeight:700,color:ok?"#27AE60":clr,margin:"2px 0",lineHeight:1}}>{val}</p>
+                              {obj>0&&<><div style={{height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden",margin:"3px 0 2px"}}><div style={{height:"100%",width:perc+"%",background:ok?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:2}}/></div><p style={{fontSize:9,color:ok?"#27AE60":"#aaa",margin:0}}>{perc}%</p></>}
+                              {obj===0&&<p style={{fontSize:9,color:"#ddd",margin:"2px 0 0"}}>—</p>}
+                            </div>);
+                          })}
+                        </div>);
+                      })()}
                       <div style={{...sC,display:"flex",alignItems:"center",gap:12,borderLeft:`4px solid ${totOk===totOb&&totOb>0?"#27AE60":"#A8863A"}`}}>
                         <span style={{fontSize:22}}>{totOk===totOb&&totOb>0?"🏆":"💡"}</span>
                         <p style={{fontSize:13,color:"#2c2c2c",margin:0,fontWeight:500}}>{msg}</p>
@@ -4023,22 +4041,19 @@ export default function App() {
                       {/* Obiettivi giornalieri manuali */}
                       {!isReadOnly&&<div style={{...sC,marginTop:10}}>
                         <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Imposta obiettivo giornaliero</p>
-                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:10}}>
-                          {[["📞 Chiamate obj","obChDay5","#533AB7"],["🤝 Appuntamenti obj","obApptDay5","#A8863A"],["📱 Post social obj","obSocDay5","#8E44AD"]].map(([lbl,k,clr])=>{
-                            const keyMap={obChDay5:"chiamate",obApptDay5:"appuntamenti",obSocDay5:"postSocial"};
-                            const curVal=Number(obAg5[keyMap[k]]||0);
-                            const dayVal=k==="obChDay5"?obChDay:k==="obApptDay5"?obApptDay:obSocDay;
-                            return(<div key={k} style={{background:"#fafaf8",borderRadius:8,padding:"10px 12px",border:"0.5px solid #eee"}}>
-                              <p style={{fontSize:10,color:clr,textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 6px",fontWeight:600}}>{lbl}</p>
-                              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                <button onClick={()=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[keyMap[k]]:Math.max(0,curVal-1)}}))} style={{width:28,height:28,borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                                <input type="number" min="0" style={{flex:1,textAlign:"center",fontSize:18,fontWeight:700,color:clr,border:"none",background:"transparent",outline:"none",fontFamily:"inherit"}}
-                                  value={curVal||""}
-                                  placeholder="0"
-                                  onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[keyMap[k]]:Number(e.target.value)}}))}/>
-                                <button onClick={()=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[keyMap[k]]:curVal+1}}))} style={{width:28,height:28,borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8}}>
+                          {[["📞 Chiamate","chiamate","#533AB7"],["🤝 Appt. acq.","appuntamenti","#A8863A"],["📱 Post/Video","postSocial","#8E44AD"],["⏱ Ore ricerca","oreRicerca","#854F0B"],["📰 Notizie","notizie","#2980B9"],["✉️ Volantini","volantini","#D35400"]].map(([lbl,k,clr])=>{
+                            const cur=Number(obAg5[k]||0);
+                            const set=(v)=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[k]:Math.max(0,v)}}));
+                            return(<div key={k} style={{background:"#fafaf8",borderRadius:8,padding:"8px 10px",border:"0.5px solid #eee"}}>
+                              <p style={{fontSize:9,color:clr,textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 5px",fontWeight:600}}>{lbl}</p>
+                              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                <button onClick={()=>set(cur-1)} style={{width:24,height:24,borderRadius:5,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:14,lineHeight:1}}>−</button>
+                                <input type="number" min="0" style={{flex:1,textAlign:"center",fontSize:16,fontWeight:700,color:clr,border:"none",background:"transparent",outline:"none",fontFamily:"inherit"}}
+                                  value={cur||""} placeholder="0"
+                                  onChange={e=>set(Number(e.target.value))}/>
+                                <button onClick={()=>set(cur+1)} style={{width:24,height:24,borderRadius:5,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:14,lineHeight:1}}>+</button>
                               </div>
-                              {dayVal>0&&<p style={{fontSize:10,color:"#aaa",margin:"4px 0 0",textAlign:"center"}}>da Piano Produzione: {dayVal}/gg</p>}
                             </div>);
                           })}
                         </div>
