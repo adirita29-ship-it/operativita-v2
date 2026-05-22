@@ -233,7 +233,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
-    if(isBackOffice) return t.id !== "Operatività" && t.id !== "Il mio report" && t.id !== "Fatture Agente" && t.id !== "Le mie fatture";
+    if(isBackOffice) return t.id !== "Operatività";
     if(isCoach) return TAB_COACH.includes(t.id);
     if(isCollab&&t.id==="Operatività") return false;
     return TAB_AGENTE.includes(t.id);
@@ -866,7 +866,7 @@ export default function App() {
       if(!canViewAll&&myAgentId&&i.agenteListing!==myAgentId)return false;
       if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno)return false;
       if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese)return false;
-      if(isBroker&&fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg))return false;
+      if((isBroker||isBackOffice)&&fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg))return false;
       return true;
     });
     return{attivi:b.filter(i=>statoInc(i)==="Attivo").length,scaduti:b.filter(i=>statoInc(i)==="Scaduto").length,venduti:b.filter(i=>statoInc(i)==="Venduto"||statoInc(i)==="Locato").length};
@@ -875,7 +875,7 @@ export default function App() {
   const propFiltrate=useMemo(()=>proposte.filter(p=>{
     if(p.categoria!==subProp) return false;
     // Agente vede solo le proprie proposte
-    if(!isBroker&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId) return false;
+    if(!isBroker&&!isBackOffice&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId) return false;
     if(fPropStato!=="Tutti"&&p.stato!==fPropStato) return false;
     if(fPropAnno!=="Tutti"&&getAnno(p.dataStato)!==fPropAnno) return false;
     if(fPropMese!=="Tutti"&&getMese(p.dataStato)!==fPropMese) return false;
@@ -888,7 +888,7 @@ export default function App() {
   const vendFiltrati=useMemo(()=>venduti.filter(v=>{
     if(v.categoria!==subVend) return false;
     // Agente vede solo i propri venduti
-    if(!isBroker&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
+    if(!isBroker&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
     const stato=calcolaStatoIncasso(v);
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
     if(fVendAnno!=="Tutti"&&getAnno(dataCompAgenzia(v))!==fVendAnno) return false;
@@ -1182,18 +1182,18 @@ export default function App() {
     <Sel value={fIncAnno} onChange={v=>{setFIncAnno(v);setFIncMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniInc.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fIncMese} onChange={setFIncMese}><option value="Tutti">Tutti i mesi</option>{mesiInc.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fIncStato} onChange={setFIncStato}><option value="Tutti">Tutti gli stati</option>{["Attivo","Scaduto",subInc==="affitto"?"Locato":"Venduto"].map(s=><option key={s}>{s}</option>)}</Sel>
-    {isBroker&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    {(isBroker||isBackOffice)&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriProp=()=>(<div style={S.fRow}>
     <Sel value={fPropAnno} onChange={v=>{setFPropAnno(v);setFPropMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniProp.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fPropMese} onChange={setFPropMese}><option value="Tutti">Tutti i mesi</option>{mesiProp.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fPropStato} onChange={setFPropStato}><option value="Tutti">Tutti gli stati</option>{Object.keys(STATI_PROP).map(s=><option key={s}>{s}</option>)}</Sel>
-    {isBroker&&<Sel value={fPropAg} onChange={setFPropAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    {(isBroker||isBackOffice)&&<Sel value={fPropAg} onChange={setFPropAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriVend=()=>(<div style={S.fRow}>
     <Sel value={fVendAnno} onChange={setFVendAnno}><option value="Tutti">Tutti gli anni</option>{anniVend.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fVendStato} onChange={setFVendStato}><option value="Tutti">Tutti gli stati</option>{Object.keys(STATI_INCASSO).map(s=><option key={s}>{s}</option>)}</Sel>
-    {isBroker&&<Sel value={fVendAg} onChange={setFVendAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    {(isBroker||isBackOffice)&&<Sel value={fVendAg} onChange={setFVendAg}><option value="Tutti">Tutti gli agenti</option>{agenti.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
 
   const BloccoFin=({titolo,colore,emoji,totale,qAgenzia,qAgenti,qBuyer})=>(
@@ -1240,7 +1240,7 @@ export default function App() {
           {tab==="Dashboard"&&(<div style={S.sec}>
 
             {/* ── DASHBOARD AGENTE ── */}
-            {!isBroker&&myAgentId&&(()=>{
+            {!isBroker&&!isBackOffice&&myAgentId&&(()=>{
               const ag = agenti.find(a=>a.id===myAgentId);
 
               // Tutte le pratiche dove l'agente appare in qualsiasi ruolo
@@ -1550,7 +1550,7 @@ export default function App() {
                 </div>
               </>);
             })()}
-            {!isBroker&&(()=>{
+            {!isBroker&&!isBackOffice&&(()=>{
               const oggiD=new Date();oggiD.setHours(0,0,0,0);
               const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
               const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
@@ -1627,7 +1627,7 @@ export default function App() {
               </div></div>);
             })()}
             {/* ── DASHBOARD BROKER (invariata) ── */}
-            {isBroker&&(<>
+            {(isBroker||isBackOffice)&&(<>
             <div style={S.fRow}><Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel></div>
             <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
               <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
@@ -1767,7 +1767,7 @@ export default function App() {
                 </table>
               ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
             </div>
-            {isBroker&&(()=>{
+            {(isBroker||isBackOffice)&&(()=>{
               const oggiD=new Date();oggiD.setHours(0,0,0,0);
               const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
               const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
@@ -1907,9 +1907,9 @@ export default function App() {
             <div style={S.cnt}>
               {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
               <div style={{...S.cntBox(BRAND.oroD),marginLeft:"auto",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:110}}>
-                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente&&(isBroker||!myAgentId||i.agenteListing===myAgentId)).length}</span>
+                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente&&(isBroker||isBackOffice||!myAgentId||i.agenteListing===myAgentId)).length}</span>
                 <span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>Acquisiti {annoCorrente}</span>
-                <span style={{fontSize:10,color:"#aaa"}}>{isBroker?"totali agenzia":"tuoi anno corrente"}</span>
+                <span style={{fontSize:10,color:"#aaa"}}>{(isBroker||isBackOffice)?"totali agenzia":"tuoi anno corrente"}</span>
               </div>
             </div>
             <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"auto",maxHeight:"70vh"}}>
@@ -2499,7 +2499,7 @@ export default function App() {
 
           {/* ── TAB COSTI ── */}
           {/* ── TAB BREAK EVEN ── */}
-          {tab==="Break Even"&&isBroker&&(<div style={S.sec}>
+          {tab==="Break Even"&&(isBroker||isBackOffice)&&(<div style={S.sec}>
             <div style={{display:"flex",gap:12,marginBottom:"1.5rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📉 Break Even — {costiAnno}</h2>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -3223,7 +3223,7 @@ export default function App() {
           })()}
 
           {/* ── BREAK EVEN AGENTE ── */}
-          {tab==="Break Even"&&!isBroker&&myAgentId&&(()=>{
+          {tab==="Break Even"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
             const mieVoci=costiAgente[myAgentId]?.[costiAgenteAnno]||mkCostiAgente();
             const prevAnnuoVoceAg=v=>{const p=Number(v.prevMensile||0);const f=v.frequenza||"mensile";return p*(f==="mensile"?12:f==="trimestrale"?4:f==="semestrale"?2:1);};
@@ -3341,7 +3341,7 @@ export default function App() {
           })()}
 
 
-          {tab==="Fatture Agente"&&!isBroker&&myAgentId&&(()=>{
+          {tab==="Fatture Agente"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
             // Tutte le pratiche dove l'agente ha un ruolo e ha incassato qualcosa
             const tuttiMiei=venduti.filter(v=>{
@@ -3495,8 +3495,8 @@ export default function App() {
           {/* OPERATIVITÀ */}
           {tab==="Operatività"&&(()=>{
             // Agente corrente (broker vede tutti, agente vede solo sé)
-            const agentiVisibili = isBroker ? agenti : agenti.filter(a=>a.id===myAgentId);
-            const agIdSel = isBroker ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel)) : myAgentId;
+            const agentiVisibili = (isBroker||isBackOffice) ? agenti : agenti.filter(a=>a.id===myAgentId);
+            const agIdSel = (isBroker||isBackOffice) ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel)) : myAgentId;
 
             // Helper: ottieni/salva giornata
             const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
@@ -3902,8 +3902,8 @@ export default function App() {
                   </div>
 
                   {/* Vista agente singolo */}
-                  {(opAgenteSel!=="Tutti"||!isBroker)&&(()=>{
-                    const agId = isBroker?Number(opAgenteSel):myAgentId;
+                  {(opAgenteSel!=="Tutti"||!(isBroker||isBackOffice))&&(()=>{
+                    const agId = (isBroker||isBackOffice)?Number(opAgenteSel):myAgentId;
                     const ag = agenti.find(a=>a.id===agId);
                     if(!ag) return <p style={{color:"#aaa"}}>Seleziona un agente</p>;
                     return(<>
@@ -3931,7 +3931,7 @@ export default function App() {
                   })()}
 
                   {/* Vista team (broker - tutti) */}
-                  {isBroker&&opAgenteSel==="Tutti"&&(<div style={S2.card}>
+                  {(isBroker||isBackOffice)&&opAgenteSel==="Tutti"&&(<div style={S2.card}>
                     <p style={S2.sec}>Team — settimana {fmtD(lunedi)} / {fmtD(sabato)}</p>
                     <div style={{overflowX:"auto"}}>
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:520}}>
@@ -4249,7 +4249,7 @@ export default function App() {
                   })()}
 
                   {/* Report team (broker - tutti) */}
-                  {isBroker&&opAgenteSel==="Tutti"&&(<div style={S2.card}>
+                  {(isBroker||isBackOffice)&&opAgenteSel==="Tutti"&&(<div style={S2.card}>
                     <p style={S2.sec}>Team — {opMeseSel}</p>
                     <div style={{overflowX:"auto"}}>
                       <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:580}}>
@@ -4310,7 +4310,7 @@ export default function App() {
                         <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
                         <div>
                           <h3 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</h3>
-                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {isBroker?"imposta obiettivi per l'agente":"modifica i tuoi obiettivi"}</p>
+                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {(isBroker||isBackOffice)?"imposta obiettivi per l'agente":"modifica i tuoi obiettivi"}</p>
                         </div>
                       </div>
 
@@ -5809,13 +5809,13 @@ export default function App() {
               const pA=Number(v.provvAcquirente||0);
               if(pV===0&&pA===0) return false; // escludi provv €0
               // Agente vede solo le proprie pratiche
-              if(!isBroker&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
+              if(!isBroker&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
               if(statAnno!=="Tutti"&&getAnno(dataRifVend(v))!==statAnno) return false;
               return true;
             });
 
             // Incarichi acquisiti nell'anno (filtrati per agente se non broker)
-            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno)&&(isBroker||!myAgentId||i.agenteListing===myAgentId));
+            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno)&&(isBroker||isBackOffice||!myAgentId||i.agenteListing===myAgentId));
 
             // Transazioni: venditore = provvVenditore>0 + NON collaborazione esterna; acquirente = provvAcquirente>0
             const transV = vendStat.filter(v=>Number(v.provvVenditore||0)>0&&!v.agenziaEsterna);
