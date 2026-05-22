@@ -233,7 +233,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
-    if(isBackOffice) return !["Operatività","Il mio report","Report Agenti","Le mie fatture","War Room","One-to-One"].includes(t.id);
+    if(isBackOffice) return !["Operatività","Il mio report","Report Agenti","Fatture Agente","War Room","One-to-One"].includes(t.id);
     if(isCoach) return TAB_COACH.includes(t.id);
     if(isCollab&&t.id==="Operatività") return false;
     return TAB_AGENTE.includes(t.id);
@@ -819,15 +819,18 @@ export default function App() {
     });
   },[]);
 
-  // Polling ogni 30s per ricaricare dati aggiornati da altri utenti (es. Erica aggiorna, Broker vede)
+  // Polling ogni 30s per ricaricare dati aggiornati da altri utenti
   useEffect(()=>{
     if(!dbLoaded) return;
     const poll=setInterval(async()=>{
-      if(document.hidden) return; // non pollare se tab non visibile
+      if(document.hidden) return;
       try{
-        const res=await supaFetch("GET");
-        if(!res?.data) return;
-        const d=res.data;
+        const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
+          {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+        if(!res.ok) return;
+        const rows=await res.json();
+        const d=rows?.[0]?.data;
+        if(!d) return;
         if(d.venduti) setVenduti(d.venduti);
         if(d.incarichi) setIncarichi(d.incarichi);
         if(d.proposte) setProposte(d.proposte);
