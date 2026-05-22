@@ -1635,6 +1635,53 @@ export default function App() {
               const myRog=venduti.filter(v=>{if(!v.dataAtto||(v.agenteListing!==myAgentId&&v.agenteAcquirente!==myAgentId))return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
               const myAl=incarichi.filter(i=>!i.archiviato&&i.agenteListing===myAgentId).map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
               return(<div style={{marginTop:"1rem"}}>
+                  {/* MIRINO agente */}
+                  {(()=>{
+                    const oggi9=todayStr();
+                    const mirinoAg=Object.values(mirino).filter(m=>{
+                      const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId));
+                      return inc&&!inc.archiviato&&Number(inc.agenteListing)===myAgentId;
+                    }).sort((a,b)=>(b.dataInteresse||"").localeCompare(a.dataInteresse||""));
+                    if(mirinoAg.length===0) return null;
+                    const giorniDa=(d)=>{if(!d)return null;return Math.floor((new Date(oggi9)-new Date(d))/(1000*60*60*24));};
+                    return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",borderLeft:"4px solid #E74C3C",padding:"1rem",marginBottom:"1.25rem"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                        <span style={{fontSize:16}}>🎯</span>
+                        <span style={{fontSize:13,fontWeight:700,color:"#E74C3C",textTransform:"uppercase",letterSpacing:".06em"}}>Immobili nel mirino</span>
+                        <span style={{fontSize:11,background:"#FDECEC",color:"#E74C3C",padding:"1px 8px",borderRadius:10,fontWeight:600,marginLeft:"auto"}}>{mirinoAg.length}</span>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {mirinoAg.map(m=>{
+                          const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId))||{};
+                          const giorni=giorniDa(m.dataInteresse);
+                          const clrG=giorni===null?"#aaa":giorni>=7?"#E74C3C":giorni>=3?"#E67E22":"#27AE60";
+                          const bgG=giorni===null?"#f5f5f5":giorni>=7?"#FDECEC":giorni>=3?"#FEF3E2":"#E1F5EE";
+                          const prezzo=Number(inc.prezzoRichiesto||0);
+                          const provvV=prezzo>0?Math.round(prezzo*(Number(provvStandard.percVend||3)/100)):0;
+                          const provvA=prezzo>0?Math.round(prezzo*(Number(provvStandard.percAcq||4)/100)):0;
+                          const followUpScad=m.followUp&&m.followUp<oggi9;
+                          return(<div key={String(m.incaricoId)} style={{border:`0.5px solid ${giorni>=7?"#E74C3C44":giorni>=3?"#E67E2244":"#f0f0f0"}`,borderRadius:8,padding:"10px 12px",background:giorni>=7?"#FFFBF5":"#fff",borderLeft:`3px solid ${clrG}`}}>
+                            <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                              <div style={{flex:1}}>
+                                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                                  <span style={{fontSize:13,fontWeight:600}}>{inc.comune||inc.indirizzo||"—"}{inc.indirizzo&&inc.comune?" — "+inc.indirizzo:""}</span>
+                                  {giorni!==null&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgG,color:clrG,fontWeight:600}}>{giorni===0?"oggi":giorni===1?"ieri":giorni+" gg fa"}</span>}
+                                </div>
+                                <div style={{fontSize:11,color:"#888"}}>{inc.tipologia} · € {fmt(prezzo)}</div>
+                                {m.note&&<div style={{fontSize:11,color:"#555",marginTop:4,fontStyle:"italic"}}>"{m.note}"</div>}
+                                {m.followUp&&<div style={{fontSize:11,color:followUpScad?"#E74C3C":"#E67E22",marginTop:3,fontWeight:500}}>⏰ Follow-up: {fmtD(m.followUp)}{followUpScad?" — SCADUTO!":""}</div>}
+                              </div>
+                              {prezzo>0&&<div style={{textAlign:"right",flexShrink:0,paddingLeft:10,borderLeft:"0.5px solid #f0f0f0"}}>
+                                <div style={{fontSize:10,color:"#aaa"}}>Provv. stimata</div>
+                                <div style={{fontSize:16,fontWeight:700,color:"#0F6E56"}}>€ {fmt(provvV+provvA)}</div>
+                                <div style={{fontSize:9,color:"#aaa"}}>V: €{fmt(provvV)} · A: €{fmt(provvA)}</div>
+                              </div>}
+                            </div>
+                          </div>);
+                        })}
+                      </div>
+                    </div>);
+                  })()}
                 {/* Traguardo volante agente — sempre visibile */}
                 <div style={{background:sfidaAtt?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAtt?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
                   {sfidaAtt?(()=>{
@@ -2053,7 +2100,7 @@ export default function App() {
                 const propCorr=proposte.find(p=>p.incaricoId===inc.id&&STATI_BLOCCANTI.includes(p.stato));
                 const hasPropAttiva=hasPropBloccante(inc.id);
                 const propAttivaVinc=proposte.some(p=>p.incaricoId===inc.id&&p.stato==="In attesa / Vincolata");
-                const rowBg=inc.archiviato?"#fafafa":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
+                const rowBg=inc.archiviato?"#fafafa":mirino[String(inc.id)]?"#FFF5F5":hasPropAttiva?(propAttivaVinc?"#FEF9E7":"#FEF0E0"):"white";
                 const ggScad=inc.scadenza?Math.round((new Date(inc.scadenza)-new Date())/86400000):null;
                 const scadClr=ggScad===null?"#aaa":ggScad<0?"#E74C3C":ggScad<30?"#E67E22":"#27AE60";
                 const isOpenInc=rowOpen===`inc_${inc.id}`;
@@ -2066,6 +2113,7 @@ export default function App() {
                       {cfg.s} {s}
                     </span>
                     {hasPropAttiva&&<div style={{fontSize:10,color:propAttivaVinc?"#D4AC0D":"#E67E22",marginTop:3,fontWeight:500}}>{propAttivaVinc?"⚡ Vincolata":"⚡ In proposta"}</div>}
+                    {mirino[String(inc.id)]&&<div style={{fontSize:10,color:"#E74C3C",fontWeight:600,marginTop:2}}>🎯 Nel mirino</div>}
                   </td>
                   {/* Immobile + Proprietario */}
                   <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
@@ -2121,7 +2169,7 @@ export default function App() {
                   <td style={S.td} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
-                      {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button title={mirino[inc.id]?"Nel mirino — clicca per modificare":"Metti nel mirino"} style={{...S.btn,fontSize:12,padding:"4px 8px",borderColor:mirino[inc.id]?"#E74C3C":"#ddd",color:mirino[inc.id]?"#E74C3C":"#aaa",background:mirino[inc.id]?"#FDECEC":"#fff"}} onClick={()=>{setFormMirino(mirino[inc.id]||{dataInteresse:todayStr(),followUp:"",note:""});setShowMirino(inc);}}>🎯</button>}
+                      {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button title={mirino[String(inc.id)]?"Nel mirino — clicca per modificare":"Metti nel mirino"} style={{...S.btn,fontSize:12,padding:"4px 8px",borderColor:mirino[String(inc.id)]?"#E74C3C":"#ddd",color:mirino[String(inc.id)]?"#E74C3C":"#aaa",background:mirino[String(inc.id)]?"#FDECEC":"#fff"}} onClick={()=>{setFormMirino({...(mirino[String(inc.id)]||{dataInteresse:todayStr(),followUp:"",note:""})});setShowMirino(inc);}}>🎯</button>}
                       {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
                       {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
                       {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&(!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
@@ -6958,7 +7006,7 @@ export default function App() {
               <h3 style={{fontSize:15,fontWeight:600,margin:0}}>Nel mirino</h3>
               <p style={{fontSize:12,color:"#888",margin:0}}>{showMirino.comune||showMirino.indirizzo} — {showMirino.indirizzo}</p>
             </div>
-            {mirino[showMirino.id]&&<button onClick={()=>{const m={...mirino};delete m[showMirino.id];setMirino(m);setShowMirino(null);}} style={{...S.btnD,fontSize:11,marginLeft:"auto"}}>✕ Rimuovi</button>}
+            {mirino[showMirino.id]&&<button onClick={()=>{const m={...mirino};delete m[String(showMirino.id)];setMirino(m);setShowMirino(null);}} style={{...S.btnD,fontSize:11,marginLeft:"auto"}}>✕ Rimuovi</button>}
           </div>
           <div style={S.g2}>
             <div><label style={S.lbl}>Data interesse manifestato</label><input type="date" style={S.inp} value={formMirino.dataInteresse||""} onChange={e=>setFormMirino({...formMirino,dataInteresse:e.target.value})}/></div>
@@ -6983,7 +7031,7 @@ export default function App() {
           })()}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
             <button style={S.btn} onClick={()=>setShowMirino(null)}>Annulla</button>
-            <button style={S.btnP} onClick={()=>{setMirino({...mirino,[showMirino.id]:{...formMirino,incaricoId:showMirino.id,agenteListing:showMirino.agenteListing}});setShowMirino(null);}}>🎯 Salva</button>
+            <button style={S.btnP} onClick={()=>{setMirino({...mirino,[String(showMirino.id)]:{...formMirino,incaricoId:showMirino.id,agenteListing:showMirino.agenteListing}});setShowMirino(null);}}>🎯 Salva</button>
           </div>
         </div>
       </div>)}
