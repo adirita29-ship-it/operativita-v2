@@ -848,6 +848,10 @@ export default function App() {
         if(d.archiviati) setArchiviati(d.archiviati);
         if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
+        if(d.oneToOne) setOneToOne(d.oneToOne);
+        if(d.fasiConfig) setFasiConfig(d.fasiConfig);
+        if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
+        if(d.sfide) setSfide(d.sfide);
       }catch(e){}
     };
 
@@ -861,11 +865,11 @@ export default function App() {
         channel=supaClient
           .channel("gestionale_sync")
           .on("postgres_changes",{event:"UPDATE",schema:"public",table:"gestionale_data"},
-            ()=>{ setTimeout(ricaricaDati,2000); })
+            ()=>{ setTimeout(ricaricaDati,800); })
           .subscribe();
       }catch(e){
         // Fallback polling
-        const poll=setInterval(ricaricaDati,20000);
+        const poll=setInterval(ricaricaDati,8000);
         return()=>clearInterval(poll);
       }
     };
