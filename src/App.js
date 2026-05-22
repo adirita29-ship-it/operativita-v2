@@ -83,7 +83,7 @@ const diffGiorni = (d1,d2) => { if(!d1||!d2) return null; const ms=new Date(d2)-
 const STATI_INC = { Attivo:{clr:"#27AE60",bg:"#E9F7EF"}, Scaduto:{clr:"#E74C3C",bg:"#FDECEA"}, Venduto:{clr:"#C9A96E",bg:"#FDF6EC"}, Locato:{clr:"#8E44AD",bg:"#F5EEF8"} };
 const STATI_PROP = {
   "In attesa":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa"},
-  "In attesa / Vincolata":{clr:"#D4AC0D",bg:"#FEF9E7",s:"🟡",label:"In att./Vincolata"},
+  "In attesa / Vincolata":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa (vincolata)"},
   "Controproposta":{clr:"#E67E22",bg:"#FEF0E0",s:"🟡",label:"Controproposta"},
   "Rifiutata":{clr:"#C0392B",bg:"#FDECEA",s:"🔴",label:"Rifiutata"},
   "Mancata Chiusura":{clr:"#922B21",bg:"#FADBD8",s:"🔴",label:"Mancata Chiusura"},
@@ -164,7 +164,7 @@ const prevAnnuoVoce = voce => {
 const FREQ_LABELS = {mensile:"Mensile ×12",trimestrale:"Trimestrale ×4",semestrale:"Semestrale ×2",annuale:"Annuale ×1"};
 
 // Proposte che bloccano nuove proposte sullo stesso incarico
-const STATI_BLOCCANTI = ["In attesa","Controproposta","In attesa / Vincolata"];
+const STATI_BLOCCANTI = ["In attesa","Controproposta","In attesa / Vincolata","Accettata con Vincolo"];
 
 function LoginPage({onLogin}) {
   const [em,setEm]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [load,setLoad]=useState(false);
@@ -827,7 +827,7 @@ export default function App() {
 
     const ricaricaDati=async()=>{
       // Non ricaricare se abbiamo salvato noi stessi negli ultimi 3 secondi
-      if(Date.now()-ultimoSalvataggioLocale<3000) return;
+      if(Date.now()-ultimoSalvataggioLocale<8000) return;
       // Non ricaricare se c'è un modal aperto
       if(document.querySelector('[data-modal="true"]')) return;
       try{
@@ -861,7 +861,7 @@ export default function App() {
         channel=supaClient
           .channel("gestionale_sync")
           .on("postgres_changes",{event:"UPDATE",schema:"public",table:"gestionale_data"},
-            ()=>{ setTimeout(ricaricaDati,500); })
+            ()=>{ setTimeout(ricaricaDati,2000); })
           .subscribe();
       }catch(e){
         // Fallback polling
@@ -881,8 +881,12 @@ export default function App() {
     setDbSaving(true);
     const t=setTimeout(()=>{
       if(window._gestionaleSalvato)window._gestionaleSalvato();
-      salvaDB(payload).finally(()=>setDbSaving(false));
-    },1500); // debounce 1.5s per non sovraccaricare
+      salvaDB(payload).finally(()=>{
+        setDbSaving(false);
+        // Rinnova il guard dopo il salvataggio completato
+        if(window._gestionaleSalvato)window._gestionaleSalvato();
+      });
+    },500); // debounce 500ms - salva veloce
     return ()=>clearTimeout(t);
   },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,dbLoaded]);
 
@@ -1024,7 +1028,7 @@ export default function App() {
   const {incassato:dashIncassato, daIncassare:dashDaIncassare,
          qAgInc, qBuyInc, qAgenziaInc, qAgRes, qBuyRes, qAgenziaRes} = dashCalcoli;
 
-  const propVincolo=proposte.filter(p=>["Accettata con Vincolo","In attesa / Vincolata"].includes(p.stato)&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
+  const propVincolo=proposte.filter(p=>p.stato==="Accettata con Vincolo"&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
   const dashSospeso=propVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
   const dashSospesoQuotaAg=useMemo(()=>propVincolo.reduce((s,p)=>{
     // Quota agenzia = provv totale - quote agenti - quote buyer
@@ -1218,7 +1222,7 @@ export default function App() {
     tdA:{padding:"8px 8px",borderBottom:"0.5px solid #f5f5f5",verticalAlign:"middle",textAlign:"center",fontSize:12,background:"#F5EEF822"},
   };
 
-  const Sel=({value,onChange,children})=>(<select style={S.sel} value={value} onChange={e=>onChange(e.target.value)}>{children}</select>);
+  const Sel=({value,onChange,children})=>(<select style={S.sel} value={value} onChange={e=>{e.stopPropagation();onChange(e.target.value);}} onClick={e=>e.stopPropagation()}>{children}</select>);
   const SubTabs=({value,onChange,options})=>(<div style={{display:"flex",gap:8}}>{options.map(o=><button key={o.v} style={S.subTab(value===o.v)} onClick={()=>onChange(o.v)}>{o.l}</button>)}</div>);
   const SettSec=({title,items,setItems,ph})=>{
     const [localVal,setLocalVal]=React.useState("");
@@ -1237,18 +1241,18 @@ export default function App() {
     <Sel value={fIncAnno} onChange={v=>{setFIncAnno(v);setFIncMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniInc.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fIncMese} onChange={setFIncMese}><option value="Tutti">Tutti i mesi</option>{mesiInc.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fIncStato} onChange={setFIncStato}><option value="Tutti">Tutti gli stati</option>{["Attivo","Scaduto",subInc==="affitto"?"Locato":"Venduto"].map(s=><option key={s}>{s}</option>)}</Sel>
-    {(isBroker||isBackOffice)&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    {(isBroker||isBackOffice)&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriProp=()=>(<div style={S.fRow}>
     <Sel value={fPropAnno} onChange={v=>{setFPropAnno(v);setFPropMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniProp.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fPropMese} onChange={setFPropMese}><option value="Tutti">Tutti i mesi</option>{mesiProp.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fPropStato} onChange={setFPropStato}><option value="Tutti">Tutti gli stati</option>{Object.keys(STATI_PROP).map(s=><option key={s}>{s}</option>)}</Sel>
-    {(isBroker||isBackOffice)&&<Sel value={fPropAg} onChange={setFPropAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    {(isBroker||isBackOffice)&&<Sel value={fPropAg} onChange={setFPropAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriVend=()=>(<div style={S.fRow}>
     <Sel value={fVendAnno} onChange={setFVendAnno}><option value="Tutti">Tutti gli anni</option>{anniVend.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fVendStato} onChange={setFVendStato}><option value="Tutti">Tutti gli stati</option>{Object.keys(STATI_INCASSO).map(s=><option key={s}>{s}</option>)}</Sel>
-    {(isBroker||isBackOffice)&&<Sel value={fVendAg} onChange={setFVendAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    {(isBroker||isBackOffice)&&<Sel value={fVendAg} onChange={setFVendAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
 
   const BloccoFin=({titolo,colore,emoji,totale,qAgenzia,qAgenti,qBuyer})=>(
@@ -1759,7 +1763,7 @@ export default function App() {
             })()}
             {/* IN ATTESA / CONTROPROPOSTA */}
             {(()=>{
-              const propAttesa=proposte.filter(p=>["In attesa","Controproposta"].includes(p.stato)&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
+              const propAttesa=proposte.filter(p=>["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato)&&p.categoria==="vendita"&&(dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno));
               const totAttesa=propAttesa.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
               return(
                 <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
@@ -6715,9 +6719,9 @@ export default function App() {
         <div style={S.modal}>
           <h2 style={{fontSize:17,fontWeight:500,margin:"0 0 1rem"}}>{showInc==="new"?"Nuovo":"Modifica"} incarico — {formInc.categoria==="affitto"?"Affitto":"Vendita"}</h2>
           <div style={S.g2}>
-            <div><label style={S.lbl}>Agente Listing</label><select style={S.inp} value={formInc.agenteListing||""} onChange={e=>setFormInc({...formInc,agenteListing:e.target.value})}><option value="">Seleziona</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
+            <div><label style={S.lbl}>Agente Listing</label><select style={S.inp} value={formInc.agenteListing||""} onChange={e=>setFormInc({...formInc,agenteListing:e.target.value})}><option value="">Seleziona</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
             <div><label style={S.lbl}>% Provv. Listing</label><input style={S.inp} type="number" step="0.1" value={formInc.percListing||""} onChange={e=>setFormInc({...formInc,percListing:e.target.value})}/></div>
-            <div><label style={S.lbl}>Buyer Listing (opz.)</label><select style={S.inp} value={formInc.buyerListing||""} onChange={e=>setFormInc({...formInc,buyerListing:e.target.value})}><option value="">Nessuno</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
+            <div><label style={S.lbl}>Buyer Listing (opz.)</label><select style={S.inp} value={formInc.buyerListing||""} onChange={e=>setFormInc({...formInc,buyerListing:e.target.value})}><option value="">Nessuno</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
             <div><label style={S.lbl}>% Buyer Listing</label><input style={S.inp} type="number" step="0.1" value={formInc.percBuyerListing||""} onChange={e=>setFormInc({...formInc,percBuyerListing:e.target.value})}/></div>
             <div><label style={S.lbl}>Fonte</label><select style={S.inp} value={formInc.fonte||""} onChange={e=>setFormInc({...formInc,fonte:e.target.value})}><option value="">Seleziona</option>{fonti.map(f=><option key={f}>{f}</option>)}</select></div>
             <div><label style={S.lbl}>Nominativo venditore</label><input style={S.inp} value={formInc.nominativo||""} onChange={e=>setFormInc({...formInc,nominativo:e.target.value})}/></div>
@@ -6774,9 +6778,9 @@ export default function App() {
             </div>
             {/* Separatore lato Acquirente */}
             <div style={{gridColumn:"1/-1",borderTop:"0.5px solid #eee",paddingTop:8,marginTop:4}}><span style={{fontSize:11,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:"0.08em"}}>Agenti lato Acquirente</span></div>
-            <div><label style={S.lbl}>Agente Acquirente</label><select style={S.inp} value={formProp.agenteAcquirente||""} onChange={e=>setFormProp({...formProp,agenteAcquirente:e.target.value})}><option value="">Seleziona</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
+            <div><label style={S.lbl}>Agente Acquirente</label><select style={S.inp} value={formProp.agenteAcquirente||""} onChange={e=>setFormProp({...formProp,agenteAcquirente:e.target.value})}><option value="">Seleziona</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
             <div><label style={S.lbl}>% Provv. Agente Acquirente</label><input style={S.inp} type="number" step="0.1" placeholder="es. 40" value={formProp.percAcquirente||""} onChange={e=>setFormProp({...formProp,percAcquirente:e.target.value})}/></div>
-            <div><label style={S.lbl}>Buyer (opzionale)</label><select style={S.inp} value={formProp.buyer||""} onChange={e=>setFormProp({...formProp,buyer:e.target.value})}><option value="">Nessuno</option>{agenti.filter(a=>a.inReport!==false||isBroker||isBackOffice).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
+            <div><label style={S.lbl}>Buyer (opzionale)</label><select style={S.inp} value={formProp.buyer||""} onChange={e=>setFormProp({...formProp,buyer:e.target.value})}><option value="">Nessuno</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</select></div>
             <div><label style={S.lbl}>% Provv. Buyer</label><input style={S.inp} type="number" step="0.1" value={formProp.percBuyer||""} onChange={e=>setFormProp({...formProp,percBuyer:e.target.value})}/></div>
 
           </div>
