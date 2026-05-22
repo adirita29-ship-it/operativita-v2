@@ -61,6 +61,7 @@ const TAB_CONFIG = [
   { id:"One-to-One",     icon:"🤝", label:"One-to-One" },
   { id:"Agenti",          icon:"👥", label:"Agenti" },
   { id:"Impostazioni",    icon:"⚙️", label:"Impostazioni" },
+  { id:"Guida",           icon:"❓", label:"Guida" },
 ];
 const fmt  = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtN = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:0,maximumFractionDigits:0});
@@ -225,10 +226,10 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isReadOnly = isCoach;
   const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
   const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
-  const TAB_AGENTE = ["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
+  const TAB_AGENTE = ["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
   const TAB_COACH=coachIsAgenzia
     ?["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
-    :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
+    :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
@@ -609,6 +610,48 @@ export default function App() {
   const [venduti,setVenduti]=useState(_ls?.venduti||INIT_VENDUTI);
   const [archiviati,setArchiviati]=useState(_ls?.archiviati||[]);
   const [costi,setCosti]=useState(_ls?.costi||{[annoCorrente]:mkCosti()});
+  const CAT_COSTI_DEFAULT=[
+    {id:"lc1",nome:"Locazione Ufficio",totaleAnno:15000,tipo:"fisso",anno:2025},
+    {id:"lc2",nome:"Spese Condominiali",totaleAnno:1018.85,tipo:"fisso",anno:2025},
+    {id:"lc3",nome:"Utenza Elettricità",totaleAnno:1597.26,tipo:"fisso",anno:2025},
+    {id:"lc4",nome:"Utenza GAS",totaleAnno:1279.96,tipo:"fisso",anno:2025},
+    {id:"lc5",nome:"Telefonia Fissa",totaleAnno:1219.31,tipo:"fisso",anno:2025},
+    {id:"lc6",nome:"Telefonia Cellulare",totaleAnno:2597,tipo:"fisso",anno:2025},
+    {id:"lc7",nome:"Pulizie",totaleAnno:1320,tipo:"fisso",anno:2025},
+    {id:"lc8",nome:"Imposte Pubblicitarie",totaleAnno:1415.2,tipo:"fisso",anno:2025},
+    {id:"lc9",nome:"Multifunzione Canone",totaleAnno:1300.64,tipo:"fisso",anno:2025},
+    {id:"lc10",nome:"Commercialista SRL",totaleAnno:8566.97,tipo:"fisso",anno:2025},
+    {id:"lc11",nome:"Consulente Paghe",totaleAnno:647.92,tipo:"fisso",anno:2025},
+    {id:"lc12",nome:"Compenso Amministratore",totaleAnno:30026,tipo:"fisso",anno:2025},
+    {id:"lc13",nome:"Stipendio Erica Guglielmana",totaleAnno:16923,tipo:"fisso",anno:2025},
+    {id:"lc14",nome:"Stipendi x collaborazioni",totaleAnno:3176.9,tipo:"fisso",anno:2025},
+    {id:"lc15",nome:"Tasse / Contributi Dipendenti",totaleAnno:21579.91,tipo:"fisso",anno:2025},
+    {id:"lc16",nome:"Immobiliare.it",totaleAnno:5730.03,tipo:"fisso",anno:2025},
+    {id:"lc17",nome:"Idealista.it & Casa.it",totaleAnno:4411.9,tipo:"fisso",anno:2025},
+    {id:"lc18",nome:"Sponsorizzazioni Squadre",totaleAnno:2015.29,tipo:"fisso",anno:2025},
+    {id:"lc19",nome:"Gestim + Sito + Hosting",totaleAnno:1992,tipo:"fisso",anno:2025},
+    {id:"lc20",nome:"Altre Assicurazioni",totaleAnno:33.85,tipo:"fisso",anno:2025},
+    {id:"lc21",nome:"Agente Strategico",totaleAnno:12487,tipo:"fisso",anno:2025},
+    {id:"lv1",nome:"Foto Immobili",totaleAnno:2045.01,tipo:"variabile",anno:2025},
+    {id:"lv2",nome:"Materiale Brand Càsa Imm.",totaleAnno:304.95,tipo:"variabile",anno:2025},
+    {id:"lv3",nome:"Materiale Brand x Agenti",totaleAnno:2653.53,tipo:"variabile",anno:2025},
+    {id:"lv4",nome:"Materiale di Consumo",totaleAnno:967.79,tipo:"variabile",anno:2025},
+    {id:"lv5",nome:"Spese Straordinarie e Varie",totaleAnno:8665.23,tipo:"variabile",anno:2025},
+    {id:"lv6",nome:"REGOLD (ricariche)",totaleAnno:819,tipo:"variabile",anno:2025},
+    {id:"lv7",nome:"Consulente SocialMedia",totaleAnno:500,tipo:"variabile",anno:2025},
+    {id:"lv8",nome:"SISTER ricariche",totaleAnno:869.12,tipo:"variabile",anno:2025},
+    {id:"lv9",nome:"Corsi di Formazione",totaleAnno:4796.5,tipo:"variabile",anno:2025},
+    {id:"lv10",nome:"Sponsorizzate Social",totaleAnno:70.1,tipo:"variabile",anno:2025},
+    {id:"lv11",nome:"Software-Servizi Professionali",totaleAnno:5847.57,tipo:"variabile",anno:2025},
+  ];
+  const [catCosti,setCatCosti]=useState(_ls?.catCosti||CAT_COSTI_DEFAULT);
+  const [speseCosti,setSpeseCosti]=useState(_ls?.speseCosti||{});
+  const [impCostiAnno,setImpCostiAnno]=useState(String(new Date().getFullYear()));
+  const [impCostiTipo,setImpCostiTipo]=useState("fisso");
+  const [formNuovaCat,setFormNuovaCat]=useState(null);
+  const [catCostiEditId,setCatCostiEditId]=useState(null);
+  const [formSpesa,setFormSpesa]=useState(null);
+  const [costiCatExpand,setCostiCatExpand]=useState({});
   const [costiAnno,setCostiAnno]=useState(annoCorrente);
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
@@ -6176,8 +6219,287 @@ export default function App() {
           })()}
 
           {/* IMPOSTAZIONI */}
+          {tab==="Guida"&&(<div style={{...S.sec,padding:0,background:"var(--color-background-tertiary)"}}>
+            <div style={{maxWidth:900,margin:"0 auto",padding:"1.5rem"}}>
+
+              {/* HERO */}
+              <div style={{background:"linear-gradient(135deg,#633806,#A8863A)",borderRadius:16,padding:"2rem 2.5rem",color:"#fff",marginBottom:"2rem"}}>
+                <h1 style={{fontFamily:"Georgia,serif",fontSize:28,marginBottom:6,fontWeight:400}}>Manuale d'uso</h1>
+                <p style={{fontSize:14,opacity:.85}}>Gestionale Càsa Immobiliare Varese · Guida completa per tutti i profili</p>
+                <div style={{display:"flex",gap:8,marginTop:"1rem",flexWrap:"wrap"}}>
+                  {["🏅 Broker","🏠 Agente","📋 Back Office","👁 Coach"].map(b=>(
+                    <span key={b} style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"rgba(255,255,255,.2)",color:"#fff"}}>{b}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* SEZIONI */}
+              {[
+                {id:"profili",icon:"👥",bg:"#FDF6EC",titolo:"Profili utente",sub:"Cosa può vedere e fare ogni profilo",contenuto:(<>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    {[["🏅 Broker","#A8863A","Accesso completo a tutte le sezioni. Vede i dati di tutti gli agenti. Gestisce fatture, impostazioni, traguardi volanti e report.","Antonello Di Rita"],
+                      ["🏠 Agente","#27AE60","Vede solo i propri dati. Inserisce operatività, incarichi, proposte. Ha accesso a War Room e Piano Produzione personale.","Luca · Riccardo · Fabio"],
+                      ["📋 Back Office","#185FA5","Accesso simile al Broker. Si occupa principalmente della Gestione Pratiche RT. Non appare in report e classifiche.","Erica"],
+                      ["👁 Coach","#533AB7","Modalità sola lettura. Vede tutti i dati ma non può modificare nulla. Banner blu visibile in ogni pagina.","Solo lettura"],
+                    ].map(([titolo,clr,desc,chi])=>(
+                      <div key={titolo} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:`3px solid ${clr}`}}>
+                        <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>{titolo}</div>
+                        <p style={{fontSize:12,color:"#555",marginBottom:6}}>{desc}</p>
+                        <span style={{fontSize:10,background:clr+"15",color:clr,padding:"2px 8px",borderRadius:10,fontWeight:600}}>{chi}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>)},
+                {id:"operativita",icon:"📅",bg:"#E6F1FB",titolo:"Operatività",sub:"Registrazione attività quotidiane e piano di produzione",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Sezione centrale per l'agente. Si divide in <strong>Attività</strong> e <strong>Piano Produzione</strong>.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    {[["📆 Settimana","Vista settimanale con box per ogni giorno. Mostra le attività inserite con icone colorate. Sotto i box appare l'Obiettivo del giorno con 8 card (Chiamate, Appuntamenti, Acquisizioni, Visitati, Ore ricerca, Social, Notizie, Volantini)."],
+                      ["✏️ Inserimento","Inserisci le attività del giorno o della settimana (inserimento massivo Lun-Ven). Compila chiamate per tipo, attività immobili, sviluppo/social."],
+                      ["📊 Report mensile","Riepilogo del mese: totale chiamate, appuntamenti, immobili visitati, OH. Tabella giorno per giorno."],
+                      ["🎯 Obiettivi","Imposta obiettivi mensili e monitora il progresso con barre colorate."],
+                    ].map(([t,d])=>(
+                      <div key={t} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                        <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>{t}</div>
+                        <p style={{fontSize:12,color:"#555",margin:0}}>{d}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
+                    <strong>🎯 Piano Produzione</strong><br/>Inserisci l'obiettivo fatturato annuale → il sistema calcola automaticamente transazioni necessarie, immobili da vendere, acquisizioni/mese, appuntamenti/settimana. Ratio: conv. acquisizioni 65%, conv. appuntamenti 40%, ogni immobile = 2 transazioni.
+                  </div>
+                </>)},
+                {id:"incarichi",icon:"📋",bg:"#E1F5EE",titolo:"Incarichi",sub:"Gestione degli incarichi di vendita e affitto",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Mostra di default tutti gli incarichi <strong>Attivi</strong> di tutti gli anni. Usa i filtri per anno, mese, stato o agente.</p>
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>➕ Creare un incarico</div>
+                    {["Premi + Nuovo incarico in alto a destra","Compila: indirizzo, tipologia, prezzo, agente listing, data inizio/scadenza, fonte","Premi Salva"].map((s,i)=>(
+                      <div key={i} style={{display:"flex",gap:10,marginBottom:6,alignItems:"flex-start"}}>
+                        <div style={{width:20,height:20,borderRadius:"50%",background:"#A8863A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
+                        <span style={{fontSize:12,color:"#555"}}>{s}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
+                    <strong>📋 Pratica RT</strong> — Da ogni incarico puoi aprire la pratica RT collegata con il bottone "📋 Apri pratica RT" nell'accordion.
+                  </div>
+                </>)},
+                {id:"proposte",icon:"📝",bg:"#FEF3E2",titolo:"Proposte",sub:"Gestione delle proposte di acquisto",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Ogni proposta è collegata a un incarico. Lo stato evolve da "In attesa" fino ad "Accettata" o "Rifiutata".</p>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                    {[["🔵 In attesa","#4A90D9"],["🟡 Vincolata","#D4AC0D"],["🟠 Controproposta","#E67E22"],["🟢 Accettata","#27AE60"],["🔴 Rifiutata","#E74C3C"],["❌ Mancata chiusura","#922B21"]].map(([s,c])=>(
+                      <div key={s} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"8px 10px",borderTop:`2px solid ${c}`}}>
+                        <div style={{fontSize:11,fontWeight:500,color:c}}>{s}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>)},
+                {id:"venduti",icon:"🏠",bg:"#E1F5EE",titolo:"Venduti",sub:"Rogiti conclusi e provvigioni",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Quando una proposta viene accettata, si crea un Venduto. Gestisci provvigioni e pagamenti.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {[["Provv. Venditore","Provvigione incassata lato venditore"],["Provv. Acquirente","Provvigione incassata lato acquirente"],["Data atto","Data rogito notarile"],["Stato pagamento","Da pagare / Parziale / Pagato"],["Competenza agenzia","Data contabile diversa (opzionale)"],["Agente acquirente","Se diverso dall'agente listing"]].map(([k,v])=>(
+                      <div key={k} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"8px 12px"}}>
+                        <div style={{fontSize:11,fontWeight:600,color:"#2c2c2c"}}>{k}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>)},
+                {id:"pratiche",icon:"📁",bg:"#EEEDFE",titolo:"Gestione Pratiche RT",sub:"Iter rogito per ogni vendita",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Traccia l'avanzamento burocratico dall'accettazione proposta al rogito. Principalmente gestita dal Back Office.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>Vista Lista</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>Tabella con barra avanzamento %, fase attuale, prossima azione, alert colorati a sinistra.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>Vista Kanban</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>4 colonne per macro-fase: Apertura → Istruttoria → Chiusura → Rogito.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
+                    <strong>⚙ Personalizzazione</strong> — In Impostazioni → "Fasi & Azioni" puoi aggiungere, modificare e riordinare le azioni di ogni fase.
+                  </div>
+                </>)},
+                {id:"warroom",icon:"🏆",bg:"#FDF6EC",titolo:"War Room",sub:"Centro di comando — performance team",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Si divide in <strong>📊 Performance</strong> e <strong>🏆 Traguardo Volante</strong>.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📊 Performance</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>KPI team, tabella attività di processo per agente, risultati finali, fonti incarichi.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🏆 Traguardo Volante</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>Sfide a tempo con classifica e podio. Crea sfide con nome, metrica, periodo e premio.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📺 Modalità Riunione</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>Vista fullscreen su sfondo scuro — ideale per proiettare in riunione di team.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🔒 Oscura €</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>Nasconde tutti i valori monetari — utile quando lo schermo è visibile a clienti.</p>
+                    </div>
+                  </div>
+                </>)},
+                {id:"impostazioni",icon:"⚙️",bg:"#fafaf8",titolo:"Impostazioni",sub:"Solo Broker — configurazione globale",contenuto:(<>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>⚙ Generali</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>Obiettivo fatturato annuale team, quota agenzia (%) trattenuta sulle provvigioni.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📋 Fasi & Azioni</div>
+                      <p style={{fontSize:12,color:"#555",margin:0}}>Personalizza le fasi Gestione Pratiche: aggiungi, modifica, riordina azioni. Bottone ↺ Default per ripristinare.</p>
+                    </div>
+                  </div>
+                </>)},
+              ].map(({id,icon,bg,titolo,sub,contenuto})=>(
+                <div key={id} style={{marginBottom:"2rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:"1rem",paddingBottom:".75rem",borderBottom:"2px solid #e8e5e0"}}>
+                    <div style={{width:40,height:40,borderRadius:10,background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{icon}</div>
+                    <div>
+                      <div style={{fontSize:18,fontWeight:600,color:"#633806",fontFamily:"Georgia,serif"}}>{titolo}</div>
+                      <div style={{fontSize:12,color:"#888"}}>{sub}</div>
+                    </div>
+                  </div>
+                  {contenuto}
+                </div>
+              ))}
+
+              <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"12px 16px",marginTop:"2rem"}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:3}}>📞 Supporto</div>
+                <div style={{fontSize:12,color:"#854F0B"}}>Per assistenza tecnica sull'applicazione contattare il team di sviluppo. Per problemi di accesso rivolgersi al Broker.</div>
+              </div>
+              <p style={{textAlign:"center",color:"#aaa",fontSize:11,marginTop:"1.5rem"}}>Gestionale Càsa Immobiliare Varese · v1.0 · Maggio 2026</p>
+            </div>
+          </div>)}
+
           {tab==="Impostazioni"&&(<div style={S.sec}>
-            <div style={{display:"flex",borderBottom:"1px solid #eee",marginBottom:"1.5rem"}}>{[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"]].map(([v,l])=>(<button key={v} onClick={()=>setImpSezione(v)} style={{padding:"8px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${impSezione===v?"#A8863A":"transparent"}`,color:impSezione===v?"#A8863A":"#666",fontWeight:impSezione===v?600:400,fontFamily:"inherit",marginBottom:-1}}>{l}</button>))}</div>
+            <div style={{display:"flex",borderBottom:"1px solid #eee",marginBottom:"1.5rem"}}>{[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"],["costi","💰 Categorie Costi"]].map(([v,l])=>(<button key={v} onClick={()=>setImpSezione(v)} style={{padding:"8px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${impSezione===v?"#A8863A":"transparent"}`,color:impSezione===v?"#A8863A":"#666",fontWeight:impSezione===v?600:400,fontFamily:"inherit",marginBottom:-1}}>{l}</button>))}</div>
+
+            {impSezione==="costi"&&isBroker&&(()=>{
+              const annoNum=Number(impCostiAnno);
+              const catAnno=catCosti.filter(c=>c.anno===annoNum);
+              const catFisse=catAnno.filter(c=>c.tipo==="fisso");
+              const catVar=catAnno.filter(c=>c.tipo==="variabile");
+              const totFissi=catFisse.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+              const totVar=catVar.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+              const anniDisp=[...new Set(catCosti.map(c=>c.anno))].sort((a,b)=>b-a);
+              const annoCorrente2=new Date().getFullYear();
+              const copiaAnnoSucc=()=>{
+                const nextAnno=annoNum+1;
+                const existing=catCosti.filter(c=>c.anno===nextAnno);
+                if(existing.length>0){if(!window.confirm(`Esistono già ${existing.length} categorie per ${nextAnno}. Sovrascrivere?`))return;}
+                const nuove=catAnno.map(c=>({...c,id:c.id+"_"+nextAnno,anno:nextAnno}));
+                setCatCosti(prev=>[...prev.filter(c=>c.anno!==nextAnno),...nuove]);
+                setImpCostiAnno(String(nextAnno));
+              };
+              const updCat=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
+              const delCat=(id)=>{if(window.confirm("Eliminare questa categoria?"))setCatCosti(prev=>prev.filter(c=>c.id!==id));};
+              const addCat=()=>{
+                if(!formNuovaCat?.nome?.trim())return;
+                const newId="lx_"+Date.now();
+                setCatCosti(prev=>[...prev,{id:newId,nome:formNuovaCat.nome,totaleAnno:Number(formNuovaCat.totale||0),tipo:formNuovaCat.tipo||"fisso",anno:annoNum}]);
+                setFormNuovaCat(null);
+              };
+              const renderCatList=(cats,tipo)=>(
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+                  <div style={{padding:"10px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8,background:tipo==="fisso"?"#E6F1FB22":"#EEEDFE22"}}>
+                    <div style={{width:4,height:16,borderRadius:2,background:tipo==="fisso"?"#185FA5":"#533AB7"}}/>
+                    <span style={{fontSize:12,fontWeight:700,color:tipo==="fisso"?"#185FA5":"#533AB7",textTransform:"uppercase",letterSpacing:".08em"}}>
+                      {tipo==="fisso"?"📌 Costi Fissi":"📊 Costi Variabili"}
+                    </span>
+                    <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>
+                      Totale previsionale: <strong>€ {fmt(tipo==="fisso"?totFissi:totVar)}</strong>
+                    </span>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 40px",gap:0,padding:"7px 14px",background:"#fafal8",borderBottom:"1px solid #eee"}}>
+                    {["Categoria","Totale annuo","Stima/mese",""].map((h,i)=>(
+                      <div key={i} style={{fontSize:10,fontWeight:600,color:"#888",textAlign:i===1||i===2?"right":"left"}}>{h}</div>
+                    ))}
+                  </div>
+                  {cats.map(cat=>(
+                    <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 40px",gap:0,padding:"9px 14px",borderBottom:"0.5px solid #f5f5f5",alignItems:"center"}}>
+                      {catCostiEditId===cat.id
+                        ?<input autoFocus style={{...S.inp,margin:0,fontSize:12}} value={cat.nome} onChange={e=>updCat(cat.id,"nome",e.target.value)} onBlur={()=>setCatCostiEditId(null)}/>
+                        :<div style={{fontSize:13,fontWeight:500,cursor:"pointer"}} onDoubleClick={()=>setCatCostiEditId(cat.id)}>{cat.nome}</div>
+                      }
+                      <div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
+                        <span style={{fontSize:12,color:"#888"}}>€</span>
+                        <input type="number" min="0" style={{width:90,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:tipo==="fisso"?"#185FA5":"#533AB7"}}
+                          value={cat.totaleAnno||""} placeholder="0"
+                          onChange={e=>updCat(cat.id,"totaleAnno",Number(e.target.value))}/>
+                      </div>
+                      <div style={{fontSize:12,color:"#aaa",textAlign:"right"}}>~ € {fmt(Math.round(Number(cat.totaleAnno||0)/12))}</div>
+                      <button onClick={()=>delCat(cat.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
+                    </div>
+                  ))}
+                  {cats.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12,fontStyle:"italic"}}>Nessuna categoria {tipo}. Aggiungi con il bottone in basso.</div>}
+                </div>
+              );
+              return(<div>
+                {/* Header anno + azioni */}
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.5rem",flexWrap:"wrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:12,color:"#888"}}>Anno:</span>
+                    <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
+                      {(anniDisp.length>0?anniDisp:[2025,2026]).map(a=>(
+                        <button key={a} onClick={()=>setImpCostiAnno(String(a))} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:impCostiAnno===String(a)?"#fff":"transparent",color:impCostiAnno===String(a)?"#A8863A":"#888",fontWeight:impCostiAnno===String(a)?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:impCostiAnno===String(a)?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{a}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={copiaAnnoSucc} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>
+                    📥 Usa {annoNum} come base {annoNum+1}
+                  </button>
+                  <button onClick={()=>setFormNuovaCat({nome:"",totale:"",tipo:"fisso"})} style={{...S.btnP,fontSize:11,padding:"5px 14px",marginLeft:"auto"}}>
+                    + Nuova categoria
+                  </button>
+                </div>
+
+                {/* Totale generale */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1.5rem"}}>
+                  {[["📌 Totale fissi",totFissi,"#185FA5"],["📊 Totale variabili",totVar,"#533AB7"],["💰 Totale generale",totFissi+totVar,"#633806"]].map(([lbl,val,clr])=>(
+                    <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",textAlign:"center",borderTop:`3px solid ${clr}`}}>
+                      <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{lbl}</div>
+                      <div style={{fontSize:22,fontWeight:700,color:clr}}>€ {fmt(Math.round(val))}</div>
+                      <div style={{fontSize:10,color:"#aaa",marginTop:4}}>~ € {fmt(Math.round(val/12))} / mese</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Form nuova categoria */}
+                {formNuovaCat&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #A8863A",padding:"1rem",marginBottom:"1.25rem"}}>
+                  <div style={{fontSize:13,fontWeight:600,marginBottom:10,color:"#633806"}}>+ Nuova categoria — anno {annoNum}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 140px 120px auto",gap:10,alignItems:"flex-end"}}>
+                    <div>
+                      <label style={S.lbl}>Nome categoria</label>
+                      <input style={S.inp} value={formNuovaCat.nome} placeholder="es. Assicurazione Professionale" onChange={e=>setFormNuovaCat({...formNuovaCat,nome:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addCat()}/>
+                    </div>
+                    <div>
+                      <label style={S.lbl}>Totale annuo (€)</label>
+                      <input type="number" style={S.inp} value={formNuovaCat.totale} placeholder="0" onChange={e=>setFormNuovaCat({...formNuovaCat,totale:e.target.value})}/>
+                    </div>
+                    <div>
+                      <label style={S.lbl}>Tipo</label>
+                      <select style={S.inp} value={formNuovaCat.tipo} onChange={e=>setFormNuovaCat({...formNuovaCat,tipo:e.target.value})}>
+                        <option value="fisso">Fisso</option>
+                        <option value="variabile">Variabile</option>
+                      </select>
+                    </div>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={addCat} style={{...S.btnP,padding:"7px 14px",fontSize:12}}>Aggiungi</button>
+                      <button onClick={()=>setFormNuovaCat(null)} style={{...S.btn,padding:"7px 10px",fontSize:12}}>✕</button>
+                    </div>
+                  </div>
+                </div>}
+
+                {renderCatList(catFisse,"fisso")}
+                {renderCatList(catVar,"variabile")}
+                <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
+                  <strong>💡 Come funziona</strong> — Modifica i totali annui in questa pagina. Usa "📥 Usa {annoNum} come base {annoNum+1}" per copiare il previsionale nell\'anno successivo. Le spese reali le inserisci nel tab Costi.
+                </div>
+              </div>);
+            })()}
             {impSezione==="fasi"&&isBroker&&(()=>{const fasi=fasiConfig||FASI;const RUOLI=["agente","erica","broker","entrambi","tutti"];const RLB={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Ag+Erica",tutti:"Tutti"};const fi=Math.min(impFaseSel,fasi.length-1);const fo=fasi[fi]||fasi[0];const updAz=(ai,upd)=>setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.map((a,j)=>j!==ai?a:{...a,...upd})}));const delAz=(ai)=>setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.filter((_,j)=>j!==ai)}));const mvAz=(ai,d)=>{const nf=fasi.map((f,i)=>{if(i!==fi)return f;const az=[...f.azioni];[az[ai],az[ai+d]]=[az[ai+d],az[ai]];return{...f,azioni:az};});setFasiConfig(nf);};const addAz=()=>{if(!formNuovaAzione.lbl.trim())return;setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false});};return(<div><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontSize:12,color:"#888"}}>{fasi.length} fasi · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni</span>{fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare default?"))setFasiConfig(null);}}>↺ Default</button>}</div><div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>{fasi.map((f,i)=><button key={f.k} onClick={()=>setImpFaseSel(i)} style={{padding:"4px 10px",fontSize:11,borderRadius:16,border:`0.5px solid ${fi===i?"#A8863A":"#ddd"}`,background:fi===i?"#FEF9E7":"#fff",color:fi===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:fi===i?500:400}}>{i+1}. {f.n}</button>)}</div><div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:10}}><div style={{background:"#fafaf8",padding:"8px 14px",borderBottom:"0.5px solid #e8e5e0",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:13,fontWeight:600}}>{fo.n}</span><span style={{fontSize:11,color:"#aaa"}}>{fo.timing}</span><span style={{fontSize:11,color:"#888",marginLeft:"auto"}}>{fo.azioni.length} azioni</span></div>{fo.azioni.map((az,ai)=>(<div key={az.k} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderBottom:"0.5px solid #f5f5f5"}}><div style={{display:"flex",gap:1}}><button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:ai===0?0.3:1}} disabled={ai===0} onClick={()=>mvAz(ai,-1)}>▲</button><button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:ai===fo.azioni.length-1?0.3:1}} disabled={ai===fo.azioni.length-1} onClick={()=>mvAz(ai,1)}>▼</button></div><input style={{...S.inp,margin:0,flex:1,fontSize:12}} value={az.lbl} onChange={e=>updAz(ai,{lbl:e.target.value})}/><select style={{...S.sel,fontSize:11,padding:"4px 6px"}} value={az.ruolo||"agente"} onChange={e=>updAz(ai,{ruolo:e.target.value})}>{RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}</select><label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#E74C3C",cursor:"pointer",whiteSpace:"nowrap"}}><input type="checkbox" checked={az.alert||false} onChange={e=>updAz(ai,{alert:e.target.checked})}/> Alert</label><button style={{...S.btnD,padding:"2px 6px",fontSize:11}} onClick={()=>delAz(ai)}>✕</button></div>))}<div style={{padding:"8px 14px",background:"#fafaf8",borderTop:"0.5px solid #e8e5e0",display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><input style={{...S.inp,margin:0,flex:2,minWidth:140,fontSize:12}} value={formNuovaAzione.lbl} placeholder="+ Nuova azione..." onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addAz()}/><select style={{...S.sel,fontSize:11}} value={formNuovaAzione.ruolo} onChange={e=>setFormNuovaAzione({...formNuovaAzione,ruolo:e.target.value})}>{RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}</select><label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={formNuovaAzione.alert||false} onChange={e=>setFormNuovaAzione({...formNuovaAzione,alert:e.target.checked})}/> Alert</label><button style={{...S.btnP,fontSize:12,padding:"5px 12px"}} onClick={addAz}>+ Aggiungi</button></div></div></div>);})()}
             {impSezione==="generale"&&<div>
             {/* PARAMETRI PROVVIGIONI STANDARD */}
