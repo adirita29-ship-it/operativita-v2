@@ -2001,7 +2001,7 @@ export default function App() {
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
                       {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
-                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
+                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
                       {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&(!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
                       :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩</button>)}
                     </div>
