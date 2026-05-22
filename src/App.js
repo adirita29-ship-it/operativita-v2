@@ -230,10 +230,10 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_COACH=coachIsAgenzia
     ?["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
     :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
-  const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività"&&id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Le mie fatture"&&id!=="Break Even");
+  const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
-    if(isBackOffice) return TAB_BACKOFFICE.includes(t.id);
+    if(isBackOffice) return t.id !== "Operatività" && t.id !== "Il mio report" && t.id !== "Fatture Agente" && t.id !== "Le mie fatture";
     if(isCoach) return TAB_COACH.includes(t.id);
     if(isCollab&&t.id==="Operatività") return false;
     return TAB_AGENTE.includes(t.id);
@@ -4616,7 +4616,7 @@ export default function App() {
 
                 return(<div>
                   {/* Selettore broker */}
-                  {isBroker&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",padding:"10px 14px",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
+                  {(isBroker||isBackOffice)&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",padding:"10px 14px",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
                     <span style={{fontSize:12,color:"#888",flexShrink:0}}>Piano di:</span>
                     <select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">🏢 Tutta l'agenzia</option>
@@ -5603,7 +5603,7 @@ export default function App() {
           })()}
 
           {/* ── ONE-TO-ONE ── */}
-          {tab==="One-to-One"&&isBroker&&(<div style={S.sec}>
+          {tab==="One-to-One"&&(isBroker||isBackOffice)&&(<div style={S.sec}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem",flexWrap:"wrap",gap:8}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🤝 One-to-One — Incontri con gli agenti</h2>
             </div>
@@ -5905,7 +5905,7 @@ export default function App() {
 
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:8,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem"}}>
-                  {[{v:"generali",l:"Statistiche generali"},...(isBroker?[{v:"agenti",l:"Report agenti"}]:[])].map(o=>(
+                  {[{v:"generali",l:"Statistiche generali"},...(isBroker||isBackOffice?[{v:"agenti",l:"Report agenti"}]:[])].map(o=>(
                     <button key={o.v} onClick={()=>setStatSubTab(o.v)} style={{
                       padding:"7px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",
                       borderBottom:`2px solid ${statSubTab===o.v?BRAND.oro:"transparent"}`,
