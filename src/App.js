@@ -819,13 +819,17 @@ export default function App() {
     });
   },[]);
 
-  // Supabase Realtime — sincronizzazione istantanea tramite libreria ufficiale
+  // Supabase Realtime — sincronizzazione istantanea
   useEffect(()=>{
     if(!dbLoaded) return;
-    let channel=null;
-    let supaClient=null;
+    let channel=null; let supaClient=null;
+    let ultimoSalvataggioLocale=Date.now();
 
     const ricaricaDati=async()=>{
+      // Non ricaricare se abbiamo salvato noi stessi negli ultimi 3 secondi
+      if(Date.now()-ultimoSalvataggioLocale<3000) return;
+      // Non ricaricare se c'è un modal aperto
+      if(document.querySelector('[data-modal="true"]')) return;
       try{
         const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
           {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
@@ -844,37 +848,29 @@ export default function App() {
         if(d.archiviati) setArchiviati(d.archiviati);
         if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
-      }catch(e){ console.error("Realtime reload error:",e); }
+      }catch(e){}
     };
 
-    // Carica libreria Supabase JS dinamicamente
+    // Esponi funzione per segnare quando salviamo noi
+    window._gestionaleSalvato=()=>{ ultimoSalvataggioLocale=Date.now(); };
+
     const initRealtime=async()=>{
       try{
-        // Import Supabase client via ESM CDN
         const {createClient}=await import("https://esm.sh/@supabase/supabase-js@2");
-        supaClient=createClient(SUPA_URL, SUPA_KEY);
+        supaClient=createClient(SUPA_URL,SUPA_KEY);
         channel=supaClient
           .channel("gestionale_sync")
-          .on("postgres_changes",
-            {event:"UPDATE", schema:"public", table:"gestionale_data"},
-            ()=>ricaricaDati()
-          )
-          .subscribe((status)=>{
-            console.log("Realtime status:", status);
-          });
+          .on("postgres_changes",{event:"UPDATE",schema:"public",table:"gestionale_data"},
+            ()=>{ setTimeout(ricaricaDati,500); })
+          .subscribe();
       }catch(e){
-        console.error("Realtime init error:",e);
-        // Fallback: polling ogni 15s
-        const poll=setInterval(ricaricaDati, 15000);
-        return ()=>clearInterval(poll);
+        // Fallback polling
+        const poll=setInterval(ricaricaDati,20000);
+        return()=>clearInterval(poll);
       }
     };
-
     initRealtime();
-
-    return()=>{
-      if(channel&&supaClient) supaClient.removeChannel(channel);
-    };
+    return()=>{ if(channel&&supaClient)supaClient.removeChannel(channel); delete window._gestionaleSalvato; };
   },[dbLoaded]);
 
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
@@ -884,6 +880,7 @@ export default function App() {
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
+      if(window._gestionaleSalvato)window._gestionaleSalvato();
       salvaDB(payload).finally(()=>setDbSaving(false));
     },1500); // debounce 1.5s per non sovraccaricare
     return ()=>clearTimeout(t);
@@ -6885,7 +6882,7 @@ export default function App() {
       </div>)}
 
       {/* MODAL GESTIONE VENDUTO */}
-      {showGestVend&&(<div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setShowGestVend(null);}}>
+      {showGestVend&&(<div data-modal="true" style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setShowGestVend(null);}}>
         <div style={S.modal}>
           <h2 style={{fontSize:17,fontWeight:500,margin:"0 0 4px"}}>Modifica pratica</h2>
           <p style={{fontSize:13,color:"#aaa",margin:"0 0 1rem"}}>{showGestVend.comuneImmobile} — V: {showGestVend.nominativoVenditore} | A: {showGestVend.nomeAcquirente}</p>
