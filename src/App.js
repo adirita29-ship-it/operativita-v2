@@ -230,7 +230,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_COACH=coachIsAgenzia
     ?["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
     :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
-  const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
+  const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività"&&id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Le mie fatture"&&id!=="Break Even");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
     if(isBackOffice) return TAB_BACKOFFICE.includes(t.id);
@@ -722,7 +722,7 @@ export default function App() {
   const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
-  const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
+  const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
   const [dashAnno,setDashAnno]=useState(annoCorrente);
@@ -848,8 +848,8 @@ export default function App() {
   const incFiltrati=useMemo(()=>incarichi.filter(i=>{
     if(i.archiviato&&!mostraArchiviati) return false;
     if(i.categoria!==subInc) return false;
-    // Agente vede solo i propri incarichi
-    if(!canViewAll&&myAgentId&&i.agenteListing!==myAgentId) return false;
+    // Agente: se vuole vede tutti, altrimenti solo i suoi
+    if(!canViewAll&&myAgentId&&!incVistaTutti&&i.agenteListing!==myAgentId) return false;
     const s=statoInc(i);
     if(fIncStato!=="Tutti"&&s!==fIncStato) return false;
     if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno) return false;
@@ -1819,6 +1819,50 @@ export default function App() {
                   </div>
                 )}
               </div>
+              {/* NUOVI INCARICHI SETTIMANA */}
+              {(()=>{
+                const oggi8=todayStr();
+                const d=new Date(oggi8);
+                const day=d.getDay()||7;
+                const lun=new Date(d);lun.setDate(d.getDate()-day+1);
+                const sab=new Date(lun);sab.setDate(lun.getDate()+5);
+                const lunStr=lun.toISOString().slice(0,10);
+                const sabStr=sab.toISOString().slice(0,10);
+                const nuoviInc=incarichi.filter(i=>i.dataInizio>=lunStr&&i.dataInizio<=sabStr&&i.categoria==="vendita"&&!i.archiviato).sort((a,b)=>b.dataInizio?.localeCompare(a.dataInizio||"")||0);
+                if(nuoviInc.length===0) return null;
+                return(<div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"1rem",marginBottom:"1rem",borderLeft:"4px solid #A8863A"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <span style={{fontSize:14}}>🏠</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"#633806",textTransform:"uppercase",letterSpacing:".06em"}}>Nuovi incarichi questa settimana</span>
+                    <span style={{fontSize:11,background:"#FDF6EC",color:"#A8863A",padding:"1px 8px",borderRadius:10,fontWeight:600,marginLeft:"auto"}}>{nuoviInc.length} {nuoviInc.length===1?"incarico":"incarichi"}</span>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {nuoviInc.map(inc=>{
+                      const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
+                      const AVBG=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE","#F1EFE8"];
+                      const AVCL=["#412402","#0C447C","#3C3489","#173404","#444441"];
+                      const agIdx=agenti.findIndex(a=>a.id===Number(inc.agenteListing))%5;
+                      return(<div key={inc.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:8,background:"#FFFBF0",border:"0.5px solid #f0e8d0"}}>
+                        <div style={{width:30,height:30,borderRadius:"50%",background:AVBG[agIdx],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:AVCL[agIdx],flexShrink:0}}>
+                          {ag?.nome?.charAt(0)||"?"}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inc.comune||inc.indirizzo||"Indirizzo non specificato"}</div>
+                          <div style={{fontSize:11,color:"#888"}}>{inc.indirizzo&&inc.comune?inc.indirizzo+" — ":""}{inc.tipologia||""}{inc.fonte?` · ${inc.fonte}`:""}</div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{fontSize:12,fontWeight:600,color:"#A8863A"}}>{ag?.nome||"—"} {ag?.cognome||""}</div>
+                          <div style={{fontSize:10,color:"#aaa"}}>{fmtD(inc.dataInizio)}</div>
+                        </div>
+                        {Number(inc.prezzoRichiesto)>0&&<div style={{textAlign:"right",flexShrink:0,borderLeft:"0.5px solid #f0e8d0",paddingLeft:10}}>
+                          <div style={{fontSize:11,color:"#aaa"}}>Prezzo</div>
+                          <div style={{fontSize:12,fontWeight:600,color:"#633806"}}>€ {fmt(Number(inc.prezzoRichiesto))}</div>
+                        </div>}
+                      </div>);
+                    })}
+                  </div>
+                </div>);
+              })()}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
@@ -1852,7 +1896,14 @@ export default function App() {
                 <button style={S.btnP} onClick={()=>{setFormInc(emptyInc(subInc));if(!isReadOnly)setShowInc("new");}}>+ Nuovo incarico</button>
               </div>
             </div>
-            <FiltriInc/>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+              {!canViewAll&&<div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
+                {[[false,"👤 I miei"],[true,"🏢 Tutti"]].map(([v,l])=>(
+                  <button key={String(v)} onClick={()=>setIncVistaTutti(v)} style={{padding:"5px 12px",fontSize:11,borderRadius:5,border:"none",background:incVistaTutti===v?"#fff":"transparent",color:incVistaTutti===v?"#A8863A":"#888",fontWeight:incVistaTutti===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:incVistaTutti===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
+                ))}
+              </div>}
+              <FiltriInc/>
+            </div>
             <div style={S.cnt}>
               {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
               <div style={{...S.cntBox(BRAND.oroD),marginLeft:"auto",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:110}}>
@@ -1948,11 +1999,11 @@ export default function App() {
                   </td>
                   <td style={S.td} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
-                      {!isVenduto&&!inc.archiviato&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
+                      {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
+                      {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
                       {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
-                      {!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
-                      :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩</button>}
+                      {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&(!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
+                      :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩</button>)}
                     </div>
                   </td>
                 </tr>
@@ -2785,7 +2836,7 @@ export default function App() {
               })()}
             </div>);
           })()}
-          {tab==="Costi"&&isBroker&&!isReadOnly&&(()=>{
+          {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
             const catAnnoC=catCosti.filter(c=>String(c.anno)===annoC&&!c.agentId);
             const speseAnnoC=speseCosti[annoC]||[];
@@ -3843,7 +3894,7 @@ export default function App() {
                 {opSubTab==="settimana"&&(<>
                   <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="date" style={{...S.sel}} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                    {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
                       {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
@@ -4012,7 +4063,7 @@ export default function App() {
                       ))}
                     </div>
                     <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                    {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
                       {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
@@ -4140,7 +4191,7 @@ export default function App() {
                 {opSubTab==="report"&&(<>
                   <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
-                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                    {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
                       {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
@@ -4228,7 +4279,7 @@ export default function App() {
                 {opSubTab==="obiettivi"&&(<>
                   <div style={{display:"flex",gap:8,marginBottom:"1.25rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
-                    {isBroker&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                    {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
                       {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
