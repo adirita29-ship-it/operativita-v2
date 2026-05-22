@@ -652,6 +652,8 @@ export default function App() {
   const [catCostiEditId,setCatCostiEditId]=useState(null);
   const [formSpesa,setFormSpesa]=useState(null);
   const [costiCatExpand,setCostiCatExpand]=useState({});
+  const [showGestCat,setShowGestCat]=useState(false);
+  const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
   const [costiAnno,setCostiAnno]=useState(annoCorrente);
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
@@ -2835,25 +2837,28 @@ export default function App() {
               {/* Form aggiungi spesa */}
               {formSpesa&&<div style={{...sC2,border:"1px solid #A8863A",marginBottom:"1.5rem"}}>
                 <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:12}}>+ Nuova spesa — {annoC}</div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 120px 160px",gap:10,marginBottom:10}}>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 110px 110px 150px",gap:10,marginBottom:10}}>
                   <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
                   <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione} placeholder="es. Bolletta maggio" onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
                   <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
-                  <div><label style={S.lbl}>Categoria</label>
-                    <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})}>
+                  <div><label style={S.lbl}>Tipologia</label>
+                    <select style={S.inp} value={formSpesa.tipo||""} onChange={e=>setFormSpesa({...formSpesa,tipo:e.target.value,catId:""})}>
                       <option value="">Seleziona...</option>
-                      {["fisso","variabile"].map(tipo=>(
-                        <optgroup key={tipo} label={tipo==="fisso"?"📌 Fissi":"📊 Variabili"}>
-                          {catAnnoC.filter(c=>c.tipo===tipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
-                        </optgroup>
-                      ))}
+                      <option value="fisso">📌 Fisso</option>
+                      <option value="variabile">📊 Variabile</option>
+                    </select>
+                  </div>
+                  <div><label style={S.lbl}>Categoria</label>
+                    <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})} disabled={!formSpesa.tipo}>
+                      <option value="">{formSpesa.tipo?"Seleziona categoria...":"Prima scegli tipologia"}</option>
+                      {formSpesa.tipo&&catAnnoC.filter(c=>c.tipo===formSpesa.tipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
                 </div>
                 <div style={{marginBottom:10}}><label style={S.lbl}>Note (opzionale)</label><input style={S.inp} value={formSpesa.note||""} placeholder="Annotazioni..." onChange={e=>setFormSpesa({...formSpesa,note:e.target.value})}/></div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                   <button onClick={()=>setFormSpesa(null)} style={{...S.btn,fontSize:12}}>Annulla</button>
-                  <button onClick={()=>{if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo e categoria");addSpesa(formSpesa);}} style={{...S.btnP,fontSize:12,padding:"7px 18px"}}>💾 Salva spesa</button>
+                  <button onClick={()=>{if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo, tipologia e categoria");addSpesa(formSpesa);}} style={{...S.btnP,fontSize:12,padding:"7px 18px"}}>💾 Salva spesa</button>
                 </div>
               </div>}
 
@@ -2991,8 +2996,6 @@ export default function App() {
             const delSpesaAg=(id)=>setSpeseCosti(prev=>({...prev,[`${agId6}_${annoC}`]:(prev[`${agId6}_${annoC}`]||[]).filter(s=>s.id!==id)}));
             const speseByCatAg=(catId)=>speseAgAnno.filter(s=>s.catId===catId);
             const ANNI_AG=[...new Set(catCosti.filter(c=>c.agentId===agId6).map(c=>String(c.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
-            const [showGestCat,setShowGestCat]=useState(false);
-            const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
             const sC3={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
             return(<div style={S.sec}>
               {/* Header */}
