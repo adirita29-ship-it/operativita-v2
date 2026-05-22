@@ -819,64 +819,61 @@ export default function App() {
     });
   },[]);
 
-  // Supabase Realtime — sincronizzazione istantanea tra tutti gli utenti
+  // Supabase Realtime — sincronizzazione istantanea tramite libreria ufficiale
   useEffect(()=>{
     if(!dbLoaded) return;
+    let channel=null;
+    let supaClient=null;
 
-    // Connessione WebSocket Realtime a Supabase
-    const wsUrl=`wss://ungozmmhdfbdctrhdoth.supabase.co/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`;
-    const ws=new WebSocket(wsUrl);
-    let heartbeat=null;
-
-    ws.onopen=()=>{
-      // Join channel per la tabella gestionale_data
-      ws.send(JSON.stringify({
-        topic:"realtime:public:gestionale_data",
-        event:"phx_join",
-        payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"UPDATE",schema:"public",table:"gestionale_data"}]}},
-        ref:"1"
-      }));
-      // Heartbeat ogni 30s per mantenere connessione
-      heartbeat=setInterval(()=>{
-        if(ws.readyState===WebSocket.OPEN){
-          ws.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:"hb"}));
-        }
-      },30000);
-    };
-
-    ws.onmessage=async(evt)=>{
+    const ricaricaDati=async()=>{
       try{
-        const msg=JSON.parse(evt.data);
-        // Quando arriva un UPDATE sulla tabella, ricarica i dati
-        if(msg.event==="postgres_changes"||msg.payload?.data?.type==="UPDATE"){
-          const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
-            {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
-          if(!res.ok) return;
-          const rows=await res.json();
-          const d=rows?.[0]?.data;
-          if(!d) return;
-          // Aggiorna tutti i dati condivisi
-          if(d.venduti) setVenduti(d.venduti);
-          if(d.incarichi) setIncarichi(d.incarichi);
-          if(d.proposte) setProposte(d.proposte);
-          if(d.pratiche) setPratiche(d.pratiche);
-          if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
-          if(d.operativita) setOperativita(d.operativita);
-          if(d.agenti) setAgenti(d.agenti.map(a=>({...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)?(a.inReport!==false):false})));
-          if(d.sfide) setSfide(d.sfide);
-          if(d.archiviati) setArchiviati(d.archiviati);
-          if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
-          if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
-        }
-      }catch(e){}
+        const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
+          {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+        if(!res.ok) return;
+        const rows=await res.json();
+        const d=rows?.[0]?.data;
+        if(!d) return;
+        if(d.venduti) setVenduti(d.venduti);
+        if(d.incarichi) setIncarichi(d.incarichi);
+        if(d.proposte) setProposte(d.proposte);
+        if(d.pratiche) setPratiche(d.pratiche);
+        if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
+        if(d.operativita) setOperativita(d.operativita);
+        if(d.agenti) setAgenti(d.agenti.map(a=>({...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)?(a.inReport!==false):false})));
+        if(d.sfide) setSfide(d.sfide);
+        if(d.archiviati) setArchiviati(d.archiviati);
+        if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
+        if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
+      }catch(e){ console.error("Realtime reload error:",e); }
     };
 
-    ws.onerror=()=>{};
-    ws.onclose=()=>{ if(heartbeat) clearInterval(heartbeat); };
+    // Carica libreria Supabase JS dinamicamente
+    const initRealtime=async()=>{
+      try{
+        // Import Supabase client via ESM CDN
+        const {createClient}=await import("https://esm.sh/@supabase/supabase-js@2");
+        supaClient=createClient(SUPA_URL, SUPA_KEY);
+        channel=supaClient
+          .channel("gestionale_sync")
+          .on("postgres_changes",
+            {event:"UPDATE", schema:"public", table:"gestionale_data"},
+            ()=>ricaricaDati()
+          )
+          .subscribe((status)=>{
+            console.log("Realtime status:", status);
+          });
+      }catch(e){
+        console.error("Realtime init error:",e);
+        // Fallback: polling ogni 15s
+        const poll=setInterval(ricaricaDati, 15000);
+        return ()=>clearInterval(poll);
+      }
+    };
+
+    initRealtime();
 
     return()=>{
-      if(heartbeat) clearInterval(heartbeat);
-      if(ws.readyState===WebSocket.OPEN) ws.close();
+      if(channel&&supaClient) supaClient.removeChannel(channel);
     };
   },[dbLoaded]);
 
