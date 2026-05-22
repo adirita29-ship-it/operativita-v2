@@ -45,11 +45,11 @@ const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
 const MESI_NOMI = ["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const TAB_CONFIG = [
   { id:"Dashboard",       icon:"⊞",  label:"Dashboard" },
+  { id:"Operatività",     icon:"📅", label:"Operatività" },
+  { id:"Gestione Pratiche", icon:"📁", label:"Gestione Pratiche" },
   { id:"Incarichi",       icon:"📋", label:"Incarichi" },
   { id:"Proposte",        icon:"📝", label:"Proposte" },
   { id:"Venduti",         icon:"🏠", label:"Venduti" },
-  { id:"Operatività",     icon:"📅", label:"Operatività" },
-  { id:"Gestione Pratiche", icon:"📁", label:"Gestione Pratiche" },
   { id:"Il mio report",   icon:"📊", label:"Il mio report" },
   { id:"Report Agenti",   icon:"📊", label:"Report Agenti" },
   { id:"Fatture Agenti",  icon:"🧾", label:"Fatture Agenti" },
@@ -225,15 +225,16 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const isReadOnly = isCoach;
   const isProductivo = !isBackOffice&&!isCoach&&!isCollab;
   const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
-  const TAB_AGENTE = ["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
+  const TAB_AGENTE = ["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
   const TAB_COACH=coachIsAgenzia
-    ?["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
-    :["Dashboard","Incarichi","Proposte","Venduti","Operatività","Gestione Pratiche","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
+    ?["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
+    :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente"];
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Break Even"&&id!=="Costi");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
     if(isBackOffice) return TAB_BACKOFFICE.includes(t.id);
     if(isCoach) return TAB_COACH.includes(t.id);
+    if(isCollab&&t.id==="Operatività") return false;
     return TAB_AGENTE.includes(t.id);
   });
   return (
