@@ -2787,7 +2787,13 @@ export default function App() {
           })()}
           {tab==="Costi"&&isBroker&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
-            const catAnnoC=catCosti.filter(c=>String(c.anno)===annoC);
+            const catAnnoC=(()=>{
+              const byAnno=catCosti.filter(c=>String(c.anno)===annoC&&!c.agentId);
+              if(byAnno.length>0) return byAnno;
+              // fallback: prendi anno piu recente disponibile
+              const anni=[...new Set(catCosti.filter(c=>!c.agentId).map(c=>c.anno))].sort((a,b)=>b-a);
+              return anni.length>0?catCosti.filter(c=>c.anno===anni[0]&&!c.agentId):[];
+            })();
             const speseAnnoC=speseCosti[annoC]||[];
             const oggi6=todayStr();
             const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
