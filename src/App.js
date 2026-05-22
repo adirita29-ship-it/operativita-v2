@@ -819,27 +819,65 @@ export default function App() {
     });
   },[]);
 
-  // Polling ogni 30s per ricaricare dati aggiornati da altri utenti
+  // Supabase Realtime — sincronizzazione istantanea tra tutti gli utenti
   useEffect(()=>{
     if(!dbLoaded) return;
-    const poll=setInterval(async()=>{
-      if(document.hidden) return;
+
+    // Connessione WebSocket Realtime a Supabase
+    const wsUrl=`wss://ungozmmhdfbdctrhdoth.supabase.co/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`;
+    const ws=new WebSocket(wsUrl);
+    let heartbeat=null;
+
+    ws.onopen=()=>{
+      // Join channel per la tabella gestionale_data
+      ws.send(JSON.stringify({
+        topic:"realtime:public:gestionale_data",
+        event:"phx_join",
+        payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"UPDATE",schema:"public",table:"gestionale_data"}]}},
+        ref:"1"
+      }));
+      // Heartbeat ogni 30s per mantenere connessione
+      heartbeat=setInterval(()=>{
+        if(ws.readyState===WebSocket.OPEN){
+          ws.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:"hb"}));
+        }
+      },30000);
+    };
+
+    ws.onmessage=async(evt)=>{
       try{
-        const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
-          {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
-        if(!res.ok) return;
-        const rows=await res.json();
-        const d=rows?.[0]?.data;
-        if(!d) return;
-        if(d.venduti) setVenduti(d.venduti);
-        if(d.incarichi) setIncarichi(d.incarichi);
-        if(d.proposte) setProposte(d.proposte);
-        if(d.pratiche) setPratiche(d.pratiche);
-        if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
-        if(d.operativita) setOperativita(d.operativita);
+        const msg=JSON.parse(evt.data);
+        // Quando arriva un UPDATE sulla tabella, ricarica i dati
+        if(msg.event==="postgres_changes"||msg.payload?.data?.type==="UPDATE"){
+          const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
+            {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+          if(!res.ok) return;
+          const rows=await res.json();
+          const d=rows?.[0]?.data;
+          if(!d) return;
+          // Aggiorna tutti i dati condivisi
+          if(d.venduti) setVenduti(d.venduti);
+          if(d.incarichi) setIncarichi(d.incarichi);
+          if(d.proposte) setProposte(d.proposte);
+          if(d.pratiche) setPratiche(d.pratiche);
+          if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
+          if(d.operativita) setOperativita(d.operativita);
+          if(d.agenti) setAgenti(d.agenti.map(a=>({...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)?(a.inReport!==false):false})));
+          if(d.sfide) setSfide(d.sfide);
+          if(d.archiviati) setArchiviati(d.archiviati);
+          if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
+          if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
+        }
       }catch(e){}
-    },30000);
-    return()=>clearInterval(poll);
+    };
+
+    ws.onerror=()=>{};
+    ws.onclose=()=>{ if(heartbeat) clearInterval(heartbeat); };
+
+    return()=>{
+      if(heartbeat) clearInterval(heartbeat);
+      if(ws.readyState===WebSocket.OPEN) ws.close();
+    };
   },[dbLoaded]);
 
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
