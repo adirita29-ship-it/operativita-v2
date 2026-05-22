@@ -830,7 +830,7 @@ export default function App() {
 
     const ricaricaDati=async()=>{
       // Non ricaricare se abbiamo salvato noi stessi negli ultimi 3 secondi
-      if(Date.now()-ultimoSalvataggioLocale<8000) return;
+      if(Date.now()-ultimoSalvataggioLocale<10000) return;
       // Non ricaricare se c'è un modal aperto
       if(document.querySelector('[data-modal="true"]')) return;
       try{
@@ -853,7 +853,7 @@ export default function App() {
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
         if(d.oneToOne) setOneToOne(d.oneToOne);
         if(d.fasiConfig) setFasiConfig(d.fasiConfig);
-        if(d.mirino) setMirino(prev=>({...d.mirino,...prev})); // merge, local wins
+        // mirino non sovrascrive dal RT - gestito localmente
         if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
         if(d.mirino) setMirino(d.mirino);
         if(d.sfide) setSfide(d.sfide);
@@ -2233,7 +2233,7 @@ export default function App() {
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Agenti coinvolti</p>
                         {[["Listing",inc.agenteListing,(isBroker||isBackOffice)?`${inc.percListing||50}%`:null],["Buyer L.",inc.buyerListing,(isBroker||isBackOffice)?`${inc.percBuyerListing||0}%`:null],["Acquirente",vendCorr?.agenteAcquirente,(isBroker||isBackOffice)?`${vendCorr?.percAcquirente||0}%`:null],["Buyer",vendCorr?.buyer,(isBroker||isBackOffice)?`${vendCorr?.percBuyer||0}%`:null]].filter(([,id])=>id).map(([k,id,p])=>(
-                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong> <span style={{color:"#aaa"}}>{p}</span></span></div>
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong>{p&&<span style={{color:"#aaa",marginLeft:4}}>{p}</span>}</span></div>
                         ))}
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
