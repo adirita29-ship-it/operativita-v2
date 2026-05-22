@@ -1682,6 +1682,48 @@ export default function App() {
                       </div>
                     </div>);
                   })()}
+                {/* NUOVI INCARICHI SETTIMANA agente */}
+                {(()=>{
+                  const oggi8a=todayStr();
+                  const da=new Date(oggi8a);
+                  const day2=da.getDay()||7;
+                  const lun2=new Date(da);lun2.setDate(da.getDate()-day2+1);
+                  const sab2=new Date(lun2);sab2.setDate(lun2.getDate()+5);
+                  const lunStr2=lun2.toISOString().slice(0,10);
+                  const sabStr2=sab2.toISOString().slice(0,10);
+                  const nuoviIncAg=incarichi.filter(i=>i.dataInizio>=lunStr2&&i.dataInizio<=sabStr2&&i.categoria==="vendita"&&!i.archiviato).sort((a,b)=>b.dataInizio?.localeCompare(a.dataInizio||"")||0);
+                  if(nuoviIncAg.length===0) return null;
+                  return(<div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"1rem",marginBottom:10,borderLeft:"4px solid #A8863A"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                      <span style={{fontSize:14}}>🏠</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"#633806",textTransform:"uppercase",letterSpacing:".06em"}}>Nuovi incarichi questa settimana</span>
+                      <span style={{fontSize:11,background:"#FDF6EC",color:"#A8863A",padding:"1px 8px",borderRadius:10,fontWeight:600,marginLeft:"auto"}}>{nuoviIncAg.length}</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {nuoviIncAg.map(inc=>{
+                        const ag2=agenti.find(a=>a.id===Number(inc.agenteListing));
+                        const agIdx2=agenti.findIndex(a=>a.id===Number(inc.agenteListing))%5;
+                        const AVBG2=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE","#F1EFE8"];
+                        const AVCL2=["#412402","#0C447C","#3C3489","#173404","#444441"];
+                        return(<div key={inc.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:8,background:"#FFFBF0",border:"0.5px solid #f0e8d0"}}>
+                          <div style={{width:30,height:30,borderRadius:"50%",background:AVBG2[agIdx2],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:AVCL2[agIdx2],flexShrink:0}}>{ag2?.nome?.charAt(0)||"?"}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inc.comune||inc.indirizzo||"Indirizzo non specificato"}</div>
+                            <div style={{fontSize:11,color:"#888"}}>{inc.tipologia||""}{inc.fonte?` · ${inc.fonte}`:""}</div>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <div style={{fontSize:12,fontWeight:600,color:"#A8863A"}}>{ag2?.nome||"—"}</div>
+                            <div style={{fontSize:10,color:"#aaa"}}>{fmtD(inc.dataInizio)}</div>
+                          </div>
+                          {Number(inc.prezzoRichiesto)>0&&<div style={{textAlign:"right",flexShrink:0,borderLeft:"0.5px solid #f0e8d0",paddingLeft:10}}>
+                            <div style={{fontSize:11,color:"#aaa"}}>Prezzo</div>
+                            <div style={{fontSize:12,fontWeight:600,color:"#633806"}}>€ {fmt(Number(inc.prezzoRichiesto))}</div>
+                          </div>}
+                        </div>);
+                      })}
+                    </div>
+                  </div>);
+                })()}
                 {/* Traguardo volante agente — sempre visibile */}
                 <div style={{background:sfidaAtt?"linear-gradient(135deg,#FDF6EC,#FAEEDA)":"#fafaf8",borderRadius:10,border:`1px solid ${sfidaAtt?"#D4AC0D44":"#e8e5e0"}`,padding:"1rem",marginBottom:10}}>
                   {sfidaAtt?(()=>{
@@ -2130,7 +2172,7 @@ export default function App() {
                   {/* Agenti */}
                   <td style={{padding:"10px 12px",verticalAlign:"middle"}}>
                     <div style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
-                      {inc.agenteListing&&<span style={{color:"#2980B9"}}>L: {nomAg(inc.agenteListing)}{inc.percListing?` ${inc.percListing}%`:""}</span>}
+                      {inc.agenteListing&&<span style={{color:"#2980B9"}}>L: {nomAg(inc.agenteListing)}</span>}
                       {inc.buyerListing&&<span style={{color:"#2980B9",opacity:.8}}>BL: {nomAg(inc.buyerListing)}</span>}
                       {vendCorr?.agenteAcquirente&&<span style={{color:"#8E44AD"}}>A: {nomAg(vendCorr.agenteAcquirente)}</span>}
                       {vendCorr?.buyer&&<span style={{color:"#8E44AD",opacity:.8}}>B: {nomAg(vendCorr.buyer)}</span>}
@@ -2190,7 +2232,7 @@ export default function App() {
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Agenti coinvolti</p>
-                        {[["Listing",inc.agenteListing,`${inc.percListing||50}%`],["Buyer L.",inc.buyerListing,`${inc.percBuyerListing||0}%`],["Acquirente",vendCorr?.agenteAcquirente,`${vendCorr?.percAcquirente||0}%`],["Buyer",vendCorr?.buyer,`${vendCorr?.percBuyer||0}%`]].filter(([,id])=>id).map(([k,id,p])=>(
+                        {[["Listing",inc.agenteListing,(isBroker||isBackOffice)?`${inc.percListing||50}%`:null],["Buyer L.",inc.buyerListing,(isBroker||isBackOffice)?`${inc.percBuyerListing||0}%`:null],["Acquirente",vendCorr?.agenteAcquirente,(isBroker||isBackOffice)?`${vendCorr?.percAcquirente||0}%`:null],["Buyer",vendCorr?.buyer,(isBroker||isBackOffice)?`${vendCorr?.percBuyer||0}%`:null]].filter(([,id])=>id).map(([k,id,p])=>(
                           <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong> <span style={{color:"#aaa"}}>{p}</span></span></div>
                         ))}
                       </div>
@@ -2437,8 +2479,8 @@ export default function App() {
                   </td>
                   <td style={{padding:"10px 12px",verticalAlign:"top"}}>
                     <div style={{fontSize:11,display:"flex",flexDirection:"column",gap:2}}>
-                      {v.agenteListing?<span style={{color:"#2980B9"}}>L: {nomAg(v.agenteListing)}{v.percListing?` ${v.percListing}%`:""}</span>:v.agenziaEsterna?<span style={{color:BRAND.oroD,fontSize:10}}>{v.agenziaEsterna}</span>:null}
-                      {v.buyerListing&&<span style={{color:"#2980B9",opacity:.8}}>BL: {nomAg(v.buyerListing)}{v.percBuyerListing?` ${v.percBuyerListing}%`:""}</span>}
+                      {v.agenteListing?<span style={{color:"#2980B9"}}>L: {nomAg(v.agenteListing)}</span>:v.agenziaEsterna?<span style={{color:BRAND.oroD,fontSize:10}}>{v.agenziaEsterna}</span>:null}
+                      {v.buyerListing&&<span style={{color:"#2980B9",opacity:.8}}>BL: {nomAg(v.buyerListing)}</span>}
                       {v.agenteAcquirente&&<span style={{color:"#8E44AD"}}>A: {nomAg(v.agenteAcquirente)}{v.percAcquirente?` ${v.percAcquirente}%`:""}</span>}
                       {v.buyer&&<span style={{color:"#8E44AD",opacity:.8}}>B: {nomAg(v.buyer)}{v.percBuyer?` ${v.percBuyer}%`:""}</span>}
                     </div>
@@ -6093,7 +6135,19 @@ export default function App() {
                 {statSubTab==="generali"&&(<>
 
                   {/* Sezione TRANSAZIONI */}
-                  <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Transazioni</p>
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:16,borderLeft:"4px solid #A8863A"}}>
+                  <div style={{fontSize:24}}>💼</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Le mie % provvigione</div>
+                    <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
+                      <div><span style={{fontSize:12,color:"#888"}}>Listing (venditore): </span><span style={{fontSize:16,fontWeight:700,color:BRAND.oroD}}>{ag.percListing||0}%</span></div>
+                      <div><span style={{fontSize:12,color:"#888"}}>Acquirente: </span><span style={{fontSize:16,fontWeight:700,color:BRAND.oroD}}>{ag.percAcquirente||0}%</span></div>
+                      {ag.percBuyerListing>0&&<div><span style={{fontSize:12,color:"#888"}}>Buyer listing: </span><span style={{fontSize:16,fontWeight:700,color:BRAND.oroD}}>{ag.percBuyerListing}%</span></div>}
+                    </div>
+                    <div style={{fontSize:11,color:"#aaa",marginTop:4}}>Impostate dal Broker in Impostazioni → Agenti</div>
+                  </div>
+                </div>
+                <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Transazioni</p>
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                     {/* Valore medio transazione Càsa — (provvV + provvA) / 2 */}
                     {(()=>{
