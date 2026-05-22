@@ -3968,7 +3968,8 @@ export default function App() {
 
                   {/* ── OBIETTIVO DEL GIORNO ── */}
                   {(()=>{
-                    const agIdOggi=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
+                    const agentiProd5=agenti.filter(a=>a.inReport!==false&&["Broker","Consulente","Collaboratore"].includes(a.profilo));
+                    const agIdOggi=isBroker?(Number(opAgenteSel==="Tutti"?agentiProd5[0]?.id:opAgenteSel)||agentiProd5[0]?.id):myAgentId;
                     if(!agIdOggi) return null;
                     const oggi5=todayStr();
                     const opAg5=operativita[agIdOggi]||operativita[String(agIdOggi)]||{};
@@ -4019,6 +4020,29 @@ export default function App() {
                         <span style={{fontSize:22}}>{totOk===totOb&&totOb>0?"🏆":"💡"}</span>
                         <p style={{fontSize:13,color:"#2c2c2c",margin:0,fontWeight:500}}>{msg}</p>
                       </div>
+                      {/* Obiettivi giornalieri manuali */}
+                      {!isReadOnly&&<div style={{...sC,marginTop:10}}>
+                        <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Imposta obiettivo giornaliero</p>
+                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:10}}>
+                          {[["📞 Chiamate obj","obChDay5","#533AB7"],["🤝 Appuntamenti obj","obApptDay5","#A8863A"],["📱 Post social obj","obSocDay5","#8E44AD"]].map(([lbl,k,clr])=>{
+                            const keyMap={obChDay5:"chiamate",obApptDay5:"appuntamenti",obSocDay5:"postSocial"};
+                            const curVal=Number(obAg5[keyMap[k]]||0);
+                            const dayVal=k==="obChDay5"?obChDay:k==="obApptDay5"?obApptDay:obSocDay;
+                            return(<div key={k} style={{background:"#fafaf8",borderRadius:8,padding:"10px 12px",border:"0.5px solid #eee"}}>
+                              <p style={{fontSize:10,color:clr,textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 6px",fontWeight:600}}>{lbl}</p>
+                              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                <button onClick={()=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[keyMap[k]]:Math.max(0,curVal-1)}}))} style={{width:28,height:28,borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                                <input type="number" min="0" style={{flex:1,textAlign:"center",fontSize:18,fontWeight:700,color:clr,border:"none",background:"transparent",outline:"none",fontFamily:"inherit"}}
+                                  value={curVal||""}
+                                  placeholder="0"
+                                  onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[keyMap[k]]:Number(e.target.value)}}))}/>
+                                <button onClick={()=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[keyMap[k]]:curVal+1}}))} style={{width:28,height:28,borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                              </div>
+                              {dayVal>0&&<p style={{fontSize:10,color:"#aaa",margin:"4px 0 0",textAlign:"center"}}>da Piano Produzione: {dayVal}/gg</p>}
+                            </div>);
+                          })}
+                        </div>
+                      </div>}
                     </div>);
                   })()}
                 </>)}
