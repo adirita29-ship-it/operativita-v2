@@ -233,7 +233,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
-    if(isBackOffice) return t.id !== "Operatività";
+    if(isBackOffice) return !["Operatività","Il mio report","Report Agenti","Le mie fatture","War Room","One-to-One"].includes(t.id);
     if(isCoach) return TAB_COACH.includes(t.id);
     if(isCollab&&t.id==="Operatività") return false;
     return TAB_AGENTE.includes(t.id);
@@ -818,6 +818,26 @@ export default function App() {
       setDbLoaded(true);
     });
   },[]);
+
+  // Polling ogni 30s per ricaricare dati aggiornati da altri utenti (es. Erica aggiorna, Broker vede)
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    const poll=setInterval(async()=>{
+      if(document.hidden) return; // non pollare se tab non visibile
+      try{
+        const res=await supaFetch("GET");
+        if(!res?.data) return;
+        const d=res.data;
+        if(d.venduti) setVenduti(d.venduti);
+        if(d.incarichi) setIncarichi(d.incarichi);
+        if(d.proposte) setProposte(d.proposte);
+        if(d.pratiche) setPratiche(d.pratiche);
+        if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
+        if(d.operativita) setOperativita(d.operativita);
+      }catch(e){}
+    },30000);
+    return()=>clearInterval(poll);
+  },[dbLoaded]);
 
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
@@ -6325,7 +6345,7 @@ export default function App() {
           {tab==="Impostazioni"&&(<div style={S.sec}>
             <div style={{display:"flex",borderBottom:"1px solid #eee",marginBottom:"1.5rem"}}>{[["generale","⚙ Generali"],["fasi","📋 Fasi & Azioni"],["costi","💰 Categorie Costi"]].map(([v,l])=>(<button key={v} onClick={()=>setImpSezione(v)} style={{padding:"8px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${impSezione===v?"#A8863A":"transparent"}`,color:impSezione===v?"#A8863A":"#666",fontWeight:impSezione===v?600:400,fontFamily:"inherit",marginBottom:-1}}>{l}</button>))}</div>
 
-            {impSezione==="costi"&&isBroker&&(()=>{
+            {impSezione==="costi"&&(isBroker||isBackOffice)&&(()=>{
               const annoNum=Number(impCostiAnno);
               const catAnno=catCosti.filter(c=>c.anno===annoNum);
               const catFisse=catAnno.filter(c=>c.tipo==="fisso");
