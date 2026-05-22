@@ -2787,13 +2787,7 @@ export default function App() {
           })()}
           {tab==="Costi"&&isBroker&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
-            const catAnnoC=(()=>{
-              const byAnno=catCosti.filter(c=>String(c.anno)===annoC&&!c.agentId);
-              if(byAnno.length>0) return byAnno;
-              // fallback: prendi anno piu recente disponibile
-              const anni=[...new Set(catCosti.filter(c=>!c.agentId).map(c=>c.anno))].sort((a,b)=>b-a);
-              return anni.length>0?catCosti.filter(c=>c.anno===anni[0]&&!c.agentId):[];
-            })();
+            const catAnnoC=catCosti.filter(c=>String(c.anno)===annoC&&!c.agentId);
             const speseAnnoC=speseCosti[annoC]||[];
             const oggi6=todayStr();
             const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
@@ -2856,8 +2850,8 @@ export default function App() {
                   </div>
                   <div><label style={S.lbl}>Categoria</label>
                     <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})} disabled={!formSpesa.tipo}>
-                      <option value="">{formSpesa.tipo?"Seleziona categoria...":"Prima scegli tipologia"}</option>
-                      {formSpesa.tipo&&catAnnoC.filter(c=>c.tipo===formSpesa.tipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                      <option value="">{!formSpesa.tipo?"Prima scegli tipologia":"Seleziona..."}</option>
+                      {formSpesa.tipo&&catCosti.filter(c=>c.tipo===formSpesa.tipo&&!c.agentId).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
                   </div>
                 </div>
