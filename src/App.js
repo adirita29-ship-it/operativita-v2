@@ -3965,6 +3965,62 @@ export default function App() {
                       </table>
                     </div>
                   </div>)}
+
+                  {/* ── OBIETTIVO DEL GIORNO ── */}
+                  {(()=>{
+                    const agIdOggi=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
+                    if(!agIdOggi) return null;
+                    const oggi5=todayStr();
+                    const opAg5=operativita[agIdOggi]||operativita[String(agIdOggi)]||{};
+                    const gOggi=opAg5[oggi5]||{};
+                    const obAg5=(obiettivoAgente[agIdOggi])||{};
+                    const obChSett=Number(obAg5.chiamate||0);
+                    const obChDay=obChSett>0?Math.round(obChSett/5):0;
+                    const obApptSett=Number(obAg5.appuntamenti||0);
+                    const obApptDay=obApptSett>0?Math.round(obApptSett/5):0;
+                    const obSocDay=Number(obAg5.postSocial||0);
+                    const ct=gOggi.chiamate_tipi||{};
+                    const chOggi=Object.values(ct).reduce((s,v)=>s+Number(v||0),0);
+                    const apptOggi=Number(gOggi.appuntamenti||0);
+                    const acqOggi=incarichi.filter(i=>Number(i.agenteListing)===agIdOggi&&i.dataInizio===oggi5).length;
+                    const socialOggi=Number(gOggi.postSocial||0);
+                    const visitOggi=Number(gOggi.immVisitati||0);
+                    const agNome5=agenti.find(a=>a.id===agIdOggi);
+                    const GNOMI=["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+                    const giornoNome=GNOMI[new Date(oggi5).getDay()];
+                    const totOb=[obChDay,obApptDay].filter(o=>o>0).length;
+                    const totOk=[obChDay>0&&chOggi>=obChDay,obApptDay>0&&apptOggi>=obApptDay].filter(Boolean).length;
+                    const msg=totOb===0?"Imposta gli obiettivi nel Piano Produzione per vedere i progressi":
+                      totOk===totOb?"🔥 Tutti gli obiettivi del giorno raggiunti! Ottimo lavoro!":
+                      chOggi>0||apptOggi>0?"💪 Stai andando bene — continua così!":
+                      "🎯 Inizia la giornata — registra le tue attività!";
+                    const sC={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
+                    const sL={fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"};
+                    return(<div style={{marginTop:"1.5rem"}}>
+                      <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span>⚡ Obiettivo del giorno</span>
+                        <span style={{fontWeight:400,color:"#888",textTransform:"none",letterSpacing:0}}>— {giornoNome} {fmtD(oggi5)}</span>
+                        {isBroker&&agNome5&&<span style={{fontWeight:400,color:"#aaa",textTransform:"none",letterSpacing:0,marginLeft:"auto"}}>{agNome5.nome} {agNome5.cognome||""}</span>}
+                      </p>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:"1rem"}}>
+                        {[["📞 Chiamate",chOggi,obChDay,"#533AB7"],["🤝 Appuntamenti",apptOggi,obApptDay,"#A8863A"],["🏠 Acquisizioni",acqOggi,0,"#0F6E56"],["👁 Imm. visitati",visitOggi,0,"#185FA5"],["📱 Post social",socialOggi,obSocDay,"#8E44AD"]].map(([lbl,val,obj,clr])=>{
+                          const perc=obj>0?Math.min(100,Math.round(val/obj*100)):null;
+                          const ok=obj>0&&val>=obj;
+                          return(<div key={lbl} style={{...sC,borderTop:`3px solid ${ok?"#27AE60":clr}`,textAlign:"center",position:"relative"}}>
+                            {ok&&<div style={{position:"absolute",top:6,right:8,fontSize:14}}>✅</div>}
+                            <p style={sL}>{lbl}</p>
+                            <p style={{fontSize:32,fontWeight:700,color:ok?"#27AE60":clr,margin:"4px 0 2px",lineHeight:1}}>{val}</p>
+                            {obj>0&&<><div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",margin:"5px 0 3px"}}><div style={{height:"100%",width:perc+"%",background:ok?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:2,transition:"width .4s"}}/></div><p style={{fontSize:10,color:ok?"#27AE60":"#aaa",margin:0}}>obj {obj} · {perc}%</p></>}
+                            {obj===0&&<p style={{fontSize:10,color:"#ddd",margin:"4px 0 0"}}>—</p>}
+                          </div>);
+                        })}
+                      </div>
+                      <div style={{...sC,display:"flex",alignItems:"center",gap:12,borderLeft:`4px solid ${totOk===totOb&&totOb>0?"#27AE60":"#A8863A"}`}}>
+                        <span style={{fontSize:22}}>{totOk===totOb&&totOb>0?"🏆":"💡"}</span>
+                        <p style={{fontSize:13,color:"#2c2c2c",margin:0,fontWeight:500}}>{msg}</p>
+                      </div>
+                    </div>);
+                  })()}
                 </>)}
 
                 {/* ── INSERIMENTO GIORNATA ── */}
