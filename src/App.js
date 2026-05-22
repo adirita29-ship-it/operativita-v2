@@ -741,6 +741,9 @@ export default function App() {
   const [schedaIncarico,setSchedaIncarico]=useState(null);
   const [pagamentiFatture,setPagamentiFatture]=useState(_ls?.pagamentiFatture||{});
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
+  const [mirino,setMirino]=useState(_ls?.mirino||{});
+  const [showMirino,setShowMirino]=useState(null);
+  const [formMirino,setFormMirino]=useState({});
   const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
   const [statSubTab,setStatSubTab]=useState("generali");
   const [statAnno,setStatAnno]=useState(annoCorrente);
@@ -850,7 +853,9 @@ export default function App() {
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
         if(d.oneToOne) setOneToOne(d.oneToOne);
         if(d.fasiConfig) setFasiConfig(d.fasiConfig);
+        if(d.mirino) setMirino(d.mirino);
         if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
+        if(d.mirino) setMirino(d.mirino);
         if(d.sfide) setSfide(d.sfide);
       }catch(e){}
     };
@@ -880,7 +885,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -1882,6 +1887,59 @@ export default function App() {
                   </div>
                 )}
               </div>
+              {/* MIRINO — visibile in alto per tutti */}
+              {(()=>{
+                const oggi9=todayStr();
+                const mirinoList=Object.values(mirino).filter(m=>{
+                  const inc=incarichi.find(i=>i.id===m.incaricoId);
+                  if(!inc||inc.archiviato) return false;
+                  if(!isBroker&&!isBackOffice&&Number(inc.agenteListing)!==myAgentId) return false;
+                  return true;
+                }).sort((a,b)=>(b.dataInteresse||"").localeCompare(a.dataInteresse||""));
+                if(mirinoList.length===0) return null;
+                const sCard4={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"12px 14px"};
+                const sLbl4={fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 4px"};
+                const giorniDa=(d)=>{if(!d)return null;const diff=Math.floor((new Date(oggi9)-new Date(d))/(1000*60*60*24));return diff;};
+                return(<div style={{...sCard4,borderLeft:"4px solid #E74C3C",marginBottom:"1.5rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+                    <span style={{fontSize:16}}>🎯</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"#E74C3C",textTransform:"uppercase",letterSpacing:".06em"}}>Immobili nel mirino</span>
+                    <span style={{fontSize:11,background:"#FDECEC",color:"#E74C3C",padding:"1px 8px",borderRadius:10,fontWeight:600,marginLeft:"auto"}}>{mirinoList.length}</span>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {mirinoList.map(m=>{
+                      const inc=incarichi.find(i=>i.id===m.incaricoId)||{};
+                      const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
+                      const giorni=giorniDa(m.dataInteresse);
+                      const clrG=giorni===null?'#aaa':giorni>=7?'#E74C3C':giorni>=3?'#E67E22':'#27AE60';
+                      const bgG=giorni===null?'#f5f5f5':giorni>=7?'#FDECEC':giorni>=3?'#FEF3E2':'#E1F5EE';
+                      const prezzo=Number(inc.prezzoRichiesto||0);
+                      const provvV=prezzo>0?Math.round(prezzo*(Number(provvStandard.percVend||3)/100)):0;
+                      const provvA=prezzo>0?Math.round(prezzo*(Number(provvStandard.percAcq||4)/100)):0;
+                      const followUpScad=m.followUp&&m.followUp<oggi9;
+                      return(<div key={m.incaricoId} style={{border:`0.5px solid ${giorni>=7?'#E74C3C44':giorni>=3?'#E67E2244':'#f0f0f0'}`,borderRadius:8,padding:"10px 12px",background:giorni>=7?'#FFFBF5':'#fff',borderLeft:`3px solid ${clrG}`}}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                              <span style={{fontSize:13,fontWeight:600}}>{inc.comune||inc.indirizzo||"—"}{inc.indirizzo&&inc.comune?" — "+inc.indirizzo:""}</span>
+                              {giorni!==null&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgG,color:clrG,fontWeight:600}}>{giorni===0?"oggi":giorni===1?"ieri":giorni+" gg fa"}</span>}
+                            </div>
+                            <div style={{fontSize:11,color:"#888"}}>{inc.tipologia} · {inc.categoria} · <span style={{color:"#A8863A",fontWeight:500}}>{ag?.nome||""} {ag?.cognome||""}</span></div>
+                            {m.note&&<div style={{fontSize:11,color:"#555",marginTop:4,fontStyle:"italic"}}>"{m.note}"</div>}
+                            {m.followUp&&<div style={{fontSize:11,color:followUpScad?"#E74C3C":"#E67E22",marginTop:3,fontWeight:500}}>⏰ Follow-up: {fmtD(m.followUp)}{followUpScad?" — SCADUTO!":""}</div>}
+                          </div>
+                          {prezzo>0&&<div style={{textAlign:"right",flexShrink:0,paddingLeft:10,borderLeft:"0.5px solid #f0f0f0"}}>
+                            <div style={{fontSize:10,color:"#aaa"}}>Provv. stimata</div>
+                            <div style={{fontSize:16,fontWeight:700,color:"#0F6E56"}}>€ {fmt(provvV+provvA)}</div>
+                            <div style={{fontSize:9,color:"#aaa"}}>V: €{fmt(provvV)} · A: €{fmt(provvA)}</div>
+                          </div>}
+                        </div>
+                      </div>);
+                    })}
+                  </div>
+                </div>);
+              })()}
+
               {/* NUOVI INCARICHI SETTIMANA */}
               {(()=>{
                 const oggi8=todayStr();
@@ -2063,6 +2121,7 @@ export default function App() {
                   <td style={S.td} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
+                      {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button title={mirino[inc.id]?"Nel mirino — clicca per modificare":"Metti nel mirino"} style={{...S.btn,fontSize:12,padding:"4px 8px",borderColor:mirino[inc.id]?"#E74C3C":"#ddd",color:mirino[inc.id]?"#E74C3C":"#aaa",background:mirino[inc.id]?"#FDECEC":"#fff"}} onClick={()=>{setFormMirino(mirino[inc.id]||{dataInteresse:todayStr(),followUp:"",note:""});setShowMirino(inc);}}>🎯</button>}
                       {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
                       {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
                       {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&(!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
@@ -6890,6 +6949,45 @@ export default function App() {
       </div>)}
 
       {/* MODAL GESTIONE VENDUTO */}
+            {/* MODAL MIRINO */}
+      {showMirino&&(<div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setShowMirino(null);}}>
+        <div style={{...S.modal,maxWidth:480}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:"1rem"}}>
+            <span style={{fontSize:20}}>🎯</span>
+            <div>
+              <h3 style={{fontSize:15,fontWeight:600,margin:0}}>Nel mirino</h3>
+              <p style={{fontSize:12,color:"#888",margin:0}}>{showMirino.comune||showMirino.indirizzo} — {showMirino.indirizzo}</p>
+            </div>
+            {mirino[showMirino.id]&&<button onClick={()=>{const m={...mirino};delete m[showMirino.id];setMirino(m);setShowMirino(null);}} style={{...S.btnD,fontSize:11,marginLeft:"auto"}}>✕ Rimuovi</button>}
+          </div>
+          <div style={S.g2}>
+            <div><label style={S.lbl}>Data interesse manifestato</label><input type="date" style={S.inp} value={formMirino.dataInteresse||""} onChange={e=>setFormMirino({...formMirino,dataInteresse:e.target.value})}/></div>
+            <div><label style={S.lbl}>Follow-up entro</label><input type="date" style={S.inp} value={formMirino.followUp||""} onChange={e=>setFormMirino({...formMirino,followUp:e.target.value})}/></div>
+          </div>
+          <div style={{marginBottom:"1rem"}}><label style={S.lbl}>Note cliente</label><textarea style={{...S.inp,height:70,resize:"none"}} value={formMirino.note||""} placeholder="Es: ha visitato 2 volte, aspetta risposta mutuo..." onChange={e=>setFormMirino({...formMirino,note:e.target.value})}/></div>
+          {(()=>{
+            const prezzo=Number(showMirino.prezzoRichiesto||0);
+            const provvV=prezzo>0?Math.round(prezzo*(Number(provvStandard.percVend||3)/100)):0;
+            const provvA=prezzo>0?Math.round(prezzo*(Number(provvStandard.percAcq||4)/100)):0;
+            if(prezzo===0) return null;
+            return(<div style={{background:"#E1F5EE",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
+              <div>
+                <div style={{fontSize:10,color:"#085041",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Provvigione stimata</div>
+                <div style={{fontSize:10,color:"#aaa",marginTop:2}}>da € {fmt(prezzo)} × tabelle agenzia</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:20,fontWeight:700,color:"#0F6E56"}}>€ {fmt(provvV+provvA)}</div>
+                <div style={{fontSize:10,color:"#aaa"}}>V: € {fmt(provvV)} ({provvStandard.percVend}%) · A: € {fmt(provvA)} ({provvStandard.percAcq}%)</div>
+              </div>
+            </div>);
+          })()}
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button style={S.btn} onClick={()=>setShowMirino(null)}>Annulla</button>
+            <button style={S.btnP} onClick={()=>{setMirino({...mirino,[showMirino.id]:{...formMirino,incaricoId:showMirino.id,agenteListing:showMirino.agenteListing}});setShowMirino(null);}}>🎯 Salva</button>
+          </div>
+        </div>
+      </div>)}
+
       {showGestVend&&(<div data-modal="true" style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setShowGestVend(null);}}>
         <div style={S.modal}>
           <h2 style={{fontSize:17,fontWeight:500,margin:"0 0 4px"}}>Modifica pratica</h2>
