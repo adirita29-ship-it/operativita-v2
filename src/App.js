@@ -12,6 +12,11 @@ const useIsMobile = () => {
 };
 
 // ── SUPABASE CONFIG ─────────────────────────────────────────────────────────
+const EMAILJS_SERVICE = "service_pex455s";
+const EMAILJS_KEY = "cnJW9Jlr4xaN97tXq";
+const EMAILJS_TEMPLATE_ALERT = "template_rdnhnas";
+const EMAILJS_TEMPLATE_REPORT = "template_32n4gky";
+
 const SUPA_URL = "https://ungozmmhdfbdctrhdoth.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZ296bW1oZGZiZGN0cmhkb3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzc1MjMsImV4cCI6MjA5MzYxMzUyM30.1i3cuKIP6gGdPr4H0nnIDNWUR5RcxdXG-dvKdjcSZ1g";
 
@@ -594,6 +599,23 @@ const getAlertFasi = (pratiche, incId) => {
 };
 
 const METRB_LABELS={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 Clienti pass.",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
+// EmailJS send function
+const sendEmail = async (templateId, params) => {
+  try {
+    const res=await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE,
+        template_id: templateId,
+        user_id: EMAILJS_KEY,
+        template_params: params
+      })
+    });
+    return res.ok;
+  } catch(e) { console.error("EmailJS error:", e); return false; }
+};
+
 export default function App() {
   const isMobile=useIsMobile();
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
@@ -742,6 +764,7 @@ export default function App() {
   const [pagamentiFatture,setPagamentiFatture]=useState(_ls?.pagamentiFatture||{});
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const [mirino,setMirino]=useState(_ls?.mirino||{});
+  const [emailLog,setEmailLog]=useState(_ls?.emailLog||{});
   const [showMirino,setShowMirino]=useState(null);
   const [formMirino,setFormMirino]=useState({});
   const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
@@ -823,6 +846,87 @@ export default function App() {
     });
   },[]);
 
+  // ── EMAIL AUTOMATICHE ──
+  // Alert pratiche RT - controlla ogni ora
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    const checkAlertsEmail = async () => {
+      const oggi=todayStr();
+      const chiaveGiorno=`alert_${oggi}`;
+      if(emailLog[chiaveGiorno]) return; // già inviato oggi
+      const alertsPratiche=[];
+      pratiche.forEach(p=>{
+        if(p.completata||p.archiviata) return;
+        const inc=incarichi.find(i=>i.id===p.incaricoId);
+        if(!inc) return;
+        const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
+        if(!ag?.email) return;
+        // Trova azioni in ritardo
+        const azioniRitardo=(p.fasi||[]).flatMap(f=>(f.azioni||[]).filter(a=>!a.completata&&a.scadenza&&a.scadenza<oggi));
+        azioniRitardo.forEach(az=>{
+          alertsPratiche.push({
+            email_destinatario: ag.email,
+            agente: `${ag.nome} ${ag.cognome||""}`,
+            immobile: `${inc.comune||""} — ${inc.indirizzo||""}`,
+            azione: az.nome||"Azione",
+            scadenza: az.scadenza,
+            giorni_ritardo: Math.floor((new Date(oggi)-new Date(az.scadenza))/(1000*60*60*24))
+          });
+        });
+      });
+      // Invia alert
+      for(const params of alertsPratiche){
+        await sendEmail(EMAILJS_TEMPLATE_ALERT, params);
+      }
+      if(alertsPratiche.length>0){
+        setEmailLog(prev=>({...prev,[chiaveGiorno]:true}));
+      }
+    };
+    checkAlertsEmail();
+    const interval=setInterval(checkAlertsEmail, 3600000); // ogni ora
+    return()=>clearInterval(interval);
+  },[dbLoaded]);
+
+  // Report settimanale - ogni lunedì
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    const oggi=new Date();
+    if(oggi.getDay()!==1) return; // solo lunedì
+    const chiave=`report_${todayStr()}`;
+    if(emailLog[chiave]) return;
+    const sendReports=async()=>{
+      const dal=new Date(oggi);dal.setDate(oggi.getDate()-7);
+      const dalStr=dal.toISOString().slice(0,10);
+      const aOggi=todayStr();
+      for(const ag of agenti.filter(a=>a.inReport!==false&&a.email&&["Broker","Consulente","Collaboratore"].includes(a.profilo))){
+        const opAg=operativita[ag.id]||{};
+        const chiamate=Object.entries(opAg).filter(([d])=>d>=dalStr&&d<=aOggi).reduce((s,[,g])=>s+Object.values(g.chiamate_tipi||{}).reduce((a,v)=>a+Number(v||0),0),0);
+        const appt=Object.entries(opAg).filter(([d])=>d>=dalStr&&d<=aOggi).reduce((s,[,g])=>s+Number(g.appuntamenti||0),0);
+        const visit=Object.entries(opAg).filter(([d])=>d>=dalStr&&d<=aOggi).reduce((s,[,g])=>s+Number(g.immVisitati||0),0);
+        const acq=incarichi.filter(i=>Number(i.agenteListing)===ag.id&&i.dataInizio>=dalStr&&i.dataInizio<=aOggi).length;
+        const prop=proposte.filter(p=>Number(p.agenteId)===ag.id&&p.dataStato>=dalStr).length;
+        const vAg=venduti.filter(v=>(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&(v.dataVendita||v.dataAtto||"")>=dalStr);
+        const fattSett=vAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
+        const vYTD=venduti.filter(v=>(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&(v.dataVendita||v.dataAtto||"").startsWith(new Date().getFullYear()));
+        const fattYTD=vYTD.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
+        const obAnno=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+        const perc=obAnno>0?Math.round(fattYTD/obAnno*100):0;
+        await sendEmail(EMAILJS_TEMPLATE_REPORT,{
+          email_destinatario:ag.email,
+          agente:`${ag.nome} ${ag.cognome||""}`,
+          chiamate,appuntamenti:appt,visitati:visit,
+          acquisizioni:acq,proposte:prop,
+          fatturato:`€ ${fattSett.toLocaleString("it-IT")}`,
+          fatturato_ytd:`€ ${fattYTD.toLocaleString("it-IT")}`,
+          obiettivo_anno:`€ ${obAnno.toLocaleString("it-IT")}`,
+          percentuale:perc
+        });
+      }
+      setEmailLog(prev=>({...prev,[chiave]:true}));
+    };
+    sendReports();
+  },[dbLoaded]);
+
   // Supabase Realtime — sincronizzazione istantanea
   useEffect(()=>{
     if(!dbLoaded) return;
@@ -886,7 +990,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
