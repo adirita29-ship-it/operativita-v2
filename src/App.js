@@ -816,6 +816,7 @@ export default function App() {
         if(data.obiettivoQuotaAgenzia!==undefined) setObiettivoQuotaAgenzia(data.obiettivoQuotaAgenzia);
         if(data.provvStandard) setProvvStandard(data.provvStandard);
         if(data.costiAgente) setCostiAgente(data.costiAgente);
+        if(data.mirino) setMirino(data.mirino);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
@@ -853,7 +854,7 @@ export default function App() {
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
         if(d.oneToOne) setOneToOne(d.oneToOne);
         if(d.fasiConfig) setFasiConfig(d.fasiConfig);
-        if(d.mirino) setMirino(prev=>({...d.mirino,...prev})); // merge, local wins
+        if(d.mirino) setMirino(d.mirino); // DB always wins for mirino
         if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
         if(d.mirino) setMirino(d.mirino);
         if(d.sfide) setSfide(d.sfide);
