@@ -855,7 +855,7 @@ export default function App() {
       const chiaveGiorno=`alert_${oggi}`;
       if(emailLog[chiaveGiorno]) return; // già inviato oggi
       const alertsPratiche=[];
-      pratiche.forEach(p=>{
+      (Array.isArray(pratiche)?pratiche:Object.values(pratiche||{})).forEach(p=>{
         if(p.completata||p.archiviata) return;
         const inc=incarichi.find(i=>i.id===p.incaricoId);
         if(!inc) return;
