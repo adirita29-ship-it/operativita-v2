@@ -855,7 +855,7 @@ export default function App() {
       const chiaveGiorno=`alert_${oggi}`;
       if(emailLog[chiaveGiorno]) return; // già inviato oggi
       const alertsPratiche=[];
-      (Array.isArray(pratiche)?pratiche:Object.values(pratiche||{})).forEach(p=>{
+      pratiche.forEach(p=>{
         if(p.completata||p.archiviata) return;
         const inc=incarichi.find(i=>i.id===p.incaricoId);
         if(!inc) return;
@@ -6781,91 +6781,16 @@ export default function App() {
                 </div>
               </div>);
             })()}
-            {impSezione==="fasi"&&isBroker&&(()=>{
-            const fasi=fasiConfig||FASI;
-            const RUOLI=["agente","erica","broker","entrambi","tutti"];
-            const RLB={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Ag+Erica",tutti:"Tutti"};
-            const fi=Math.min(impFaseSel,fasi.length-1);
-            const fo=fasi[fi]||fasi[0];
-            const updFasi=(newFasi)=>setFasiConfig(newFasi);
-            const updAz=(ai,upd)=>updFasi(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.map((a,j)=>j!==ai?a:{...a,...upd})}));
-            const delAz=(ai)=>updFasi(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.filter((_,j)=>j!==ai)}));
-            const mvAz=(ai,d)=>{const nf=fasi.map((f,i)=>{if(i!==fi)return f;const az=[...f.azioni];[az[ai],az[ai+d]]=[az[ai+d],az[ai]];return{...f,azioni:az};});updFasi(nf);};
-            const addAz=()=>{
-              if(!formNuovaAzione.lbl?.trim())return;
-              updFasi(fasi.map((f,i)=>i!==fi?f:{...f,azioni:[...f.azioni,{lbl:formNuovaAzione.lbl.trim(),ruolo:formNuovaAzione.ruolo||"agente",alertGiorni:Number(formNuovaAzione.alertGiorni||0)}]}));
-              setFormNuovaAzione({lbl:"",ruolo:"agente",alertGiorni:""});
-            };
-            return(<div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
-                <span style={{fontSize:12,color:"#888"}}>{fasi.length} fasi · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni</span>
-                {fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare le fasi di default?"))setFasiConfig(null);}}>↺ Default</button>}
-              </div>
-              {/* Lista fasi */}
-              <div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>
-                {fasi.map((f,i)=>(
-                  <div key={f.k||i} style={{display:"flex",alignItems:"center",gap:2}}>
-                    <button onClick={()=>setImpFaseSel(i)} style={{padding:"4px 10px",fontSize:11,borderRadius:16,border:`0.5px solid ${fi===i?"#A8863A":"#ddd"}`,background:fi===i?"#FEF9E7":"#fff",color:fi===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:fi===i?500:400}}>
-                      {i+1}. {f.n}
-                    </button>
+            {impSezione==="fasi"&&isBroker&&(()=>{const fasi=fasiConfig||FASI;const RUOLI=["agente","erica","broker","entrambi","tutti"];const RLB={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Ag+Erica",tutti:"Tutti"};const fi=Math.min(impFaseSel,fasi.length-1);const fo=fasi[fi]||fasi[0];const updAz=(ai,upd)=>setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.map((a,j)=>j!==ai?a:{...a,...upd})}));const delAz=(ai)=>setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.filter((_,j)=>j!==ai)}));const mvAz=(ai,d)=>{const nf=fasi.map((f,i)=>{if(i!==fi)return f;const az=[...f.azioni];[az[ai],az[ai+d]]=[az[ai+d],az[ai]];return{...f,azioni:az};});setFasiConfig(nf);};const addAz=()=>{if(!formNuovaAzione.lbl.trim())return;setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false});};return(<div><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontSize:12,color:"#888"}}>{fasi.length} fasi · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni</span>{fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare default?"))setFasiConfig(null);}}>↺ Default</button>}</div><div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>{fasi.map((f,i)=>(
+                  <span key={f.k||i} style={{display:"inline-flex",alignItems:"center",gap:2,marginBottom:4}}>
+                    <button onClick={()=>setImpFaseSel(i)} style={{padding:"4px 10px",fontSize:11,borderRadius:16,border:`0.5px solid ${fi===i?"#A8863A":"#ddd"}`,background:fi===i?"#FEF9E7":"#fff",color:fi===i?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:fi===i?500:400}}>{i+1}. {f.n}</button>
                     {fi===i&&<>
-                      <button title="Rinomina fase" style={{border:"0.5px solid #ddd",borderRadius:6,background:"#fff",cursor:"pointer",fontSize:11,padding:"2px 5px"}}
-                        onClick={()=>{const nn=window.prompt("Nuovo nome fase:",f.n);if(nn?.trim())updFasi(fasi.map((x,j)=>j===i?{...x,n:nn.trim()}:x));}}>✏️</button>
-                      {fasi.length>1&&<button title="Elimina fase" style={{border:"0.5px solid #FDECEC",borderRadius:6,background:"#FDECEC",cursor:"pointer",fontSize:11,padding:"2px 5px",color:"#A32D2D"}}
-                        onClick={()=>{if(window.confirm(`Eliminare la fase "${f.n}"?`)){updFasi(fasi.filter((_,j)=>j!==i));setImpFaseSel(Math.max(0,i-1));}}}>🗑</button>}
+                      <button title="Rinomina" style={{border:"0.5px solid #ddd",borderRadius:5,background:"#fff",cursor:"pointer",fontSize:10,padding:"2px 5px"}} onClick={()=>{const nn=window.prompt("Nuovo nome:",f.n);if(nn?.trim())setFasiConfig(fasi.map((x,j)=>j===i?{...x,n:nn.trim()}:x));}}>✏️</button>
+                      {fasi.length>1&&<button title="Elimina" style={{border:"0.5px solid #FDECEC",borderRadius:5,background:"#FDECEC",cursor:"pointer",fontSize:10,padding:"2px 5px",color:"#A32D2D"}} onClick={()=>{if(window.confirm(`Eliminare "${f.n}"?`)){setFasiConfig(fasi.filter((_,j)=>j!==i));setImpFaseSel(Math.max(0,i-1));}}}>🗑</button>}
                     </>}
-                  </div>
+                  </span>
                 ))}
-                <button style={{...S.btn,fontSize:11,padding:"4px 10px",borderRadius:16}}
-                  onClick={()=>{const nn=window.prompt("Nome nuova fase:");if(nn?.trim()){updFasi([...fasi,{k:"f_"+Date.now(),n:nn.trim(),azioni:[]}]);setImpFaseSel(fasi.length);}}}>+ Fase</button>
-              </div>
-              {/* Azioni della fase selezionata */}
-              <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:10}}>📋 {fo?.n} — {fo?.azioni?.length||0} azioni</div>
-                {(fo?.azioni||[]).map((az,ai)=>(
-                  <div key={ai} style={{display:"flex",gap:6,alignItems:"center",marginBottom:8,padding:"6px 8px",background:"#fafaf8",borderRadius:8,border:"0.5px solid #eee"}}>
-                    <div style={{display:"flex",flexDirection:"column",gap:2}}>
-                      <button style={{border:"0.5px solid #ddd",borderRadius:4,background:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px",opacity:ai===0?0.3:1}} disabled={ai===0} onClick={()=>mvAz(ai,-1)}>▲</button>
-                      <button style={{border:"0.5px solid #ddd",borderRadius:4,background:"#fff",cursor:"pointer",fontSize:10,padding:"1px 4px",opacity:ai===(fo.azioni.length-1)?0.3:1}} disabled={ai===(fo.azioni.length-1)} onClick={()=>mvAz(ai,1)}>▼</button>
-                    </div>
-                    <input style={{...S.inp,margin:0,flex:1,fontSize:12}}
-                      key={`${fi}_${ai}_lbl`}
-                      defaultValue={az.lbl}
-                      onBlur={e=>{if(e.target.value.trim()&&e.target.value!==az.lbl)updAz(ai,{lbl:e.target.value.trim()});}}
-                    />
-                    <select style={{...S.sel,fontSize:11,padding:"4px 6px"}} value={az.ruolo||"agente"} onChange={e=>updAz(ai,{ruolo:e.target.value})}>
-                      {RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}
-                    </select>
-                    <label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#888",flexShrink:0}}>
-                      Alert
-                      <input type="number" style={{...S.inp,margin:0,width:44,fontSize:11,padding:"3px 6px"}}
-                        key={`${fi}_${ai}_alert`}
-                        defaultValue={az.alertGiorni||""}
-                        onBlur={e=>updAz(ai,{alertGiorni:Number(e.target.value||0)})}
-                      />
-                      gg
-                    </label>
-                    <button style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>delAz(ai)}>🗑</button>
-                  </div>
-                ))}
-                {/* Form nuova azione */}
-                <div style={{display:"flex",gap:6,alignItems:"flex-end",marginTop:10,paddingTop:10,borderTop:"1px solid #f0f0f0"}}>
-                  <div style={{flex:1}}><label style={S.lbl}>Nuova azione</label>
-                    <input style={{...S.inp,margin:0}} value={formNuovaAzione.lbl||""} placeholder="Es: Richiesta documentazione" onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addAz()}/>
-                  </div>
-                  <div><label style={S.lbl}>Ruolo</label>
-                    <select style={{...S.sel}} value={formNuovaAzione.ruolo||"agente"} onChange={e=>setFormNuovaAzione({...formNuovaAzione,ruolo:e.target.value})}>
-                      {RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}
-                    </select>
-                  </div>
-                  <div style={{width:60}}><label style={S.lbl}>Alert gg</label>
-                    <input type="number" style={{...S.inp,margin:0}} value={formNuovaAzione.alertGiorni||""} placeholder="0" onChange={e=>setFormNuovaAzione({...formNuovaAzione,alertGiorni:e.target.value})}/>
-                  </div>
-                  <button style={{...S.btnP,fontSize:12,padding:"7px 14px"}} onClick={addAz}>+ Aggiungi</button>
-                </div>
-              </div>
-            </div>);
-          })()})()}
+                <button style={{...S.btn,fontSize:11,padding:"4px 10px",borderRadius:16}} onClick={()=>{const nn=window.prompt("Nome nuova fase:");if(nn?.trim()){setFasiConfig([...fasi,{k:"f_"+Date.now(),n:nn.trim(),azioni:[]}]);setImpFaseSel(fasi.length);}}}>+ Fase</button></div><div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:10}}><div style={{background:"#fafaf8",padding:"8px 14px",borderBottom:"0.5px solid #e8e5e0",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:13,fontWeight:600}}>{fo.n}</span><span style={{fontSize:11,color:"#aaa"}}>{fo.timing}</span><span style={{fontSize:11,color:"#888",marginLeft:"auto"}}>{fo.azioni.length} azioni</span></div>{fo.azioni.map((az,ai)=>(<div key={az.k} style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderBottom:"0.5px solid #f5f5f5"}}><div style={{display:"flex",gap:1}}><button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:ai===0?0.3:1}} disabled={ai===0} onClick={()=>mvAz(ai,-1)}>▲</button><button style={{...S.btn,padding:"1px 4px",fontSize:10,opacity:ai===fo.azioni.length-1?0.3:1}} disabled={ai===fo.azioni.length-1} onClick={()=>mvAz(ai,1)}>▼</button></div><input style={{...S.inp,margin:0,flex:1,fontSize:12}} key={`az_${fi}_${ai}`} defaultValue={az.lbl} onBlur={e=>{if(e.target.value.trim())updAz(ai,{lbl:e.target.value.trim()});}}/><select style={{...S.sel,fontSize:11,padding:"4px 6px"}} value={az.ruolo||"agente"} onChange={e=>updAz(ai,{ruolo:e.target.value})}>{RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}</select><label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#E74C3C",cursor:"pointer",whiteSpace:"nowrap"}}><input type="checkbox" checked={az.alert||false} onChange={e=>updAz(ai,{alert:e.target.checked})}/> Alert</label><button style={{...S.btnD,padding:"2px 6px",fontSize:11}} onClick={()=>delAz(ai)}>✕</button></div>))}<div style={{padding:"8px 14px",background:"#fafaf8",borderTop:"0.5px solid #e8e5e0",display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}><input style={{...S.inp,margin:0,flex:2,minWidth:140,fontSize:12}} value={formNuovaAzione.lbl} placeholder="+ Nuova azione..." onChange={e=>setFormNuovaAzione({...formNuovaAzione,lbl:e.target.value})} onKeyDown={e=>e.key==="Enter"&&addAz()}/><select style={{...S.sel,fontSize:11}} value={formNuovaAzione.ruolo} onChange={e=>setFormNuovaAzione({...formNuovaAzione,ruolo:e.target.value})}>{RUOLI.map(r=><option key={r} value={r}>{RLB[r]}</option>)}</select><label style={{display:"flex",alignItems:"center",gap:4,fontSize:11,cursor:"pointer"}}><input type="checkbox" checked={formNuovaAzione.alert||false} onChange={e=>setFormNuovaAzione({...formNuovaAzione,alert:e.target.checked})}/> Alert</label><button style={{...S.btnP,fontSize:12,padding:"5px 12px"}} onClick={addAz}>+ Aggiungi</button></div></div></div>);})()}
             {impSezione==="generale"&&<div>
             {/* PARAMETRI PROVVIGIONI STANDARD */}
             <h3 style={{fontSize:14,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>Parametri provvigioni standard</h3>
