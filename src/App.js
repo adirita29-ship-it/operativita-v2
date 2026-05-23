@@ -1805,7 +1805,93 @@ export default function App() {
                 <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>vendite anno corrente</p>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                          {/* MIRINO — visibile in alto */}
+              {(()=>{
+                const oggi9=todayStr();
+                const mirinoList=Object.values(mirino).filter(m=>{
+                  const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId));
+                  if(!inc||inc.archiviato) return false;
+                  if(!isBroker&&!isBackOffice&&Number(inc.agenteListing)!==myAgentId) return false;
+                  return true;
+                }).sort((a,b)=>(b.dataInteresse||"").localeCompare(a.dataInteresse||""));
+                if(mirinoList.length===0) return null;
+                const giorniDa=(d)=>{if(!d)return null;return Math.floor((new Date(oggi9)-new Date(d))/(1000*60*60*24));};
+                return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",borderLeft:"4px solid #E74C3C",padding:"1rem",marginBottom:"1rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <span style={{fontSize:16}}>🎯</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"#E74C3C",textTransform:"uppercase",letterSpacing:".06em"}}>Immobili nel mirino</span>
+                    <span style={{fontSize:11,background:"#FDECEC",color:"#E74C3C",padding:"1px 8px",borderRadius:10,fontWeight:600,marginLeft:"auto"}}>{mirinoList.length}</span>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {mirinoList.map(m=>{
+                      const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId))||{};
+                      const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
+                      const giorni=giorniDa(m.dataInteresse);
+                      const clrG=giorni===null?"#aaa":giorni>=7?"#E74C3C":giorni>=3?"#E67E22":"#27AE60";
+                      const bgG=giorni===null?"#f5f5f5":giorni>=7?"#FDECEC":giorni>=3?"#FEF3E2":"#E1F5EE";
+                      const prezzo=Number(inc.prezzoRichiesto||0);
+                      const provvV=prezzo>0?Math.round(prezzo*(Number(provvStandard.percVend||3)/100)):0;
+                      const provvA=prezzo>0?Math.round(prezzo*(Number(provvStandard.percAcq||4)/100)):0;
+                      const followUpScad=m.followUp&&m.followUp<oggi9;
+                      return(<div key={String(m.incaricoId)} style={{border:`0.5px solid ${giorni>=7?"#E74C3C44":giorni>=3?"#E67E2244":"#f0f0f0"}`,borderRadius:8,padding:"10px 12px",background:giorni>=7?"#FFFBF5":"#fff",borderLeft:`3px solid ${clrG}`}}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
+                              <span style={{fontSize:13,fontWeight:600}}>{inc.comune||inc.indirizzo||"—"}{inc.indirizzo&&inc.comune?" — "+inc.indirizzo:""}</span>
+                              {giorni!==null&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgG,color:clrG,fontWeight:600}}>{giorni===0?"oggi":giorni===1?"ieri":giorni+" gg fa"}</span>}
+                            </div>
+                            <div style={{fontSize:11,color:"#888"}}>{inc.tipologia} · <span style={{color:"#A8863A",fontWeight:500}}>{ag?.nome||""} {ag?.cognome||""}</span></div>
+                            {m.note&&<div style={{fontSize:11,color:"#555",marginTop:4,fontStyle:"italic"}}>"{m.note}"</div>}
+                            {m.followUp&&<div style={{fontSize:11,color:followUpScad?"#E74C3C":"#E67E22",marginTop:3,fontWeight:500}}>⏰ Follow-up: {fmtD(m.followUp)}{followUpScad?" — SCADUTO!":""}</div>}
+                          </div>
+                          {prezzo>0&&<div style={{textAlign:"right",flexShrink:0,paddingLeft:10,borderLeft:"0.5px solid #f0f0f0"}}>
+                            <div style={{fontSize:10,color:"#aaa"}}>Provv. stimata</div>
+                            <div style={{fontSize:16,fontWeight:700,color:"#0F6E56"}}>€ {fmt(provvV+provvA)}</div>
+                            <div style={{fontSize:9,color:"#aaa"}}>V: €{fmt(provvV)} · A: €{fmt(provvA)}</div>
+                          </div>}
+                        </div>
+                      </div>);
+                    })}
+                  </div>
+                </div>);
+              })()}
+                            {/* NUOVI INCARICHI TOP */}
+              {(()=>{
+                const oggi8=todayStr();
+                const d=new Date(oggi8);
+                const day=d.getDay()||7;
+                const lun=new Date(d);lun.setDate(d.getDate()-day+1);
+                const sab=new Date(lun);sab.setDate(lun.getDate()+5);
+                const nuoviInc=incarichi.filter(i=>i.dataInizio>=lun.toISOString().slice(0,10)&&i.dataInizio<=sab.toISOString().slice(0,10)&&i.categoria==="vendita"&&!i.archiviato).sort((a,b)=>b.dataInizio?.localeCompare(a.dataInizio||"")||0);
+                if(nuoviInc.length===0) return null;
+                return(<div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"1rem",marginBottom:"1rem",borderLeft:"4px solid #A8863A"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <span style={{fontSize:14}}>🏠</span>
+                    <span style={{fontSize:12,fontWeight:700,color:"#633806",textTransform:"uppercase",letterSpacing:".06em"}}>Nuovi incarichi questa settimana</span>
+                    <span style={{fontSize:11,background:"#FDF6EC",color:"#A8863A",padding:"1px 8px",borderRadius:10,fontWeight:600,marginLeft:"auto"}}>{nuoviInc.length}</span>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {nuoviInc.map(inc=>{
+                      const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
+                      const agIdx=agenti.findIndex(a=>a.id===Number(inc.agenteListing))%5;
+                      const AVBG=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE","#F1EFE8"];
+                      const AVCL=["#412402","#0C447C","#3C3489","#173404","#444441"];
+                      return(<div key={inc.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",borderRadius:8,background:"#FFFBF0",border:"0.5px solid #f0e8d0"}}>
+                        <div style={{width:30,height:30,borderRadius:"50%",background:AVBG[agIdx],display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:AVCL[agIdx],flexShrink:0}}>{ag?.nome?.charAt(0)||"?"}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{inc.comune||inc.indirizzo||"—"}</div>
+                          <div style={{fontSize:11,color:"#888"}}>{inc.tipologia}{inc.fonte?` · ${inc.fonte}`:""}</div>
+                        </div>
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{fontSize:12,fontWeight:600,color:"#A8863A"}}>{ag?.nome||"—"}</div>
+                          <div style={{fontSize:10,color:"#aaa"}}>{fmtD(inc.dataInizio)}</div>
+                        </div>
+                      </div>);
+                    })}
+                  </div>
+                </div>);
+              })()}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
               <BloccoFin titolo="INCASSATO" colore="#27AE60" emoji="✅" totale={dashIncassato} qAgenzia={qAgenziaInc} qAgenti={qAgInc} qBuyer={qBuyInc}/>
               <BloccoFin titolo="DA INCASSARE" colore="#E67E22" emoji="⏳" totale={dashDaIncassare} qAgenzia={qAgenziaRes} qAgenti={qAgRes} qBuyer={qBuyRes}/>
               <BloccoFin titolo="TOTALE FATTURATO" colore={BRAND.oroD} emoji="💰" totale={dashIncassato+dashDaIncassare} qAgenzia={qAgenziaInc+qAgenziaRes} qAgenti={qAgInc+qAgRes} qBuyer={qBuyInc+qBuyRes}/>
@@ -1976,12 +2062,11 @@ export default function App() {
                   </div>
                 )}
               </div>
-
               {/* MIRINO — visibile in alto per tutti */}
               {(()=>{
                 const oggi9=todayStr();
                 const mirinoList=Object.values(mirino).filter(m=>{
-                  const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId));
+                  const inc=incarichi.find(i=>i.id===m.incaricoId);
                   if(!inc||inc.archiviato) return false;
                   if(!isBroker&&!isBackOffice&&Number(inc.agenteListing)!==myAgentId) return false;
                   return true;
@@ -1998,7 +2083,7 @@ export default function App() {
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     {mirinoList.map(m=>{
-                      const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId))||{};
+                      const inc=incarichi.find(i=>i.id===m.incaricoId)||{};
                       const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
                       const giorni=giorniDa(m.dataInteresse);
                       const clrG=giorni===null?'#aaa':giorni>=7?'#E74C3C':giorni>=3?'#E67E22':'#27AE60';
@@ -2028,7 +2113,9 @@ export default function App() {
                     })}
                   </div>
                 </div>);
-              })()}              {/* NUOVI INCARICHI SETTIMANA */}
+              })()}
+
+              {/* NUOVI INCARICHI SETTIMANA */}
               {(()=>{
                 const oggi8=todayStr();
                 const d=new Date(oggi8);
@@ -2071,7 +2158,8 @@ export default function App() {
                     })}
                   </div>
                 </div>);
-              })()}              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+              })()}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
                   {prossimiR.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
