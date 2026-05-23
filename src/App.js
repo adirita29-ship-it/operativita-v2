@@ -830,7 +830,7 @@ export default function App() {
 
     const ricaricaDati=async()=>{
       // Non ricaricare se abbiamo salvato noi stessi negli ultimi 3 secondi
-      if(Date.now()-ultimoSalvataggioLocale<10000) return;
+      if(Date.now()-ultimoSalvataggioLocale<8000) return;
       // Non ricaricare se c'è un modal aperto
       if(document.querySelector('[data-modal="true"]')) return;
       try{
@@ -853,7 +853,7 @@ export default function App() {
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
         if(d.oneToOne) setOneToOne(d.oneToOne);
         if(d.fasiConfig) setFasiConfig(d.fasiConfig);
-        // mirino non sovrascrive dal RT - gestito localmente
+        if(d.mirino) setMirino(prev=>({...d.mirino,...prev})); // merge, local wins
         if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
         if(d.mirino) setMirino(d.mirino);
         if(d.sfide) setSfide(d.sfide);
@@ -1976,11 +1976,12 @@ export default function App() {
                   </div>
                 )}
               </div>
+
               {/* MIRINO — visibile in alto per tutti */}
               {(()=>{
                 const oggi9=todayStr();
                 const mirinoList=Object.values(mirino).filter(m=>{
-                  const inc=incarichi.find(i=>i.id===m.incaricoId);
+                  const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId));
                   if(!inc||inc.archiviato) return false;
                   if(!isBroker&&!isBackOffice&&Number(inc.agenteListing)!==myAgentId) return false;
                   return true;
@@ -1997,7 +1998,7 @@ export default function App() {
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     {mirinoList.map(m=>{
-                      const inc=incarichi.find(i=>i.id===m.incaricoId)||{};
+                      const inc=incarichi.find(i=>String(i.id)===String(m.incaricoId))||{};
                       const ag=agenti.find(a=>a.id===Number(inc.agenteListing));
                       const giorni=giorniDa(m.dataInteresse);
                       const clrG=giorni===null?'#aaa':giorni>=7?'#E74C3C':giorni>=3?'#E67E22':'#27AE60';
@@ -2027,9 +2028,7 @@ export default function App() {
                     })}
                   </div>
                 </div>);
-              })()}
-
-              {/* NUOVI INCARICHI SETTIMANA */}
+              })()}              {/* NUOVI INCARICHI SETTIMANA */}
               {(()=>{
                 const oggi8=todayStr();
                 const d=new Date(oggi8);
@@ -2072,8 +2071,7 @@ export default function App() {
                     })}
                   </div>
                 </div>);
-              })()}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+              })()}              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
                   {prossimiR.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
@@ -2233,7 +2231,7 @@ export default function App() {
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Agenti coinvolti</p>
                         {[["Listing",inc.agenteListing,(isBroker||isBackOffice)?`${inc.percListing||50}%`:null],["Buyer L.",inc.buyerListing,(isBroker||isBackOffice)?`${inc.percBuyerListing||0}%`:null],["Acquirente",vendCorr?.agenteAcquirente,(isBroker||isBackOffice)?`${vendCorr?.percAcquirente||0}%`:null],["Buyer",vendCorr?.buyer,(isBroker||isBackOffice)?`${vendCorr?.percBuyer||0}%`:null]].filter(([,id])=>id).map(([k,id,p])=>(
-                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong>{p&&<span style={{color:"#aaa",marginLeft:4}}>{p}</span>}</span></div>
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong> <span style={{color:"#aaa"}}>{p}</span></span></div>
                         ))}
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
