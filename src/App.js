@@ -916,7 +916,7 @@ export default function App() {
         const fattSett=vAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
         const vYTD=venduti.filter(v=>(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&(v.dataVendita||v.dataAtto||"").startsWith(new Date().getFullYear()));
         const fattYTD=vYTD.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
-        const obAnno=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+        const obAnno=Number((obiettivoAgente[String(ag.id)]||obiettivoAgente[ag.id]||{}).fatturato||0);
         const perc=obAnno>0?Math.round(fattYTD/obAnno*100):0;
         await sendEmail(EMAILJS_TEMPLATE_REPORT,{
           email_destinatario:ag.email,
@@ -2860,10 +2860,10 @@ export default function App() {
               const totConsuntivo=totSpFissi+totSpVar;
 
               // Punto di Break Even = spese (preventivo o consuntivo se disponibile)
-              const puntoBE = obiettivoQuotaAgenzia>0 ? obiettivoQuotaAgenzia
-                : costiBreakevenMode==="fissi"
-                  ? (totSpFissi>0?totSpFissi:totPrevFissi)
-                  : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
+              const puntoBEAutomatico = costiBreakevenMode==="fissi"
+                ? (totSpFissi>0?totSpFissi:totPrevFissi)
+                : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
+              puntoBE = obiettivoQuotaAgenzia>0 ? obiettivoQuotaAgenzia : puntoBEAutomatico;
               const puntoBELabel = costiBreakevenMode==="fissi" ? "Solo costi fissi" : "Costi fissi + variabili";
               const costoMensile = puntoBE/12;
 
@@ -4332,7 +4332,7 @@ export default function App() {
                     const oggi5=todayStr();
                     const opAg5=operativita[agIdOggi]||operativita[String(agIdOggi)]||{};
                     const gOggi=opAg5[oggi5]||{};
-                    const obAg5=(obiettivoAgente[agIdOggi])||{};
+                    const obAg5=(obiettivoAgente[String(agIdOggi)]||obiettivoAgente[agIdOggi])||{};
                     // Obiettivi giornalieri - letti direttamente (salvati come valori giornalieri)
                     const obChDay=Number(obAg5.chiamate||0);
                     const obApptDay=Number(obAg5.appuntamenti||0);
@@ -4401,7 +4401,7 @@ export default function App() {
                         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8}}>
                           {[["📞 Chiamate","chiamate","#533AB7"],["🤝 Appt. acq.","appuntamenti","#A8863A"],["📱 Post/Video","postSocial","#8E44AD"],["⏱ Ore ricerca","oreRicerca","#854F0B"],["📰 Notizie","notizie","#2980B9"],["✉️ Volantini","volantini","#D35400"]].map(([lbl,k,clr])=>{
                             const cur=Number(obAg5[k]||0);
-                            const set=(v)=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[k]:Math.max(0,v)}}));
+                            const set=(v)=>setObiettivoAgente(prev=>{const sk=String(agIdOggi);return{...prev,[sk]:{...(prev[sk]||prev[agIdOggi]||{}),[k]:Math.max(0,v)}};});
                             return(<div key={k} style={{background:"#fafaf8",borderRadius:8,padding:"8px 10px",border:"0.5px solid #eee"}}>
                               <p style={{fontSize:9,color:clr,textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 5px",fontWeight:600}}>{lbl}</p>
                               <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -4622,7 +4622,7 @@ export default function App() {
                         <thead><tr style={{background:"#fafaf8"}}>
                           {["Agente","Giorni","Chiamate","Appt.","Acq.","Prop.","Prelim.","OH","Post"].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}
                         </tr></thead>
-                        <tbody>{agenti.map(ag=>{
+                        <tbody>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(ag=>{
                           const r=calcReport(ag.id,opMeseSel);
                           return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
                             <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#C9A96E,#A8863A)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div>{ag.nome} {ag.cognome}</div></td>
@@ -5007,7 +5007,7 @@ export default function App() {
                         </tr></thead>
                         <tbody>
                           {agentiProd2.map((ag,idx)=>{
-                            const ob=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+                            const ob=Number((obiettivoAgente[String(ag.id)]||obiettivoAgente[ag.id]||{}).fatturato||0);
                             const fYTD=calcFattYTD(ag.id);
                             const aYTD=calcAcqYTD(ag.id);
                             const tYTD=calcTransYTD(ag.id);
