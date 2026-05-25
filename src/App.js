@@ -3237,7 +3237,7 @@ export default function App() {
               const f=formSpesaCat[cat.id]||{data:oggi6,importo:"",descrizione:""};
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                  <div style={{display:"flex",alignItems:"center",background:menuOpen?"#FEF9E7":exp?"#fafaf8":"#fff",transition:"background .15s",borderLeft:menuOpen?"3px solid "+BRAND.oro:"3px solid transparent"}}>
+                  <div style={{display:"flex",alignItems:"center",background:exp?"#fafaf8":"#fff",transition:"background .15s"}}>
                     <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
                       style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer",flex:1,minWidth:0}}>
                       <div style={{flex:1,minWidth:0}}>
@@ -3257,9 +3257,17 @@ export default function App() {
                       </div>
                       <span style={{fontSize:11,color:"#ccc",flexShrink:0,marginLeft:4}}>{exp?"▲":"▼"}</span>
                     </div>
-                    <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
-                      style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc",flexShrink:0}}
-                      onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
+                    <div style={{display:"flex",gap:2,paddingRight:8,flexShrink:0}}>
+                      <button type="button" title="Rinomina" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:!prev["rename_"+cat.id],["del_"+cat.id]:false}));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"6px 7px",borderRadius:6,color:"#aaa"}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#2c2c2c"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>✏️</button>
+                      <button type="button" title={"Sposta a "+(cat.tipo==="fisso"?"Variabili":"Fissi")} onClick={(e)=>{e.stopPropagation();e.preventDefault();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"6px 7px",borderRadius:6,color:"#aaa"}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#533AB7"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>🔄</button>
+                      <button type="button" title="Elimina categoria" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:!prev["del_"+cat.id],["rename_"+cat.id]:false}));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"6px 7px",borderRadius:6,color:"#aaa"}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>🗑</button>
+                    </div>
                   </div>
                   {menuOpen&&<div style={{padding:"10px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
                     {costiCatExpand["rename_"+cat.id]
@@ -3457,7 +3465,7 @@ export default function App() {
               const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                  <div style={{display:"flex",alignItems:"center",background:menuOpen?"#FEF9E7":exp?"#fafaf8":"#fff",transition:"background .15s",borderLeft:menuOpen?"3px solid "+BRAND.oro:"3px solid transparent"}}>
+                  <div style={{display:"flex",alignItems:"center",background:exp?"#fafaf8":"#fff",transition:"background .15s"}}>
                     <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
                       style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer",flex:1,minWidth:0}}>
                       <div style={{flex:1,minWidth:0}}>
@@ -3477,9 +3485,17 @@ export default function App() {
                       </div>
                       <span style={{fontSize:11,color:"#ccc",flexShrink:0,marginLeft:4}}>{exp?"▲":"▼"}</span>
                     </div>
-                    <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
-                      style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc",flexShrink:0}}
-                      onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
+                    <div style={{display:"flex",gap:2,paddingRight:8,flexShrink:0}}>
+                      <button type="button" title="Rinomina" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:!prev["rename_"+cat.id],["del_"+cat.id]:false}));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"6px 7px",borderRadius:6,color:"#aaa"}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#2c2c2c"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>✏️</button>
+                      <button type="button" title={"Sposta a "+(cat.tipo==="fisso"?"Variabili":"Fissi")} onClick={(e)=>{e.stopPropagation();e.preventDefault();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"6px 7px",borderRadius:6,color:"#aaa"}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#533AB7"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>🔄</button>
+                      <button type="button" title="Elimina categoria" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:!prev["del_"+cat.id],["rename_"+cat.id]:false}));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:14,padding:"6px 7px",borderRadius:6,color:"#aaa"}}
+                        onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#aaa"}>🗑</button>
+                    </div>
                   </div>
                   {menuOpen&&<div style={{padding:"10px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
                     {costiCatExpand["rename_"+cat.id]
