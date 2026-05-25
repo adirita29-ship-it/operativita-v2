@@ -3261,7 +3261,7 @@ export default function App() {
                       <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
                         style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc"}}
                         onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
-                      {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 12px rgba(0,0,0,.1)",zIndex:20,minWidth:185,overflow:"hidden"}}>
+                      {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 12px rgba(0,0,0,.1)",zIndex:20,minWidth:185,overflow:"hidden",bottom:"100%",top:"auto"}}>
                         <div style={{padding:"6px 12px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0",fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</div>
                         <div style={{padding:"3px 0"}}>
                           <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
@@ -3473,7 +3473,7 @@ export default function App() {
                       <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
                         style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc"}}
                         onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
-                      {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 12px rgba(0,0,0,.1)",zIndex:20,minWidth:185,overflow:"hidden"}}>
+                      {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 12px rgba(0,0,0,.1)",zIndex:20,minWidth:185,overflow:"hidden",bottom:"100%",top:"auto"}}>
                         <div style={{padding:"6px 12px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0",fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</div>
                         <div style={{padding:"3px 0"}}>
                           <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
