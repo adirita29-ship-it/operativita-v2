@@ -2860,9 +2860,10 @@ export default function App() {
               const totConsuntivo=totSpFissi+totSpVar;
 
               // Punto di Break Even = spese (preventivo o consuntivo se disponibile)
-              const puntoBE = costiBreakevenMode==="fissi"
-                ? (totSpFissi>0?totSpFissi:totPrevFissi)
-                : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
+              const puntoBE = obiettivoQuotaAgenzia>0 ? obiettivoQuotaAgenzia
+                : costiBreakevenMode==="fissi"
+                  ? (totSpFissi>0?totSpFissi:totPrevFissi)
+                  : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
               const puntoBELabel = costiBreakevenMode==="fissi" ? "Solo costi fissi" : "Costi fissi + variabili";
               const costoMensile = puntoBE/12;
 
@@ -2898,7 +2899,21 @@ export default function App() {
               const beRaggiuntoInc=quotaAgInc>=puntoBE;
 
               return(<>
-                {/* ── BOX 1: PUNTO DI BREAK EVEN ── */}
+                {/* ── OVERRIDE MANUALE BREAK EVEN ── */}
+              <div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"12px 16px",marginBottom:"1rem",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                <span style={{fontSize:13,fontWeight:600,color:"#633806"}}>🎯 Break Even manuale</span>
+                <span style={{fontSize:11,color:"#aaa"}}>Inserisci un valore fisso (sovrascrive il calcolo automatico)</span>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+                  <span style={{fontSize:12,color:"#888"}}>€</span>
+                  <input type="number" style={{...S.inp,margin:0,width:140,fontSize:13}} 
+                    placeholder="Es. 120000" 
+                    value={obiettivoQuotaAgenzia||""}
+                    onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value||0))}/>
+                  {obiettivoQuotaAgenzia>0&&<button style={{...S.btnD,fontSize:11}} onClick={()=>setObiettivoQuotaAgenzia(0)}>✕ Rimuovi</button>}
+                </div>
+              </div>
+
+              {/* ── BOX 1: PUNTO DI BREAK EVEN ── */}
                 <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
                   <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 6px"}}>Punto di Break Even ({puntoBELabel})</p>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:8}}>
@@ -3406,15 +3421,7 @@ export default function App() {
               </div>
 
               {/* Setup iniziale */}
-              {!hasCat&&<div style={{...sC3,border:"1px dashed #A8863A",textAlign:"center",padding:"2rem",marginBottom:"1.5rem"}}>
-                <div style={{fontSize:28,marginBottom:12}}>💰</div>
-                <div style={{fontSize:14,fontWeight:600,color:"#633806",marginBottom:6}}>Configura i tuoi costi personali</div>
-                <div style={{fontSize:12,color:"#888",marginBottom:"1.5rem"}}>Crea le categorie di spesa per l'anno {annoC}.<br/>Puoi partire dalle categorie suggerite o crearne di personalizzate.</div>
-                <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
-                  <button onClick={initCatAg} style={{...S.btnP,fontSize:12,padding:"8px 20px"}}>🚀 Usa categorie suggerite</button>
-                  <button onClick={()=>{setShowGestCat(true);}} style={{...S.btn,fontSize:12,padding:"8px 16px"}}>+ Crea categorie personalizzate</button>
-                </div>
-              </div>}
+              {!hasCat&&(()=>{initCatAg();return null;})()}
 
               {/* Gestione categorie inline */}
               {showGestCat&&<div style={{...sC3,border:"1px solid #533AB7",marginBottom:"1.5rem"}}>
@@ -3438,8 +3445,9 @@ export default function App() {
                   </div>
                 ))}
                 {formNuovaCatAg!==null
-                  ?<div style={{display:"grid",gridTemplateColumns:"1fr 120px 100px auto",gap:8,alignItems:"center",marginTop:10}}>
+                  ?<div style={{display:"grid",gridTemplateColumns:"1fr 100px 80px 80px auto",gap:8,alignItems:"center",marginTop:10}}>
                     <input autoFocus style={{...S.inp,margin:0,fontSize:12}} value={formNuovaCatAg.nome||""} placeholder="Nome categoria..." onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,nome:e.target.value})} onKeyDown={e=>{if(e.key==="Enter"&&formNuovaCatAg.nome?.trim()){addCatAg({...formNuovaCatAg,totaleAnno:Number(formNuovaCatAg.totale||0)});setFormNuovaCatAg(null);}}}/>
+                    <select style={{...S.sel,fontSize:11,margin:0}} value={formNuovaCatAg.tipo||"variabile"} onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,tipo:e.target.value})}><option value="fisso">Fisso</option><option value="variabile">Variabile</option></select>
                     <input type="number" style={{...S.inp,margin:0,fontSize:12}} value={formNuovaCatAg.totale||""} placeholder="Prev. (€)" onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,totale:e.target.value})}/>
                     <select style={{...S.sel,fontSize:11}} value={formNuovaCatAg.tipo||"variabile"} onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,tipo:e.target.value})}>
                       <option value="fisso">Fisso</option>
@@ -3613,7 +3621,20 @@ export default function App() {
                 <p style={{fontSize:14,color:"#aaa",margin:"0 0 12px"}}>Nessuna spesa inserita per {costiAgenteAnno}</p>
                 <p style={{fontSize:12,color:"#aaa"}}>Vai al TAB <strong>Costi</strong> e inserisci le tue voci di spesa per vedere il Break Even</p>
               </div>):(<>
-                {/* Box 1: Punto BE */}
+                {/* ── OVERRIDE MANUALE BREAK EVEN AGENTE ── */}
+              <div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"12px 16px",marginBottom:"1rem",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+                <span style={{fontSize:13,fontWeight:600,color:"#633806"}}>🎯 Break Even manuale</span>
+                <span style={{fontSize:11,color:"#aaa"}}>Inserisci un valore fisso (sovrascrive il calcolo automatico)</span>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
+                  <span style={{fontSize:12,color:"#888"}}>€</span>
+                  <input type="number" style={{...S.inp,margin:0,width:140,fontSize:13}}
+                    placeholder="Es. 30000"
+                    value={(obiettivoAgente[myAgentId]||{}).breakEven||""}
+                    onChange={e=>setObiettivoAgente(prev=>({...prev,[myAgentId]:{...(prev[myAgentId]||{}),breakEven:Number(e.target.value||0)}}))}/>
+                  {(obiettivoAgente[myAgentId]||{}).breakEven>0&&<button style={{...S.btnD,fontSize:11}} onClick={()=>setObiettivoAgente(prev=>({...prev,[myAgentId]:{...(prev[myAgentId]||{}),breakEven:0}}))}>✕ Rimuovi</button>}
+                </div>
+              </div>
+              {/* Box 1: Punto BE */}
                 <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
                   <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 6px"}}>Il tuo Punto di Break Even</p>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:8}}>
@@ -4284,7 +4305,7 @@ export default function App() {
                         <thead><tr style={{background:"#fafaf8"}}>
                           {["Agente","Giorni","Chiamate","Appt.","OH","Acquisiz.","Post"].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}
                         </tr></thead>
-                        <tbody>{agenti.map(ag=>{
+                        <tbody>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(ag=>{
                           const totGiorni = settimana.filter(d=>intensita(ag.id,d)!=="vuoto").length;
                           const sum = k => settimana.reduce((s,d)=>s+Number(getGiornata(ag.id,d)[k]||0),0);
                           const ohN = settimana.reduce((s,d)=>s+(getGiornata(ag.id,d).ohImmobili||[]).length,0);
@@ -4312,10 +4333,9 @@ export default function App() {
                     const opAg5=operativita[agIdOggi]||operativita[String(agIdOggi)]||{};
                     const gOggi=opAg5[oggi5]||{};
                     const obAg5=(obiettivoAgente[agIdOggi])||{};
-                    const obChSett=Number(obAg5.chiamate||0);
-                    const obChDay=obChSett>0?Math.round(obChSett/5):0;
-                    const obApptSett=Number(obAg5.appuntamenti||0);
-                    const obApptDay=obApptSett>0?Math.round(obApptSett/5):0;
+                    // Obiettivi giornalieri - letti direttamente (salvati come valori giornalieri)
+                    const obChDay=Number(obAg5.chiamate||0);
+                    const obApptDay=Number(obAg5.appuntamenti||0);
                     const obSocDay=Number(obAg5.postSocial||0);
                     const ct=gOggi.chiamate_tipi||{};
                     const chOggi=Object.values(ct).reduce((s,v)=>s+Number(v||0),0);
