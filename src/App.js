@@ -674,6 +674,7 @@ export default function App() {
   const [catCostiEditId,setCatCostiEditId]=useState(null);
   const [formSpesa,setFormSpesa]=useState(null);
   const [costiCatExpand,setCostiCatExpand]=useState({});
+  const [formSpesaCat,setFormSpesaCat]=useState({});
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
   const [costiAnno,setCostiAnno]=useState(annoCorrente);
@@ -3210,8 +3211,6 @@ export default function App() {
             const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):0;
             const rimanente=Math.max(0,totPrev-totSpeso);
 
-            // Stato locale form spesa per categoria
-            const [formSpesaCat,setFormSpesaCat]=React.useState({});
             const aggSpesa=(catId)=>{
               const f=formSpesaCat[catId]||{};
               if(!f.importo||!f.data) return alert("Inserisci data e importo");
@@ -3489,8 +3488,6 @@ export default function App() {
               setCostiAnno(String(nextAnno));
             };
 
-            // Stato locale form spesa per categoria
-            const [formSpesaCat,setFormSpesaCat]=React.useState({});
             const aggSpesa=(catId)=>{
               const f=formSpesaCat[catId]||{};
               if(!f.importo||!f.data) return alert("Inserisci data e importo");
