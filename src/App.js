@@ -708,7 +708,7 @@ export default function App() {
   const [gpIncSel,setGpIncSel]=useState(null);
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
-  const [gpVista,setGpVista]=useState("lista");
+  const [gpVista,setGpVista]=useState("kanban");
   const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
@@ -2842,16 +2842,22 @@ export default function App() {
               </div>
             </div>
             {(()=>{
-              const vociAnno=costi[costiAnno]||mkCosti();
-              const vociConTipo=vociAnno.map(v=>({...v,tipo:v.tipo||"fisso"}));
-              const fissi=vociConTipo.filter(v=>v.tipo==="fisso");
-              const variabili=vociConTipo.filter(v=>v.tipo==="variabile");
-              const totPrevFissi=fissi.reduce((s,v)=>s+prevAnnuoVoce(v),0);
-              const totPrevVar=variabili.reduce((s,v)=>s+prevAnnuoVoce(v),0);
-              const totSpFissi=fissi.reduce((s,v)=>s+totSpeseVoce(v),0);
-              const totSpVar=variabili.reduce((s,v)=>s+totSpeseVoce(v),0);
-              const totConsuntivo=totSpFissi+totSpVar;
+              // Usa catCosti (nuovo sistema) con fallback all'anno più recente
+              const catAnnosBE=(()=>{
+                const byAnno=catCosti.filter(x=>String(x.anno)===costiAnno&&!x.agentId);
+                if(byAnno.length>0) return byAnno;
+                const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
+                return anni.length>0?catCosti.filter(x=>x.anno===anni[0]&&!x.agentId):[];
+              })();
+              const speseAnnoBE=speseCosti[costiAnno]||[];
+              const fissi=catAnnosBE.filter(c=>c.tipo==="fisso");
+              const variabili=catAnnosBE.filter(c=>c.tipo==="variabile");
+              const totPrevFissi=fissi.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+              const totPrevVar=variabili.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
               const totPrevAnnuo=totPrevFissi+totPrevVar;
+              const totSpFissi=fissi.reduce((s,cat)=>s+speseAnnoBE.filter(x=>x.catId===cat.id&&cat.tipo==="fisso").reduce((a,x)=>a+Number(x.importo||0),0),0);
+              const totSpVar=variabili.reduce((s,cat)=>s+speseAnnoBE.filter(x=>x.catId===cat.id&&cat.tipo==="variabile").reduce((a,x)=>a+Number(x.importo||0),0),0);
+              const totConsuntivo=totSpFissi+totSpVar;
 
               // Punto di Break Even = spese (preventivo o consuntivo se disponibile)
               const puntoBE = costiBreakevenMode==="fissi"
@@ -3166,7 +3172,13 @@ export default function App() {
           })()}
           {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
-            const catAnnoC=catCosti.filter(c=>String(c.anno)===annoC&&!c.agentId);
+            const catAnnoC=(()=>{
+              const byAnno=catCosti.filter(x=>String(x.anno)===annoC&&!x.agentId);
+              if(byAnno.length>0) return byAnno;
+              // fallback: usa anno più recente disponibile
+              const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
+              return anni.length>0?catCosti.filter(x=>x.anno===anni[0]&&!x.agentId):[];
+            })();
             const speseAnnoC=speseCosti[annoC]||[];
             const oggi6=todayStr();
             const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
@@ -3553,11 +3565,17 @@ export default function App() {
           {/* ── BREAK EVEN AGENTE ── */}
           {tab==="Break Even"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
-            const mieVoci=costiAgente[myAgentId]?.[costiAgenteAnno]||mkCostiAgente();
-            const prevAnnuoVoceAg=v=>{const p=Number(v.prevMensile||0);const f=v.frequenza||"mensile";return p*(f==="mensile"?12:f==="trimestrale"?4:f==="semestrale"?2:1);};
-            const totSpeseVoceAg=v=>(v.spese||[]).reduce((s,x)=>s+Number(x.importo||0),0);
-            const totPrevAnno=mieVoci.reduce((s,v)=>s+prevAnnuoVoceAg(v),0);
-            const totConsuntivo=mieVoci.reduce((s,v)=>s+totSpeseVoceAg(v),0);
+            // Usa nuovo sistema catCosti per agente
+            const costiAnnoBE=String(costiAgenteAnno||annoCorrente);
+            const catAgBE=(()=>{
+              const byAnno=catCosti.filter(x=>x.agentId===myAgentId&&String(x.anno)===costiAnnoBE);
+              if(byAnno.length>0) return byAnno;
+              const anni=[...new Set(catCosti.filter(x=>x.agentId===myAgentId).map(x=>x.anno))].sort((a,b)=>b-a);
+              return anni.length>0?catCosti.filter(x=>x.agentId===myAgentId&&x.anno===anni[0]):[];
+            })();
+            const speseAgBE=speseCosti[`${myAgentId}_${costiAnnoBE}`]||[];
+            const totPrevAnno=catAgBE.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+            const totConsuntivo=catAgBE.reduce((s,cat)=>s+speseAgBE.filter(x=>x.catId===cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0);
             const puntoBE=totConsuntivo>0?totConsuntivo:totPrevAnno;
             const costoMensile=puntoBE/12;
 
@@ -5462,7 +5480,7 @@ export default function App() {
             const sfidaAtt2=sfide.find(s=>s.dal<=oggi2&&s.al>=oggi2&&!s.conclusa);
             const sfideStor=sfide.filter(s=>s.al<oggi2||s.conclusa);
             const agentiProd=agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
-            const agentiTabelle=agenti.filter(a=>!["Coach","Collaborazione Agenzia","Back Office"].includes(a.profilo)&&a.id!==5);
+            const agentiTabelle=agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
             const METR2={acquisizioni:"🏠 Acquisizioni",fatturato:"💰 Fatturato",chiamate:"📞 Chiamate",chiamate_ci:"📞 C.Influenza",chiamate_cp:"📞 C.Passati",chiamate_freddo:"📞 Freddo",oh:"🚪 Open House",proposte:"📝 Proposte",appuntamenti:"🤝 Appuntamenti",immVisitati:"👁 Imm. visitati",postSocial:"📱 Post social"};
             const PCLR2=["#D4AC0D","#888","#CD7F32","#555","#777"];
             const PEMOJI2=["🥇","🥈","🥉","4°","5°"];
@@ -6079,6 +6097,9 @@ export default function App() {
                       <div style={{background:"#EAF4FB",borderRadius:8,padding:"10px 12px",border:"1px dashed #2980B944"}}>
                         <div style={{fontSize:10,fontWeight:600,color:"#2980B9",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>📓 Le mie note personali (private, solo tu le vedi)</div>
                         <textarea style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #2980B944",resize:"none",background:"#fff",lineHeight:1.5}} rows={3} value={inc[`noteAgente_${myAgentId}`]||""} placeholder="Le tue riflessioni, domande da fare al prossimo incontro..." onChange={e=>salvaNoteAgente(inc.id,e.target.value)}/>
+                        <div style={{display:"flex",justifyContent:"flex-end",marginTop:6}}>
+                          <button style={{...S.btn,fontSize:11,padding:"4px 14px",background:"#2980B9",color:"#fff",border:"none"}} onClick={()=>salvaNoteAgente(inc.id,inc[`noteAgente_${myAgentId}`]||"")}>💾 Salva note</button>
+                        </div>
                       </div>
                     </div>}
                   </div>);
@@ -6246,20 +6267,7 @@ export default function App() {
                 {/* ── STATISTICHE GENERALI ── */}
                 {statSubTab==="generali"&&(<>
 
-                  {/* Sezione TRANSAZIONI */}
-                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:16,borderLeft:"4px solid #A8863A"}}>
-                  <div style={{fontSize:24}}>💼</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Le mie % provvigione</div>
-                    <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
-                      <div><span style={{fontSize:12,color:"#888"}}>Listing (venditore): </span><span style={{fontSize:16,fontWeight:700,color:BRAND.oroD}}>{ag.percListing||0}%</span></div>
-                      <div><span style={{fontSize:12,color:"#888"}}>Acquirente: </span><span style={{fontSize:16,fontWeight:700,color:BRAND.oroD}}>{ag.percAcquirente||0}%</span></div>
-                      {ag.percBuyerListing>0&&<div><span style={{fontSize:12,color:"#888"}}>Buyer listing: </span><span style={{fontSize:16,fontWeight:700,color:BRAND.oroD}}>{ag.percBuyerListing}%</span></div>}
-                    </div>
-                    <div style={{fontSize:11,color:"#aaa",marginTop:4}}>Impostate dal Broker in Impostazioni → Agenti</div>
-                  </div>
-                </div>
-                <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Transazioni</p>
+                                  <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Transazioni</p>
                   <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                     {/* Valore medio transazione Càsa — (provvV + provvA) / 2 */}
                     {(()=>{
