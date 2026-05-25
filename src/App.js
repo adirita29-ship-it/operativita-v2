@@ -3247,7 +3247,7 @@ export default function App() {
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
                   {/* Header categoria — clicca per espandere */}
-                  <div style={{display:"flex",alignItems:"center",background:exp?"#fafaf8":"#fff",transition:"background .15s"}}>
+                  <div style={{display:"flex",alignItems:"center",background:costiMenuPos?.catId===cat.id?"#FEF9E7":exp?"#fafaf8":"#fff",borderLeft:costiMenuPos?.catId===cat.id?"3px solid "+BRAND.oro:"3px solid transparent",transition:"background .15s"}}>
                     <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
                       style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",flex:1,minWidth:0}}>
                       <div style={{flex:1,minWidth:0}}>
@@ -3424,6 +3424,46 @@ export default function App() {
                 </div>
               </div>
 
+              {/* MENU POPUP GLOBALE - position fixed */}
+              {costiMenuPos&&(
+                <div style={{position:"fixed",inset:0,zIndex:998}} onClick={()=>setCostiMenuPos(null)}>
+                  <div style={{position:"fixed",
+                    left:Math.max(10,Math.min(costiMenuPos.x-180,window.innerWidth-200)),
+                    top:Math.min(costiMenuPos.y+4,window.innerHeight-180),
+                    background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",
+                    boxShadow:"0 8px 24px rgba(0,0,0,.15)",zIndex:999,minWidth:200,overflow:"hidden"}}
+                    onClick={e=>e.stopPropagation()}>
+                    <div style={{padding:"8px 14px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0"}}>
+                      <span style={{fontSize:12,fontWeight:600,color:BRAND.oroD}}>{costiMenuPos.nome}</span>
+                      <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{costiMenuPos.tipo==="fisso"?"Fisso":"Variabile"}</span>
+                    </div>
+                    <div style={{padding:"4px 0"}}>
+                      <button onClick={()=>{
+                        const nn=window.prompt("Rinomina categoria:",costiMenuPos.nome);
+                        if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===costiMenuPos.catId?{...c,nome:nn.trim()}:c));
+                        setCostiMenuPos(null);
+                      }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#2c2c2c",textAlign:"left",fontFamily:"inherit"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✏️ Rinomina</button>
+                      <button onClick={()=>{
+                        const nuovoTipo=costiMenuPos.tipo==="fisso"?"variabile":"fisso";
+                        setCatCosti(prev=>prev.map(c=>c.id===costiMenuPos.catId?{...c,tipo:nuovoTipo}:c));
+                        setCostiMenuPos(null);
+                      }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#533AB7",textAlign:"left",fontFamily:"inherit"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔄 Sposta a {costiMenuPos.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                      <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
+                      <button onClick={()=>{
+                        const annoK=costiMenuPos.annoC||costiMenuPos.keyAnno||costiAnno||annoCorrente;
+                        if(window.confirm(`Eliminare "${costiMenuPos.nome}"?\nVerranno eliminate anche le spese associate.`)){
+                          setCatCosti(prev=>prev.filter(c=>c.id!==costiMenuPos.catId));
+                          setSpeseCosti(prev=>({...prev,[annoK]:(prev[annoK]||[]).filter(s=>s.catId!==costiMenuPos.catId)}));
+                        }
+                        setCostiMenuPos(null);
+                      }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>);
           })()}
           {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
