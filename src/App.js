@@ -665,7 +665,7 @@ export default function App() {
     {id:"lv9",nome:"Corsi di Formazione",totaleAnno:4796.5,tipo:"variabile",anno:2025},
     {id:"lv10",nome:"Sponsorizzate Social",totaleAnno:70.1,tipo:"variabile",anno:2025},
     {id:"lv11",nome:"Software-Servizi Professionali",totaleAnno:5847.57,tipo:"variabile",anno:2025},
-  ]
+  ];
   const [catCosti,setCatCosti]=useState(_ls?.catCosti||CAT_COSTI_DEFAULT);
   const [speseCosti,setSpeseCosti]=useState(_ls?.speseCosti||{});
   const [impCostiAnno,setImpCostiAnno]=useState(String(new Date().getFullYear()));
@@ -2864,7 +2864,7 @@ export default function App() {
               const puntoBEAutomatico = costiBreakevenMode==="fissi"
                 ? (totSpFissi>0?totSpFissi:totPrevFissi)
                 : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
-              const puntoBE = obiettivoQuotaAgenzia>0 ? obiettivoQuotaAgenzia : puntoBEAutomatico;
+              puntoBE = obiettivoQuotaAgenzia>0 ? obiettivoQuotaAgenzia : puntoBEAutomatico;
               const puntoBELabel = costiBreakevenMode==="fissi" ? "Solo costi fissi" : "Costi fissi + variabili";
               const costoMensile = puntoBE/12;
 
@@ -3196,481 +3196,138 @@ export default function App() {
               return anni.length>0?catCosti.filter(x=>String(x.anno)===anni[0]&&!x.agentId):[];
             })();
             const annoSorgente=String(catAnnoC[0]?.anno||2025);
-            const annoSorgenteDiv=annoSorgente!==annoC;
             const speseAnnoC=speseCosti[annoC]||[];
-            const ANNI_C=[...new Set([...catCosti.filter(x=>!x.agentId).map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
-            const catFissi=catAnnoC.filter(c=>c.tipo==="fisso");
-            const catVar=catAnnoC.filter(c=>c.tipo==="variabile");
+            const ANNI_C=[...new Set([...catCosti.filter(x=>!x.agentId).map(cc=>String(cc.anno)),annoCorrente])].sort((a,b)=>b-a);
+            const catFissi=catAnnoC.filter(cc=>cc.tipo==="fisso");
+            const catVar=catAnnoC.filter(cc=>cc.tipo==="variabile");
             const sposoPerCat=(cat)=>speseAnnoC.filter(s=>s.catId===cat.id).reduce((s,x)=>s+Number(x.importo||0),0);
-            const totPrevFissi=catFissi.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
-            const totPrevVar=catVar.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+            const totPrevFissi=catFissi.reduce((s,cc)=>s+Number(cc.totaleAnno||0),0);
+            const totPrevVar=catVar.reduce((s,cc)=>s+Number(cc.totaleAnno||0),0);
             const totPrev=totPrevFissi+totPrevVar;
-            const totSpesoFissi=catFissi.reduce((s,c)=>s+sposoPerCat(c),0);
-            const totSpesoVar=catVar.reduce((s,c)=>s+sposoPerCat(c),0);
+            const totSpesoFissi=catFissi.reduce((s,cc)=>s+sposoPerCat(cc),0);
+            const totSpesoVar=catVar.reduce((s,cc)=>s+sposoPerCat(cc),0);
             const totSpeso=totSpesoFissi+totSpesoVar;
             const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):0;
             const rimanente=Math.max(0,totPrev-totSpeso);
-
+            const oggi6=todayStr();
             const aggSpesa=(catId)=>{
               const f=formSpesaCat[catId]||{};
               if(!f.importo||!f.data) return alert("Inserisci data e importo");
               const id="sp_"+Date.now();
-              const nuova={id,catId,data:f.data,importo:Number(f.importo),descrizione:f.descrizione||"",note:f.note||""};
-              setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),nuova]}));
-              setFormSpesaCat(prev=>({...prev,[catId]:{data:todayStr(),importo:"",descrizione:"",note:""}}));
+              setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,catId,data:f.data,importo:Number(f.importo),descrizione:f.descrizione||"",note:f.note||""}]}));
+              setFormSpesaCat(prev=>({...prev,[catId]:{data:oggi6,importo:"",descrizione:""}}));
             };
             const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)}));
-
-            // Copia consuntivo anno → anno+1 come preventivo
             const copiaConsuntivo=()=>{
               const nextAnno=annoNum+1;
-              if(!window.confirm(`Copiare i totali spesi ${annoC} come preventivo ${nextAnno}?`)) return;
-              const nuove=catAnnoC.map(cat=>({
-                ...cat,
-                id:cat.id+"_"+nextAnno,
-                anno:nextAnno,
-                totaleAnno:Math.round(sposoPerCat(cat)*100)/100,
-              }));
+              if(!window.confirm("Copiare i totali spesi "+annoC+" come preventivo "+nextAnno+"?")) return;
+              const nuove=catAnnoC.map(cat=>({...cat,id:cat.id+"_"+nextAnno,anno:nextAnno,totaleAnno:Math.round(sposoPerCat(cat)*100)/100}));
               setCatCosti(prev=>[...prev.filter(x=>!(String(x.anno)===String(nextAnno)&&!x.agentId)),...nuove]);
               setCostiAnno(String(nextAnno));
             };
-
-            // Blocco categoria espandibile
-            const CatBlocco=({cat,clr,bgHeader,bgBadge,clrBadge})=>{
+            const CatBlocco=({cat,clr,bgLight})=>{
               const spese=speseAnnoC.filter(s=>s.catId===cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
               const speso=spese.reduce((s,x)=>s+Number(x.importo||0),0);
               const budget=Number(cat.totaleAnno||0);
               const perc=budget>0?Math.min(100,Math.round(speso/budget*100)):null;
               const over=budget>0&&speso>budget;
               const exp=costiCatExpand[cat.id];
+              const menuOpen=costiCatExpand["m_"+cat.id];
               const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
+              const f=formSpesaCat[cat.id]||{data:oggi6,importo:"",descrizione:""};
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                  {/* Header categoria — clicca per espandere */}
-                  <div style={{display:"flex",alignItems:"center",background:costiMenuPos?.catId===cat.id?"#FEF9E7":exp?"#fafaf8":"#fff",borderLeft:costiMenuPos?.catId===cat.id?"3px solid "+BRAND.oro:"3px solid transparent",transition:"background .15s"}}>
+                  <div style={{display:"flex",alignItems:"center",background:menuOpen?"#FEF9E7":exp?"#fafaf8":"#fff",transition:"background .15s",borderLeft:menuOpen?"3px solid "+BRAND.oro:"3px solid transparent"}}>
                     <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                      style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",flex:1,minWidth:0}}>
+                      style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer",flex:1,minWidth:0}}>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
                           <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
-                          {over&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
-                          {spese.length>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgBadge,color:clrBadge,fontWeight:500}}>{spese.length} spese</span>}
+                          {over&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠</span>}
+                          {spese.length>0&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:bgLight,color:clr,fontWeight:500}}>{spese.length}</span>}
                         </div>
                         {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
                           <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2,transition:"width .4s"}}/>
                         </div>}
                       </div>
-                      <div style={{textAlign:"right",flexShrink:0,minWidth:140}}>
+                      <div style={{textAlign:"right",flexShrink:0,minWidth:130}}>
                         <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
                         {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
-                        {budget===0&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
+                        {!budget&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
                       </div>
-                      <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
+                      <span style={{fontSize:11,color:"#ccc",flexShrink:0,marginLeft:4}}>{exp?"▲":"▼"}</span>
                     </div>
-                    {/* Menu azioni ⋮ */}
-                    {!isReadOnly&&<div style={{position:"relative",flexShrink:0}}>
-                      <button onClick={(e)=>{e.stopPropagation();setCostiMenuPos(prev=>prev?.catId===cat.id?null:{catId:cat.id,annoC,tipo:cat.tipo,nome:cat.nome});}}
-                        style={{background:"none",border:"none",cursor:"pointer",fontSize:20,lineHeight:1,padding:"10px 12px",
-                          color:costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}}
-                        onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro}
-                        onMouseLeave={e=>e.currentTarget.style.color=costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}>⋮</button>
-                      {costiMenuPos?.catId===cat.id&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",
-                        borderRadius:10,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 20px rgba(0,0,0,.12)",
-                        zIndex:50,minWidth:200,overflow:"hidden"}}>
-                        <div style={{padding:"8px 14px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0"}}>
-                          <span style={{fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</span>
-                          <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{cat.tipo==="fisso"?"Fisso":"Variabile"}</span>
-                        </div>
-                        <div style={{padding:"4px 0"}}>
-                          {[
-                            ["✏️ Rinomina","#2c2c2c",()=>{const nn=window.prompt("Rinomina:",cat.nome);if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,nome:nn.trim()}:c));setCostiMenuPos(null);}],
-                            ["🔄 Sposta a "+(cat.tipo==="fisso"?"Variabili":"Fissi"),"#533AB7",()=>{setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,tipo:cat.tipo==="fisso"?"variabile":"fisso"}:c));setCostiMenuPos(null);}],
-                          ].map(([lbl,clr,fn])=>(
-                            <button key={lbl} onClick={(e)=>{e.stopPropagation();fn();}}
-                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:clr,textAlign:"left",fontFamily:"inherit"}}
-                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>{lbl}</button>
-                          ))}
-                          <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
-                          <button onClick={(e)=>{e.stopPropagation();if(window.confirm(`Eliminare "${cat.nome}"?`)){setCatCosti(prev=>prev.filter(c=>c.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));}setCostiMenuPos(null);}}
-                            style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
-                            onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
+                    <div style={{position:"relative",flexShrink:0}}>
+                      <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc"}}
+                        onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
+                      {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 12px rgba(0,0,0,.1)",zIndex:20,minWidth:185,overflow:"hidden"}}>
+                        <div style={{padding:"6px 12px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0",fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</div>
+                        <div style={{padding:"3px 0"}}>
+                          <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                            style={{display:"block",width:"100%",padding:"9px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#2c2c2c",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✏️ Rinomina</button>
+                          <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                            style={{display:"block",width:"100%",padding:"9px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#533AB7",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔄 Sposta a {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                          <div style={{borderTop:"0.5px solid #f0f0f0",margin:"2px 0"}}/>
+                          <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare "+cat.nome+"?")){setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                            style={{display:"block",width:"100%",padding:"9px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina</button>
                         </div>
                       </div>}
-                    </div>}
+                    </div>
                   </div>
-                  {/* Dettaglio espanso */}
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
-                    {/* Lista spese */}
-                    {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita — aggiungi la prima qui sotto</div>}
+                    {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi qui sotto</div>}
                     {spese.map(sp=>(
-                      <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px 9px 20px",borderBottom:"0.5px solid #f8f8f8",background:"#fff"}}>
-                        <div style={{width:38,height:38,borderRadius:8,background:bgBadge,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:9,color:clrBadge,fontWeight:600,textAlign:"center",lineHeight:1.3}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
+                      <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px 8px 18px",borderBottom:"0.5px solid #f8f8f8"}}>
+                        <div style={{width:36,height:36,borderRadius:8,background:bgLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <span style={{fontSize:9,color:clr,fontWeight:600,textAlign:"center",lineHeight:1.3}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
                         </div>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#2c2c2c"}}>{sp.descrizione||"—"}</div>
+                          <div style={{fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.descrizione||"—"}</div>
                           {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
                         </div>
-                        <div style={{fontSize:14,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                        <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare questa spesa?"))delSpesa(sp.id);}}
-                          style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 2px",flexShrink:0}}
+                        <div style={{fontSize:13,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
+                        <button onClick={()=>{if(window.confirm("Eliminare spesa?"))delSpesa(sp.id);}}
+                          style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 2px"}}
                           onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
                       </div>
                     ))}
-                    {/* Form inserimento rapido */}
-                    <div style={{padding:"12px 16px 14px 20px",background:"#fafal8",borderTop:"0.5px solid #f0f0f0"}}>
-                      <div style={{fontSize:11,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>+ Nuova spesa in "{cat.nome}"</div>
-                      <div style={{display:"grid",gridTemplateColumns:"130px 90px 1fr auto",gap:8,alignItems:"flex-end"}}>
-                        <div>
-                          <label style={S.lbl}>Data</label>
-                          <input type="date" id={"data_"+cat.id} style={{...S.inp,fontSize:12}} defaultValue={todayStr()}/>
+                    <div style={{padding:"10px 14px 12px 18px",background:"#fafaf8",borderTop:"0.5px solid #f0f0f0"}}>
+                      <div style={{fontSize:11,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".05em",marginBottom:7}}>+ Nuova spesa — {cat.nome}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"120px 80px 1fr auto",gap:7,alignItems:"flex-end"}}>
+                        <div><label style={S.lbl}>Data</label>
+                          <input type="date" id={"d_"+cat.id} style={{...S.inp,fontSize:12,padding:"5px 7px"}} defaultValue={oggi6}/></div>
+                        <div><label style={S.lbl}>€</label>
+                          <input type="number" min="0" id={"i_"+cat.id} style={{...S.inp,fontSize:12,padding:"5px 7px"}} placeholder="0"
+                            onKeyDown={e=>{if(e.key==="Enter"){const d=document.getElementById("d_"+cat.id)?.value||oggi6;const i=e.target.value;const desc=document.getElementById("desc_"+cat.id)?.value||"";if(!i)return;const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data:d,importo:Number(i),descrizione:desc}]}));e.target.value="";const dEl=document.getElementById("desc_"+cat.id);if(dEl)dEl.value="";}}}/>
                         </div>
-                        <div>
-                          <label style={S.lbl}>Importo €</label>
-                          <input type="number" min="0" id={"imp_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="0"
-                            onKeyDown={e=>{if(e.key==="Enter"){const data=document.getElementById("data_"+cat.id)?.value||todayStr();const imp=e.target.value;const desc=document.getElementById("desc_"+cat.id)?.value||"";if(!imp)return;const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));e.target.value="";if(document.getElementById("desc_"+cat.id))document.getElementById("desc_"+cat.id).value="";}}}/>
+                        <div><label style={S.lbl}>Descrizione</label>
+                          <input id={"desc_"+cat.id} style={{...S.inp,fontSize:12,padding:"5px 7px"}} placeholder="es. Fattura, bolletta..."
+                            onKeyDown={e=>{if(e.key==="Enter"){const d=document.getElementById("d_"+cat.id)?.value||oggi6;const i=document.getElementById("i_"+cat.id)?.value;const desc=e.target.value;if(!i)return;const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data:d,importo:Number(i),descrizione:desc}]}));e.target.value="";const iEl=document.getElementById("i_"+cat.id);if(iEl)iEl.value="";}}}/>
                         </div>
-                        <div>
-                          <label style={S.lbl}>Descrizione</label>
-                          <input id={"desc_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="es. Fattura n°12, Bolletta maggio..."
-                            onKeyDown={e=>{if(e.key==="Enter"){const data=document.getElementById("data_"+cat.id)?.value||todayStr();const imp=document.getElementById("imp_"+cat.id)?.value;const desc=e.target.value;if(!imp)return;const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));e.target.value="";if(document.getElementById("imp_"+cat.id))document.getElementById("imp_"+cat.id).value="";}}}/>
-                        </div>
-                        <button onClick={(e)=>{e.stopPropagation();
-                          const data=document.getElementById("data_"+cat.id)?.value||todayStr();
-                          const imp=document.getElementById("imp_"+cat.id)?.value;
-                          const desc=document.getElementById("desc_"+cat.id)?.value||"";
-                          if(!imp)return alert("Inserisci l'importo");
-                          const id2="sp_"+Date.now();
-                          setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));
-                          if(document.getElementById("imp_"+cat.id))document.getElementById("imp_"+cat.id).value="";
-                          if(document.getElementById("desc_"+cat.id))document.getElementById("desc_"+cat.id).value="";
-                        }} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>💾 Salva</button>
+                        <button onClick={()=>{const d=document.getElementById("d_"+cat.id)?.value||oggi6;const i=document.getElementById("i_"+cat.id)?.value;const desc=document.getElementById("desc_"+cat.id)?.value||"";if(!i)return alert("Inserisci importo");const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data:d,importo:Number(i),descrizione:desc}]}));const iEl=document.getElementById("i_"+cat.id);if(iEl)iEl.value="";const dEl=document.getElementById("desc_"+cat.id);if(dEl)dEl.value="";}}
+                          style={{...S.btnP,fontSize:12,padding:"6px 12px",whiteSpace:"nowrap"}}>💾 Salva</button>
                       </div>
                     </div>
                   </div>}
                 </div>
               );
             };
-
             return(<div style={S.sec}>
-              {/* HEADER */}
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
                 <div>
                   <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>💰 Costi Agenzia</h2>
-                  {annoSorgenteDiv&&<div style={{fontSize:12,color:"#E67E22",margin:"4px 0 0",display:"flex",alignItems:"center",gap:6}}>
-                    <span>⚠</span><span>Preventivo da dati <strong>{annoSorgente}</strong> — aggiorna in Impostazioni per il {annoC}</span>
-                  </div>}
-                  {!annoSorgenteDiv&&<div style={{fontSize:12,color:"#888"}}>Anno {annoC} — spese reali vs preventivo</div>}
+                  {annoSorgente!==annoC&&<div style={{fontSize:12,color:"#E67E22",marginTop:4}}>⚠ Preventivo da dati {annoSorgente} — aggiorna in Impostazioni per il {annoC}</div>}
+                  {annoSorgente===annoC&&<div style={{fontSize:12,color:"#888"}}>Anno {annoC} — spese reali vs preventivo</div>}
                 </div>
-                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
-                    {ANNI_C.map(a=><option key={a}>{a}</option>)}
-                  </select>
-                  {catAnnoC.length>0&&<button onClick={copiaConsuntivo}
-                    style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>
-                    📥 Copia {annoC} → {annoNum+1}
-                  </button>}
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>{ANNI_C.map(a=><option key={a}>{a}</option>)}</select>
+                  {catAnnoC.length>0&&<button onClick={copiaConsuntivo} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Copia {annoC} → {annoNum+1}</button>}
                 </div>
               </div>
-
-              {/* KPI */}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
-                {[
-                  {lbl:"Preventivo anno",val:"€ "+fmt(Math.round(totPrev)),clr:"#533AB7",sub:"budget totale "+annoC},
-                  {lbl:"Speso YTD",val:"€ "+fmt(Math.round(totSpeso)),clr:"#E67E22",sub:percSpeso+"% del preventivo"},
-                  {lbl:"Fissi YTD",val:"€ "+fmt(Math.round(totSpesoFissi)),clr:"#185FA5",sub:"prev. € "+fmt(Math.round(totPrevFissi))},
-                  {lbl:"Rimanente",val:"€ "+fmt(Math.round(rimanente)),clr:rimanente>=0?"#27AE60":"#E74C3C",sub:rimanente>=0?"budget disponibile":"sforato!"},
-                ].map(({lbl,val,clr,sub})=>(
-                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",borderTop:"3px solid "+clr}}>
-                    <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".07em",margin:"0 0 6px",fontWeight:600}}>{lbl}</p>
-                    <p style={{fontSize:22,fontWeight:700,color:clr,margin:"0 0 3px"}}>{val}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:0}}>{sub}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* BARRA GLOBALE */}
-              {totPrev>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.5rem"}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                  <span style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>Avanzamento budget {annoC}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60"}}>{percSpeso}%</span>
-                </div>
-                <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden",marginBottom:8}}>
-                  <div style={{height:"100%",width:percSpeso+"%",background:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",borderRadius:4,transition:"width .5s"}}/>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#aaa"}}>
-                  <span>📌 Fissi spesi: <strong style={{color:"#185FA5"}}>€ {fmt(Math.round(totSpesoFissi))}</strong> / prev. € {fmt(Math.round(totPrevFissi))}</span>
-                  <span>📊 Variabili spesi: <strong style={{color:"#533AB7"}}>€ {fmt(Math.round(totSpesoVar))}</strong> / prev. € {fmt(Math.round(totPrevVar))}</span>
-                </div>
-              </div>}
-
-              {/* DUE COLONNE */}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
-                {/* FISSI */}
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                  <div style={{padding:"12px 16px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Costi Fissi</span>
-                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#fff",color:"#185FA5",fontWeight:500}}>{catFissi.length} categorie</span>
-                    </div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#185FA5",marginBottom:4}}>
-                      <span>Prev: <strong>€ {fmt(Math.round(totPrevFissi))}</strong></span>
-                      <span>Speso: <strong>€ {fmt(Math.round(totSpesoFissi))}</strong> · {totPrevFissi>0?Math.round(totSpesoFissi/totPrevFissi*100):0}%</span>
-                    </div>
-                    <div style={{height:4,background:"#B5D4F4",borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:(totPrevFissi>0?Math.min(100,Math.round(totSpesoFissi/totPrevFissi*100)):0)+"%",background:"#185FA5",borderRadius:2}}/>
-                    </div>
-                  </div>
-                  {catFissi.map(cat=><CatBlocco key={cat.id} cat={cat} clr="#185FA5" bgHeader="#E6F1FB" bgBadge="#E6F1FB" clrBadge="#0C447C"/>)}
-                  {catFissi.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa — aggiungila in Impostazioni</div>}
-                </div>
-
-                {/* VARIABILI */}
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                  <div style={{padding:"12px 16px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Costi Variabili</span>
-                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#fff",color:"#533AB7",fontWeight:500}}>{catVar.length} categorie</span>
-                    </div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#533AB7",marginBottom:4}}>
-                      <span>Prev: <strong>€ {fmt(Math.round(totPrevVar))}</strong></span>
-                      <span>Speso: <strong>€ {fmt(Math.round(totSpesoVar))}</strong> · {totPrevVar>0?Math.round(totSpesoVar/totPrevVar*100):0}%</span>
-                    </div>
-                    <div style={{height:4,background:"#AFA9EC",borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:(totPrevVar>0?Math.min(100,Math.round(totSpesoVar/totPrevVar*100)):0)+"%",background:"#533AB7",borderRadius:2}}/>
-                    </div>
-                  </div>
-                  {catVar.map(cat=><CatBlocco key={cat.id} cat={cat} clr="#533AB7" bgHeader="#EEEDFE" bgBadge="#EEEDFE" clrBadge="#3C3489"/>)}
-                  {catVar.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile — aggiungila in Impostazioni</div>}
-                </div>
-              </div>
-
-              {/* MENU POPUP GLOBALE - position fixed */}
-              
-            </div>);
-          })()}
-          {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
-            const agId6=myAgentId;
-            const annoC=costiAnno||annoCorrente;
-            const annoNum=Number(annoC);
-            const ag=agenti.find(a=>a.id===agId6);
-            const keyAnno=`${agId6}_${annoC}`;
-            const speseAnnoC=speseCosti[keyAnno]||[];
-            const ANNI_AG=[...new Set(catCosti.filter(c=>c.agentId===agId6).map(c=>String(c.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
-
-            // Categorie agente per anno
-            const catAgAnno=(()=>{
-              const byAnno=catCosti.filter(c=>c.agentId===agId6&&String(c.anno)===annoC);
-              if(byAnno.length>0) return byAnno;
-              const anni=[...new Set(catCosti.filter(c=>c.agentId===agId6).map(c=>String(c.anno)))].sort((a,b)=>b-a);
-              return anni.length>0?catCosti.filter(c=>c.agentId===agId6&&String(c.anno)===anni[0]):[];
-            })();
-            const annoSorgente=String(catAgAnno[0]?.anno||annoC);
-            const annoSorgenteDiv=annoSorgente!==annoC;
-
-            // Se non ha categorie, inizializza con default
-            const CAT_AG_DEFAULT=[
-              {id:"ag1",nome:"Carburante / Auto",totaleAnno:0,tipo:"variabile",anno:annoNum},
-              {id:"ag2",nome:"Telefono cellulare",totaleAnno:0,tipo:"fisso",anno:annoNum},
-              {id:"ag3",nome:"Corsi di formazione",totaleAnno:0,tipo:"variabile",anno:annoNum},
-              {id:"ag4",nome:"Abbigliamento professionale",totaleAnno:0,tipo:"variabile",anno:annoNum},
-              {id:"ag5",nome:"Software & App",totaleAnno:0,tipo:"fisso",anno:annoNum},
-              {id:"ag6",nome:"Materiale promozionale",totaleAnno:0,tipo:"variabile",anno:annoNum},
-              {id:"ag7",nome:"Spese varie",totaleAnno:0,tipo:"variabile",anno:annoNum},
-            ];
-            const hasCat=catAgAnno.length>0;
-            const catFissi=catAgAnno.filter(c=>c.tipo==="fisso");
-            const catVar=catAgAnno.filter(c=>c.tipo==="variabile");
-            const sposoPerCat=(cat)=>speseAnnoC.filter(s=>s.catId===cat.id).reduce((s,x)=>s+Number(x.importo||0),0);
-            const totPrevFissi=catFissi.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
-            const totPrevVar=catVar.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
-            const totPrev=totPrevFissi+totPrevVar;
-            const totSpesoFissi=catFissi.reduce((s,c)=>s+sposoPerCat(c),0);
-            const totSpesoVar=catVar.reduce((s,c)=>s+sposoPerCat(c),0);
-            const totSpeso=totSpesoFissi+totSpesoVar;
-            const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):0;
-            const rimanente=Math.max(0,totPrev-totSpeso);
-
-            const updCatAg=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
-            const delCatAg=(id)=>{if(window.confirm("Eliminare categoria?"))setCatCosti(prev=>prev.filter(c=>c.id!==id));};
-            const addCatAg=(nome,tipo)=>{
-              const id="ag_"+agId6+"_"+Date.now();
-              setCatCosti(prev=>[...prev,{id,nome,tipo,totaleAnno:0,agentId:agId6,anno:annoNum}]);
-            };
-            const initCatAg=()=>{
-              const nuove=CAT_AG_DEFAULT.map(c=>({...c,id:"ag_"+agId6+"_"+c.id+"_"+annoNum,agentId:agId6}));
-              setCatCosti(prev=>[...prev,...nuove]);
-            };
-            const copiaConsuntivo=()=>{
-              const nextAnno=annoNum+1;
-              if(!window.confirm(`Copiare i totali spesi ${annoC} come preventivo ${nextAnno}?`)) return;
-              const nuove=catAgAnno.map(cat=>({
-                ...cat,id:cat.id+"_"+nextAnno,anno:nextAnno,
-                totaleAnno:Math.round(sposoPerCat(cat)*100)/100,agentId:agId6
-              }));
-              setCatCosti(prev=>[...prev.filter(c=>!(c.agentId===agId6&&String(c.anno)===String(nextAnno))),...nuove]);
-              setCostiAnno(String(nextAnno));
-            };
-
-            const aggSpesa=(catId)=>{
-              const f=formSpesaCat[catId]||{};
-              if(!f.importo||!f.data) return alert("Inserisci data e importo");
-              const id="sp_"+Date.now();
-              const nuova={id,catId,data:f.data,importo:Number(f.importo),descrizione:f.descrizione||"",note:f.note||""};
-              setSpeseCosti(prev=>({...prev,[keyAnno]:[...(prev[keyAnno]||[]),nuova]}));
-              setFormSpesaCat(prev=>({...prev,[catId]:{data:todayStr(),importo:"",descrizione:"",note:""}}));
-            };
-            const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.id!==id)}));
-
-            const CatBloccoAg=({cat,clr,bgBadge,clrBadge})=>{
-              const spese=speseAnnoC.filter(s=>s.catId===cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
-              const speso=spese.reduce((s,x)=>s+Number(x.importo||0),0);
-              const budget=Number(cat.totaleAnno||0);
-              const perc=budget>0?Math.min(100,Math.round(speso/budget*100)):null;
-              const over=budget>0&&speso>budget;
-              const exp=costiCatExpand[cat.id];
-              const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
-              return(
-                <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                  <div style={{display:"flex",alignItems:"center",background:costiMenuPos?.catId===cat.id?"#FEF9E7":exp?"#fafaf8":"#fff",outline:costiMenuPos?.catId===cat.id?"2px solid "+BRAND.oro:"none"}}>
-                    <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                      style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",flex:1,minWidth:0}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                          <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
-                          {over&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
-                          {spese.length>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgBadge,color:clrBadge,fontWeight:500}}>{spese.length} spese</span>}
-                        </div>
-                        {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2}}/>
-                        </div>}
-                      </div>
-                      <div style={{textAlign:"right",flexShrink:0,minWidth:140}}>
-                        <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
-                        {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
-                        {budget===0&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
-                      </div>
-                      <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
-                    </div>
-                    {/* Menu azioni ⋮ agente */}
-                    <div style={{position:"relative",flexShrink:0}}>
-                      <button onClick={(e)=>{e.stopPropagation();setCostiMenuPos(prev=>prev?.catId===cat.id?null:{catId:cat.id,keyAnno,tipo:cat.tipo,nome:cat.nome,isAgente:true});}}
-                        style={{background:"none",border:"none",cursor:"pointer",fontSize:20,lineHeight:1,padding:"10px 12px",
-                          color:costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}}
-                        onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro}
-                        onMouseLeave={e=>e.currentTarget.style.color=costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}>⋮</button>
-                      {costiMenuPos?.catId===cat.id&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",
-                        borderRadius:10,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 20px rgba(0,0,0,.12)",
-                        zIndex:50,minWidth:200,overflow:"hidden"}}>
-                        <div style={{padding:"8px 14px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0"}}>
-                          <span style={{fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</span>
-                          <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{cat.tipo==="fisso"?"Fisso":"Variabile"}</span>
-                        </div>
-                        <div style={{padding:"4px 0"}}>
-                          {[
-                            ["✏️ Rinomina","#2c2c2c",()=>{const nn=window.prompt("Rinomina:",cat.nome);if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,nome:nn.trim()}:c));setCostiMenuPos(null);}],
-                            ["🔄 Sposta a "+(cat.tipo==="fisso"?"Variabili":"Fissi"),"#533AB7",()=>{setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,tipo:cat.tipo==="fisso"?"variabile":"fisso"}:c));setCostiMenuPos(null);}],
-                          ].map(([lbl,clr,fn])=>(
-                            <button key={lbl} onClick={(e)=>{e.stopPropagation();fn();}}
-                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:clr,textAlign:"left",fontFamily:"inherit"}}
-                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>{lbl}</button>
-                          ))}
-                          <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
-                          <button onClick={(e)=>{e.stopPropagation();if(window.confirm(`Eliminare "${cat.nome}"?`)){setCatCosti(prev=>prev.filter(c=>c.id!==cat.id));setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.catId!==cat.id)}));}setCostiMenuPos(null);}}
-                            style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
-                            onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
-                        </div>
-                      </div>}
-                    </div>
-                  </div>
-                  {exp&&<div style={{borderLeft:"3px solid "+clr}}>
-                    {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi la prima qui sotto</div>}
-                    {spese.map(sp=>(
-                      <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px 9px 20px",borderBottom:"0.5px solid #f8f8f8",background:"#fff"}}>
-                        <div style={{width:38,height:38,borderRadius:8,background:bgBadge,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                          <span style={{fontSize:9,color:clrBadge,fontWeight:600,textAlign:"center",lineHeight:1.3}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
-                        </div>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"#2c2c2c"}}>{sp.descrizione||"—"}</div>
-                          {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
-                        </div>
-                        <div style={{fontSize:14,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                        <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare?"))delSpesa(sp.id);}}
-                          style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 2px",flexShrink:0}}
-                          onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
-                      </div>
-                    ))}
-                    <div style={{padding:"12px 16px 14px 20px",background:"#fafaf8",borderTop:"0.5px solid #f0f0f0"}}>
-                      <div style={{fontSize:11,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>+ Nuova spesa in "{cat.nome}"</div>
-                      <div style={{display:"grid",gridTemplateColumns:"130px 90px 1fr auto",gap:8,alignItems:"flex-end"}}>
-                        <div><label style={S.lbl}>Data</label><input type="date" id={"ag_data_"+cat.id} style={{...S.inp,fontSize:12}} defaultValue={todayStr()}/></div>
-                        <div><label style={S.lbl}>Importo €</label><input type="number" min="0" id={"ag_imp_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="0"/></div>
-                        <div><label style={S.lbl}>Descrizione</label><input id={"ag_desc_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="es. Benzina, Corso..."/></div>
-                        <button onClick={(e)=>{e.stopPropagation();
-                          const data=document.getElementById("ag_data_"+cat.id)?.value||todayStr();
-                          const imp=document.getElementById("ag_imp_"+cat.id)?.value;
-                          const desc=document.getElementById("ag_desc_"+cat.id)?.value||"";
-                          if(!imp)return alert("Inserisci l'importo");
-                          const id2="sp_"+Date.now();
-                          setSpeseCosti(prev=>({...prev,[keyAnno]:[...(prev[keyAnno]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));
-                          if(document.getElementById("ag_imp_"+cat.id))document.getElementById("ag_imp_"+cat.id).value="";
-                          if(document.getElementById("ag_desc_"+cat.id))document.getElementById("ag_desc_"+cat.id).value="";
-                        }} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>💾 Salva</button>
-                      </div>
-                    </div>
-                  </div>}
-                </div>
-              );
-            };
-
-            if(!hasCat) return(<div style={S.sec}>
-              <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 1rem",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
-              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"2rem",textAlign:"center"}}>
-                <p style={{fontSize:14,color:"#aaa",marginBottom:"1rem"}}>Nessuna categoria configurata per {annoC}</p>
-                <button style={{...S.btnP,marginRight:8}} onClick={initCatAg}>Usa categorie predefinite</button>
-              </div>
-            </div>);
-
-            return(<div style={S.sec}>
-              {/* HEADER */}
-              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
-                <div>
-                  <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
-                  {annoSorgenteDiv&&<div style={{fontSize:12,color:"#E67E22",margin:"4px 0 0"}}>⚠ Preventivo da dati <strong>{annoSorgente}</strong></div>}
-                  {!annoSorgenteDiv&&<div style={{fontSize:12,color:"#888"}}>Anno {annoC} — spese reali vs preventivo</div>}
-                </div>
-                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
-                    {ANNI_AG.map(a=><option key={a}>{a}</option>)}
-                  </select>
-                  {hasCat&&<button onClick={copiaConsuntivo} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Copia {annoC} → {annoNum+1}</button>}
-                  <button onClick={()=>setShowGestCat(!showGestCat)} style={{...S.btn,fontSize:11,background:showGestCat?"#EEEDFE":"#fafaf8",border:`0.5px solid ${showGestCat?"#533AB7":"#ddd"}`,color:showGestCat?"#533AB7":"#888"}}>⚙ Gestisci categorie</button>
-                </div>
-              </div>
-
-              {/* GESTIONE CATEGORIE */}
-              {showGestCat&&<div style={{background:"#fff",borderRadius:12,border:"1px solid #533AB7",padding:"1.25rem",marginBottom:"1.5rem"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                  <span style={{fontSize:13,fontWeight:600,color:"#533AB7"}}>⚙ Gestisci categorie — {annoC}</span>
-                  <button onClick={()=>setShowGestCat(false)} style={{...S.btn,fontSize:11}}>✕ Chiudi</button>
-                </div>
-                {catAgAnno.map(cat=>(
-                  <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 110px 36px",gap:8,alignItems:"center",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
-                    <input style={{...S.inp,margin:0,fontSize:12}} value={cat.nome} onChange={e=>updCatAg(cat.id,"nome",e.target.value)}/>
-                    <input type="number" min="0" style={{...S.inp,margin:0,fontSize:12,textAlign:"right"}} value={cat.totaleAnno||""} placeholder="Prev. €" onChange={e=>updCatAg(cat.id,"totaleAnno",Number(e.target.value))}/>
-                    <select style={{...S.sel,fontSize:11}} value={cat.tipo} onChange={e=>updCatAg(cat.id,"tipo",e.target.value)}>
-                      <option value="fisso">Fisso</option><option value="variabile">Variabile</option>
-                    </select>
-                    <button onClick={()=>delCatAg(cat.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd"}} onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
-                  </div>
-                ))}
-                <div style={{display:"flex",gap:8,marginTop:10}}>
-                  <button onClick={()=>addCatAg("Nuova categoria","variabile")} style={{...S.btn,fontSize:11}}>+ Fisso</button>
-                  <button onClick={()=>addCatAg("Nuova categoria","variabile")} style={{...S.btn,fontSize:11}}>+ Variabile</button>
-                </div>
-              </div>}
-
-              {/* KPI */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
                 {[
                   {lbl:"Preventivo anno",val:"€ "+fmt(Math.round(totPrev)),clr:"#533AB7",sub:"budget totale "+annoC},
@@ -3678,67 +3335,249 @@ export default function App() {
                   {lbl:"Fissi YTD",val:"€ "+fmt(Math.round(totSpesoFissi)),clr:"#185FA5",sub:"prev. € "+fmt(Math.round(totPrevFissi))},
                   {lbl:"Rimanente",val:"€ "+fmt(Math.round(rimanente)),clr:rimanente>=0?"#27AE60":"#E74C3C",sub:rimanente>=0?"disponibile":"sforato!"},
                 ].map(({lbl,val,clr,sub})=>(
-                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",borderTop:"3px solid "+clr}}>
-                    <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".07em",margin:"0 0 6px",fontWeight:600}}>{lbl}</p>
-                    <p style={{fontSize:22,fontWeight:700,color:clr,margin:"0 0 3px"}}>{val}</p>
+                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:"3px solid "+clr}}>
+                    <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 5px",fontWeight:600}}>{lbl}</p>
+                    <p style={{fontSize:20,fontWeight:700,color:clr,margin:"0 0 2px"}}>{val}</p>
                     <p style={{fontSize:11,color:"#aaa",margin:0}}>{sub}</p>
                   </div>
                 ))}
               </div>
-
-              {/* BARRA GLOBALE */}
-              {totPrev>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.5rem"}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              {totPrev>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1.5rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                   <span style={{fontSize:13,fontWeight:500}}>Avanzamento budget {annoC}</span>
                   <span style={{fontSize:13,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60"}}>{percSpeso}%</span>
                 </div>
-                <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden",marginBottom:8}}>
-                  <div style={{height:"100%",width:percSpeso+"%",background:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",borderRadius:4}}/>
+                <div style={{height:7,background:"#f0f0f0",borderRadius:4,overflow:"hidden",marginBottom:7}}>
+                  <div style={{height:"100%",width:percSpeso+"%",background:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",borderRadius:4,transition:"width .5s"}}/>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#aaa"}}>
-                  <span>📌 Fissi: <strong style={{color:"#185FA5"}}>€ {fmt(Math.round(totSpesoFissi))}</strong> / prev. € {fmt(Math.round(totPrevFissi))}</span>
-                  <span>📊 Variabili: <strong style={{color:"#533AB7"}}>€ {fmt(Math.round(totSpesoVar))}</strong> / prev. € {fmt(Math.round(totPrevVar))}</span>
+                  <span>Fissi: <strong style={{color:"#185FA5"}}>€ {fmt(Math.round(totSpesoFissi))}</strong> / € {fmt(Math.round(totPrevFissi))}</span>
+                  <span>Variabili: <strong style={{color:"#533AB7"}}>€ {fmt(Math.round(totSpesoVar))}</strong> / € {fmt(Math.round(totPrevVar))}</span>
                 </div>
               </div>}
-
-              {/* DUE COLONNE */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
                 <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
                   <div style={{padding:"12px 16px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Fissi</span>
-                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#fff",color:"#185FA5",fontWeight:500}}>{catFissi.length} categorie</span>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Costi Fissi</span>
+                      <span style={{fontSize:11,padding:"1px 8px",borderRadius:10,background:"#fff",color:"#185FA5"}}>{catFissi.length} voci</span>
                     </div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#185FA5",marginBottom:4}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#185FA5",marginBottom:3}}>
                       <span>Prev: <strong>€ {fmt(Math.round(totPrevFissi))}</strong></span>
                       <span>Speso: <strong>€ {fmt(Math.round(totSpesoFissi))}</strong></span>
                     </div>
-                    <div style={{height:4,background:"#B5D4F4",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:3,background:"#B5D4F4",borderRadius:2,overflow:"hidden"}}>
                       <div style={{height:"100%",width:(totPrevFissi>0?Math.min(100,Math.round(totSpesoFissi/totPrevFissi*100)):0)+"%",background:"#185FA5",borderRadius:2}}/>
                     </div>
                   </div>
-                  {catFissi.map(cat=><CatBloccoAg key={cat.id} cat={cat} clr="#185FA5" bgBadge="#E6F1FB" clrBadge="#0C447C"/>)}
-                  {catFissi.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
+                  {catFissi.map(cat=><CatBlocco key={cat.id} cat={cat} clr="#185FA5" bgLight="#E6F1FB"/>)}
+                  {catFissi.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
                 </div>
                 <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
                   <div style={{padding:"12px 16px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Variabili</span>
-                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#fff",color:"#533AB7",fontWeight:500}}>{catVar.length} categorie</span>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Costi Variabili</span>
+                      <span style={{fontSize:11,padding:"1px 8px",borderRadius:10,background:"#fff",color:"#533AB7"}}>{catVar.length} voci</span>
                     </div>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#533AB7",marginBottom:4}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#533AB7",marginBottom:3}}>
                       <span>Prev: <strong>€ {fmt(Math.round(totPrevVar))}</strong></span>
                       <span>Speso: <strong>€ {fmt(Math.round(totSpesoVar))}</strong></span>
                     </div>
-                    <div style={{height:4,background:"#AFA9EC",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:3,background:"#AFA9EC",borderRadius:2,overflow:"hidden"}}>
                       <div style={{height:"100%",width:(totPrevVar>0?Math.min(100,Math.round(totSpesoVar/totPrevVar*100)):0)+"%",background:"#533AB7",borderRadius:2}}/>
                     </div>
                   </div>
-                  {catVar.map(cat=><CatBloccoAg key={cat.id} cat={cat} clr="#533AB7" bgBadge="#EEEDFE" clrBadge="#3C3489"/>)}
-                  {catVar.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile</div>}
+                  {catVar.map(cat=><CatBlocco key={cat.id} cat={cat} clr="#533AB7" bgLight="#EEEDFE"/>)}
+                  {catVar.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile</div>}
                 </div>
               </div>
-
+            </div>);
+          })()}
+          {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
+            const agId6=myAgentId;
+            const annoC=costiAnno||annoCorrente;
+            const annoNum=Number(annoC);
+            const ag=agenti.find(a=>a.id===agId6);
+            const keyAnno=agId6+"_"+annoC;
+            const speseAnnoC=speseCosti[keyAnno]||[];
+            const ANNI_AG=[...new Set(catCosti.filter(cc=>cc.agentId===agId6).map(cc=>String(cc.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
+            const catAgAnno=(()=>{
+              const byAnno=catCosti.filter(cc=>cc.agentId===agId6&&String(cc.anno)===annoC);
+              if(byAnno.length>0) return byAnno;
+              const anni=[...new Set(catCosti.filter(cc=>cc.agentId===agId6).map(cc=>String(cc.anno)))].sort((a,b)=>b-a);
+              return anni.length>0?catCosti.filter(cc=>cc.agentId===agId6&&String(cc.anno)===anni[0]):[];
+            })();
+            const annoSorgente=String(catAgAnno[0]?.anno||annoC);
+            const hasCat=catAgAnno.length>0;
+            const catFissi=catAgAnno.filter(cc=>cc.tipo==="fisso");
+            const catVar=catAgAnno.filter(cc=>cc.tipo==="variabile");
+            const sposoPerCat=(cat)=>speseAnnoC.filter(s=>s.catId===cat.id).reduce((s,x)=>s+Number(x.importo||0),0);
+            const totPrevFissi=catFissi.reduce((s,cc)=>s+Number(cc.totaleAnno||0),0);
+            const totPrevVar=catVar.reduce((s,cc)=>s+Number(cc.totaleAnno||0),0);
+            const totPrev=totPrevFissi+totPrevVar;
+            const totSpesoFissi=catFissi.reduce((s,cc)=>s+sposoPerCat(cc),0);
+            const totSpesoVar=catVar.reduce((s,cc)=>s+sposoPerCat(cc),0);
+            const totSpeso=totSpesoFissi+totSpesoVar;
+            const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):0;
+            const rimanente=Math.max(0,totPrev-totSpeso);
+            const oggi6=todayStr();
+            const CAT_DEFAULT=[
+              {id:"ag1",nome:"Carburante / Auto",totaleAnno:0,tipo:"variabile",anno:annoNum,agentId:agId6},
+              {id:"ag2",nome:"Telefono cellulare",totaleAnno:0,tipo:"fisso",anno:annoNum,agentId:agId6},
+              {id:"ag3",nome:"Corsi di formazione",totaleAnno:0,tipo:"variabile",anno:annoNum,agentId:agId6},
+              {id:"ag4",nome:"Abbigliamento professionale",totaleAnno:0,tipo:"variabile",anno:annoNum,agentId:agId6},
+              {id:"ag5",nome:"Software & App",totaleAnno:0,tipo:"fisso",anno:annoNum,agentId:agId6},
+              {id:"ag6",nome:"Materiale promozionale",totaleAnno:0,tipo:"variabile",anno:annoNum,agentId:agId6},
+              {id:"ag7",nome:"Spese varie",totaleAnno:0,tipo:"variabile",anno:annoNum,agentId:agId6},
+            ];
+            const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.id!==id)}));
+            const copiaConsuntivo=()=>{
+              const nextAnno=annoNum+1;
+              if(!window.confirm("Copiare i totali spesi "+annoC+" come preventivo "+nextAnno+"?")) return;
+              const nuove=catAgAnno.map(cat=>({...cat,id:cat.id+"_"+nextAnno,anno:nextAnno,totaleAnno:Math.round(sposoPerCat(cat)*100)/100,agentId:agId6}));
+              setCatCosti(prev=>[...prev.filter(cc=>!(cc.agentId===agId6&&String(cc.anno)===String(nextAnno))),...nuove]);
+              setCostiAnno(String(nextAnno));
+            };
+            const CatBloccoAg=({cat,clr,bgLight})=>{
+              const spese=speseAnnoC.filter(s=>s.catId===cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+              const speso=spese.reduce((s,x)=>s+Number(x.importo||0),0);
+              const budget=Number(cat.totaleAnno||0);
+              const perc=budget>0?Math.min(100,Math.round(speso/budget*100)):null;
+              const over=budget>0&&speso>budget;
+              const exp=costiCatExpand[cat.id];
+              const menuOpen=costiCatExpand["m_"+cat.id];
+              const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
+              return(
+                <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
+                  <div style={{display:"flex",alignItems:"center",background:menuOpen?"#FEF9E7":exp?"#fafaf8":"#fff",transition:"background .15s",borderLeft:menuOpen?"3px solid "+BRAND.oro:"3px solid transparent"}}>
+                    <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                      style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer",flex:1,minWidth:0}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+                          <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
+                          {over&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠</span>}
+                          {spese.length>0&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:bgLight,color:clr,fontWeight:500}}>{spese.length}</span>}
+                        </div>
+                        {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2}}/>
+                        </div>}
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0,minWidth:130}}>
+                        <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
+                        {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
+                        {!budget&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
+                      </div>
+                      <span style={{fontSize:11,color:"#ccc",flexShrink:0,marginLeft:4}}>{exp?"▲":"▼"}</span>
+                    </div>
+                    <div style={{position:"relative",flexShrink:0}}>
+                      <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc"}}
+                        onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
+                      {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 12px rgba(0,0,0,.1)",zIndex:20,minWidth:185,overflow:"hidden"}}>
+                        <div style={{padding:"6px 12px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0",fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</div>
+                        <div style={{padding:"3px 0"}}>
+                          <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                            style={{display:"block",width:"100%",padding:"9px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#2c2c2c",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✏️ Rinomina</button>
+                          <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                            style={{display:"block",width:"100%",padding:"9px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#533AB7",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔄 Sposta a {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                          <div style={{borderTop:"0.5px solid #f0f0f0",margin:"2px 0"}}/>
+                          <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare "+cat.nome+"?")){setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                            style={{display:"block",width:"100%",padding:"9px 14px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina</button>
+                        </div>
+                      </div>}
+                    </div>
+                  </div>
+                  {exp&&<div style={{borderLeft:"3px solid "+clr}}>
+                    {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi qui sotto</div>}
+                    {spese.map(sp=>(
+                      <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 14px 8px 18px",borderBottom:"0.5px solid #f8f8f8"}}>
+                        <div style={{width:36,height:36,borderRadius:8,background:bgLight,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <span style={{fontSize:9,color:clr,fontWeight:600,textAlign:"center",lineHeight:1.3}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.descrizione||"—"}</div>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
+                        <button onClick={()=>{if(window.confirm("Eliminare?"))delSpesa(sp.id);}}
+                          style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 2px"}}
+                          onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
+                      </div>
+                    ))}
+                    <div style={{padding:"10px 14px 12px 18px",background:"#fafaf8",borderTop:"0.5px solid #f0f0f0"}}>
+                      <div style={{fontSize:11,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".05em",marginBottom:7}}>+ Nuova spesa — {cat.nome}</div>
+                      <div style={{display:"grid",gridTemplateColumns:"120px 80px 1fr auto",gap:7,alignItems:"flex-end"}}>
+                        <div><label style={S.lbl}>Data</label>
+                          <input type="date" id={"ag_d_"+cat.id} style={{...S.inp,fontSize:12,padding:"5px 7px"}} defaultValue={oggi6}/></div>
+                        <div><label style={S.lbl}>€</label>
+                          <input type="number" min="0" id={"ag_i_"+cat.id} style={{...S.inp,fontSize:12,padding:"5px 7px"}} placeholder="0"/></div>
+                        <div><label style={S.lbl}>Descrizione</label>
+                          <input id={"ag_desc_"+cat.id} style={{...S.inp,fontSize:12,padding:"5px 7px"}} placeholder="es. Benzina, corso..."/></div>
+                        <button onClick={()=>{const d=document.getElementById("ag_d_"+cat.id)?.value||oggi6;const i=document.getElementById("ag_i_"+cat.id)?.value;const desc=document.getElementById("ag_desc_"+cat.id)?.value||"";if(!i)return alert("Inserisci importo");const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[keyAnno]:[...(prev[keyAnno]||[]),{id:id2,catId:cat.id,data:d,importo:Number(i),descrizione:desc}]}));const iEl=document.getElementById("ag_i_"+cat.id);if(iEl)iEl.value="";const dEl=document.getElementById("ag_desc_"+cat.id);if(dEl)dEl.value="";}}
+                          style={{...S.btnP,fontSize:12,padding:"6px 12px",whiteSpace:"nowrap"}}>💾 Salva</button>
+                      </div>
+                    </div>
+                  </div>}
+                </div>
+              );
+            };
+            if(!hasCat) return(<div style={S.sec}>
+              <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 1rem",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
+              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"2rem",textAlign:"center"}}>
+                <p style={{fontSize:14,color:"#aaa",marginBottom:"1rem"}}>Nessuna categoria per {annoC}</p>
+                <button style={S.btnP} onClick={()=>setCatCosti(prev=>[...prev,...CAT_DEFAULT.map(cc=>({...cc,id:"ag_"+agId6+"_"+cc.id+"_"+annoNum}))])}>Usa categorie predefinite</button>
+              </div>
+            </div>);
+            return(<div style={S.sec}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
+                <div>
+                  <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
+                  {annoSorgente!==annoC&&<div style={{fontSize:12,color:"#E67E22",marginTop:4}}>⚠ Preventivo da dati {annoSorgente}</div>}
+                  {annoSorgente===annoC&&<div style={{fontSize:12,color:"#888"}}>Anno {annoC}</div>}
+                </div>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>{ANNI_AG.map(a=><option key={a}>{a}</option>)}</select>
+                  {hasCat&&<button onClick={copiaConsuntivo} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Copia {annoC} → {annoNum+1}</button>}
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
+                {[
+                  {lbl:"Preventivo anno",val:"€ "+fmt(Math.round(totPrev)),clr:"#533AB7",sub:"budget "+annoC},
+                  {lbl:"Speso YTD",val:"€ "+fmt(Math.round(totSpeso)),clr:"#E67E22",sub:percSpeso+"%"},
+                  {lbl:"Fissi YTD",val:"€ "+fmt(Math.round(totSpesoFissi)),clr:"#185FA5",sub:"prev. € "+fmt(Math.round(totPrevFissi))},
+                  {lbl:"Rimanente",val:"€ "+fmt(Math.round(rimanente)),clr:rimanente>=0?"#27AE60":"#E74C3C",sub:rimanente>=0?"disponibile":"sforato!"},
+                ].map(({lbl,val,clr,sub})=>(
+                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:"3px solid "+clr}}>
+                    <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 5px",fontWeight:600}}>{lbl}</p>
+                    <p style={{fontSize:20,fontWeight:700,color:clr,margin:"0 0 2px"}}>{val}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:0}}>{sub}</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Fissi</span>
+                      <span style={{fontSize:11,padding:"1px 8px",borderRadius:10,background:"#fff",color:"#185FA5"}}>{catFissi.length} voci</span>
+                    </div>
+                  </div>
+                  {catFissi.map(cat=><CatBloccoAg key={cat.id} cat={cat} clr="#185FA5" bgLight="#E6F1FB"/>)}
+                  {catFissi.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
+                </div>
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Variabili</span>
+                      <span style={{fontSize:11,padding:"1px 8px",borderRadius:10,background:"#fff",color:"#533AB7"}}>{catVar.length} voci</span>
+                    </div>
+                  </div>
+                  {catVar.map(cat=><CatBloccoAg key={cat.id} cat={cat} clr="#533AB7" bgLight="#EEEDFE"/>)}
+                  {catVar.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile</div>}
+                </div>
+              </div>
             </div>);
           })()}
           {tab==="Break Even"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
