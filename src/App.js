@@ -3261,13 +3261,30 @@ export default function App() {
                       style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc",flexShrink:0}}
                       onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
                   </div>
-                  {menuOpen&&<div style={{display:"flex",gap:8,padding:"8px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
-                    <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit",color:"#2c2c2c"}}>✏️ Rinomina</button>
-                    <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 → {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
-                    <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare "+cat.nome+"?")){setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
+                  {menuOpen&&<div style={{padding:"10px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
+                    {costiCatExpand["rename_"+cat.id]
+                      ?<div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <input id={"ren_"+cat.id} style={{...S.inp,flex:1,fontSize:12,padding:"5px 8px"}} defaultValue={cat.nome} autoFocus/>
+                        <button onClick={(e)=>{e.stopPropagation();const v=document.getElementById("ren_"+cat.id)?.value;if(v&&v.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:v.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false,["rename_"+cat.id]:false}));}}
+                          style={{...S.btnP,fontSize:12,padding:"5px 12px"}}>✓ Salva</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:false}));}}
+                          style={{...S.btn,fontSize:12,padding:"5px 10px"}}>✕</button>
+                      </div>
+                      :<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:true}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit",color:"#2c2c2c"}}>✏️ Rinomina</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 → {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:!prev["del_"+cat.id]}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
+                        {costiCatExpand["del_"+cat.id]&&<div style={{display:"flex",gap:6,alignItems:"center",width:"100%",marginTop:4}}>
+                          <span style={{fontSize:12,color:"#E74C3C"}}>Confermi eliminazione di "{cat.nome}"?</span>
+                          <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false,["del_"+cat.id]:false}));}}
+                            style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"none",background:"#E74C3C",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>Sì</button>
+                          <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
+                            style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>No</button>
+                        </div>}
+                      </div>}
                   </div>}
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
                     {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi qui sotto</div>}
@@ -3464,21 +3481,55 @@ export default function App() {
                       style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc",flexShrink:0}}
                       onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
                   </div>
-                  {menuOpen&&<div style={{display:"flex",gap:8,padding:"8px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
-                    <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit",color:"#2c2c2c"}}>✏️ Rinomina</button>
-                    <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 → {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
-                    <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare "+cat.nome+"?")){setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
+                  {menuOpen&&<div style={{padding:"10px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
+                    {costiCatExpand["rename_"+cat.id]
+                      ?<div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <input id={"ren_"+cat.id} style={{...S.inp,flex:1,fontSize:12,padding:"5px 8px"}} defaultValue={cat.nome} autoFocus/>
+                        <button onClick={(e)=>{e.stopPropagation();const v=document.getElementById("ren_"+cat.id)?.value;if(v&&v.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:v.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false,["rename_"+cat.id]:false}));}}
+                          style={{...S.btnP,fontSize:12,padding:"5px 12px"}}>✓ Salva</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:false}));}}
+                          style={{...S.btn,fontSize:12,padding:"5px 10px"}}>✕</button>
+                      </div>
+                      :<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:true}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit",color:"#2c2c2c"}}>✏️ Rinomina</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 → {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:!prev["del_"+cat.id]}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
+                        {costiCatExpand["del_"+cat.id]&&<div style={{display:"flex",gap:6,alignItems:"center",width:"100%",marginTop:4}}>
+                          <span style={{fontSize:12,color:"#E74C3C"}}>Confermi eliminazione di "{cat.nome}"?</span>
+                          <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false,["del_"+cat.id]:false}));}}
+                            style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"none",background:"#E74C3C",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>Sì</button>
+                          <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
+                            style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>No</button>
+                        </div>}
+                      </div>}
                   </div>}
-                  {menuOpen&&<div style={{display:"flex",gap:8,padding:"8px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
-                    <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn&&nn.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:nn.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit",color:"#2c2c2c"}}>✏️ Rinomina</button>
-                    <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 → {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
-                    <button onClick={(e)=>{e.stopPropagation();if(window.confirm("Eliminare "+cat.nome+"?")){setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
-                      style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
+                  {menuOpen&&<div style={{padding:"10px 14px",background:"#FEF9E7",borderTop:"0.5px solid #f0e8c0",borderLeft:"3px solid "+BRAND.oro}}>
+                    {costiCatExpand["rename_"+cat.id]
+                      ?<div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        <input id={"ag_ren_"+cat.id} style={{...S.inp,flex:1,fontSize:12,padding:"5px 8px"}} defaultValue={cat.nome} autoFocus/>
+                        <button onClick={(e)=>{e.stopPropagation();const v=document.getElementById("ag_ren_"+cat.id)?.value;if(v&&v.trim())setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,nome:v.trim()}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false,["rename_"+cat.id]:false}));}}
+                          style={{...S.btnP,fontSize:12,padding:"5px 12px"}}>✓ Salva</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:false}));}}
+                          style={{...S.btn,fontSize:12,padding:"5px 10px"}}>✕</button>
+                      </div>
+                      :<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:true}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit",color:"#2c2c2c"}}>✏️ Rinomina</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 → {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:!prev["del_"+cat.id]}));}}
+                          style={{fontSize:12,padding:"5px 12px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
+                        {costiCatExpand["del_"+cat.id]&&<div style={{display:"flex",gap:6,alignItems:"center",width:"100%",marginTop:4}}>
+                          <span style={{fontSize:12,color:"#E74C3C"}}>Confermi eliminazione di "{cat.nome}"?</span>
+                          <button onClick={(e)=>{e.stopPropagation();setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:false,["del_"+cat.id]:false}));}}
+                            style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"none",background:"#E74C3C",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>Sì</button>
+                          <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
+                            style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>No</button>
+                        </div>}
+                      </div>}
                   </div>}
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
                     {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi qui sotto</div>}
