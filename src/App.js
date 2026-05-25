@@ -3243,8 +3243,6 @@ export default function App() {
               const perc=budget>0?Math.min(100,Math.round(speso/budget*100)):null;
               const over=budget>0&&speso>budget;
               const exp=costiCatExpand[cat.id];
-              const f=formSpesaCat[cat.id]||{data:todayStr(),importo:"",descrizione:"",note:""};
-              const setF=(upd)=>setFormSpesaCat(prev=>({...prev,[cat.id]:{...f,...upd}}));
               const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
@@ -3289,25 +3287,33 @@ export default function App() {
                       </div>
                     ))}
                     {/* Form inserimento rapido */}
-                    <div style={{padding:"12px 16px 14px 20px",background:"#fafaf8",borderTop:"0.5px solid #f0f0f0"}}>
+                    <div style={{padding:"12px 16px 14px 20px",background:"#fafal8",borderTop:"0.5px solid #f0f0f0"}}>
                       <div style={{fontSize:11,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>+ Nuova spesa in "{cat.nome}"</div>
                       <div style={{display:"grid",gridTemplateColumns:"130px 90px 1fr auto",gap:8,alignItems:"flex-end"}}>
                         <div>
                           <label style={S.lbl}>Data</label>
-                          <input type="date" style={{...S.inp,fontSize:12}} value={f.data||todayStr()} onChange={e=>setF({data:e.target.value})}/>
+                          <input type="date" id={"data_"+cat.id} style={{...S.inp,fontSize:12}} defaultValue={todayStr()}/>
                         </div>
                         <div>
                           <label style={S.lbl}>Importo €</label>
-                          <input type="number" min="0" style={{...S.inp,fontSize:12}} value={f.importo||""} placeholder="0"
-                            onChange={e=>setF({importo:e.target.value})} onKeyDown={e=>e.key==="Enter"&&aggSpesa(cat.id)}/>
+                          <input type="number" min="0" id={"imp_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="0"
+                            onKeyDown={e=>{if(e.key==="Enter"){const data=document.getElementById("data_"+cat.id)?.value||todayStr();const imp=e.target.value;const desc=document.getElementById("desc_"+cat.id)?.value||"";if(!imp)return;const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));e.target.value="";if(document.getElementById("desc_"+cat.id))document.getElementById("desc_"+cat.id).value="";}}}/>
                         </div>
                         <div>
                           <label style={S.lbl}>Descrizione</label>
-                          <input style={{...S.inp,fontSize:12}} value={f.descrizione||""} placeholder="es. Fattura n°12, Bolletta maggio..."
-                            onChange={e=>setF({descrizione:e.target.value})} onKeyDown={e=>e.key==="Enter"&&aggSpesa(cat.id)}/>
+                          <input id={"desc_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="es. Fattura n°12, Bolletta maggio..."
+                            onKeyDown={e=>{if(e.key==="Enter"){const data=document.getElementById("data_"+cat.id)?.value||todayStr();const imp=document.getElementById("imp_"+cat.id)?.value;const desc=e.target.value;if(!imp)return;const id2="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));e.target.value="";if(document.getElementById("imp_"+cat.id))document.getElementById("imp_"+cat.id).value="";}}}/>
                         </div>
-                        <button onClick={(e)=>{e.stopPropagation();aggSpesa(cat.id);}}
-                          style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>💾 Salva</button>
+                        <button onClick={(e)=>{e.stopPropagation();
+                          const data=document.getElementById("data_"+cat.id)?.value||todayStr();
+                          const imp=document.getElementById("imp_"+cat.id)?.value;
+                          const desc=document.getElementById("desc_"+cat.id)?.value||"";
+                          if(!imp)return alert("Inserisci l'importo");
+                          const id2="sp_"+Date.now();
+                          setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));
+                          if(document.getElementById("imp_"+cat.id))document.getElementById("imp_"+cat.id).value="";
+                          if(document.getElementById("desc_"+cat.id))document.getElementById("desc_"+cat.id).value="";
+                        }} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>💾 Salva</button>
                       </div>
                     </div>
                   </div>}
@@ -3408,21 +3414,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TOTALE */}
-              <div style={{background:"#2C2C2C",borderRadius:12,padding:"1rem 1.5rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginTop:16}}>
-                <div>
-                  <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 4px"}}>Totale {annoC}</p>
-                  <p style={{fontSize:13,color:"#ccc",margin:0}}>
-                    Preventivo: <strong style={{color:"#fff"}}>€ {fmt(Math.round(totPrev))}</strong> &nbsp;·&nbsp;
-                    Speso: <strong style={{color:"#E67E22"}}>€ {fmt(Math.round(totSpeso))}</strong> &nbsp;·&nbsp;
-                    Rimanente: <strong style={{color:rimanente>=0?"#27AE60":"#E74C3C"}}>€ {fmt(Math.round(rimanente))}</strong>
-                  </p>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <p style={{fontSize:32,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",margin:0}}>{percSpeso}%</p>
-                  <p style={{fontSize:11,color:"#888",margin:0}}>del preventivo utilizzato</p>
-                </div>
-              </div>
             </div>);
           })()}
           {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
@@ -3505,8 +3496,6 @@ export default function App() {
               const perc=budget>0?Math.min(100,Math.round(speso/budget*100)):null;
               const over=budget>0&&speso>budget;
               const exp=costiCatExpand[cat.id];
-              const f=formSpesaCat[cat.id]||{data:todayStr(),importo:"",descrizione:"",note:""};
-              const setF=(upd)=>setFormSpesaCat(prev=>({...prev,[cat.id]:{...f,...upd}}));
               const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
@@ -3549,10 +3538,19 @@ export default function App() {
                     <div style={{padding:"12px 16px 14px 20px",background:"#fafaf8",borderTop:"0.5px solid #f0f0f0"}}>
                       <div style={{fontSize:11,fontWeight:600,color:clr,textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>+ Nuova spesa in "{cat.nome}"</div>
                       <div style={{display:"grid",gridTemplateColumns:"130px 90px 1fr auto",gap:8,alignItems:"flex-end"}}>
-                        <div><label style={S.lbl}>Data</label><input type="date" style={{...S.inp,fontSize:12}} value={f.data||todayStr()} onChange={e=>setF({data:e.target.value})}/></div>
-                        <div><label style={S.lbl}>Importo €</label><input type="number" min="0" style={{...S.inp,fontSize:12}} value={f.importo||""} placeholder="0" onChange={e=>setF({importo:e.target.value})} onKeyDown={e=>e.key==="Enter"&&aggSpesa(cat.id)}/></div>
-                        <div><label style={S.lbl}>Descrizione</label><input style={{...S.inp,fontSize:12}} value={f.descrizione||""} placeholder="es. Benzina, Corso..." onChange={e=>setF({descrizione:e.target.value})} onKeyDown={e=>e.key==="Enter"&&aggSpesa(cat.id)}/></div>
-                        <button onClick={(e)=>{e.stopPropagation();aggSpesa(cat.id);}} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>💾 Salva</button>
+                        <div><label style={S.lbl}>Data</label><input type="date" id={"ag_data_"+cat.id} style={{...S.inp,fontSize:12}} defaultValue={todayStr()}/></div>
+                        <div><label style={S.lbl}>Importo €</label><input type="number" min="0" id={"ag_imp_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="0"/></div>
+                        <div><label style={S.lbl}>Descrizione</label><input id={"ag_desc_"+cat.id} style={{...S.inp,fontSize:12}} placeholder="es. Benzina, Corso..."/></div>
+                        <button onClick={(e)=>{e.stopPropagation();
+                          const data=document.getElementById("ag_data_"+cat.id)?.value||todayStr();
+                          const imp=document.getElementById("ag_imp_"+cat.id)?.value;
+                          const desc=document.getElementById("ag_desc_"+cat.id)?.value||"";
+                          if(!imp)return alert("Inserisci l'importo");
+                          const id2="sp_"+Date.now();
+                          setSpeseCosti(prev=>({...prev,[keyAnno]:[...(prev[keyAnno]||[]),{id:id2,catId:cat.id,data,importo:Number(imp),descrizione:desc}]}));
+                          if(document.getElementById("ag_imp_"+cat.id))document.getElementById("ag_imp_"+cat.id).value="";
+                          if(document.getElementById("ag_desc_"+cat.id))document.getElementById("ag_desc_"+cat.id).value="";
+                        }} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>💾 Salva</button>
                       </div>
                     </div>
                   </div>}
@@ -3676,21 +3674,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* TOTALE */}
-              <div style={{background:"#2C2C2C",borderRadius:12,padding:"1rem 1.5rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginTop:16}}>
-                <div>
-                  <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 4px"}}>Totale {annoC}</p>
-                  <p style={{fontSize:13,color:"#ccc",margin:0}}>
-                    Preventivo: <strong style={{color:"#fff"}}>€ {fmt(Math.round(totPrev))}</strong> &nbsp;·&nbsp;
-                    Speso: <strong style={{color:"#E67E22"}}>€ {fmt(Math.round(totSpeso))}</strong> &nbsp;·&nbsp;
-                    Rimanente: <strong style={{color:rimanente>=0?"#27AE60":"#E74C3C"}}>€ {fmt(Math.round(rimanente))}</strong>
-                  </p>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <p style={{fontSize:32,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",margin:0}}>{percSpeso}%</p>
-                  <p style={{fontSize:11,color:"#888",margin:0}}>del preventivo utilizzato</p>
-                </div>
-              </div>
             </div>);
           })()}
           {tab==="Break Even"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
