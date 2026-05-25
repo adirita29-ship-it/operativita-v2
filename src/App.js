@@ -3356,7 +3356,7 @@ export default function App() {
                 </div>
               </div>}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
                   <div style={{padding:"12px 16px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                       <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Costi Fissi</span>
@@ -3373,7 +3373,7 @@ export default function App() {
                   {catFissi.map(cat=><CatBlocco key={cat.id} cat={cat} clr="#185FA5" bgLight="#E6F1FB"/>)}
                   {catFissi.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
                 </div>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
                   <div style={{padding:"12px 16px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                       <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Costi Variabili</span>
@@ -3557,7 +3557,7 @@ export default function App() {
                 ))}
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
                   <div style={{padding:"12px 16px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                       <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Fissi</span>
@@ -3567,7 +3567,7 @@ export default function App() {
                   {catFissi.map(cat=><CatBloccoAg key={cat.id} cat={cat} clr="#185FA5" bgLight="#E6F1FB"/>)}
                   {catFissi.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
                 </div>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
                   <div style={{padding:"12px 16px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC"}}>
                     <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
                       <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Variabili</span>
@@ -5877,7 +5877,7 @@ export default function App() {
                         </table>
                       </div>
                     </div>
-                    <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                    <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
                       <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
                         <div style={{width:4,height:18,borderRadius:2,background:"#0F6E56",flexShrink:0}}/>
                         <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>Risultati finali</span>
