@@ -633,38 +633,38 @@ export default function App() {
   const [archiviati,setArchiviati]=useState(_ls?.archiviati||[]);
   const [costi,setCosti]=useState(_ls?.costi||{[annoCorrente]:mkCosti()});
   const CAT_COSTI_DEFAULT=[
-    {id:"lc1",nome:"Locazione Ufficio",totaleAnno:15000,tipo:"fisso",anno:2025},
-    {id:"lc2",nome:"Spese Condominiali",totaleAnno:1018.85,tipo:"fisso",anno:2025},
-    {id:"lc3",nome:"Utenza Elettricità",totaleAnno:1597.26,tipo:"fisso",anno:2025},
-    {id:"lc4",nome:"Utenza GAS",totaleAnno:1279.96,tipo:"fisso",anno:2025},
-    {id:"lc5",nome:"Telefonia Fissa",totaleAnno:1219.31,tipo:"fisso",anno:2025},
-    {id:"lc6",nome:"Telefonia Cellulare",totaleAnno:2597,tipo:"fisso",anno:2025},
-    {id:"lc7",nome:"Pulizie",totaleAnno:1320,tipo:"fisso",anno:2025},
-    {id:"lc8",nome:"Imposte Pubblicitarie",totaleAnno:1415.2,tipo:"fisso",anno:2025},
-    {id:"lc9",nome:"Multifunzione Canone",totaleAnno:1300.64,tipo:"fisso",anno:2025},
-    {id:"lc10",nome:"Commercialista SRL",totaleAnno:8566.97,tipo:"fisso",anno:2025},
-    {id:"lc11",nome:"Consulente Paghe",totaleAnno:647.92,tipo:"fisso",anno:2025},
-    {id:"lc12",nome:"Compenso Amministratore",totaleAnno:30026,tipo:"fisso",anno:2025},
-    {id:"lc13",nome:"Stipendio Erica Guglielmana",totaleAnno:16923,tipo:"fisso",anno:2025},
-    {id:"lc14",nome:"Stipendi x collaborazioni",totaleAnno:3176.9,tipo:"fisso",anno:2025},
-    {id:"lc15",nome:"Tasse / Contributi Dipendenti",totaleAnno:21579.91,tipo:"fisso",anno:2025},
-    {id:"lc16",nome:"Immobiliare.it",totaleAnno:5730.03,tipo:"fisso",anno:2025},
-    {id:"lc17",nome:"Idealista.it & Casa.it",totaleAnno:4411.9,tipo:"fisso",anno:2025},
-    {id:"lc18",nome:"Sponsorizzazioni Squadre",totaleAnno:2015.29,tipo:"fisso",anno:2025},
-    {id:"lc19",nome:"Gestim + Sito + Hosting",totaleAnno:1992,tipo:"fisso",anno:2025},
-    {id:"lc20",nome:"Altre Assicurazioni",totaleAnno:33.85,tipo:"fisso",anno:2025},
-    {id:"lc21",nome:"Agente Strategico",totaleAnno:12487,tipo:"fisso",anno:2025},
-    {id:"lv1",nome:"Foto Immobili",totaleAnno:2045.01,tipo:"variabile",anno:2025},
-    {id:"lv2",nome:"Materiale Brand Càsa Imm.",totaleAnno:304.95,tipo:"variabile",anno:2025},
-    {id:"lv3",nome:"Materiale Brand x Agenti",totaleAnno:2653.53,tipo:"variabile",anno:2025},
-    {id:"lv4",nome:"Materiale di Consumo",totaleAnno:967.79,tipo:"variabile",anno:2025},
-    {id:"lv5",nome:"Spese Straordinarie e Varie",totaleAnno:8665.23,tipo:"variabile",anno:2025},
-    {id:"lv6",nome:"REGOLD (ricariche)",totaleAnno:819,tipo:"variabile",anno:2025},
-    {id:"lv7",nome:"Consulente SocialMedia",totaleAnno:500,tipo:"variabile",anno:2025},
-    {id:"lv8",nome:"SISTER ricariche",totaleAnno:869.12,tipo:"variabile",anno:2025},
-    {id:"lv9",nome:"Corsi di Formazione",totaleAnno:4796.5,tipo:"variabile",anno:2025},
-    {id:"lv10",nome:"Sponsorizzate Social",totaleAnno:70.1,tipo:"variabile",anno:2025},
-    {id:"lv11",nome:"Software-Servizi Professionali",totaleAnno:5847.57,tipo:"variabile",anno:2025},
+    {id:"lc1",nome:"Locazione Ufficio",totaleAnno:15000,tipo:"fisso",ricorrente:true,importoMensile:1250,anno:2025},
+    {id:"lc2",nome:"Spese Condominiali",totaleAnno:1018.85,tipo:"fisso",ricorrente:true,importoMensile:84.9,anno:2025},
+    {id:"lc3",nome:"Utenza Elettricità",totaleAnno:1597.26,tipo:"fisso",ricorrente:true,importoMensile:133.1,anno:2025},
+    {id:"lc4",nome:"Utenza GAS",totaleAnno:1279.96,tipo:"fisso",ricorrente:true,importoMensile:106.7,anno:2025},
+    {id:"lc5",nome:"Telefonia Fissa",totaleAnno:1219.31,tipo:"fisso",ricorrente:true,importoMensile:101.6,anno:2025},
+    {id:"lc6",nome:"Telefonia Cellulare",totaleAnno:2597,tipo:"fisso",ricorrente:true,importoMensile:216.4,anno:2025},
+    {id:"lc7",nome:"Pulizie",totaleAnno:1320,tipo:"fisso",ricorrente:true,importoMensile:110,anno:2025},
+    {id:"lc8",nome:"Imposte Pubblicitarie",totaleAnno:1415.2,tipo:"fisso",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lc9",nome:"Multifunzione Canone",totaleAnno:1300.64,tipo:"fisso",ricorrente:true,importoMensile:108.4,anno:2025},
+    {id:"lc10",nome:"Commercialista SRL",totaleAnno:8566.97,tipo:"fisso",ricorrente:true,importoMensile:713.9,anno:2025},
+    {id:"lc11",nome:"Consulente Paghe",totaleAnno:647.92,tipo:"fisso",ricorrente:true,importoMensile:54,anno:2025},
+    {id:"lc12",nome:"Compenso Amministratore",totaleAnno:30026,tipo:"fisso",ricorrente:true,importoMensile:2502.2,anno:2025},
+    {id:"lc13",nome:"Stipendio Erica Guglielmana",totaleAnno:16923,tipo:"fisso",ricorrente:true,importoMensile:1410.25,anno:2025},
+    {id:"lc14",nome:"Stipendi x collaborazioni",totaleAnno:3176.9,tipo:"fisso",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lc15",nome:"Tasse / Contributi Dipendenti",totaleAnno:21579.91,tipo:"fisso",ricorrente:true,importoMensile:1798.3,anno:2025},
+    {id:"lc16",nome:"Immobiliare.it",totaleAnno:5730.03,tipo:"fisso",ricorrente:true,importoMensile:477.5,anno:2025},
+    {id:"lc17",nome:"Idealista.it & Casa.it",totaleAnno:4411.9,tipo:"fisso",ricorrente:true,importoMensile:367.7,anno:2025},
+    {id:"lc18",nome:"Sponsorizzazioni Squadre",totaleAnno:2015.29,tipo:"fisso",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lc19",nome:"Gestim + Sito + Hosting",totaleAnno:1992,tipo:"fisso",ricorrente:true,importoMensile:166,anno:2025},
+    {id:"lc20",nome:"Altre Assicurazioni",totaleAnno:33.85,tipo:"fisso",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lc21",nome:"Agente Strategico",totaleAnno:12487,tipo:"fisso",ricorrente:true,importoMensile:1040.6,anno:2025},
+    {id:"lv1",nome:"Foto Immobili",totaleAnno:2045.01,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv2",nome:"Materiale Brand Càsa Imm.",totaleAnno:304.95,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv3",nome:"Materiale Brand x Agenti",totaleAnno:2653.53,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv4",nome:"Materiale di Consumo",totaleAnno:967.79,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv5",nome:"Spese Straordinarie e Varie",totaleAnno:8665.23,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv6",nome:"REGOLD (ricariche)",totaleAnno:819,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv7",nome:"Consulente SocialMedia",totaleAnno:500,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv8",nome:"SISTER ricariche",totaleAnno:869.12,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv9",nome:"Corsi di Formazione",totaleAnno:4796.5,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv10",nome:"Sponsorizzate Social",totaleAnno:70.1,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
+    {id:"lv11",nome:"Software-Servizi Professionali",totaleAnno:5847.57,tipo:"variabile",ricorrente:false,importoMensile:0,anno:2025},
   ];
   const [catCosti,setCatCosti]=useState(_ls?.catCosti||CAT_COSTI_DEFAULT);
   const [speseCosti,setSpeseCosti]=useState(_ls?.speseCosti||{});
@@ -3187,242 +3187,277 @@ export default function App() {
           })()}
           {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
+            const meseCorrente=new Date().getMonth()+1; // 1-12
+            const annoNum=Number(annoC);
+            const isAnnoCorrente=annoNum===new Date().getFullYear();
+            const mesiTrascorsi=isAnnoCorrente?meseCorrente:12;
+
+            // Categorie per anno selezionato (solo agenzia, non agente)
             const catAnnoC=(()=>{
               const byAnno=catCosti.filter(x=>String(x.anno)===annoC&&!x.agentId);
               if(byAnno.length>0) return byAnno;
               const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
               return anni.length>0?catCosti.filter(x=>x.anno===anni[0]&&!x.agentId):[];
             })();
+            const annoSorgente=catAnnoC[0]?.anno||2025;
+            const annoSorgenteStr=String(annoSorgente);
+
             const speseAnnoC=speseCosti[annoC]||[];
             const oggi6=todayStr();
-            const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
-            const totSpeso=speseAnnoC.reduce((s,x)=>s+Number(x.importo||0),0);
-            const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):null;
-            const addSpesa=(sp)=>{const id="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,...sp}]}));setFormSpesa(null);};
-            const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)}));
-            const speseByCat=(catId)=>speseAnnoC.filter(s=>s.catId===catId);
-            const ANNI_C=[...new Set([...catCosti.map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
+            const ANNI_C=[...new Set([...catCosti.filter(x=>!x.agentId).map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
+
             const catFissi=catAnnoC.filter(c=>c.tipo==="fisso");
             const catVar=catAnnoC.filter(c=>c.tipo==="variabile");
-            const totPrevFissi=catFissi.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
-            const totPrevVar=catVar.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
-            const totSpesoFissi=catFissi.reduce((s,cat)=>s+speseByCat(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0);
-            const totSpesoVar=catVar.reduce((s,cat)=>s+speseByCat(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0);
+
+            // Calcola speso per categoria
+            // Ricorrente: importoMensile * mesiTrascorsi (automatico)
+            // Variabile: somma spese manuali
+            const sposoPerCat=(cat)=>{
+              if(cat.ricorrente&&Number(cat.importoMensile||0)>0){
+                return Math.round(Number(cat.importoMensile)*mesiTrascorsi*100)/100;
+              }
+              return speseAnnoC.filter(s=>s.catId===cat.id).reduce((s,x)=>s+Number(x.importo||0),0);
+            };
+            const speseByCat=(catId)=>speseAnnoC.filter(s=>s.catId===catId);
+            const budgetCat=(cat)=>cat.ricorrente&&Number(cat.importoMensile||0)>0?Math.round(Number(cat.importoMensile)*12):Number(cat.totaleAnno||0);
+
+            const totPrevFissi=catFissi.reduce((s,c)=>s+budgetCat(c),0);
+            const totPrevVar=catVar.reduce((s,c)=>s+budgetCat(c),0);
+            const totPrev=totPrevFissi+totPrevVar;
+            const totSpesoFissi=catFissi.reduce((s,c)=>s+sposoPerCat(c),0);
+            const totSpesoVar=catVar.reduce((s,c)=>s+sposoPerCat(c),0);
+            const totSpeso=totSpesoFissi+totSpesoVar;
+            const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):0;
             const rimanente=Math.max(0,totPrev-totSpeso);
+
+            // Aggiungi spesa variabile
+            const addSpesa=(sp)=>{const id="sp_"+Date.now();setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,...sp}]}));setFormSpesa(null);};
+            const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)}));
+
+            // Copia consuntivo anno precedente come budget anno nuovo
+            const copiaConsuntivo=(annoFrom,annoTo)=>{
+              if(!window.confirm(`Copiare i valori spesi del ${annoFrom} come budget previsionale ${annoTo}?`)) return;
+              const catFrom=catCosti.filter(x=>String(x.anno)===String(annoFrom)&&!x.agentId);
+              const spFrom=speseCosti[String(annoFrom)]||[];
+              const nextAnno=Number(annoTo);
+              const nuove=catFrom.map(cat=>{
+                const speseCat=spFrom.filter(s=>s.catId===cat.id).reduce((s,x)=>s+Number(x.importo||0),0);
+                const consuntivo=cat.ricorrente&&Number(cat.importoMensile||0)>0?Number(cat.importoMensile)*12:speseCat;
+                return{...cat,id:cat.id+"_"+nextAnno,anno:nextAnno,totaleAnno:Math.round(consuntivo*100)/100,
+                  importoMensile:cat.ricorrente?Math.round(Number(cat.importoMensile||0)*100)/100:0};
+              });
+              setCatCosti(prev=>[...prev.filter(c=>!(c.anno===nextAnno&&!c.agentId)),...nuove]);
+              setCostiAnno(String(nextAnno));
+            };
+
+            // Componente riga categoria
+            const CatRow=({cat,clr,bgClr})=>{
+              const speso=sposoPerCat(cat);
+              const budget=budgetCat(cat);
+              const perc=budget>0?Math.min(100,Math.round(speso/budget*100)):0;
+              const over=budget>0&&speso>budget;
+              const spese=speseByCat(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+              const expanded=costiCatExpand[cat.id];
+              const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
+
+              return(<div style={{borderBottom:"0.5px solid var(--f0f0f0,#f0f0f0)"}}>
+                {/* Riga principale — clicca per espandere */}
+                <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                  style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",cursor:"pointer",background:expanded?"#fafaf8":"#fff",transition:"background .15s"}}>
+                  {/* Nome + barra */}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                      <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cat.nome}</span>
+                      {cat.ricorrente&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:bgClr,color:clr,fontWeight:500,flexShrink:0}}>auto</span>}
+                      {over&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600,flexShrink:0}}>⚠ sforato</span>}
+                    </div>
+                    <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:perc+"%",background:clrBar,borderRadius:2,transition:"width .4s"}}/>
+                    </div>
+                  </div>
+                  {/* Valori */}
+                  <div style={{textAlign:"right",flexShrink:0,minWidth:130}}>
+                    <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
+                    <div style={{fontSize:11,color:"#aaa"}}>su € {fmt(budget)} · {perc}%</div>
+                  </div>
+                  <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{expanded?"▲":"▼"}</span>
+                </div>
+
+                {/* Dettaglio espanso */}
+                {expanded&&<div style={{background:"#fafal8",borderLeft:`3px solid ${clr}`,marginLeft:0}}>
+                  {/* Info ricorrente */}
+                  {cat.ricorrente&&Number(cat.importoMensile||0)>0&&(
+                    <div style={{padding:"10px 16px 8px 20px",display:"flex",alignItems:"center",gap:12,borderBottom:"0.5px solid #f0f0f0",background:"#f8f8f8"}}>
+                      <span style={{fontSize:11,color:"#888"}}>Importo mensile fisso:</span>
+                      <span style={{fontSize:13,fontWeight:500,color:clr}}>€ {fmt(Number(cat.importoMensile))}/mese</span>
+                      <span style={{fontSize:11,color:"#aaa"}}>× {mesiTrascorsi} mesi = € {fmt(speso)}</span>
+                      {!isReadOnly&&<button onClick={(e)=>{e.stopPropagation();const v=window.prompt("Modifica importo mensile (€):",cat.importoMensile);if(v&&!isNaN(v)){setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,importoMensile:Number(v),totaleAnno:Math.round(Number(v)*12)}:c));}}} style={{...S.btn,fontSize:11,padding:"2px 10px",marginLeft:"auto"}}>✏ Modifica</button>}
+                    </div>
+                  )}
+                  {/* Lista spese variabili */}
+                  {!cat.ricorrente&&(<>
+                    {spese.length===0&&<div style={{padding:"12px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
+                    {spese.map(sp=>(
+                      <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px 9px 20px",borderBottom:"0.5px solid #f5f5f5"}}>
+                        <div style={{width:36,height:36,borderRadius:8,background:bgClr,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                          <span style={{fontSize:10,color:clr,fontWeight:600,textAlign:"center",lineHeight:1.2}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.descrizione}</div>
+                          {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
+                        </div>
+                        <div style={{fontSize:14,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
+                        {!isReadOnly&&<button onClick={(e)=>{e.stopPropagation();delSpesa(sp.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 2px",flexShrink:0}}
+                          onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>}
+                      </div>
+                    ))}
+                    {!isReadOnly&&<div style={{padding:"10px 16px 10px 20px"}}>
+                      <button onClick={(e)=>{e.stopPropagation();setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:cat.id,tipo:cat.tipo,note:"",_catNome:cat.nome});}}
+                        style={{fontSize:12,padding:"5px 14px",borderRadius:6,border:"0.5px dashed "+BRAND.oro,background:"#FDF6EC",color:BRAND.oroD,cursor:"pointer",fontFamily:"inherit"}}>
+                        + Aggiungi spesa a "{cat.nome}"
+                      </button>
+                    </div>}
+                  </>)}
+                </div>}
+              </div>);
+            };
+
             return(<div style={S.sec}>
               {/* HEADER */}
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
                 <div>
                   <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 4px",color:BRAND.grigio}}>💰 Costi Agenzia</h2>
-                  <div style={{fontSize:12,color:"#888"}}>Anno {annoC} — spese reali vs previsionale</div>
+                  {annoSorgenteStr!==annoC&&<div style={{fontSize:12,color:"#E67E22",margin:"4px 0 0",display:"flex",alignItems:"center",gap:6}}>
+                    <span>⚠</span>
+                    <span>Previsionale basato sui dati <strong>{annoSorgenteStr}</strong> — i valori potrebbero non riflettere il {annoC}</span>
+                  </div>}
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
                     {ANNI_C.map(a=><option key={a}>{a}</option>)}
                   </select>
-                  <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:"",tipo:"",note:""})} style={{...S.btnP,fontSize:12,padding:"7px 16px"}}>+ Aggiungi spesa</button>
+                  {catAnnoC.length>0&&<button onClick={()=>copiaConsuntivo(annoC,Number(annoC)+1)}
+                    style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>
+                    📥 Copia {annoC} → {Number(annoC)+1}
+                  </button>}
+                  {!isReadOnly&&<button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:"",tipo:"",note:""})}
+                    style={{...S.btnP,fontSize:12,padding:"7px 16px"}}>+ Aggiungi spesa</button>}
                 </div>
               </div>
 
               {/* KPI CARDS */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
                 {[
-                  {lbl:"Previsionale anno",val:"€ "+fmt(Math.round(totPrev)),clr:"#533AB7",icon:"📋",sub:"budget totale "+annoC},
-                  {lbl:"Speso YTD",val:"€ "+fmt(Math.round(totSpeso)),clr:"#E67E22",icon:"💸",sub:percSpeso!=null?percSpeso+"% del budget":"nessuna spesa"},
-                  {lbl:"Fissi / mese",val:"€ "+fmt(Math.round(totPrevFissi/12)),clr:"#185FA5",icon:"📌",sub:"€ "+fmt(Math.round(totPrevFissi))+" annui"},
-                  {lbl:"Rimanente",val:"€ "+fmt(Math.round(rimanente)),clr:rimanente>0?"#27AE60":"#E74C3C",icon:"🏦",sub:rimanente>0?"budget disponibile":"sforato!"},
-                ].map(({lbl,val,clr,icon,sub})=>(
-                  <div key={lbl} style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",borderTop:`3px solid ${clr}`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                      <span style={{fontSize:18}}>{icon}</span>
-                      <span style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".07em",fontWeight:600}}>{lbl}</span>
-                    </div>
-                    <div style={{fontSize:22,fontWeight:700,color:clr,marginBottom:3}}>{val}</div>
-                    <div style={{fontSize:11,color:"#aaa"}}>{sub}</div>
+                  {lbl:"Previsionale anno",val:"€ "+fmt(Math.round(totPrev)),clr:"#533AB7",sub:"budget totale "+annoC},
+                  {lbl:"Speso / maturato",val:"€ "+fmt(Math.round(totSpeso)),clr:"#E67E22",sub:percSpeso+"% del budget"},
+                  {lbl:"Fissi / mese",val:"€ "+fmt(Math.round(totPrevFissi/12)),clr:"#185FA5",sub:"€ "+fmt(Math.round(totPrevFissi))+" annui"},
+                  {lbl:"Rimanente",val:"€ "+fmt(Math.round(rimanente)),clr:rimanente>0?"#27AE60":"#E74C3C",sub:rimanente>0?"budget disponibile":"budget sforato!"},
+                ].map(({lbl,val,clr,sub})=>(
+                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",borderTop:"3px solid "+clr}}>
+                    <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".07em",margin:"0 0 6px",fontWeight:600}}>{lbl}</p>
+                    <p style={{fontSize:22,fontWeight:700,color:clr,margin:"0 0 3px"}}>{val}</p>
+                    <p style={{fontSize:11,color:"#aaa",margin:0}}>{sub}</p>
                   </div>
                 ))}
               </div>
 
-              {/* BARRA PROGRESSO GLOBALE */}
-              {totPrev>0&&<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.5rem"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                  <span style={{fontSize:13,fontWeight:600,color:BRAND.grigio}}>Avanzamento budget {annoC}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=70?"#E67E22":"#27AE60"}}>{percSpeso||0}%</span>
+              {/* BARRA GLOBALE */}
+              {totPrev>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.5rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                  <span style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>Avanzamento budget {annoC}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60"}}>{percSpeso}%</span>
                 </div>
-                <div style={{height:10,background:"#f0f0f0",borderRadius:5,overflow:"hidden",marginBottom:8}}>
-                  <div style={{height:"100%",width:(percSpeso||0)+"%",background:percSpeso>=100?"#E74C3C":percSpeso>=70?"#E67E22":"#27AE60",borderRadius:5,transition:"width .5s"}}/>
+                <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden",marginBottom:8}}>
+                  <div style={{height:"100%",width:percSpeso+"%",background:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",borderRadius:4,transition:"width .5s"}}/>
                 </div>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#aaa"}}>
-                  <span>📌 Fissi spesi: <strong style={{color:"#185FA5"}}>€ {fmt(Math.round(totSpesoFissi))}</strong> / € {fmt(Math.round(totPrevFissi))}</span>
-                  <span>📊 Variabili spesi: <strong style={{color:"#533AB7"}}>€ {fmt(Math.round(totSpesoVar))}</strong> / € {fmt(Math.round(totPrevVar))}</span>
+                  <span>📌 Fissi: <strong style={{color:"#185FA5"}}>€ {fmt(Math.round(totSpesoFissi))}</strong> / € {fmt(Math.round(totPrevFissi))}</span>
+                  <span>📊 Variabili: <strong style={{color:"#533AB7"}}>€ {fmt(Math.round(totSpesoVar))}</strong> / € {fmt(Math.round(totPrevVar))}</span>
+                  {isAnnoCorrente&&<span>Mesi trascorsi: <strong>{mesiTrascorsi}/12</strong></span>}
                 </div>
               </div>}
 
               {/* FORM AGGIUNGI SPESA */}
               {formSpesa&&<div style={{background:"#fff",borderRadius:12,border:"1.5px solid "+BRAND.oro,padding:"1.25rem",marginBottom:"1.5rem"}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:16}}>✏️</span> Nuova spesa — {annoC}
+                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:14}}>
+                  {formSpesa._catNome?`+ Spesa in "${formSpesa._catNome}"`:"+  Nuova spesa — "+annoC}
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 120px",gap:10,marginBottom:10}}>
-                  <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione} placeholder="es. Bolletta maggio, Facebook Ads..." onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 130px",gap:10,marginBottom:10}}>
+                  <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione||""} placeholder="es. Facebook Ads maggio, Corso formazione..." onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
                   <div><label style={S.lbl}>Categoria</label>
-                    <select style={S.inp} value={formSpesa.catId} onChange={e=>{
-                      const cat=catAnnoC.find(c=>c.id===e.target.value);
-                      setFormSpesa({...formSpesa,catId:e.target.value,tipo:cat?.tipo||""});
-                    }}>
+                    <select style={S.inp} value={formSpesa.catId||""} onChange={e=>{const cat=catAnnoC.find(c=>c.id===e.target.value);setFormSpesa({...formSpesa,catId:e.target.value,tipo:cat?.tipo||"",_catNome:cat?.nome||""});}}>
                       <option value="">Seleziona categoria...</option>
-                      <optgroup label="📌 Fissi">{catFissi.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</optgroup>
+                      <optgroup label="📌 Fissi (solo variabili)">{catFissi.filter(c=>!c.ricorrente).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</optgroup>
                       <optgroup label="📊 Variabili">{catVar.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</optgroup>
                     </select>
                   </div>
-                  <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo||""} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
                 </div>
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"160px 1fr",gap:10,marginBottom:12}}>
-                  <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data||""} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
                   <div><label style={S.lbl}>Note (opzionale)</label><input style={S.inp} value={formSpesa.note||""} placeholder="Annotazioni..." onChange={e=>setFormSpesa({...formSpesa,note:e.target.value})}/></div>
                 </div>
+                <div style={{fontSize:11,color:"#aaa",marginBottom:10}}>💡 Le categorie <strong>Ricorrenti</strong> (affitto, stipendi...) si calcolano automaticamente — puoi aggiungere spese solo alle categorie variabili o ai fissi non ricorrenti</div>
                 <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
                   <button onClick={()=>setFormSpesa(null)} style={S.btn}>Annulla</button>
-                  <button onClick={()=>{
-                    if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo e categoria");
-                    addSpesa(formSpesa);
-                  }} style={{...S.btnP,padding:"7px 20px"}}>💾 Salva spesa</button>
+                  <button onClick={()=>{if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo e categoria");addSpesa(formSpesa);}} style={{...S.btnP,padding:"7px 20px"}}>💾 Salva</button>
                 </div>
               </div>}
 
-              {/* CATEGORIE — FISSI */}
-              {catFissi.length>0&&<div style={{marginBottom:"1.5rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                  <div style={{width:4,height:20,borderRadius:2,background:"#185FA5"}}/>
-                  <span style={{fontSize:13,fontWeight:700,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em"}}>📌 Costi Fissi</span>
-                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong>€ {fmt(Math.round(totPrevFissi))}</strong> · Speso: <strong style={{color:"#185FA5"}}>€ {fmt(Math.round(totSpesoFissi))}</strong></span>
+              {/* DUE COLONNE FISSI | VARIABILI */}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
+                {/* FISSI */}
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>📌 Costi Fissi</span>
+                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#fff",color:"#185FA5",fontWeight:500}}>{catFissi.length} voci</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#185FA5",marginBottom:4}}>
+                      <span>Prev: <strong>€ {fmt(Math.round(totPrevFissi))}</strong></span>
+                      <span>Speso: <strong>€ {fmt(Math.round(totSpesoFissi))}</strong> · {totPrevFissi>0?Math.round(totSpesoFissi/totPrevFissi*100):0}%</span>
+                    </div>
+                    <div style={{height:4,background:"#B5D4F4",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:(totPrevFissi>0?Math.min(100,Math.round(totSpesoFissi/totPrevFissi*100)):0)+"%",background:"#185FA5",borderRadius:2}}/>
+                    </div>
+                  </div>
+                  {catFissi.map(cat=><CatRow key={cat.id} cat={cat} clr="#185FA5" bgClr="#E6F1FB"/>)}
+                  {catFissi.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa configurata</div>}
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {catFissi.map(cat=>{
-                    const spese=speseByCat(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
-                    const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
-                    const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
-                    const over=cat.totaleAnno>0&&totCat>cat.totaleAnno;
-                    const expanded=costiCatExpand[cat.id];
-                    return(<div key={cat.id} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${over?"#E74C3C44":"#e8e5e0"}`,overflow:"hidden",transition:"all .2s"}}>
-                      {/* Header categoria */}
-                      <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                        style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",background:expanded?"#fafaf8":"#fff"}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:500,color:"#2c2c2c",marginBottom:6}}>{cat.nome}</div>
-                          <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:(percCat||0)+"%",background:over?"#E74C3C":percCat>=70?"#E67E22":"#185FA5",borderRadius:3,transition:"width .4s"}}/>
-                          </div>
-                        </div>
-                        <div style={{textAlign:"right",flexShrink:0,minWidth:120}}>
-                          <div style={{fontSize:14,fontWeight:700,color:over?"#E74C3C":totCat>0?"#185FA5":"#bbb"}}>€ {fmt(Math.round(totCat))}</div>
-                          <div style={{fontSize:10,color:"#aaa"}}>su € {fmt(Math.round(cat.totaleAnno||0))} · {percCat||0}%</div>
-                        </div>
-                        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                          {spese.length>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:8,background:"#EAF4FB",color:"#185FA5",fontWeight:500}}>{spese.length}</span>}
-                          {over&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
-                          <span style={{fontSize:12,color:"#aaa"}}>{expanded?"▲":"▼"}</span>
-                        </div>
-                      </div>
-                      {/* Lista spese */}
-                      {expanded&&<div style={{borderTop:"0.5px solid #f0f0f0"}}>
-                        {spese.length===0&&<div style={{padding:"12px 16px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
-                        {spese.map(sp=>(
-                          <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid #f8f8f8"}}>
-                            <div style={{width:38,height:38,borderRadius:8,background:"#EAF4FB",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                              <span style={{fontSize:9,color:"#185FA5",fontWeight:600}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
-                            </div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.descrizione}</div>
-                              {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
-                            </div>
-                            <div style={{fontSize:14,fontWeight:700,color:"#185FA5",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                            <button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#ddd",padding:"0 4px",flexShrink:0}}
-                              onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
-                          </div>
-                        ))}
-                        <div style={{padding:"10px 16px",background:"#fafal8"}}>
-                          <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:cat.id,tipo:"fisso",note:""})}
-                            style={{fontSize:11,padding:"5px 14px",borderRadius:6,border:"0.5px dashed "+BRAND.oro,background:"#FDF6EC",color:BRAND.oroD,cursor:"pointer",fontFamily:"inherit"}}>
-                            + Aggiungi spesa a "{cat.nome}"
-                          </button>
-                        </div>
-                      </div>}
-                    </div>);
-                  })}
-                </div>
-              </div>}
 
-              {/* CATEGORIE — VARIABILI */}
-              {catVar.length>0&&<div style={{marginBottom:"1.5rem"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                  <div style={{width:4,height:20,borderRadius:2,background:"#533AB7"}}/>
-                  <span style={{fontSize:13,fontWeight:700,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em"}}>📊 Costi Variabili</span>
-                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong>€ {fmt(Math.round(totPrevVar))}</strong> · Speso: <strong style={{color:"#533AB7"}}>€ {fmt(Math.round(totSpesoVar))}</strong></span>
+                {/* VARIABILI */}
+                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                  <div style={{padding:"12px 16px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>📊 Costi Variabili</span>
+                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:"#fff",color:"#533AB7",fontWeight:500}}>{catVar.length} voci</span>
+                    </div>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#533AB7",marginBottom:4}}>
+                      <span>Prev: <strong>€ {fmt(Math.round(totPrevVar))}</strong></span>
+                      <span>Speso: <strong>€ {fmt(Math.round(totSpesoVar))}</strong> · {totPrevVar>0?Math.round(totSpesoVar/totPrevVar*100):0}%</span>
+                    </div>
+                    <div style={{height:4,background:"#AFA9EC",borderRadius:2,overflow:"hidden"}}>
+                      <div style={{height:"100%",width:(totPrevVar>0?Math.min(100,Math.round(totSpesoVar/totPrevVar*100)):0)+"%",background:"#533AB7",borderRadius:2}}/>
+                    </div>
+                  </div>
+                  {catVar.map(cat=><CatRow key={cat.id} cat={cat} clr="#533AB7" bgClr="#EEEDFE"/>)}
+                  {catVar.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile configurata</div>}
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {catVar.map(cat=>{
-                    const spese=speseByCat(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
-                    const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
-                    const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
-                    const over=cat.totaleAnno>0&&totCat>cat.totaleAnno;
-                    const expanded=costiCatExpand[cat.id];
-                    return(<div key={cat.id} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${over?"#E74C3C44":"#e8e5e0"}`,overflow:"hidden"}}>
-                      <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                        style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",background:expanded?"#fafaf8":"#fff"}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:13,fontWeight:500,color:"#2c2c2c",marginBottom:6}}>{cat.nome}</div>
-                          <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
-                            <div style={{height:"100%",width:(percCat||0)+"%",background:over?"#E74C3C":percCat>=70?"#E67E22":"#533AB7",borderRadius:3,transition:"width .4s"}}/>
-                          </div>
-                        </div>
-                        <div style={{textAlign:"right",flexShrink:0,minWidth:120}}>
-                          <div style={{fontSize:14,fontWeight:700,color:over?"#E74C3C":totCat>0?"#533AB7":"#bbb"}}>€ {fmt(Math.round(totCat))}</div>
-                          <div style={{fontSize:10,color:"#aaa"}}>su € {fmt(Math.round(cat.totaleAnno||0))} · {percCat||0}%</div>
-                        </div>
-                        <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                          {spese.length>0&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:8,background:"#EEEDFE",color:"#533AB7",fontWeight:500}}>{spese.length}</span>}
-                          {over&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
-                          <span style={{fontSize:12,color:"#aaa"}}>{expanded?"▲":"▼"}</span>
-                        </div>
-                      </div>
-                      {expanded&&<div style={{borderTop:"0.5px solid #f0f0f0"}}>
-                        {spese.length===0&&<div style={{padding:"12px 16px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
-                        {spese.map(sp=>(
-                          <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid #f8f8f8"}}>
-                            <div style={{width:38,height:38,borderRadius:8,background:"#EEEDFE",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                              <span style={{fontSize:9,color:"#533AB7",fontWeight:600}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
-                            </div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.descrizione}</div>
-                              {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
-                            </div>
-                            <div style={{fontSize:14,fontWeight:700,color:"#533AB7",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                            <button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#ddd",padding:"0 4px",flexShrink:0}}
-                              onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
-                          </div>
-                        ))}
-                        <div style={{padding:"10px 16px"}}>
-                          <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:cat.id,tipo:"variabile",note:""})}
-                            style={{fontSize:11,padding:"5px 14px",borderRadius:6,border:"0.5px dashed "+BRAND.oro,background:"#FDF6EC",color:BRAND.oroD,cursor:"pointer",fontFamily:"inherit"}}>
-                            + Aggiungi spesa a "{cat.nome}"
-                          </button>
-                        </div>
-                      </div>}
-                    </div>);
-                  })}
-                </div>
-              </div>}
+              </div>
 
               {/* TOTALE FINALE */}
-              <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+              <div style={{background:"#2C2C2C",borderRadius:12,padding:"1rem 1.5rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginTop:16}}>
                 <div>
-                  <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Totale {annoC}</div>
-                  <div style={{fontSize:11,color:"#aaa"}}>Budget: <strong style={{color:"#fff"}}>€ {fmt(Math.round(totPrev))}</strong> · Speso: <strong style={{color:"#E67E22"}}>€ {fmt(Math.round(totSpeso))}</strong> · Rimanente: <strong style={{color:rimanente>0?"#27AE60":"#E74C3C"}}>€ {fmt(Math.round(rimanente))}</strong></div>
+                  <p style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 4px"}}>Totale {annoC}</p>
+                  <p style={{fontSize:13,color:"#ccc",margin:0}}>
+                    Budget: <strong style={{color:"#fff"}}>€ {fmt(Math.round(totPrev))}</strong> &nbsp;·&nbsp;
+                    Speso: <strong style={{color:"#E67E22"}}>€ {fmt(Math.round(totSpeso))}</strong> &nbsp;·&nbsp;
+                    Rimanente: <strong style={{color:rimanente>0?"#27AE60":"#E74C3C"}}>€ {fmt(Math.round(rimanente))}</strong>
+                  </p>
                 </div>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:28,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=70?"#E67E22":"#27AE60"}}>{percSpeso||0}%</div>
-                  <div style={{fontSize:10,color:"#888"}}>del budget utilizzato</div>
+                  <p style={{fontSize:32,fontWeight:700,color:percSpeso>=100?"#E74C3C":percSpeso>=80?"#E67E22":"#27AE60",margin:0}}>{percSpeso}%</p>
+                  <p style={{fontSize:11,color:"#888",margin:0}}>del budget utilizzato</p>
                 </div>
               </div>
 
