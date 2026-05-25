@@ -3257,7 +3257,7 @@ export default function App() {
                       </div>
                       <span style={{fontSize:11,color:"#ccc",flexShrink:0,marginLeft:4}}>{exp?"▲":"▼"}</span>
                     </div>
-                    <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
+                    <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
                       style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc",flexShrink:0}}
                       onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
                   </div>
@@ -3477,7 +3477,7 @@ export default function App() {
                       </div>
                       <span style={{fontSize:11,color:"#ccc",flexShrink:0,marginLeft:4}}>{exp?"▲":"▼"}</span>
                     </div>
-                    <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
+                    <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCostiCatExpand(prev=>({...prev,["m_"+cat.id]:!prev["m_"+cat.id]}));}}
                       style={{background:"none",border:"none",cursor:"pointer",fontSize:18,lineHeight:1,padding:"12px 10px",color:menuOpen?BRAND.oro:"#ccc",flexShrink:0}}
                       onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro} onMouseLeave={e=>e.currentTarget.style.color=menuOpen?BRAND.oro:"#ccc"}>⋮</button>
                   </div>
