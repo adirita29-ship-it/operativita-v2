@@ -3247,25 +3247,50 @@ export default function App() {
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
                   {/* Header categoria — clicca per espandere */}
-                  <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                    style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",
-                      background:exp?"#fafaf8":"#fff",transition:"background .15s"}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                        <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
-                        {over&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
-                        {spese.length>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgBadge,color:clrBadge,fontWeight:500}}>{spese.length} spese</span>}
+                  <div style={{display:"flex",alignItems:"center",background:exp?"#fafaf8":"#fff",transition:"background .15s"}}>
+                    <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                      style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",flex:1,minWidth:0}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                          <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
+                          {over&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
+                          {spese.length>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgBadge,color:clrBadge,fontWeight:500}}>{spese.length} spese</span>}
+                        </div>
+                        {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2,transition:"width .4s"}}/>
+                        </div>}
                       </div>
-                      {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2,transition:"width .4s"}}/>
-                      </div>}
+                      <div style={{textAlign:"right",flexShrink:0,minWidth:140}}>
+                        <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
+                        {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
+                        {budget===0&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
+                      </div>
+                      <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
                     </div>
-                    <div style={{textAlign:"right",flexShrink:0,minWidth:140}}>
-                      <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
-                      {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
-                      {budget===0&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
-                    </div>
-                    <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
+                    {/* Menu azioni ⋮ */}
+                    {!isReadOnly&&(()=>{
+                      const menuOpen=costiCatExpand["menu_"+cat.id];
+                      return(<div style={{position:"relative",flexShrink:0}}>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:!prev["menu_"+cat.id]}));}}
+                          style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#ccc",padding:"12px 12px",lineHeight:1}}
+                          onMouseEnter={e=>e.currentTarget.style.color="#888"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>⋮</button>
+                        {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 16px rgba(0,0,0,.12)",zIndex:100,minWidth:180,overflow:"hidden"}}>
+                          <div style={{padding:"4px 0"}}>
+                            <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina categoria:",cat.nome);if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,nome:nn.trim()}:c));setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:false}));}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#2c2c2c",textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✏️ Rinomina</button>
+
+                            <button onClick={(e)=>{e.stopPropagation();const nuovoTipo=cat.tipo==="fisso"?"variabile":"fisso";setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,tipo:nuovoTipo}:c));setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:false}));}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#533AB7",textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔄 Sposta a {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                            <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
+                            <button onClick={(e)=>{e.stopPropagation();if(window.confirm(`Eliminare "${cat.nome}"? Verranno eliminate anche le spese associate.`)){setCatCosti(prev=>prev.filter(c=>c.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:false}));}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
+                          </div>
+                        </div>}
+                      </div>);
+                    })()}
                   </div>
                   {/* Dettaglio espanso */}
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
@@ -3499,24 +3524,50 @@ export default function App() {
               const clrBar=over?"#E74C3C":perc>=80?"#E67E22":clr;
               return(
                 <div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                  <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                    style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",background:exp?"#fafaf8":"#fff"}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
-                        <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
-                        {over&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
-                        {spese.length>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgBadge,color:clrBadge,fontWeight:500}}>{spese.length} spese</span>}
+                  <div style={{display:"flex",alignItems:"center",background:exp?"#fafaf8":"#fff"}}>
+                    <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                      style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer",flex:1,minWidth:0}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                          <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
+                          {over&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠ sforato</span>}
+                          {spese.length>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:8,background:bgBadge,color:clrBadge,fontWeight:500}}>{spese.length} spese</span>}
+                        </div>
+                        {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2}}/>
+                        </div>}
                       </div>
-                      {budget>0&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:(perc||0)+"%",background:clrBar,borderRadius:2}}/>
-                      </div>}
+                      <div style={{textAlign:"right",flexShrink:0,minWidth:140}}>
+                        <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
+                        {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
+                        {budget===0&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
+                      </div>
+                      <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
                     </div>
-                    <div style={{textAlign:"right",flexShrink:0,minWidth:140}}>
-                      <div style={{fontSize:14,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
-                      {budget>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(budget)}{perc!==null?" · "+perc+"%":""}</div>}
-                      {budget===0&&<div style={{fontSize:11,color:"#aaa"}}>nessun preventivo</div>}
-                    </div>
-                    <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
+                    {/* Menu azioni ⋮ agente */}
+                    {(()=>{
+                      const menuOpen=costiCatExpand["menu_"+cat.id];
+                      return(<div style={{position:"relative",flexShrink:0}}>
+                        <button onClick={(e)=>{e.stopPropagation();setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:!prev["menu_"+cat.id]}));}}
+                          style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#ccc",padding:"12px 12px",lineHeight:1}}
+                          onMouseEnter={e=>e.currentTarget.style.color="#888"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>⋮</button>
+                        {menuOpen&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 16px rgba(0,0,0,.12)",zIndex:100,minWidth:180,overflow:"hidden"}}>
+                          <div style={{padding:"4px 0"}}>
+                            <button onClick={(e)=>{e.stopPropagation();const nn=window.prompt("Rinomina:",cat.nome);if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,nome:nn.trim()}:c));setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:false}));}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#2c2c2c",textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✏️ Rinomina</button>
+
+                            <button onClick={(e)=>{e.stopPropagation();const nuovoTipo=cat.tipo==="fisso"?"variabile":"fisso";setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,tipo:nuovoTipo}:c));setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:false}));}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#533AB7",textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔄 Sposta a {cat.tipo==="fisso"?"Variabili":"Fissi"}</button>
+                            <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
+                            <button onClick={(e)=>{e.stopPropagation();if(window.confirm(`Eliminare "${cat.nome}"?`)){setCatCosti(prev=>prev.filter(c=>c.id!==cat.id));setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.catId!==cat.id)}));}setCostiCatExpand(prev=>({...prev,["menu_"+cat.id]:false}));}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
+                          </div>
+                        </div>}
+                      </div>);
+                    })()}
                   </div>
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
                     {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi la prima qui sotto</div>}
