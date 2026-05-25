@@ -3268,14 +3268,35 @@ export default function App() {
                       <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
                     </div>
                     {/* Menu azioni ⋮ */}
-                    {!isReadOnly&&<button onClick={(e)=>{e.stopPropagation();
-                      if(costiMenuPos?.catId===cat.id){setCostiMenuPos(null);return;}
-                      const r=e.currentTarget.getBoundingClientRect();
-                      setCostiMenuPos({catId:cat.id,x:r.left,y:r.bottom,annoC,tipo:cat.tipo,nome:cat.nome});
-                    }} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,
-                      color:costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc",padding:"10px 12px",lineHeight:1,flexShrink:0}}
-                      onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro}
-                      onMouseLeave={e=>e.currentTarget.style.color=costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}>⋮</button>}
+                    {!isReadOnly&&<div style={{position:"relative",flexShrink:0}}>
+                      <button onClick={(e)=>{e.stopPropagation();setCostiMenuPos(prev=>prev?.catId===cat.id?null:{catId:cat.id,annoC,tipo:cat.tipo,nome:cat.nome});}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:20,lineHeight:1,padding:"10px 12px",
+                          color:costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}}
+                        onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro}
+                        onMouseLeave={e=>e.currentTarget.style.color=costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}>⋮</button>
+                      {costiMenuPos?.catId===cat.id&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",
+                        borderRadius:10,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 20px rgba(0,0,0,.12)",
+                        zIndex:50,minWidth:200,overflow:"hidden"}}>
+                        <div style={{padding:"8px 14px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0"}}>
+                          <span style={{fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</span>
+                          <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{cat.tipo==="fisso"?"Fisso":"Variabile"}</span>
+                        </div>
+                        <div style={{padding:"4px 0"}}>
+                          {[
+                            ["✏️ Rinomina","#2c2c2c",()=>{const nn=window.prompt("Rinomina:",cat.nome);if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,nome:nn.trim()}:c));setCostiMenuPos(null);}],
+                            ["🔄 Sposta a "+(cat.tipo==="fisso"?"Variabili":"Fissi"),"#533AB7",()=>{setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,tipo:cat.tipo==="fisso"?"variabile":"fisso"}:c));setCostiMenuPos(null);}],
+                          ].map(([lbl,clr,fn])=>(
+                            <button key={lbl} onClick={(e)=>{e.stopPropagation();fn();}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:clr,textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>{lbl}</button>
+                          ))}
+                          <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
+                          <button onClick={(e)=>{e.stopPropagation();if(window.confirm(`Eliminare "${cat.nome}"?`)){setCatCosti(prev=>prev.filter(c=>c.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));}setCostiMenuPos(null);}}
+                            style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
+                        </div>
+                      </div>}
+                    </div>}
                   </div>
                   {/* Dettaglio espanso */}
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
@@ -3425,45 +3446,7 @@ export default function App() {
               </div>
 
               {/* MENU POPUP GLOBALE - position fixed */}
-              {costiMenuPos&&(
-                <div style={{position:"fixed",inset:0,zIndex:998}} onClick={()=>setCostiMenuPos(null)}>
-                  <div style={{position:"fixed",
-                    left:Math.max(10,Math.min(costiMenuPos.x-180,window.innerWidth-200)),
-                    top:Math.min(costiMenuPos.y+4,window.innerHeight-180),
-                    background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",
-                    boxShadow:"0 8px 24px rgba(0,0,0,.15)",zIndex:999,minWidth:200,overflow:"hidden"}}
-                    onClick={e=>e.stopPropagation()}>
-                    <div style={{padding:"8px 14px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0"}}>
-                      <span style={{fontSize:12,fontWeight:600,color:BRAND.oroD}}>{costiMenuPos.nome}</span>
-                      <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{costiMenuPos.tipo==="fisso"?"Fisso":"Variabile"}</span>
-                    </div>
-                    <div style={{padding:"4px 0"}}>
-                      <button onClick={()=>{
-                        const nn=window.prompt("Rinomina categoria:",costiMenuPos.nome);
-                        if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===costiMenuPos.catId?{...c,nome:nn.trim()}:c));
-                        setCostiMenuPos(null);
-                      }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#2c2c2c",textAlign:"left",fontFamily:"inherit"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>✏️ Rinomina</button>
-                      <button onClick={()=>{
-                        const nuovoTipo=costiMenuPos.tipo==="fisso"?"variabile":"fisso";
-                        setCatCosti(prev=>prev.map(c=>c.id===costiMenuPos.catId?{...c,tipo:nuovoTipo}:c));
-                        setCostiMenuPos(null);
-                      }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#533AB7",textAlign:"left",fontFamily:"inherit"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🔄 Sposta a {costiMenuPos.tipo==="fisso"?"Variabili":"Fissi"}</button>
-                      <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
-                      <button onClick={()=>{
-                        const annoK=costiMenuPos.annoC||costiMenuPos.keyAnno||costiAnno||annoCorrente;
-                        if(window.confirm(`Eliminare "${costiMenuPos.nome}"?\nVerranno eliminate anche le spese associate.`)){
-                          setCatCosti(prev=>prev.filter(c=>c.id!==costiMenuPos.catId));
-                          setSpeseCosti(prev=>({...prev,[annoK]:(prev[annoK]||[]).filter(s=>s.catId!==costiMenuPos.catId)}));
-                        }
-                        setCostiMenuPos(null);
-                      }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
-                        onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              
             </div>);
           })()}
           {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
@@ -3570,14 +3553,35 @@ export default function App() {
                       <span style={{fontSize:12,color:"#ccc",flexShrink:0}}>{exp?"▲":"▼"}</span>
                     </div>
                     {/* Menu azioni ⋮ agente */}
-                    <button onClick={(e)=>{e.stopPropagation();
-                      if(costiMenuPos?.catId===cat.id){setCostiMenuPos(null);return;}
-                      const r=e.currentTarget.getBoundingClientRect();
-                      setCostiMenuPos({catId:cat.id,x:r.left,y:r.bottom,keyAnno,tipo:cat.tipo,nome:cat.nome,isAgente:true});
-                    }} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,
-                      color:costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc",padding:"10px 12px",lineHeight:1,flexShrink:0}}
-                      onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro}
-                      onMouseLeave={e=>e.currentTarget.style.color=costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}>⋮</button>
+                    <div style={{position:"relative",flexShrink:0}}>
+                      <button onClick={(e)=>{e.stopPropagation();setCostiMenuPos(prev=>prev?.catId===cat.id?null:{catId:cat.id,keyAnno,tipo:cat.tipo,nome:cat.nome,isAgente:true});}}
+                        style={{background:"none",border:"none",cursor:"pointer",fontSize:20,lineHeight:1,padding:"10px 12px",
+                          color:costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}}
+                        onMouseEnter={e=>e.currentTarget.style.color=BRAND.oro}
+                        onMouseLeave={e=>e.currentTarget.style.color=costiMenuPos?.catId===cat.id?BRAND.oro:"#ccc"}>⋮</button>
+                      {costiMenuPos?.catId===cat.id&&<div style={{position:"absolute",right:0,top:"100%",background:"#fff",
+                        borderRadius:10,border:"0.5px solid #e8e5e0",boxShadow:"0 4px 20px rgba(0,0,0,.12)",
+                        zIndex:50,minWidth:200,overflow:"hidden"}}>
+                        <div style={{padding:"8px 14px",background:"#FEF9E7",borderBottom:"0.5px solid #f0e8c0"}}>
+                          <span style={{fontSize:12,fontWeight:600,color:BRAND.oroD}}>{cat.nome}</span>
+                          <span style={{fontSize:11,color:"#aaa",marginLeft:8}}>{cat.tipo==="fisso"?"Fisso":"Variabile"}</span>
+                        </div>
+                        <div style={{padding:"4px 0"}}>
+                          {[
+                            ["✏️ Rinomina","#2c2c2c",()=>{const nn=window.prompt("Rinomina:",cat.nome);if(nn?.trim())setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,nome:nn.trim()}:c));setCostiMenuPos(null);}],
+                            ["🔄 Sposta a "+(cat.tipo==="fisso"?"Variabili":"Fissi"),"#533AB7",()=>{setCatCosti(prev=>prev.map(c=>c.id===cat.id?{...c,tipo:cat.tipo==="fisso"?"variabile":"fisso"}:c));setCostiMenuPos(null);}],
+                          ].map(([lbl,clr,fn])=>(
+                            <button key={lbl} onClick={(e)=>{e.stopPropagation();fn();}}
+                              style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:clr,textAlign:"left",fontFamily:"inherit"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="none"}>{lbl}</button>
+                          ))}
+                          <div style={{borderTop:"0.5px solid #f0f0f0",margin:"4px 0"}}/>
+                          <button onClick={(e)=>{e.stopPropagation();if(window.confirm(`Eliminare "${cat.nome}"?`)){setCatCosti(prev=>prev.filter(c=>c.id!==cat.id));setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.catId!==cat.id)}));}setCostiMenuPos(null);}}
+                            style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 16px",border:"none",background:"none",cursor:"pointer",fontSize:13,color:"#E74C3C",textAlign:"left",fontFamily:"inherit"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="#FDECEA"} onMouseLeave={e=>e.currentTarget.style.background="none"}>🗑 Elimina categoria</button>
+                        </div>
+                      </div>}
+                    </div>
                   </div>
                   {exp&&<div style={{borderLeft:"3px solid "+clr}}>
                     {spese.length===0&&<div style={{padding:"10px 20px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa — aggiungi la prima qui sotto</div>}
