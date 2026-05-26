@@ -742,12 +742,12 @@ export default function App() {
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
   const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
+  // Carica da localStorage se disponibile, altrimenti usa dati iniziali
+  const _ls = caricaLS();
   // Default tab: gli agenti aprono direttamente "Operatività" (sub-tab Oggi); broker/back office/coach aprono "Dashboard"
   const _ruoloIniziale = _ls?.utente?.ruolo;
   const _tabIniziale = (_ruoloIniziale==="Consulente"||_ruoloIniziale==="Collaboratore"||_ruoloIniziale==="Agente") ? "Operatività" : "Dashboard";
   const [tab,setTab]=useState(_tabIniziale);
-  // Carica da localStorage se disponibile, altrimenti usa dati iniziali
-  const _ls = caricaLS();
   const [dbLoaded,setDbLoaded]=useState(false);
   const [dbSaving,setDbSaving]=useState(false);
   const [agenti,setAgenti]=useState(_ls?.agenti||INIT_AGENTI);
