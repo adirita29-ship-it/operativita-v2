@@ -3530,7 +3530,7 @@ export default function App() {
                 {(()=>{
                   const catFissiAg=catAgAnno.filter(x=>x.tipo==="fisso");
                   const catVariAg=catAgAnno.filter(x=>x.tipo==="variabile");
-                  const RigaCat=({cat})=>{
+                  const renderRiga=(cat)=>{
                     const spese=speseByCatAg(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
                     const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
                     const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
@@ -3578,7 +3578,7 @@ export default function App() {
                         <span style={{fontSize:12,fontWeight:700,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em"}}>📌 Fissi</span>
                         <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong style={{color:"#185FA5"}}>€ {fmt(catFissiAg.reduce((s,c)=>s+Number(c.totaleAnno||0),0))}</strong> · Speso: <strong style={{color:"#185FA5"}}>€ {fmt(catFissiAg.reduce((s,cat)=>s+speseByCatAg(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0))}</strong></span>
                       </div>
-                      {catFissiAg.map(cat=><RigaCat key={cat.id} cat={cat}/>)}
+                      {catFissiAg.map(cat=><React.Fragment key={cat.id}>{renderRiga(cat)}</React.Fragment>)}
                     </div>}
                     {/* VARIABILI */}
                     {catVariAg.length>0&&<div style={{marginBottom:12}}>
@@ -3586,7 +3586,7 @@ export default function App() {
                         <span style={{fontSize:12,fontWeight:700,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em"}}>📊 Variabili</span>
                         <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong style={{color:"#533AB7"}}>€ {fmt(catVariAg.reduce((s,c)=>s+Number(c.totaleAnno||0),0))}</strong> · Speso: <strong style={{color:"#533AB7"}}>€ {fmt(catVariAg.reduce((s,cat)=>s+speseByCatAg(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0))}</strong></span>
                       </div>
-                      {catVariAg.map(cat=><RigaCat key={cat.id} cat={cat}/>)}
+                      {catVariAg.map(cat=><React.Fragment key={cat.id}>{renderRiga(cat)}</React.Fragment>)}
                     </div>}
                   </>);
                 })()}
