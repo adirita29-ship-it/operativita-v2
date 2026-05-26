@@ -3530,56 +3530,69 @@ export default function App() {
                   <span style={{fontSize:13,fontWeight:600,color:"#E74C3C"}}>Le mie spese per categoria</span>
                   <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{speseAgAnno.length} spese · anno {annoC}</span>
                 </div>
-                {catAgAnno.map(cat=>{
-                  const spese=speseByCatAg(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
-                  const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
-                  const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
-                  const over=cat.totaleAnno>0&&totCat>cat.totaleAnno;
-                  const expanded=costiCatExpand[cat.id];
-                  return(<div key={cat.id}>
-                    <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",borderBottom:"0.5px solid #f5f5f5",background:expanded?"#fafaf8":"#fff"}}>
-                      <span style={{fontSize:11,color:"#aaa",width:12}}>{expanded?"▼":"▶"}</span>
-                      <span style={{fontSize:13,fontWeight:500,flex:1}}>{cat.nome}</span>
-                      <span style={{fontSize:10,color:cat.tipo==="fisso"?"#185FA5":"#533AB7"}}>{cat.tipo}</span>
-                      {spese.length>0&&<span style={{fontSize:10,color:"#aaa"}}>{spese.length} spese</span>}
-                      <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-                        {cat.totaleAnno>0&&<div style={{textAlign:"right",minWidth:70}}>
-                          <div style={{fontSize:10,color:"#aaa"}}>Prev.</div>
-                          <div style={{fontSize:12,color:"#888"}}>€ {fmt(cat.totaleAnno)}</div>
-                        </div>}
-                        <div style={{textAlign:"right",minWidth:80}}>
-                          <div style={{fontSize:10,color:"#aaa"}}>Speso</div>
-                          <div style={{fontSize:13,fontWeight:600,color:over?"#E74C3C":totCat>0?"#0F6E56":"#bbb"}}>€ {fmt(Math.round(totCat))}</div>
-                        </div>
-                        {percCat!=null&&<div style={{width:50}}>
-                          <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",marginBottom:2}}><div style={{height:"100%",width:percCat+"%",background:over?"#E74C3C":percCat>=70?"#E67E22":"#0F6E56",borderRadius:2}}/></div>
-                          <div style={{fontSize:9,color:"#aaa",textAlign:"right"}}>{percCat}%</div>
-                        </div>}
-                      </div>
-                    </div>
-                    {expanded&&<div style={{background:"#fafaf8",borderBottom:"0.5px solid #f0f0f0"}}>
-                      {spese.length===0&&<div style={{padding:"12px 16px 8px 40px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
-                      {spese.map(sp=>(
-                        <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px 8px 40px",borderBottom:"0.5px solid #f0f0f0"}}>
-                          <div style={{width:34,height:34,borderRadius:8,background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#888",flexShrink:0,fontWeight:500}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</div>
-                          <div style={{flex:1}}>
-                            <div style={{fontSize:13,fontWeight:500}}>{sp.descrizione}</div>
-                            {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
+                {(()=>{
+                  const catFissiAg=catAgAnno.filter(x=>x.tipo==="fisso");
+                  const catVariAg=catAgAnno.filter(x=>x.tipo==="variabile");
+                  const RigaCat=({cat})=>{
+                    const spese=speseByCatAg(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+                    const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
+                    const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
+                    const over=cat.totaleAnno>0&&totCat>cat.totaleAnno;
+                    const expanded=costiCatExpand[cat.id];
+                    return(<div key={cat.id}>
+                      <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                        style={{display:"flex",alignItems:"center",padding:"10px 0",cursor:"pointer",borderBottom:"0.5px solid #f5f5f5",gap:8}}>
+                        <span style={{fontSize:12,color:"#aaa",flexShrink:0}}>▶</span>
+                        <span style={{flex:1,fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
+                        {over&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:6,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠</span>}
+                        <div style={{textAlign:"right",minWidth:160}}>
+                          {cat.totaleAnno>0&&<div style={{height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden",marginBottom:3,width:80,marginLeft:"auto"}}>
+                            <div style={{height:"100%",width:(percCat||0)+"%",background:over?"#E74C3C":percCat>=80?"#E67E22":"#533AB7",borderRadius:2}}/>
+                          </div>}
+                          <div style={{display:"flex",gap:16,justifyContent:"flex-end"}}>
+                            <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Prev.</div><div style={{fontSize:12,fontWeight:500,color:"#aaa"}}>€ {fmt(cat.totaleAnno||0)}</div></div>
+                            <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Speso</div><div style={{fontSize:12,fontWeight:500,color:over?"#E74C3C":"#533AB7"}}>€ {fmt(totCat)}</div></div>
                           </div>
-                          <div style={{fontSize:14,fontWeight:700,color:"#E74C3C",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                          <button onClick={()=>delSpesaAg(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd"}}>🗑</button>
                         </div>
-                      ))}
-                      <div style={{padding:"8px 16px 8px 40px"}}>
-                        <button onClick={()=>setFormSpesa({data:oggi7,descrizione:"",importo:"",catId:cat.id,note:""})}
-                          style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px dashed #A8863A",background:"#FDF6EC",color:"#A8863A",cursor:"pointer",fontFamily:"inherit"}}>
+                      </div>
+                      {expanded&&<div style={{background:"#fafaf8",padding:"8px 0 8px 16px",borderBottom:"0.5px solid #f0f0f0"}}>
+                        {spese.length===0&&<p style={{fontSize:12,color:"#bbb",fontStyle:"italic",margin:"4px 0"}}>Nessuna spesa inserita</p>}
+                        {spese.map(sp=>(
+                          <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid #f8f8f8"}}>
+                            <span style={{fontSize:11,color:"#aaa",minWidth:36}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</span>
+                            <span style={{flex:1,fontSize:12}}>{sp.descrizione||"—"}</span>
+                            <span style={{fontSize:12,fontWeight:500,color:"#533AB7"}}>€ {fmt(Number(sp.importo||0))}</span>
+                            <button onClick={()=>setSpeseCosti(prev=>({...prev,[`${agId6}_${annoC}`]:(prev[`${agId6}_${annoC}`]||[]).filter(s=>s.id!==sp.id)}))}
+                              style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:13}}
+                              onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>×</button>
+                          </div>
+                        ))}
+                        <button onClick={()=>setFormSpesa({catId:cat.id,data:todayStr(),importo:"",descrizione:"",tipo:cat.tipo,note:""})}
+                          style={{fontSize:11,marginTop:6,padding:"4px 12px",borderRadius:6,border:"0.5px dashed "+BRAND.oro,background:"#FDF6EC",color:BRAND.oroD,cursor:"pointer",fontFamily:"inherit"}}>
                           + Aggiungi spesa qui
                         </button>
+                      </div>}
+                    </div>);
+                  };
+                  return(<>
+                    {/* FISSI */}
+                    {catFissiAg.length>0&&<div style={{marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #185FA5",marginBottom:4}}>
+                        <span style={{fontSize:12,fontWeight:700,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em"}}>📌 Fissi</span>
+                        <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong style={{color:"#185FA5"}}>€ {fmt(catFissiAg.reduce((s,c)=>s+Number(c.totaleAnno||0),0))}</strong> · Speso: <strong style={{color:"#185FA5"}}>€ {fmt(catFissiAg.reduce((s,cat)=>s+speseByCatAg(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0))}</strong></span>
                       </div>
+                      {catFissiAg.map(cat=><RigaCat key={cat.id} cat={cat}/>)}
                     </div>}
-                  </div>);
-                })}
+                    {/* VARIABILI */}
+                    {catVariAg.length>0&&<div style={{marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #533AB7",marginBottom:4}}>
+                        <span style={{fontSize:12,fontWeight:700,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em"}}>📊 Variabili</span>
+                        <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong style={{color:"#533AB7"}}>€ {fmt(catVariAg.reduce((s,c)=>s+Number(c.totaleAnno||0),0))}</strong> · Speso: <strong style={{color:"#533AB7"}}>€ {fmt(catVariAg.reduce((s,cat)=>s+speseByCatAg(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0))}</strong></span>
+                      </div>
+                      {catVariAg.map(cat=><RigaCat key={cat.id} cat={cat}/>)}
+                    </div>}
+                  </>);
+                })()}
                 {/* Totale */}
                 <div style={{background:"#FFFBF0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"2px solid #f0e8d0"}}>
                   <span style={{fontSize:13,fontWeight:700,color:"#633806"}}>TOTALE {annoC}</span>
