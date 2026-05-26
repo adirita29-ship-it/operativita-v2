@@ -3378,7 +3378,16 @@ export default function App() {
                 agentId:agId6,
                 anno:Number(annoC)
               }));
-              setCatCosti(prev=>[...prev,...nuove]);
+              setCatCosti(prev=>{
+                const next=[...prev,...nuove];
+                // Salva immediatamente su Supabase con le nuove categorie
+                setTimeout(()=>{
+                  const ls=caricaLS();
+                  const payload={...(ls||{}),catCosti:next};
+                  salvaDB(payload).catch(e=>console.error('Errore salvataggio catCosti:',e));
+                },100);
+                return next;
+              });
             };
             const copiaAnnoAg=()=>{
               const nextAnno=Number(annoC)+1;
