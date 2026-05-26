@@ -836,7 +836,7 @@ export default function App() {
         if(data.tipiSviluppo) setTipiSviluppo(data.tipiSviluppo);
         if(data.operativita) setOperativita(data.operativita);
         if(data.obiettiviOp) setObiettiviOp(data.obiettiviOp);
-        if(data.pratiche) setPratiche(data.pratiche);
+        if(data.pratiche) if(data.pratiche) setPratiche(Array.isArray(data.pratiche)?data.pratiche:Object.values(data.pratiche||{}));
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
@@ -868,7 +868,7 @@ export default function App() {
       const chiaveGiorno=`alert_${oggi}`;
       if(emailLog[chiaveGiorno]) return; // già inviato oggi
       const alertsPratiche=[];
-      pratiche.forEach(p=>{
+      (Array.isArray(pratiche)?pratiche:Object.values(pratiche||{})).forEach(p=>{
         if(p.completata||p.archiviata) return;
         const inc=incarichi.find(i=>i.id===p.incaricoId);
         if(!inc) return;
@@ -961,7 +961,7 @@ export default function App() {
         if(d.venduti) setVenduti(d.venduti);
         if(d.incarichi) setIncarichi(d.incarichi);
         if(d.proposte) setProposte(d.proposte);
-        if(d.pratiche) setPratiche(d.pratiche);
+        if(d.pratiche) if(d.pratiche) setPratiche(Array.isArray(d.pratiche)?d.pratiche:Object.values(d.pratiche||{}));
         if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
         if(d.operativita) setOperativita(d.operativita);
         if(d.agenti) setAgenti(d.agenti.map(a=>({...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)?(a.inReport!==false):false})));
