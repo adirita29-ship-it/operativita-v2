@@ -829,19 +829,22 @@ export default function App() {
   const [opSubTab,setOpSubTab]=useState(_ls?.utente?.ruolo==="Broker"?"settimana":"oggi");
   const [opMainTab,setOpMainTab]=useState("attivita");
   // === STATE per il nuovo sub-tab "Oggi" ===
-  // Catalogo Azioni (cause): 13 voci default, 4 gruppi
+  // Catalogo Azioni (cause): 15 voci default, 4 gruppi
   const CATALOGO_AZIONI_DEFAULT=[
     {id:"chiam_prop", gruppo:"telefono", nome:"Chiamate proprietari", icona:"📞", attivo:true},
-    {id:"chiam_zona", gruppo:"telefono", nome:"Chiamate in zona", icona:"📞", attivo:true},
+    {id:"chiam_zona", gruppo:"telefono", nome:"Chiamate zona post volantino", icona:"📞", attivo:true},
     {id:"chiam_pass", gruppo:"telefono", nome:"Chiamate clienti passati", icona:"📞", attivo:true},
     {id:"chiam_infl", gruppo:"telefono", nome:"Chiamate centri di influenza", icona:"📞", attivo:true},
     {id:"chiam_priv", gruppo:"telefono", nome:"Chiamate privati / contatti caldi", icona:"📞", attivo:true},
+    {id:"chiam_freddo", gruppo:"telefono", nome:"Chiamate generica / freddo", icona:"📞", attivo:true},
+    {id:"follow_notizie", gruppo:"telefono", nome:"Follow-up notizie", icona:"📞", attivo:true},
     {id:"follow_mirino", gruppo:"telefono", nome:"Follow-up contatti mirino", icona:"🎯", attivo:true},
     {id:"lettere", gruppo:"scritto", nome:"Lettere mirate", icona:"✉️", attivo:true},
     {id:"newsletter", gruppo:"scritto", nome:"Newsletter / email database", icona:"📧", attivo:true},
     {id:"post_social", gruppo:"social", nome:"Post social", icona:"📱", attivo:true},
     {id:"video_social", gruppo:"social", nome:"Video per social", icona:"🎬", attivo:true},
     {id:"volantinaggio", gruppo:"distribuzione", nome:"Volantinaggio", icona:"📢", attivo:true, hasTipoVolantino:true},
+    {id:"open_house", gruppo:"distribuzione", nome:"Open House organizzato", icona:"🏠", attivo:true},
     {id:"networking", gruppo:"distribuzione", nome:"Networking / eventi", icona:"🤝", attivo:true},
   ];
   const TIPI_VOLANTINO=["AMV","AV","OH","Personale Agente","Flyer3"];
@@ -853,10 +856,27 @@ export default function App() {
   ];
   // Conseguenze (output diretti)
   const CATALOGO_CONSEGUENZE_DEFAULT=[
-    {id:"appt_acq_fissati", nome:"Appuntamenti acquisizione fissati", icona:"📅"},
-    {id:"immobili_visti", nome:"Immobili visti in acquisizione", icona:"🏠"},
-    {id:"presentazioni", nome:"Presentazioni Val + Piano Marketing", icona:"📊"},
-    {id:"follow_val", nome:"Follow-up post-valutazione", icona:"🔄"},
+    {id:"appt_acq_fissati", nome:"Appuntamenti acquisizione fissati", icona:"📅", clr:"#A8863A"},
+    {id:"immobili_visti", nome:"Immobili visti in acquisizione", icona:"🏠", clr:"#A8863A"},
+    {id:"presentazioni", nome:"Presentazioni Val + Piano Marketing", icona:"📊", clr:"#A8863A"},
+    {id:"follow_val", nome:"Follow-up post-valutazione", icona:"🔄", clr:"#A8863A"},
+    {id:"report_prop", nome:"Report proprietari consegnati", icona:"📋", clr:"#2980B9"},
+    {id:"ribassi", nome:"Ribassi proposti", icona:"📉", clr:"#E67E22"},
+    {id:"appt_acq_clienti", nome:"Appuntamenti con acquirenti", icona:"🤝", clr:"#8E44AD"},
+    {id:"oh_effettuati", nome:"Visite Open House effettuate", icona:"🏠", clr:"#E74C3C"},
+    {id:"proposte_pres", nome:"Proposte presentate", icona:"📄", clr:"#27AE60"},
+    {id:"proposte_acc", nome:"Proposte accettate", icona:"✅", clr:"#27AE60"},
+    {id:"preliminari", nome:"Preliminari firmati", icona:"✍️", clr:"#27AE60"},
+    {id:"rogiti", nome:"Rogiti", icona:"🎉", clr:"#27AE60"},
+  ];
+  // Tempo dedicato — 6 categorie ore
+  const CATALOGO_TEMPO_DEFAULT=[
+    {id:"ore_ricerca", nome:"Ricerca / acquisizione", clr:"#2980B9"},
+    {id:"ore_operativo", nome:"Operativo / vendite", clr:"#A8863A"},
+    {id:"ore_oh", nome:"Open House", clr:"#E74C3C"},
+    {id:"ore_sviluppo", nome:"Sviluppo", clr:"#8E44AD"},
+    {id:"ore_marketing", nome:"Marketing", clr:"#27AE60"},
+    {id:"ore_admin", nome:"Amministrativo", clr:"#888"},
   ];
   // Routine professionali (linee guida broker, uguali per tutti)
   const ROUTINE_PROFESSIONALI_DEFAULT=[
@@ -4482,11 +4502,11 @@ export default function App() {
 
                   // Dati giornata corrente
                   const datiOggi = (oggiDati[agIdSel]||{})[dataSel] || {};
-                  const azioniOggi = datiOggi.azioni || {}; // {azioneId: {target:N, fatto:N, tipoVolantino:'AMV', zona:'...'}}
-                  const conseguenzeOggi = datiOggi.conseguenze || {}; // {conseguenzaId: N}
-                  const routineOggi = datiOggi.routine || {}; // {routineId: {fatto:bool, ora:'08:45'}}
-                  const spaziPersonaliOggi = datiOggi.spaziPersonali || []; // [{id, nome, fatto, nota}]
-                  const noteOggi = datiOggi.note || "";
+                  const azioniOggi = datiOggi.azioni || {};
+                  const conseguenzeOggi = datiOggi.conseguenze || {};
+                  const tempoOggi = datiOggi.tempo || {};
+                  const routineOggi = datiOggi.routine || {};
+                  const spaziPersonaliOggi = datiOggi.spaziPersonali || [];
 
                   // Helper salvataggio
                   const salvaDatiOggi = (patch) => {
@@ -4502,8 +4522,22 @@ export default function App() {
                       }
                     }));
                   };
-                  const aggiornaAzione = (azId, patch) => salvaDatiOggi({azioni:{...azioniOggi, [azId]:{...(azioniOggi[azId]||{}), ...patch}}});
-                  const aggiornaConseguenza = (cId, val) => salvaDatiOggi({conseguenze:{...conseguenzeOggi, [cId]:val}});
+                  const aggiornaAzione = (azId, patch) => {
+                    const cur = azioniOggi[azId]||{};
+                    salvaDatiOggi({azioni:{...azioniOggi, [azId]:{...cur, ...patch}}});
+                  };
+                  const aggiornaConseguenza = (cId, val) => {
+                    const nuovo={...conseguenzeOggi};
+                    if(val===""||val===null||val===undefined||Number(val)===0) delete nuovo[cId];
+                    else nuovo[cId]=Number(val);
+                    salvaDatiOggi({conseguenze:nuovo});
+                  };
+                  const aggiornaTempo = (tId, val) => {
+                    const nuovo={...tempoOggi};
+                    if(val===""||val===null||val===undefined||Number(val)===0) delete nuovo[tId];
+                    else nuovo[tId]=Number(val);
+                    salvaDatiOggi({tempo:nuovo});
+                  };
                   const toggleRoutine = (rId) => {
                     const cur = routineOggi[rId]||{};
                     salvaDatiOggi({routine:{...routineOggi, [rId]:{fatto:!cur.fatto, ora:!cur.fatto?new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):""}}});
@@ -4551,6 +4585,10 @@ export default function App() {
                     return Math.ceil(((d-yearStart)/86400000+1)/7);
                   })();
 
+                  // Stili comuni per input numerico (più grandi, più visibili)
+                  const inpNum={width:48,padding:"6px 4px",fontSize:14,fontWeight:600,border:`1px solid ${BRAND.oro}66`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.grigio,outline:"none"};
+                  const inpNumGrande={width:60,padding:"7px 6px",fontSize:16,fontWeight:700,border:`1.5px solid ${BRAND.oro}88`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.oroD,outline:"none"};
+
                   // Se broker non ha selezionato un agente: mostra solo selettore
                   if(!agIdSel){
                     return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
@@ -4564,7 +4602,7 @@ export default function App() {
                   }
 
                   return(<>
-                    {/* Selettore data e agente (sopra tutto) */}
+                    {/* Selettore data e agente */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                       <input type="date" style={{...S.sel}} value={dataSel} onChange={e=>setOpDataSel(e.target.value)}/>
                       {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
@@ -4573,37 +4611,38 @@ export default function App() {
                       </select>}
                     </div>
 
-                    {/* HEADER: saluto + avanzamento */}
-                    <div style={{background:"#FDFBF7",borderRadius:12,padding:"1rem 1.25rem",marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`0.5px solid ${BRAND.oro}33`}}>
+                    {/* HEADER MOTIVAZIONALE - più caldo, con gradient su oro */}
+                    <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`1.5px solid ${BRAND.oro}55`,boxShadow:`0 2px 8px ${BRAND.oro}15`}}>
                       <div>
-                        <p style={{fontSize:11,color:"#888",margin:"0 0 3px",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>{isAgenteSesso?"Buongiorno":"Vista giornata di"}</p>
-                        <h2 style={{margin:0,fontSize:20,fontWeight:600,color:BRAND.grigio}}>{agSel?.nome} {agSel?.cognome}</h2>
-                        <p style={{fontSize:12,color:"#888",margin:"3px 0 0"}}>{giorniSett[dataObj.getDay()]} {dataObj.getDate()} {mesi[dataObj.getMonth()]} · settimana {settimanaCal}</p>
+                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>{isAgenteSesso?"☀️ Buongiorno":"👁 Vista giornata di"}</p>
+                        <h2 style={{margin:0,fontSize:24,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{agSel?.nome} {agSel?.cognome}</h2>
+                        <p style={{fontSize:13,color:"#666",margin:"5px 0 0",fontWeight:500}}>{giorniSett[dataObj.getDay()]} {dataObj.getDate()} {mesi[dataObj.getMonth()]} · settimana {settimanaCal}</p>
                       </div>
                       <div style={{textAlign:"right"}}>
-                        <p style={{fontSize:10,color:"#888",margin:0,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>Avanzamento azioni</p>
-                        <p style={{fontSize:22,fontWeight:700,margin:"3px 0 0",color:avanzamentoPerc>=80?"#27AE60":avanzamentoPerc>=50?BRAND.oroD:"#E67E22"}}>{avanzamentoPerc}%</p>
-                        <p style={{fontSize:10,color:"#aaa",margin:0}}>{totAzioniCompletate} di {totAzioniConTarget} target</p>
+                        <p style={{fontSize:10,color:BRAND.oroD,margin:0,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Avanzamento</p>
+                        <p style={{fontSize:32,fontWeight:800,margin:"3px 0 0",color:avanzamentoPerc>=80?"#27AE60":avanzamentoPerc>=50?BRAND.oroD:avanzamentoPerc>0?"#E67E22":"#bbb",fontFamily:"Georgia,serif"}}>{avanzamentoPerc}%</p>
+                        <p style={{fontSize:11,color:"#888",margin:0,fontWeight:500}}>{totAzioniCompletate} di {totAzioniConTarget} target</p>
                       </div>
                     </div>
 
-                    {/* FRASE MOTIVAZIONALE */}
-                    <div style={{background:"#FDFBF7",borderRadius:6,padding:"10px 14px",marginBottom:"1.25rem",borderLeft:`3px solid ${BRAND.oro}`}}>
-                      <p style={{margin:0,fontSize:13,fontStyle:"italic",color:BRAND.grigio,fontFamily:"Georgia,serif"}}>"{frase.t}"</p>
-                      <p style={{margin:"3px 0 0",fontSize:11,color:"#888"}}>— {frase.a}</p>
+                    {/* FRASE DEL GIORNO - più calda */}
+                    <div style={{background:"#FDFBF7",borderRadius:10,padding:"14px 18px",marginBottom:"1.5rem",borderLeft:`4px solid ${BRAND.oro}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                      <p style={{margin:0,fontSize:15,fontStyle:"italic",color:BRAND.grigio,fontFamily:"Georgia,serif",lineHeight:1.5}}>"{frase.t}"</p>
+                      <p style={{margin:"6px 0 0",fontSize:12,color:BRAND.oroD,fontWeight:600}}>— {frase.a}</p>
                     </div>
 
                     {/* ====== AZIONI OGGI ====== */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>🎯 Azioni oggi</h3>
-                      <span style={{fontSize:11,color:"#888"}}>le leve · dal piano produzione</span>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni oggi</h3>
+                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>le leve · dal piano produzione</span>
                     </div>
 
                     {GRUPPI_AZIONI.map(gruppo=>{
                       const azioniDelGruppo = azioniAttive.filter(a=>a.gruppo===gruppo.id);
                       if(azioniDelGruppo.length===0) return null;
-                      return(<div key={gruppo.id} style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.125rem",marginBottom:"0.75rem"}}>
-                        <p style={{margin:"0 0 10px",fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>{gruppo.icona} {gruppo.nome}</p>
+                      const colorGruppo = gruppo.id==="telefono"?"#2980B9":gruppo.id==="scritto"?"#8E44AD":gruppo.id==="social"?"#E91E63":"#E67E22";
+                      return(<div key={gruppo.id} style={{background:"#fff",border:`1px solid #e8e5e0`,borderLeft:`4px solid ${colorGruppo}`,borderRadius:10,padding:"1rem 1.25rem",marginBottom:"0.875rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                        <p style={{margin:"0 0 12px",fontSize:12,color:colorGruppo,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{gruppo.icona} {gruppo.nome}</p>
                         {azioniDelGruppo.map((az,idx)=>{
                           const dati = azioniOggi[az.id]||{};
                           const target = Number(dati.target||0);
@@ -4611,96 +4650,134 @@ export default function App() {
                           const perc = target>0 ? Math.min(100, Math.round(fatto/target*100)) : 0;
                           const completata = target>0&&fatto>=target;
                           const daFare = target>0&&fatto<target;
-                          const clr = completata?"#27AE60":perc>=50?"#E67E22":perc>0?"#E74C3C":"#bbb";
+                          const clr = completata?"#27AE60":perc>=66?"#A8863A":perc>=33?"#E67E22":perc>0?"#E74C3C":"#bbb";
                           const isLast = idx===azioniDelGruppo.length-1;
-                          return(<div key={az.id} style={{display:"grid",gridTemplateColumns:"4px 1fr 90px 90px 50px",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
-                            <div style={{width:3,height:"70%",background:daFare?BRAND.oro:"transparent",borderRadius:2}}/>
-                            <div>
-                              <p style={{margin:0,fontSize:13,fontWeight:500,color:BRAND.grigio,textDecoration:completata?"line-through":"none",opacity:completata?0.6:1}}>
-                                {az.nome}
-                                {az.hasTipoVolantino&&dati.tipoVolantino&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:`${BRAND.oro}22`,color:BRAND.oroD,marginLeft:6,fontWeight:600}}>{dati.tipoVolantino}</span>}
-                                {daFare&&<span style={{fontSize:9,color:BRAND.oroD,marginLeft:6,padding:"1px 5px",borderRadius:3,background:"#FDF6EC",border:`0.5px solid ${BRAND.oro}44`,textTransform:"uppercase",letterSpacing:"0.04em",fontWeight:600}}>da fare</span>}
-                              </p>
-                              {dati.zona&&<p style={{margin:"1px 0 0",fontSize:10,color:"#888"}}>zona {dati.zona}{dati.dataVolantino?` · ${fmtD(dati.dataVolantino)}`:""}</p>}
+                          return(<div key={az.id} style={{padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                            <div style={{display:"grid",gridTemplateColumns:"4px 1fr 130px 100px 55px",alignItems:"center",gap:10}}>
+                              <div style={{width:4,height:32,background:daFare?BRAND.oro:completata?"#27AE60":"transparent",borderRadius:2}}/>
+                              <div>
+                                <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio,textDecoration:completata?"line-through":"none",opacity:completata?0.65:1}}>
+                                  {az.nome}
+                                  {daFare&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
+                                  {completata&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:"#27AE60",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>✓ FATTO</span>}
+                                </p>
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"flex-end"}}>
+                                <input type="number" min="0" value={fatto===0?"":fatto} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                                  onChange={e=>aggiornaAzione(az.id,{fatto:e.target.value===""?0:Number(e.target.value)})}
+                                  style={inpNumGrande}/>
+                                <span style={{fontSize:14,color:"#aaa",fontWeight:600}}>/</span>
+                                <input type="number" min="0" value={target===0?"":target} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                                  onChange={e=>aggiornaAzione(az.id,{target:e.target.value===""?0:Number(e.target.value)})}
+                                  style={inpNum}/>
+                              </div>
+                              <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s",borderRadius:4}}/>
+                              </div>
+                              <div style={{fontSize:13,fontWeight:700,color:clr,textAlign:"right"}}>{target>0?`${perc}%`:"—"}</div>
                             </div>
-                            <div style={{display:"flex",alignItems:"center",gap:4}}>
-                              <input type="number" min="0" value={fatto||""} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
-                                onChange={e=>aggiornaAzione(az.id,{fatto:Number(e.target.value)||0})}
-                                style={{width:42,padding:"3px 5px",fontSize:12,border:"0.5px solid #ddd",borderRadius:4,textAlign:"center",fontFamily:"inherit"}}/>
-                              <span style={{fontSize:11,color:"#aaa"}}>/</span>
-                              <input type="number" min="0" value={target||""} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
-                                onChange={e=>aggiornaAzione(az.id,{target:Number(e.target.value)||0})}
-                                style={{width:42,padding:"3px 5px",fontSize:12,border:"0.5px solid #ddd",borderRadius:4,textAlign:"center",fontFamily:"inherit"}}/>
-                            </div>
-                            <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
-                              <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s"}}/>
-                            </div>
-                            <div style={{fontSize:11,fontWeight:600,color:clr,textAlign:"right"}}>{target>0?`${perc}%`:"—"}</div>
+                            {/* Selettore tipo volantino e zona */}
+                            {az.hasTipoVolantino&&(target>0||fatto>0)&&<div style={{marginTop:8,marginLeft:14,padding:"8px 12px",background:"#FDFBF7",borderRadius:6,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                              <span style={{fontSize:11,color:"#888",fontWeight:600}}>TIPO:</span>
+                              {TIPI_VOLANTINO.map(tv=>(
+                                <button key={tv} onClick={()=>!isReadOnly&&aggiornaAzione(az.id,{tipoVolantino:dati.tipoVolantino===tv?"":tv})} disabled={isReadOnly||!isAgenteSesso} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:`1px solid ${dati.tipoVolantino===tv?BRAND.oro:"#ddd"}`,background:dati.tipoVolantino===tv?BRAND.oro:"#fff",color:dati.tipoVolantino===tv?"#fff":"#666",cursor:isReadOnly?"default":"pointer",fontFamily:"inherit",fontWeight:dati.tipoVolantino===tv?700:500}}>{tv}</button>
+                              ))}
+                              <input type="text" placeholder="Zona (es. Bizzozero)" value={dati.zona||""} disabled={isReadOnly||!isAgenteSesso}
+                                onChange={e=>aggiornaAzione(az.id,{zona:e.target.value})}
+                                style={{flex:1,minWidth:120,padding:"4px 10px",fontSize:12,border:"1px solid #ddd",borderRadius:5,fontFamily:"inherit"}}/>
+                            </div>}
                           </div>);
                         })}
                       </div>);
                     })}
 
                     {/* ====== CONSEGUENZE OGGI ====== */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"1.5rem",marginBottom:8}}>
-                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>🔄 Conseguenze oggi</h3>
-                      <span style={{fontSize:11,color:"#888"}}>output diretti delle azioni</span>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"1.75rem",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔄 Conseguenze oggi</h3>
+                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>output diretti delle azioni</span>
                     </div>
-                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
                       {CATALOGO_CONSEGUENZE_DEFAULT.map((c,idx)=>{
                         const val = Number(conseguenzeOggi[c.id]||0);
                         const isLast = idx===CATALOGO_CONSEGUENZE_DEFAULT.length-1;
-                        return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
-                          <span style={{fontSize:16}}>{c.icona}</span>
-                          <p style={{margin:0,fontSize:13,fontWeight:500,flex:1,color:BRAND.grigio}}>{c.nome}</p>
-                          <input type="number" min="0" value={val||""} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
-                            onChange={e=>aggiornaConseguenza(c.id,Number(e.target.value)||0)}
-                            style={{width:50,padding:"3px 5px",fontSize:13,border:"0.5px solid #ddd",borderRadius:4,textAlign:"center",fontFamily:"inherit",fontWeight:600,color:val>0?"#27AE60":"#888"}}/>
+                        return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                          <span style={{fontSize:18}}>{c.icona}</span>
+                          <p style={{margin:0,fontSize:14,fontWeight:600,flex:1,color:BRAND.grigio}}>{c.nome}</p>
+                          <input type="number" min="0" value={val===0?"":val} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                            onChange={e=>aggiornaConseguenza(c.id,e.target.value)}
+                            style={{...inpNumGrande,color:val>0?c.clr:"#bbb",border:`1.5px solid ${val>0?c.clr:BRAND.oro+"88"}`}}/>
                         </div>);
                       })}
                     </div>
 
-                    {/* ====== ROUTINE PROFESSIONALI ====== */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>📌 Routine professionali</h3>
-                      <span style={{fontSize:11,color:"#888"}}>linee guida agenzia · {routineCompletate} di {routineProf.filter(r=>r.attivo).length}</span>
+                    {/* ====== TEMPO DEDICATO ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>⏱️ Tempo dedicato</h3>
+                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>ore investite per categoria</span>
                     </div>
-                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+                        {CATALOGO_TEMPO_DEFAULT.map(t=>{
+                          const val=Number(tempoOggi[t.id]||0);
+                          return(<div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FDFBF7",borderRadius:6,borderLeft:`3px solid ${t.clr}`}}>
+                            <p style={{margin:0,fontSize:13,fontWeight:600,flex:1,color:BRAND.grigio}}>{t.nome}</p>
+                            <input type="number" min="0" step="0.5" value={val===0?"":val} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                              onChange={e=>aggiornaTempo(t.id,e.target.value)}
+                              style={{...inpNum,width:56,color:val>0?t.clr:"#bbb",borderColor:val>0?t.clr:"#ddd"}}/>
+                            <span style={{fontSize:11,color:"#888",fontWeight:600}}>h</span>
+                          </div>);
+                        })}
+                      </div>
+                      {(()=>{
+                        const tot=CATALOGO_TEMPO_DEFAULT.reduce((s,t)=>s+Number(tempoOggi[t.id]||0),0);
+                        return tot>0&&<div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid #f0f0f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <span style={{fontSize:12,color:"#888",fontWeight:600}}>TOTALE ORE GIORNATA</span>
+                          <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>{tot} h</span>
+                        </div>;
+                      })()}
+                    </div>
+
+                    {/* ====== ROUTINE PROFESSIONALI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📌 Routine professionali</h3>
+                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>linee guida agenzia · <strong style={{color:routineCompletate===routineProf.filter(r=>r.attivo).length?"#27AE60":BRAND.oroD}}>{routineCompletate} di {routineProf.filter(r=>r.attivo).length}</strong></span>
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
                       {routineProf.filter(r=>r.attivo).map((r,idx,arr)=>{
                         const d=routineOggi[r.id]||{};
                         const fatto=d.fatto;
                         const isLast=idx===arr.length-1;
-                        return(<div key={r.id} onClick={()=>!isReadOnly&&isAgenteSesso&&toggleRoutine(r.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0",cursor:(!isReadOnly&&isAgenteSesso)?"pointer":"default"}}>
-                          <span style={{fontSize:17,color:fatto?"#27AE60":"#bbb"}}>{fatto?"✅":"⬜"}</span>
-                          <p style={{margin:0,fontSize:13,flex:1,fontWeight:fatto?400:500,textDecoration:fatto?"line-through":"none",color:fatto?"#888":BRAND.grigio}}>{r.nome}</p>
-                          {fatto?<span style={{fontSize:11,color:"#aaa"}}>{d.ora}</span>:<span style={{fontSize:9,color:BRAND.oroD,padding:"1px 5px",borderRadius:3,background:"#FDF6EC",border:`0.5px solid ${BRAND.oro}44`,textTransform:"uppercase",letterSpacing:"0.04em",fontWeight:600}}>da fare</span>}
+                        return(<div key={r.id} onClick={()=>!isReadOnly&&isAgenteSesso&&toggleRoutine(r.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0",cursor:(!isReadOnly&&isAgenteSesso)?"pointer":"default"}}>
+                          <span style={{fontSize:20,color:fatto?"#27AE60":"#bbb"}}>{fatto?"✅":"⬜"}</span>
+                          <p style={{margin:0,fontSize:14,flex:1,fontWeight:fatto?500:600,textDecoration:fatto?"line-through":"none",color:fatto?"#888":BRAND.grigio}}>{r.nome}</p>
+                          {fatto?<span style={{fontSize:12,color:"#27AE60",fontWeight:600}}>completata · {d.ora}</span>:<span style={{fontSize:10,color:"#fff",padding:"3px 10px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
                         </div>);
                       })}
                     </div>
 
-                    {/* ====== SPAZI PERSONALI (solo per l'agente, MAI per il broker) ====== */}
+                    {/* ====== SPAZI PERSONALI (MAI per il broker) ====== */}
                     {isAgenteSesso&&<>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                        <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>❤️ Spazi personali</h3>
-                        <span style={{fontSize:11,color:"#888"}}>privati · solo tu li vedi</span>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                        <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>❤️ Spazi personali</h3>
+                        <span style={{fontSize:12,color:"#888",fontWeight:500}}>privati · solo tu li vedi</span>
                       </div>
-                      <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
-                        {spaziPersonaliOggi.length===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0"}}>Nessuno spazio personale per oggi. Aggiungi sport, lettura, famiglia o quello che vuoi.</p>}
+                      <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                        {spaziPersonaliOggi.length===0&&<p style={{fontSize:13,color:"#aaa",textAlign:"center",margin:"10px 0",fontStyle:"italic"}}>Nessuno spazio personale per oggi. Aggiungi sport, lettura, famiglia o quello che vuoi.</p>}
                         {spaziPersonaliOggi.map((s,idx)=>{
                           const isLast=idx===spaziPersonaliOggi.length-1;
-                          return(<div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
-                            <span onClick={()=>!isReadOnly&&toggleSpazio(idx)} style={{fontSize:17,color:s.fatto?"#27AE60":"#bbb",cursor:!isReadOnly?"pointer":"default"}}>{s.fatto?"✅":"⬜"}</span>
-                            <p style={{margin:0,fontSize:13,flex:1,fontWeight:s.fatto?400:500,textDecoration:s.fatto?"line-through":"none",color:s.fatto?"#888":BRAND.grigio}}>{s.nome}</p>
-                            {!isReadOnly&&<button onClick={()=>rimuoviSpazio(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:14,padding:"0 4px"}}>✕</button>}
+                          return(<div key={s.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                            <span onClick={()=>!isReadOnly&&toggleSpazio(idx)} style={{fontSize:20,color:s.fatto?"#27AE60":"#bbb",cursor:!isReadOnly?"pointer":"default"}}>{s.fatto?"✅":"⬜"}</span>
+                            <p style={{margin:0,fontSize:14,flex:1,fontWeight:s.fatto?500:600,textDecoration:s.fatto?"line-through":"none",color:s.fatto?"#888":BRAND.grigio}}>{s.nome}</p>
+                            {!isReadOnly&&<button onClick={()=>rimuoviSpazio(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:16,padding:"0 4px"}}>✕</button>}
                           </div>);
                         })}
-                        {!isReadOnly&&<div style={{marginTop:10,paddingTop:8,borderTop:"0.5px solid #f0f0f0"}}>
-                          <button onClick={aggiungiSpazio} style={{...S.btn,fontSize:12,padding:"6px 12px",width:"100%"}}>+ Aggiungi spazio personale</button>
+                        {!isReadOnly&&<div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid #f0f0f0"}}>
+                          <button onClick={aggiungiSpazio} style={{...S.btn,fontSize:13,padding:"8px 14px",width:"100%",fontWeight:600}}>+ Aggiungi spazio personale</button>
                         </div>}
                       </div>
                     </>}
 
-                    {/* ====== DOVE SEI (pipeline output) ====== */}
+                    {/* ====== DOVE SEI ====== */}
                     {(()=>{
                       const mese = dataSel.substring(0,7);
                       const incMese = incarichi.filter(i=>i.agenteListing===agIdSel&&(i.dataInizio||"").startsWith(mese)&&!i.archiviato).length;
@@ -4711,26 +4788,26 @@ export default function App() {
                       const dateFuture = Object.keys(oneToOneAg).filter(d=>d>=dataSel).sort();
                       const prossimo1to1 = dateFuture.length>0 ? dateFuture[0] : null;
                       return(<>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                          <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>📊 Dove sei</h3>
-                          <span style={{fontSize:11,color:"#888"}}>pipeline e contesto</span>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📊 Dove sei</h3>
+                          <span style={{fontSize:12,color:"#888",fontWeight:500}}>pipeline e contesto</span>
                         </div>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:"1.5rem"}}>
-                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
-                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Incarichi mese</p>
-                            <p style={{margin:0,fontSize:18,fontWeight:600,color:BRAND.oroD}}>{incMese} nuovi</p>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:"1.5rem"}}>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Incarichi mese</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{incMese}<span style={{fontSize:13,fontWeight:500,marginLeft:4}}>nuovi</span></p>
                           </div>
-                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
-                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Proposte attive</p>
-                            <p style={{margin:0,fontSize:18,fontWeight:600,color:BRAND.oroD}}>{propAttive}</p>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Proposte attive</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{propAttive}</p>
                           </div>
-                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
-                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Vendite {annoCur}</p>
-                            <p style={{margin:0,fontSize:18,fontWeight:600,color:BRAND.oroD}}>{vendYTD}</p>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Vendite {annoCur}</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{vendYTD}</p>
                           </div>
-                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
-                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Prossimo 1:1</p>
-                            <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.oroD}}>{prossimo1to1?fmtD(prossimo1to1):"—"}</p>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Prossimo 1:1</p>
+                            <p style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{prossimo1to1?fmtD(prossimo1to1):"—"}</p>
                           </div>
                         </div>
                       </>);
@@ -4744,23 +4821,23 @@ export default function App() {
                       const propAttesa = proposte.filter(p=>(p.agenteListing===agIdSel||p.agenteAcquirente===agIdSel)&&p.stato==="In trattativa");
                       if(incInScadenza.length===0&&propAttesa.length===0) return null;
                       return(<>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                          <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>🔔 Promemoria</h3>
-                          <span style={{fontSize:11,color:"#888"}}>dalle altre sezioni</span>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔔 Promemoria</h3>
+                          <span style={{fontSize:12,color:"#888",fontWeight:500}}>dalle altre sezioni</span>
                         </div>
-                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
-                          {incInScadenza.length>0&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:propAttesa.length>0?"0.5px solid #f0f0f0":"none"}}>
-                            <span style={{fontSize:17}}>⚠️</span>
+                        <div style={{background:"#fff",border:"1px solid #e8e5e0",borderLeft:`4px solid #E67E22`,borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                          {incInScadenza.length>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:propAttesa.length>0?"0.5px solid #f0f0f0":"none"}}>
+                            <span style={{fontSize:20}}>⚠️</span>
                             <div style={{flex:1}}>
-                              <p style={{margin:0,fontSize:13,fontWeight:500,color:BRAND.grigio}}>{incInScadenza.length} incarico{incInScadenza.length>1?"i":""} in scadenza nei prossimi 7 giorni</p>
-                              <p style={{margin:"1px 0 0",fontSize:11,color:"#888"}}>{incInScadenza.slice(0,3).map(i=>`${i.nominativo}`).join(" · ")}{incInScadenza.length>3?" · ...":""}</p>
+                              <p style={{margin:0,fontSize:14,fontWeight:700,color:BRAND.grigio}}>{incInScadenza.length} incarico{incInScadenza.length>1?"i":""} in scadenza nei prossimi 7 giorni</p>
+                              <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>{incInScadenza.slice(0,3).map(i=>`${i.nominativo}`).join(" · ")}{incInScadenza.length>3?" · ...":""}</p>
                             </div>
                           </div>}
-                          {propAttesa.length>0&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0"}}>
-                            <span style={{fontSize:17}}>📄</span>
+                          {propAttesa.length>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0"}}>
+                            <span style={{fontSize:20}}>📄</span>
                             <div style={{flex:1}}>
-                              <p style={{margin:0,fontSize:13,fontWeight:500,color:BRAND.grigio}}>{propAttesa.length} proposta in attesa di risposta</p>
-                              <p style={{margin:"1px 0 0",fontSize:11,color:"#888"}}>verificare follow-up con il cliente</p>
+                              <p style={{margin:0,fontSize:14,fontWeight:700,color:BRAND.grigio}}>{propAttesa.length} proposta in attesa di risposta</p>
+                              <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>verificare follow-up con il cliente</p>
                             </div>
                           </div>}
                         </div>
@@ -4769,7 +4846,6 @@ export default function App() {
 
                   </>);
                 })()}
-
 
                 {/* ── VISTA SETTIMANA ── */}
                 {opSubTab==="settimana"&&(<>
