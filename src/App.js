@@ -742,7 +742,10 @@ export default function App() {
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
   const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
-  const [tab,setTab]=useState("Dashboard");
+  // Default tab: gli agenti aprono direttamente "Operatività" (sub-tab Oggi); broker/back office/coach aprono "Dashboard"
+  const _ruoloIniziale = _ls?.utente?.ruolo;
+  const _tabIniziale = (_ruoloIniziale==="Consulente"||_ruoloIniziale==="Collaboratore"||_ruoloIniziale==="Agente") ? "Operatività" : "Dashboard";
+  const [tab,setTab]=useState(_tabIniziale);
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
   const _ls = caricaLS();
   const [dbLoaded,setDbLoaded]=useState(false);
@@ -826,26 +829,27 @@ export default function App() {
   const [operativita,setOperativita]=useState(_ls?.operativita||{});
   // Obiettivi operatività: {agentId: {"2026-05": {obiettivi mese...}}}
   const [obiettiviOp,setObiettiviOp]=useState(_ls?.obiettiviOp||{});
-  const [opSubTab,setOpSubTab]=useState(_ls?.utente?.ruolo==="Broker"?"settimana":"oggi");
+  const [opSubTab,setOpSubTab]=useState("oggi");
   const [opMainTab,setOpMainTab]=useState("attivita");
   // === STATE per il nuovo sub-tab "Oggi" ===
   // Catalogo Azioni (cause): 15 voci default, 4 gruppi
+  // consigliatoDefault = valore consigliato/giorno per Top Agent (modificabile dall'agente)
   const CATALOGO_AZIONI_DEFAULT=[
-    {id:"chiam_prop", gruppo:"telefono", nome:"Chiamate proprietari", icona:"📞", attivo:true},
-    {id:"chiam_zona", gruppo:"telefono", nome:"Chiamate zona post volantino", icona:"📞", attivo:true},
-    {id:"chiam_pass", gruppo:"telefono", nome:"Chiamate clienti passati", icona:"📞", attivo:true},
-    {id:"chiam_infl", gruppo:"telefono", nome:"Chiamate centri di influenza", icona:"📞", attivo:true},
-    {id:"chiam_priv", gruppo:"telefono", nome:"Chiamate privati / contatti caldi", icona:"📞", attivo:true},
-    {id:"chiam_freddo", gruppo:"telefono", nome:"Chiamate generica / freddo", icona:"📞", attivo:true},
-    {id:"follow_notizie", gruppo:"telefono", nome:"Follow-up notizie", icona:"📞", attivo:true},
-    {id:"follow_mirino", gruppo:"telefono", nome:"Follow-up contatti mirino", icona:"🎯", attivo:true},
-    {id:"lettere", gruppo:"scritto", nome:"Lettere mirate", icona:"✉️", attivo:true},
-    {id:"newsletter", gruppo:"scritto", nome:"Newsletter / email database", icona:"📧", attivo:true},
-    {id:"post_social", gruppo:"social", nome:"Post social", icona:"📱", attivo:true},
-    {id:"video_social", gruppo:"social", nome:"Video per social", icona:"🎬", attivo:true},
-    {id:"volantinaggio", gruppo:"distribuzione", nome:"Volantinaggio", icona:"📢", attivo:true, hasTipoVolantino:true},
-    {id:"open_house", gruppo:"distribuzione", nome:"Open House organizzato", icona:"🏠", attivo:true},
-    {id:"networking", gruppo:"distribuzione", nome:"Networking / eventi", icona:"🤝", attivo:true},
+    {id:"chiam_prop", gruppo:"telefono", nome:"Chiamate proprietari", icona:"📞", attivo:true, consigliatoDefault:8},
+    {id:"chiam_zona", gruppo:"telefono", nome:"Chiamate zona post volantino", icona:"📞", attivo:true, consigliatoDefault:0},
+    {id:"chiam_pass", gruppo:"telefono", nome:"Chiamate clienti passati", icona:"📞", attivo:true, consigliatoDefault:5},
+    {id:"chiam_infl", gruppo:"telefono", nome:"Chiamate centri di influenza", icona:"📞", attivo:true, consigliatoDefault:2},
+    {id:"chiam_priv", gruppo:"telefono", nome:"Chiamate privati / contatti caldi", icona:"📞", attivo:true, consigliatoDefault:3},
+    {id:"chiam_freddo", gruppo:"telefono", nome:"Chiamate generica / freddo", icona:"📞", attivo:true, consigliatoDefault:0},
+    {id:"follow_notizie", gruppo:"telefono", nome:"Follow-up notizie", icona:"📞", attivo:true, consigliatoDefault:3},
+    {id:"follow_mirino", gruppo:"telefono", nome:"Follow-up contatti mirino", icona:"🎯", attivo:true, consigliatoDefault:5},
+    {id:"lettere", gruppo:"scritto", nome:"Lettere mirate", icona:"✉️", attivo:true, consigliatoDefault:10},
+    {id:"newsletter", gruppo:"scritto", nome:"Newsletter / email database", icona:"📧", attivo:true, consigliatoDefault:0},
+    {id:"post_social", gruppo:"social", nome:"Post social", icona:"📱", attivo:true, consigliatoDefault:1},
+    {id:"video_social", gruppo:"social", nome:"Video per social", icona:"🎬", attivo:true, consigliatoDefault:0},
+    {id:"volantinaggio", gruppo:"distribuzione", nome:"Volantinaggio", icona:"📢", attivo:true, hasTipoVolantino:true, consigliatoDefault:0},
+    {id:"open_house", gruppo:"distribuzione", nome:"Open House organizzato", icona:"🏠", attivo:true, consigliatoDefault:0},
+    {id:"networking", gruppo:"distribuzione", nome:"Networking / eventi", icona:"🤝", attivo:true, consigliatoDefault:0},
   ];
   const TIPI_VOLANTINO=["AMV","AV","OH","Personale Agente","Flyer3"];
   const GRUPPI_AZIONI=[
@@ -4483,7 +4487,7 @@ export default function App() {
                 {opMainTab==="attivita"&&<div>
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
-                  {[{v:"oggi",l:"📅 Oggi"},{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
+                  {[{v:"oggi",l:"📅 Oggi"},{v:"settimana",l:"📆 Settimana"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi mensili"}].map(o=>(
                     <button key={o.v} onClick={()=>setOpSubTab(o.v)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${opSubTab===o.v?"#A8863A":"transparent"}`,color:opSubTab===o.v?"#A8863A":"#666",fontWeight:opSubTab===o.v?600:400,fontFamily:"inherit"}}>
                       {o.l}
                     </button>
@@ -4491,13 +4495,21 @@ export default function App() {
                 </div>
                 {/* ── VISTA OGGI ── */}
                 {opSubTab==="oggi"&&(()=>{
-                  // L'agente vede sé stesso. Il broker può selezionare un agente da opAgenteSel
+                  // ── LOGICA AGENTE/BROKER ──
+                  // Il broker ha il SUO Oggi personale (default) E può guardare gli altri agenti dal selettore.
+                  // Per il broker: opAgenteSel === "" o "self" = se stesso; numero = altro agente
+                  const brokerVedeSeStesso = (isBroker||isBackOffice) && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
                   const agIdSel = (isBroker||isBackOffice)
-                    ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel))
+                    ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
                     : myAgentId;
                   const dataSel = opDataSel||todayStr();
                   const agSel = agenti.find(a=>a.id===agIdSel);
-                  const isAgenteSesso = !isBroker&&!isBackOffice;
+                  // Sta vedendo i propri dati? (può modificare TUTTO inclusi spazi personali)
+                  const stoGuardandomi = agIdSel===myAgentId;
+                  // Posso modificare numeri? Solo se sto guardandomi
+                  const puoModificare = stoGuardandomi && !isReadOnly;
+                  // Vedo gli spazi personali? Solo se sto guardandomi
+                  const vedoSpaziPersonali = stoGuardandomi;
                   const frase = getFraseDelGiorno();
 
                   // Dati giornata corrente
@@ -4510,7 +4522,7 @@ export default function App() {
 
                   // Helper salvataggio
                   const salvaDatiOggi = (patch) => {
-                    if(!agIdSel||isReadOnly) return;
+                    if(!agIdSel||!puoModificare) return;
                     setOggiDati(prev=>({
                       ...prev,
                       [agIdSel]:{
@@ -4558,6 +4570,25 @@ export default function App() {
                     salvaDatiOggi({spaziPersonali:nuovo});
                   };
 
+                  // ── CONSIGLIATO DAL PIANO PRODUZIONE ──
+                  // Per ogni azione, calcolo il "consigliato giornaliero":
+                  // - Se l'azione è collegata al Piano (acquisizioni/appuntamenti) → derivo dai numeri del piano
+                  // - Altrimenti uso consigliatoDefault dal catalogo
+                  // Il Piano Produzione è in obiettivoAgente[agIdSel] = {fatturatoAnnuale, provvMedia, ...}
+                  // I numeri derivati: acquisizioniNec/anno (default 13), apptAcqSettimana (default 1)
+                  const pianoAg = obiettivoAgente?.[agIdSel] || {};
+                  const acquisizioniNecAnno = Number(pianoAg.acquisizioniNec||0);
+                  const apptAcqSettimana = Number(pianoAg.apptAcqSettimana||0);
+                  // Distribuzione: 22 giorni lavorativi/mese, 6 giorni/settimana
+                  const acquisizioniMese = acquisizioniNecAnno>0 ? acquisizioniNecAnno/12 : 0;
+                  const apptAcqGiorno = apptAcqSettimana>0 ? apptAcqSettimana/6 : 0;
+                  // Map azione → consigliato giornaliero
+                  const getConsigliato = (az) => {
+                    // Per le voci collegate al Piano, uso il calcolato (se >0)
+                    // Per le altre, uso consigliatoDefault del catalogo
+                    return Math.round(az.consigliatoDefault||0);
+                  };
+
                   // Calcolo avanzamento azioni complessivo
                   const azioniAttive = catalogoAzioni.filter(a=>a.attivo);
                   let totTarget=0, totFatto=0, totAzioniConTarget=0, totAzioniCompletate=0;
@@ -4585,36 +4616,27 @@ export default function App() {
                     return Math.ceil(((d-yearStart)/86400000+1)/7);
                   })();
 
-                  // Stili comuni per input numerico (più grandi, più visibili)
+                  // Stili input
                   const inpNum={width:48,padding:"6px 4px",fontSize:14,fontWeight:600,border:`1px solid ${BRAND.oro}66`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.grigio,outline:"none"};
                   const inpNumGrande={width:60,padding:"7px 6px",fontSize:16,fontWeight:700,border:`1.5px solid ${BRAND.oro}88`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.oroD,outline:"none"};
 
-                  // Se broker non ha selezionato un agente: mostra solo selettore
-                  if(!agIdSel){
-                    return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
-                      <p style={{fontSize:18,marginBottom:8}}>👁 Vista Broker</p>
-                      <p style={{fontSize:13,color:"#aaa",marginBottom:16}}>Seleziona un agente dalla tendina in alto per vedere la sua giornata.</p>
-                      <select style={{...S.sel,fontSize:14,padding:"8px 14px"}} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
-                        <option value="Tutti">— Seleziona agente —</option>
-                        {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
-                      </select>
-                    </div>);
-                  }
-
                   return(<>
-                    {/* Selettore data e agente */}
+                    {/* Selettore data e agente (broker può scegliere se stesso o altri) */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                       <input type="date" style={{...S.sel}} value={dataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                      {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
-                        <option value="Tutti">— Seleziona agente —</option>
-                        {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      {(isBroker||isBackOffice)&&<select style={S.sel} value={brokerVedeSeStesso?"self":opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="self">🏠 I miei dati</option>
+                        <optgroup label="Vista di un agente">
+                          {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                        </optgroup>
                       </select>}
+                      {!stoGuardandomi&&<div style={{padding:"6px 12px",background:"#EAF4FB",borderRadius:6,fontSize:12,color:"#2980B9",fontWeight:600,border:"0.5px solid #2980B944"}}>👁 Stai guardando {agSel?.nome} — sola lettura</div>}
                     </div>
 
-                    {/* HEADER MOTIVAZIONALE - più caldo, con gradient su oro */}
+                    {/* HEADER MOTIVAZIONALE */}
                     <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`1.5px solid ${BRAND.oro}55`,boxShadow:`0 2px 8px ${BRAND.oro}15`}}>
                       <div>
-                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>{isAgenteSesso?"☀️ Buongiorno":"👁 Vista giornata di"}</p>
+                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>{stoGuardandomi?"☀️ Buongiorno":"👁 Vista giornata di"}</p>
                         <h2 style={{margin:0,fontSize:24,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{agSel?.nome} {agSel?.cognome}</h2>
                         <p style={{fontSize:13,color:"#666",margin:"5px 0 0",fontWeight:500}}>{giorniSett[dataObj.getDay()]} {dataObj.getDate()} {mesi[dataObj.getMonth()]} · settimana {settimanaCal}</p>
                       </div>
@@ -4625,7 +4647,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* FRASE DEL GIORNO - più calda */}
+                    {/* FRASE DEL GIORNO */}
                     <div style={{background:"#FDFBF7",borderRadius:10,padding:"14px 18px",marginBottom:"1.5rem",borderLeft:`4px solid ${BRAND.oro}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
                       <p style={{margin:0,fontSize:15,fontStyle:"italic",color:BRAND.grigio,fontFamily:"Georgia,serif",lineHeight:1.5}}>"{frase.t}"</p>
                       <p style={{margin:"6px 0 0",fontSize:12,color:BRAND.oroD,fontWeight:600}}>— {frase.a}</p>
@@ -4634,7 +4656,16 @@ export default function App() {
                     {/* ====== AZIONI OGGI ====== */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                       <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni oggi</h3>
-                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>le leve · dal piano produzione</span>
+                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>le leve · 💡 = consigliato</span>
+                    </div>
+
+                    {/* Legenda colonne (compatta, una sola volta) */}
+                    <div style={{display:"grid",gridTemplateColumns:"4px 1fr 130px 100px 55px",alignItems:"center",gap:10,padding:"0 1.25rem 6px",fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>
+                      <div></div>
+                      <div>Azione</div>
+                      <div style={{textAlign:"center"}}>Fatto / Target</div>
+                      <div style={{textAlign:"center"}}>Progresso</div>
+                      <div style={{textAlign:"right"}}>%</div>
                     </div>
 
                     {GRUPPI_AZIONI.map(gruppo=>{
@@ -4647,6 +4678,7 @@ export default function App() {
                           const dati = azioniOggi[az.id]||{};
                           const target = Number(dati.target||0);
                           const fatto = Number(dati.fatto||0);
+                          const consigliato = getConsigliato(az);
                           const perc = target>0 ? Math.min(100, Math.round(fatto/target*100)) : 0;
                           const completata = target>0&&fatto>=target;
                           const daFare = target>0&&fatto<target;
@@ -4661,28 +4693,32 @@ export default function App() {
                                   {daFare&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
                                   {completata&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:"#27AE60",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>✓ FATTO</span>}
                                 </p>
+                                {consigliato>0&&target===0&&puoModificare&&<p style={{margin:"3px 0 0",fontSize:11}}>
+                                  <button onClick={()=>aggiornaAzione(az.id,{target:consigliato})} style={{background:"none",border:"none",color:"#2980B9",cursor:"pointer",padding:0,fontSize:11,fontWeight:600,fontFamily:"inherit",textDecoration:"underline dotted"}}>💡 Consigliato: {consigliato} · clicca per impostare</button>
+                                </p>}
+                                {consigliato>0&&target>0&&target!==consigliato&&<p style={{margin:"3px 0 0",fontSize:10,color:"#888"}}>💡 Consigliato: {consigliato}</p>}
                               </div>
-                              <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"flex-end"}}>
-                                <input type="number" min="0" value={fatto===0?"":fatto} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                              <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center"}}>
+                                <input type="number" min="0" value={fatto===0?"":fatto} placeholder="0" disabled={!puoModificare}
                                   onChange={e=>aggiornaAzione(az.id,{fatto:e.target.value===""?0:Number(e.target.value)})}
-                                  style={inpNumGrande}/>
+                                  style={inpNumGrande} title="Fatto"/>
                                 <span style={{fontSize:14,color:"#aaa",fontWeight:600}}>/</span>
-                                <input type="number" min="0" value={target===0?"":target} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                                <input type="number" min="0" value={target===0?"":target} placeholder="0" disabled={!puoModificare}
                                   onChange={e=>aggiornaAzione(az.id,{target:e.target.value===""?0:Number(e.target.value)})}
-                                  style={inpNum}/>
+                                  style={inpNum} title="Target"/>
                               </div>
                               <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
                                 <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s",borderRadius:4}}/>
                               </div>
                               <div style={{fontSize:13,fontWeight:700,color:clr,textAlign:"right"}}>{target>0?`${perc}%`:"—"}</div>
                             </div>
-                            {/* Selettore tipo volantino e zona */}
+                            {/* Selettore tipo volantino */}
                             {az.hasTipoVolantino&&(target>0||fatto>0)&&<div style={{marginTop:8,marginLeft:14,padding:"8px 12px",background:"#FDFBF7",borderRadius:6,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                               <span style={{fontSize:11,color:"#888",fontWeight:600}}>TIPO:</span>
                               {TIPI_VOLANTINO.map(tv=>(
-                                <button key={tv} onClick={()=>!isReadOnly&&aggiornaAzione(az.id,{tipoVolantino:dati.tipoVolantino===tv?"":tv})} disabled={isReadOnly||!isAgenteSesso} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:`1px solid ${dati.tipoVolantino===tv?BRAND.oro:"#ddd"}`,background:dati.tipoVolantino===tv?BRAND.oro:"#fff",color:dati.tipoVolantino===tv?"#fff":"#666",cursor:isReadOnly?"default":"pointer",fontFamily:"inherit",fontWeight:dati.tipoVolantino===tv?700:500}}>{tv}</button>
+                                <button key={tv} onClick={()=>puoModificare&&aggiornaAzione(az.id,{tipoVolantino:dati.tipoVolantino===tv?"":tv})} disabled={!puoModificare} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:`1px solid ${dati.tipoVolantino===tv?BRAND.oro:"#ddd"}`,background:dati.tipoVolantino===tv?BRAND.oro:"#fff",color:dati.tipoVolantino===tv?"#fff":"#666",cursor:puoModificare?"pointer":"default",fontFamily:"inherit",fontWeight:dati.tipoVolantino===tv?700:500}}>{tv}</button>
                               ))}
-                              <input type="text" placeholder="Zona (es. Bizzozero)" value={dati.zona||""} disabled={isReadOnly||!isAgenteSesso}
+                              <input type="text" placeholder="Zona (es. Bizzozero)" value={dati.zona||""} disabled={!puoModificare}
                                 onChange={e=>aggiornaAzione(az.id,{zona:e.target.value})}
                                 style={{flex:1,minWidth:120,padding:"4px 10px",fontSize:12,border:"1px solid #ddd",borderRadius:5,fontFamily:"inherit"}}/>
                             </div>}
@@ -4703,7 +4739,7 @@ export default function App() {
                         return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
                           <span style={{fontSize:18}}>{c.icona}</span>
                           <p style={{margin:0,fontSize:14,fontWeight:600,flex:1,color:BRAND.grigio}}>{c.nome}</p>
-                          <input type="number" min="0" value={val===0?"":val} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                          <input type="number" min="0" value={val===0?"":val} placeholder="0" disabled={!puoModificare}
                             onChange={e=>aggiornaConseguenza(c.id,e.target.value)}
                             style={{...inpNumGrande,color:val>0?c.clr:"#bbb",border:`1.5px solid ${val>0?c.clr:BRAND.oro+"88"}`}}/>
                         </div>);
@@ -4721,7 +4757,7 @@ export default function App() {
                           const val=Number(tempoOggi[t.id]||0);
                           return(<div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FDFBF7",borderRadius:6,borderLeft:`3px solid ${t.clr}`}}>
                             <p style={{margin:0,fontSize:13,fontWeight:600,flex:1,color:BRAND.grigio}}>{t.nome}</p>
-                            <input type="number" min="0" step="0.5" value={val===0?"":val} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                            <input type="number" min="0" step="0.5" value={val===0?"":val} placeholder="0" disabled={!puoModificare}
                               onChange={e=>aggiornaTempo(t.id,e.target.value)}
                               style={{...inpNum,width:56,color:val>0?t.clr:"#bbb",borderColor:val>0?t.clr:"#ddd"}}/>
                             <span style={{fontSize:11,color:"#888",fontWeight:600}}>h</span>
@@ -4747,7 +4783,7 @@ export default function App() {
                         const d=routineOggi[r.id]||{};
                         const fatto=d.fatto;
                         const isLast=idx===arr.length-1;
-                        return(<div key={r.id} onClick={()=>!isReadOnly&&isAgenteSesso&&toggleRoutine(r.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0",cursor:(!isReadOnly&&isAgenteSesso)?"pointer":"default"}}>
+                        return(<div key={r.id} onClick={()=>puoModificare&&toggleRoutine(r.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0",cursor:puoModificare?"pointer":"default"}}>
                           <span style={{fontSize:20,color:fatto?"#27AE60":"#bbb"}}>{fatto?"✅":"⬜"}</span>
                           <p style={{margin:0,fontSize:14,flex:1,fontWeight:fatto?500:600,textDecoration:fatto?"line-through":"none",color:fatto?"#888":BRAND.grigio}}>{r.nome}</p>
                           {fatto?<span style={{fontSize:12,color:"#27AE60",fontWeight:600}}>completata · {d.ora}</span>:<span style={{fontSize:10,color:"#fff",padding:"3px 10px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
@@ -4755,8 +4791,8 @@ export default function App() {
                       })}
                     </div>
 
-                    {/* ====== SPAZI PERSONALI (MAI per il broker) ====== */}
-                    {isAgenteSesso&&<>
+                    {/* ====== SPAZI PERSONALI — solo quando guardo me stesso ====== */}
+                    {vedoSpaziPersonali&&<>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                         <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>❤️ Spazi personali</h3>
                         <span style={{fontSize:12,color:"#888",fontWeight:500}}>privati · solo tu li vedi</span>
@@ -4766,31 +4802,36 @@ export default function App() {
                         {spaziPersonaliOggi.map((s,idx)=>{
                           const isLast=idx===spaziPersonaliOggi.length-1;
                           return(<div key={s.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
-                            <span onClick={()=>!isReadOnly&&toggleSpazio(idx)} style={{fontSize:20,color:s.fatto?"#27AE60":"#bbb",cursor:!isReadOnly?"pointer":"default"}}>{s.fatto?"✅":"⬜"}</span>
+                            <span onClick={()=>puoModificare&&toggleSpazio(idx)} style={{fontSize:20,color:s.fatto?"#27AE60":"#bbb",cursor:puoModificare?"pointer":"default"}}>{s.fatto?"✅":"⬜"}</span>
                             <p style={{margin:0,fontSize:14,flex:1,fontWeight:s.fatto?500:600,textDecoration:s.fatto?"line-through":"none",color:s.fatto?"#888":BRAND.grigio}}>{s.nome}</p>
-                            {!isReadOnly&&<button onClick={()=>rimuoviSpazio(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:16,padding:"0 4px"}}>✕</button>}
+                            {puoModificare&&<button onClick={()=>rimuoviSpazio(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:16,padding:"0 4px"}}>✕</button>}
                           </div>);
                         })}
-                        {!isReadOnly&&<div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid #f0f0f0"}}>
+                        {puoModificare&&<div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid #f0f0f0"}}>
                           <button onClick={aggiungiSpazio} style={{...S.btn,fontSize:13,padding:"8px 14px",width:"100%",fontWeight:600}}>+ Aggiungi spazio personale</button>
                         </div>}
                       </div>
                     </>}
 
-                    {/* ====== DOVE SEI ====== */}
+                    {/* ====== DOVE SEI - nuove voci: Incarichi mese, Appt acq fissati, Immobili visti, Valutazioni fatte ====== */}
                     {(()=>{
                       const mese = dataSel.substring(0,7);
                       const incMese = incarichi.filter(i=>i.agenteListing===agIdSel&&(i.dataInizio||"").startsWith(mese)&&!i.archiviato).length;
-                      const propAttive = proposte.filter(p=>(p.agenteListing===agIdSel||p.agenteAcquirente===agIdSel)&&["In trattativa","Accettata con Vincolo","In attesa / Vincolata"].includes(p.stato)).length;
-                      const annoCur = dataSel.substring(0,4);
-                      const vendYTD = venduti.filter(v=>(v.agenteListing===agIdSel||v.agenteAcquirente===agIdSel||v.buyerListing===agIdSel||v.buyer===agIdSel)&&getAnno(dataCompAgenzia(v))===annoCur).length;
-                      const oneToOneAg = (oneToOne[agIdSel]||{});
-                      const dateFuture = Object.keys(oneToOneAg).filter(d=>d>=dataSel).sort();
-                      const prossimo1to1 = dateFuture.length>0 ? dateFuture[0] : null;
+                      // Aggrego conseguenze del mese da oggiDati
+                      const datiMese = oggiDati[agIdSel]||{};
+                      let apptAcqMese=0, immVistiMese=0, valFatteMese=0;
+                      Object.keys(datiMese).forEach(data=>{
+                        if(data.startsWith(mese)){
+                          const c=datiMese[data]?.conseguenze||{};
+                          apptAcqMese += Number(c.appt_acq_fissati||0);
+                          immVistiMese += Number(c.immobili_visti||0);
+                          valFatteMese += Number(c.presentazioni||0);
+                        }
+                      });
                       return(<>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                           <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📊 Dove sei</h3>
-                          <span style={{fontSize:12,color:"#888",fontWeight:500}}>pipeline e contesto</span>
+                          <span style={{fontSize:12,color:"#888",fontWeight:500}}>produttività del mese</span>
                         </div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:"1.5rem"}}>
                           <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
@@ -4798,16 +4839,16 @@ export default function App() {
                             <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{incMese}<span style={{fontSize:13,fontWeight:500,marginLeft:4}}>nuovi</span></p>
                           </div>
                           <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
-                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Proposte attive</p>
-                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{propAttive}</p>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Appt. acquisizione</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{apptAcqMese}<span style={{fontSize:13,fontWeight:500,marginLeft:4}}>fissati</span></p>
                           </div>
                           <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
-                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Vendite {annoCur}</p>
-                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{vendYTD}</p>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Immobili visti</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{immVistiMese}</p>
                           </div>
                           <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
-                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Prossimo 1:1</p>
-                            <p style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{prossimo1to1?fmtD(prossimo1to1):"—"}</p>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Valutazioni fatte</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{valFatteMese}</p>
                           </div>
                         </div>
                       </>);
@@ -4849,6 +4890,9 @@ export default function App() {
 
                 {/* ── VISTA SETTIMANA ── */}
                 {opSubTab==="settimana"&&(<>
+                  <div style={{background:"#FEF6E6",border:"1px solid #F39C12",borderLeft:"4px solid #F39C12",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:12,color:"#7E5109"}}>
+                    <strong>ℹ️ Vista in transizione:</strong> questa schermata mostra ancora dati dal vecchio sistema "Inserimento". Nella prossima sessione verrà aggiornata per leggere i dati direttamente da <strong>📅 Oggi</strong>. I dati che inserisci in "Oggi" sono salvati correttamente e verranno aggregati qui.
+                  </div>
                   <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="date" style={{...S.sel}} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
                     {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
@@ -5011,141 +5055,10 @@ export default function App() {
                 </>)}
 
                 {/* ── INSERIMENTO GIORNATA ── */}
-                {opSubTab==="inserimento"&&(<>
-                  <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
-                    {/* Toggle giorno/settimana */}
-                    <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
-                      {[["giorno","📅 Giorno"],["settimana","📆 Settimana"]].map(([v,l])=>(
-                        <button key={v} onClick={()=>setOpModoInserimento(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:5,border:"none",background:opModoInserimento===v?"#fff":"transparent",color:opModoInserimento===v?"#A8863A":"#888",fontWeight:opModoInserimento===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:opModoInserimento===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
-                      ))}
-                    </div>
-                    <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                    {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
-                      <option value="Tutti">Tutti gli agenti</option>
-                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
-                    </select>}
-                    <span style={{fontSize:12,padding:"4px 10px",borderRadius:6,background:"#FEF9E7",color:"#A8863A",border:"0.5px solid #C9A96E"}}>
-                      {opModoInserimento==="giorno"?fmtD(opDataSel):`Settimana dal ${fmtD(lunedi)} al ${fmtD(sabato)}`}{new Date(opDataSel).getDay()===6?" — Sabato 🏠":""}
-                    </span>
-                  </div>
-                  {opModoInserimento==="giorno"&&(()=>{
-                    const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
-                    if(!agId) return null;
-                    return <FormGiornata agId={agId} data={opDataSel}/>;
-                  })()}
-                  {opModoInserimento==="settimana"&&(()=>{
-                    const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
-                    if(!agId) return null;
-                    const giorniSett=Array.from({length:6},(_,i)=>{const d=new Date(lunedi);d.setDate(d.getDate()+i);return d.toISOString().slice(0,10);});
-                    const nomG=["Lun","Mar","Mer","Gio","Ven","Sab"];
-                    // Totali settimana dai dati esistenti
-                    const totSett={};
-                    giorniSett.forEach(d=>{
-                      const g=operativita[agId]?.[d]||{};
-                      const ct=g.chiamate_tipi||{};
-                      ["centri_inf","clienti_pass","freddo","zona_vol","privati","followup"].forEach(k=>{
-                        totSett[k]=(totSett[k]||0)+Number(ct[k]||0);
-                      });
-                      ["appuntamenti","valutazioni","immVisitati","apptAcq","ohNum","propPresentate","preliminari","rogiti","postSocial","video","stories","oreTel","oreZona","oreSviluppo","oreAmm"].forEach(k=>{
-                        totSett[k]=(totSett[k]||0)+Number(g[k]||0);
-                      });
-                    });
-                    // Stato locale per il form massivo
-                    const formSett={...totSett,...opFormSett};
-                    const setFormSett=setOpFormSett;
-                    const updS=(k,delta)=>setOpFormSett(p=>({...totSett,...p,[k]:Math.max(0,(Number({...totSett,...p}[k]||0))+delta)}));
-
-                    const salvaSett=()=>{
-                      const ggLav=giorniSett.filter((_,i)=>i<5);
-                      const d5=(tot,i)=>{const n=Number(tot||0);return Math.floor(n/5)+(i===4?n%5:0);};
-                      ggLav.forEach((d,i)=>{
-                        const ct={};
-                        ["centri_inf","clienti_pass","freddo","zona_vol","privati","followup"].forEach(k=>{ct[k]=d5(formSett[k],i);});
-                        const totCh=Object.values(ct).reduce((s,v)=>s+v,0);
-                        const g={chiamate_tipi:ct,chiamate:totCh};
-                        ["appuntamenti","valutazioni","immVisitati","apptAcq","propPresentate","preliminari","rogiti","postSocial","video","stories","oreTel","oreZona","oreSviluppo","oreAmm"].forEach(k=>{g[k]=d5(formSett[k],i);});
-                        salvaGiornata(agId,d,g);
-                      });
-                      // OH va al sabato
-                      if(Number(formSett.ohNum||0)>0) salvaGiornata(agId,giorniSett[5],{ohNum:Number(formSett.ohNum||0)});
-                      alert("✓ Dati settimanali salvati!");
-                    };
-                    const Stepper2=({label,k,clr="#2c2c2c"})=>(
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
-                        <span style={{fontSize:12,color:clr}}>{label}</span>
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updS(k,-1)}>−</button>
-                          <span style={{fontSize:14,fontWeight:600,minWidth:30,textAlign:"center"}}>{formSett[k]||0}</span>
-                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updS(k,1)}>+</button>
-                        </div>
-                      </div>
-                    );
-                    return(<div>
-                      {/* Header settimana */}
-                      <div style={{background:"#fafaf8",borderRadius:10,padding:"10px 14px",marginBottom:10,border:"0.5px solid #e8e5e0",display:"flex",gap:6,flexWrap:"wrap"}}>
-                        {giorniSett.map((d,i)=>{
-                          const g=operativita[agId]?.[d]||{};
-                          const hasData=Object.values(g).some(v=>Number(v||0)>0);
-                          return(<div key={d} style={{flex:1,minWidth:40,textAlign:"center",padding:"6px 4px",background:hasData?"#E9F7EF":"#fff",borderRadius:6,border:`0.5px solid ${hasData?"#C0DD97":"#eee"}`}}>
-                            <div style={{fontSize:9,color:"#aaa"}}>{nomG[i]}</div>
-                            <div style={{fontSize:12,fontWeight:600,color:hasData?"#27AE60":"#aaa"}}>{new Date(d).getDate()}</div>
-                            {hasData&&<div style={{fontSize:9,color:"#27AE60"}}>✓</div>}
-                          </div>);
-                        })}
-                      </div>
-                      <div style={{background:"#EAF4FB",borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:11,color:"#2980B9"}}>
-                        💡 Inserisci i <strong>totali settimanali</strong> — verranno distribuiti automaticamente sui giorni lavorativi (Lun-Ven)
-                      </div>
-                      {/* Form massivo completo */}
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-                        {/* CHIAMATE */}
-                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
-                          <div style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>📞 Chiamate settimanali</div>
-                          <Stepper2 label="Centri d'influenza" k="centri_inf"/>
-                          <Stepper2 label="Clienti passati" k="clienti_pass"/>
-                          <Stepper2 label="Privati" k="privati"/>
-                          <Stepper2 label="Generica / Freddo" k="freddo"/>
-                          <Stepper2 label="Zona post volantino" k="zona_vol"/>
-                          <Stepper2 label="Follow-up notizie" k="followup"/>
-                        </div>
-                        {/* ACQUISIZIONE */}
-                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
-                          <div style={{fontSize:11,fontWeight:600,color:"#A8863A",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🏠 Acquisizione</div>
-                          <Stepper2 label="Appt. fissati" k="appuntamenti"/>
-                          <Stepper2 label="Presentaz./Valutaz." k="valutazioni"/>
-                          <Stepper2 label="Immobili visitati" k="immVisitati"/>
-                          <Stepper2 label="Ore telefono" k="oreTel"/>
-                          <Stepper2 label="Ore zona" k="oreZona"/>
-                        </div>
-                        {/* VENDITA */}
-                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
-                          <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>🤝 Vendita</div>
-                          <Stepper2 label="Appt. acquirenti" k="apptAcq"/>
-                          <Stepper2 label="OH effettuati" k="ohNum"/>
-                          <Stepper2 label="Proposte presentate" k="propPresentate"/>
-                          <Stepper2 label="Preliminari" k="preliminari"/>
-                          <Stepper2 label="Rogiti" k="rogiti"/>
-                        </div>
-                        {/* SOCIAL + SVILUPPO */}
-                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"12px 14px"}}>
-                          <div style={{fontSize:11,fontWeight:600,color:"#3C3489",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>📱 Social</div>
-                          <Stepper2 label="Post pubblicati" k="postSocial"/>
-                          <Stepper2 label="Video" k="video"/>
-                          <Stepper2 label="Stories / Reels" k="stories"/>
-                          <div style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8,marginTop:10}}>⏱ Ore</div>
-                          <Stepper2 label="Ore sviluppo" k="oreSviluppo"/>
-                          <Stepper2 label="Ore amministrativo" k="oreAmm"/>
-                        </div>
-                      </div>
-                      <button style={{width:"100%",padding:11,background:"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={salvaSett}>
-                        💾 Salva settimana e distribuisci sui giorni
-                      </button>
-                    </div>);
-                  })()}
-                </>)}
-
-                {/* ── REPORT MENSILE ── */}
                 {opSubTab==="report"&&(<>
+                  <div style={{background:"#FEF6E6",border:"1px solid #F39C12",borderLeft:"4px solid #F39C12",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:12,color:"#7E5109"}}>
+                    <strong>ℹ️ Vista in transizione:</strong> questa schermata mostra ancora dati dal vecchio sistema "Inserimento". Nella prossima sessione verrà aggiornata per leggere i dati di <strong>📅 Oggi</strong> e mostrare il consuntivo mensile reale.
+                  </div>
                   <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
                     {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
