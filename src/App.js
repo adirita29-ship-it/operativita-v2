@@ -696,10 +696,12 @@ export default function App() {
   const [costiCatExpand,setCostiCatExpand]=useState({});
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
-  const [costiAnno,setCostiAnno]=useState("2025");
+  const [costiAnno,setCostiAnno]=useState(annoCorrente);
   const [costiAnnoAg,setCostiAnnoAg]=useState("2025"); // anno separato per agente
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
+  // Break Even manuale per anno: { "2025": 180000, "2026": 195000, ... }
+  const [breakEvenManuale,setBreakEvenManuale]=useState(_ls?.breakEvenManuale||{});
   const [costiBreakevenMode,setCostiBreakevenMode]=useState("fissi+variabili");
   const [costiAgenteBreakevenMode,setCostiAgenteBreakevenMode]=useState("fissi+variabili");
   const [expandedVoci,setExpandedVoci]=useState({});
@@ -858,6 +860,7 @@ export default function App() {
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
         if(data.obiettivoQuotaAgenzia!==undefined) setObiettivoQuotaAgenzia(data.obiettivoQuotaAgenzia);
+        if(data.breakEvenManuale) setBreakEvenManuale(data.breakEvenManuale);
         if(data.provvStandard) setProvvStandard(data.provvStandard);
         if(data.costiAgente) setCostiAgente(data.costiAgente);
         if(data.mirino) setMirino(data.mirino);
@@ -1020,7 +1023,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -1032,7 +1035,7 @@ export default function App() {
       });
     },2000); // debounce 2000ms
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,dbLoaded]);
 
 
 
@@ -2854,7 +2857,7 @@ export default function App() {
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📉 Break Even — {costiAnno}</h2>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 <select style={S.sel} value={costiAnno} onChange={e=>setCostiAnno(e.target.value)}>
-                  {[...new Set([annoCorrente,...Object.keys(costi)])].sort().reverse().map(a=><option key={a}>{a}</option>)}
+                  {[...new Set([annoCorrente,...Object.keys(costi),...Object.keys(breakEvenManuale||{})])].sort().reverse().map(a=><option key={a}>{a}</option>)}
                 </select>
                 <div style={{display:"flex",gap:4}}>
                   {[["fissi","Solo fissi"],["fissi+variabili","Fissi + Variabili"]].map(([v,l])=>(
@@ -2864,7 +2867,7 @@ export default function App() {
               </div>
             </div>
             {(()=>{
-              // Usa catCosti (nuovo sistema) con fallback all'anno più recente
+              // Calcolo preventivo (catCosti) e consuntivo (speseCosti)
               const catAnnosBE=(()=>{
                 const byAnno=catCosti.filter(x=>String(x.anno)===costiAnno&&!x.agentId);
                 if(byAnno.length>0) return byAnno;
@@ -2881,59 +2884,103 @@ export default function App() {
               const totSpVar=variabili.reduce((s,cat)=>s+speseAnnoBE.filter(x=>x.catId===cat.id&&cat.tipo==="variabile").reduce((a,x)=>a+Number(x.importo||0),0),0);
               const totConsuntivo=totSpFissi+totSpVar;
 
-              // Punto di Break Even = spese (preventivo o consuntivo se disponibile)
-              const puntoBE = costiBreakevenMode==="fissi"
-                ? (totSpFissi>0?totSpFissi:totPrevFissi)
-                : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
+              // Riferimenti automatici (per il fallback se BE manuale non impostato)
+              const prevRif = costiBreakevenMode==="fissi" ? totPrevFissi : totPrevAnnuo;
+              const consRif = costiBreakevenMode==="fissi" ? totSpFissi : totConsuntivo;
+              const autoRif = consRif>0 ? consRif : prevRif;
+
+              // BREAK EVEN MANUALE per anno (con fallback all'automatico)
+              const beManualeAnno = Number((breakEvenManuale||{})[costiAnno]||0);
+              const puntoBE = beManualeAnno>0 ? beManualeAnno : autoRif;
+              const isManuale = beManualeAnno>0;
               const puntoBELabel = costiBreakevenMode==="fissi" ? "Solo costi fissi" : "Costi fissi + variabili";
-              const costoMensile = puntoBE/12;
+              const costoMensile = puntoBE>0 ? puntoBE/12 : 0;
 
-              // Fatturato anno
-              const vendAnno=venduti.filter(v=>getAnno(dataCompAgenzia(v))===costiAnno);
-
-              // Quota Agenzia TOTALE (incassato + da incassare)
+              // Quota Agenzia (allineata alla Dashboard)
+              // Formula: (pV+pA) - quoteAgentiNonBroker - quoteBuyer, con controllo pV>0 e pA>0
+              const vendAnno=venduti.filter(v=>v.categoria==="vendita"&&getAnno(dataCompAgenzia(v))===costiAnno);
+              const nonBroker = agenti.filter(a=>a.profilo!=="Broker");
               const calcQuotaAg=(vend,useIncassato)=>vend.reduce((s,v)=>{
                 const pV=useIncassato?calcolaIncassatoV(v):Number(v.provvVenditore||0);
                 const pA=useIncassato?calcolaIncassatoA(v):Number(v.provvAcquirente||0);
-                let qa=pV+pA;
-                agenti.filter(a=>a.profilo!=="Broker").forEach(a=>{
-                  if(v.agenteListing===a.id) qa-=pV*(Number(v.percListing||0)/100);
-                  if(v.agenteAcquirente===a.id) qa-=pA*(Number(v.percAcquirente||0)/100);
-                  if(v.buyerListing===a.id&&v.agenteListing!==a.id) qa-=pV*(Number(v.percBuyerListing||0)/100);
-                  if(v.buyer===a.id&&v.agenteAcquirente!==a.id) qa-=pA*(Number(v.percBuyer||0)/100);
+                let qAg=0, qBuy=0;
+                nonBroker.forEach(a=>{
+                  if(v.agenteListing===a.id && pV>0) qAg+=pV*(Number(v.percListing||0)/100);
+                  if(v.agenteAcquirente===a.id && pA>0) qAg+=pA*(Number(v.percAcquirente||0)/100);
                 });
-                return s+Math.max(0,qa);
+                if(v.buyerListing && v.agenteListing!==v.buyerListing && pV>0)
+                  qBuy+=pV*(Number(v.percBuyerListing||0)/100);
+                if(v.buyer && v.agenteAcquirente!==v.buyer && pA>0)
+                  qBuy+=pA*(Number(v.percBuyer||0)/100);
+                return s + Math.max(0, (pV+pA) - qAg - qBuy);
               },0);
 
-              const quotaAgTot=calcQuotaAg(vendAnno,false);   // su totale pattuito
-              const quotaAgInc=calcQuotaAg(vendAnno,true);    // su incassato
-              const quotaAgDaInc=quotaAgTot-quotaAgInc;       // già maturata, non ancora incassata
+              const quotaAgTot=calcQuotaAg(vendAnno,false);
+              const quotaAgInc=calcQuotaAg(vendAnno,true);
+              const quotaAgDaInc=Math.max(0,quotaAgTot-quotaAgInc);
 
-              const meseTot=puntoBE>0?Math.round(quotaAgTot/costoMensile*10)/10:0;
-              const meseInc=puntoBE>0?Math.round(quotaAgInc/costoMensile*10)/10:0;
+              const meseTot=costoMensile>0?Math.round(quotaAgTot/costoMensile*10)/10:0;
+              const meseInc=costoMensile>0?Math.round(quotaAgInc/costoMensile*10)/10:0;
               const meseCoperti=new Date().getFullYear()===Number(costiAnno)?new Date().getMonth()+1:12;
 
               const percTot=puntoBE>0?Math.min(100,Math.round(quotaAgTot/puntoBE*100)):0;
               const percInc=puntoBE>0?Math.min(100,Math.round(quotaAgInc/puntoBE*100)):0;
 
-              const beRaggiuntoTot=quotaAgTot>=puntoBE;
-              const beRaggiuntoInc=quotaAgInc>=puntoBE;
+              const beRaggiuntoTot=quotaAgTot>=puntoBE&&puntoBE>0;
+
+              const setBEManuale=(val)=>{
+                if(isReadOnly) return;
+                const nuovo={...breakEvenManuale};
+                if(!val||Number(val)<=0) delete nuovo[costiAnno];
+                else nuovo[costiAnno]=Number(val);
+                setBreakEvenManuale(nuovo);
+              };
 
               return(<>
-                {/* ── BOX 1: PUNTO DI BREAK EVEN ── */}
-                <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
-                  <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 6px"}}>Punto di Break Even ({puntoBELabel})</p>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:8}}>
-                    <p style={{fontSize:36,fontWeight:700,margin:0,color:"#fff"}}>€ {fmt(puntoBE)}</p>
-                    <div style={{textAlign:"right"}}>
-                      <p style={{fontSize:13,margin:"0 0 2px",color:"#ccc"}}>€ {fmt(Math.round(costoMensile))}<span style={{fontSize:11,color:"#aaa"}}>/mese</span></p>
-                      {costiBreakevenMode==="fissi"&&totPrevVar>0&&<p style={{fontSize:11,color:"#E67E22",margin:0}}>+€ {fmt(Math.round(totPrevVar))} var. esclusi</p>}
-                      {totConsuntivo>0&&<p style={{fontSize:11,color:"#aaa",margin:0}}>Consuntivo reale: € {fmt(totConsuntivo)}</p>}
+                {/* BOX 1: INPUT BREAK EVEN MANUALE */}
+                <div style={{background:"#fff",borderRadius:12,border:`1.5px solid ${isManuale?"#27AE60":BRAND.oro}`,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:12}}>
+                    <div style={{flex:1,minWidth:280}}>
+                      <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:isManuale?"#27AE60":BRAND.oroD,margin:"0 0 4px"}}>
+                        🎯 Imposta il tuo Punto di Break Even ({costiAnno})
+                      </p>
+                      <p style={{fontSize:12,color:"#888",margin:"0 0 10px"}}>
+                        {isManuale?"✓ Valore impostato manualmente":"⚠ Non impostato — uso il valore automatico (preventivo/consuntivo)"}
+                      </p>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                        <span style={{fontSize:22,fontWeight:700,color:isManuale?"#27AE60":"#888"}}>€</span>
+                        <input
+                          type="number" min="0" step="1000"
+                          style={{fontSize:32,fontWeight:700,border:"none",borderBottom:`2px solid ${isManuale?"#27AE60":"#ddd"}`,background:"transparent",color:isManuale?"#27AE60":"#888",outline:"none",fontFamily:"inherit",padding:"4px 0",width:240,textAlign:"left"}}
+                          value={beManualeAnno||""}
+                          placeholder={fmt(Math.round(autoRif))}
+                          onChange={e=>setBEManuale(e.target.value)}
+                          disabled={isReadOnly}
+                        />
+                        {isManuale&&!isReadOnly&&<button onClick={()=>setBEManuale(0)} style={{fontSize:11,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fafaf8",color:"#888",cursor:"pointer",fontFamily:"inherit"}}>✕ Azzera</button>}
+                      </div>
+                      {!isReadOnly&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+                        <button onClick={()=>setBEManuale(Math.round(totPrevAnnuo))} style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px solid #4A90D9",background:"#EAF4FB",color:"#0C447C",cursor:totPrevAnnuo===0?"not-allowed":"pointer",fontFamily:"inherit",opacity:totPrevAnnuo===0?0.4:1}} disabled={totPrevAnnuo===0}>
+                          Usa preventivo: € {fmt(Math.round(totPrevAnnuo))}
+                        </button>
+                        {totConsuntivo>0&&<button onClick={()=>setBEManuale(Math.round(totConsuntivo))} style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px solid #E67E22",background:"#FEF0E0",color:"#E67E22",cursor:"pointer",fontFamily:"inherit"}}>
+                          Usa consuntivo: € {fmt(Math.round(totConsuntivo))}
+                        </button>}
+                      </div>}
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0,minWidth:180}}>
+                      <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>{puntoBELabel}</p>
+                      <p style={{fontSize:13,color:"#aaa",margin:0}}>€ {fmt(Math.round(costoMensile))}<span style={{fontSize:11}}>/mese</span></p>
+                      <div style={{marginTop:10,padding:"8px 10px",background:"#fafaf8",borderRadius:6,fontSize:11,lineHeight:1.6,textAlign:"left"}}>
+                        <div style={{color:"#888",fontWeight:600,marginBottom:3}}>📊 Riferimenti automatici</div>
+                        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#888"}}>Preventivo:</span><strong style={{color:"#2980B9"}}>€ {fmt(Math.round(totPrevAnnuo))}</strong></div>
+                        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#888"}}>Consuntivo:</span><strong style={{color:totConsuntivo>0?"#E67E22":"#ccc"}}>€ {fmt(Math.round(totConsuntivo))}</strong></div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* ── BOX 2: QUOTA AGENZIA TOTALE vs BE ── */}
+                {/* BOX 2: QUOTA AGENZIA TOTALE vs BE */}
                 <div style={{background:"#fff",borderRadius:12,border:`1.5px solid ${beRaggiuntoTot?"#27AE60":"#E74C3C"}`,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
                     <div>
@@ -2945,30 +2992,27 @@ export default function App() {
                       <div style={{fontSize:11,color:"#aaa"}}>del break even</div>
                     </div>
                   </div>
-                  {/* Barra principale */}
                   <div style={{height:18,background:"#f0f0f0",borderRadius:9,overflow:"hidden",position:"relative",marginBottom:8}}>
                     <div style={{height:"100%",width:`${percTot}%`,background:beRaggiuntoTot?"#27AE60":"linear-gradient(90deg,#E74C3C,#C0392B)",borderRadius:9,transition:"width .6s ease",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:8}}>
                       {percTot>15&&<span style={{fontSize:11,fontWeight:600,color:"#fff"}}>€ {fmt(quotaAgTot)}</span>}
                     </div>
-                    {/* Linea BE */}
-                    <div style={{position:"absolute",top:0,bottom:0,left:"100%",width:2,background:"#2C2C2C",opacity:.3}}/>
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888"}}>
-                    <span>Break Even: <strong style={{color:"#E74C3C"}}>€ {fmt(puntoBE)}</strong></span>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888",flexWrap:"wrap",gap:6}}>
+                    <span>Break Even: <strong style={{color:isManuale?"#27AE60":"#E74C3C"}}>€ {fmt(puntoBE)}</strong> {isManuale&&<span style={{fontSize:10,color:"#27AE60"}}>(manuale)</span>}</span>
                     {beRaggiuntoTot
                       ?<span style={{color:"#27AE60",fontWeight:600}}>✅ Break Even raggiunto! Utile: +€ {fmt(quotaAgTot-puntoBE)}</span>
-                      :<span style={{color:"#E74C3C",fontWeight:500}}>⚠ Mancano: <strong>€ {fmt(puntoBE-quotaAgTot)}</strong></span>}
+                      :puntoBE>0?<span style={{color:"#E74C3C",fontWeight:500}}>⚠ Mancano: <strong>€ {fmt(puntoBE-quotaAgTot)}</strong></span>:<span style={{color:"#aaa"}}>Imposta il BE per vedere il progresso</span>}
                   </div>
                 </div>
 
-                {/* ── BOX 3: SITUAZIONE CASSA + PROIEZIONE ── */}
+                {/* BOX 3: SITUAZIONE CASSA + PROIEZIONE */}
                 <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
                   <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>✅ Situazione cassa e proiezione</p>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:"1rem"}}>
                     <div style={{background:"#E9F7EF",borderRadius:8,padding:"12px 14px"}}>
                       <div style={{fontSize:11,color:"#27AE60",fontWeight:500,marginBottom:4}}>Incassato oggi</div>
                       <div style={{fontSize:22,fontWeight:700,color:"#27AE60"}}>€ {fmt(quotaAgInc)}</div>
-                      <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{meseInc} mesi di costi coperti</div>
+                      <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{puntoBE>0?`${meseInc} mesi di costi coperti`:"—"}</div>
                     </div>
                     <div style={{background:"#EAF4FB",borderRadius:8,padding:"12px 14px"}}>
                       <div style={{fontSize:11,color:"#2980B9",fontWeight:500,marginBottom:4}}>Da incassare (già tuoi)</div>
@@ -2976,9 +3020,8 @@ export default function App() {
                       <div style={{fontSize:11,color:"#aaa",marginTop:2}}>Clienti che devono ancora pagare</div>
                     </div>
                   </div>
-                  {/* Barra incassato + da incassare */}
                   <div style={{marginBottom:8}}>
-                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:4}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:4,flexWrap:"wrap",gap:6}}>
                       <span>Incassato: <strong style={{color:"#27AE60"}}>€ {fmt(quotaAgInc)}</strong> + Da incassare: <strong style={{color:"#2980B9"}}>€ {fmt(quotaAgDaInc)}</strong></span>
                       <span>BE: <strong>€ {fmt(puntoBE)}</strong></span>
                     </div>
@@ -2986,14 +3029,13 @@ export default function App() {
                       <div style={{height:"100%",width:`${percInc}%`,background:"#27AE60",transition:"width .6s ease"}}/>
                       <div style={{height:"100%",width:`${Math.min(100-percInc,Math.max(0,percTot-percInc))}%`,background:"#2980B9",opacity:.7,transition:"width .6s ease"}}/>
                     </div>
-                    <div style={{display:"flex",gap:12,marginTop:4,fontSize:10,color:"#aaa"}}>
+                    <div style={{display:"flex",gap:12,marginTop:4,fontSize:10,color:"#aaa",flexWrap:"wrap"}}>
                       <span style={{color:"#27AE60"}}>■ Incassato {percInc}%</span>
                       <span style={{color:"#2980B9"}}>■ Da incassare {Math.max(0,percTot-percInc)}%</span>
                       <span>□ Mancante {Math.max(0,100-percTot)}%</span>
                     </div>
                   </div>
-                  {/* Analisi mesi */}
-                  <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",marginTop:8}}>
+                  {puntoBE>0&&<div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",marginTop:8}}>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,fontSize:12}}>
                       <div style={{textAlign:"center"}}>
                         <div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Costo mensile</div>
@@ -3020,28 +3062,22 @@ export default function App() {
                         ⚠ Anche considerando i crediti da incassare, la quota agenzia non copre ancora le spese del periodo. Mancano: € {fmt(Math.round(costoMensile*meseCoperti-quotaAgTot))}
                       </div>
                     )}
-                  </div>
+                  </div>}
                 </div>
 
-                {/* ── BOX 4: OBIETTIVI ── */}
+                {/* BOX 4: OBIETTIVI */}
                 {(()=>{
-                  // Obiettivo fatturato automatico = somma obiettivi fatturato agenti dall'anno selezionato
-                  // Gli obiettivi sono mensili, sommiamo su tutti i mesi dell'anno
                   const mesiAnno=Array.from({length:12},(_,i)=>`${costiAnno}-${String(i+1).padStart(2,"0")}`);
                   const obFattAutoPerAgente=agenti.map(ag=>{
-                    // Prendi il massimo obiettivo mensile impostato per quell'agente nell'anno
                     const obMesi=mesiAnno.map(m=>{
                       const ob=(obiettiviOp[ag.id]||{})[m]||{};
                       const proposti=ob.proposti||ob||{};
                       return Number(proposti.fatturato||proposti.fatturatoBruto||0);
                     });
-                    // Se hanno impostato un obiettivo mensile fatturato, moltiplica x12
-                    // Altrimenti non lo contiamo
                     const maxOb=Math.max(...obMesi);
                     return maxOb>0?maxOb*12:0;
                   });
                   const obFattTeamAuto=obFattAutoPerAgente.reduce((s,v)=>s+v,0);
-                  // Usa automatico se disponibile, altrimenti manuale
                   const obFattEffettivo=obFattTeamAuto>0?obFattTeamAuto:obiettivoFatturato;
                   const fattLordo=vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
                   const percFatt=obFattEffettivo>0?Math.min(100,Math.round(fattLordo/obFattEffettivo*100)):0;
@@ -3050,7 +3086,6 @@ export default function App() {
                   return(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem"}}>
                     <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>🎯 Obiettivi annuali {costiAnno}</p>
 
-                    {/* Obiettivo fatturato — automatico da somma agenti */}
                     <div style={{marginBottom:"1rem",padding:"10px 14px",background:"#FDFBF7",borderRadius:8,border:"0.5px solid #e8e5e0"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}}>
                         <div>
@@ -3062,7 +3097,7 @@ export default function App() {
                         <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>€ {fmt(obFattEffettivo||0)}</span>
                       </div>
                       {obFattTeamAuto>0&&<div style={{fontSize:11,color:"#aaa",marginBottom:8}}>
-                        Somma obiettivi: {agenti.filter((_,i)=>obFattAutoPerAgente[i]>0).map((a,i)=>`${a.nome}: € ${fmt(obFattAutoPerAgente[agenti.indexOf(a)])}`).join(" · ")}
+                        Somma obiettivi: {agenti.filter((_,i)=>obFattAutoPerAgente[i]>0).map(a=>`${a.nome}: € ${fmt(obFattAutoPerAgente[agenti.indexOf(a)])}`).join(" · ")}
                       </div>}
                       {obFattTeamAuto===0&&<div style={{marginBottom:8}}>
                         <input type="number" style={{...S.inp,margin:0}} value={obiettivoFatturato||""} placeholder="es. 300.000" onChange={e=>{if(isReadOnly)return;setObiettivoFatturato(Number(e.target.value))}}/>
@@ -3079,7 +3114,6 @@ export default function App() {
                       </>)}
                     </div>
 
-                    {/* Obiettivo quota agenzia — sempre manuale */}
                     <div style={{padding:"10px 14px",background:"#FDFBF7",borderRadius:8,border:"0.5px solid #e8e5e0"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}}>
                         <div>
@@ -3088,7 +3122,7 @@ export default function App() {
                         </div>
                         {obiettivoQuotaAgenzia>0&&<span style={{fontSize:18,fontWeight:700,color:percQuota>=100?"#27AE60":"#E67E22"}}>€ {fmt(obiettivoQuotaAgenzia)}</span>}
                       </div>
-                      <input type="number" style={{...S.inp,margin:"0 0 8px"}} value={obiettivoQuotaAgenzia||""} placeholder={`es. ${fmt(Math.round(puntoBE*1.2))} (BE + 20% utile)`} onChange={e=>{if(isReadOnly)return;setObiettivoQuotaAgenzia(Number(e.target.value))}}/>
+                      <input type="number" style={{...S.inp,margin:"0 0 8px"}} value={obiettivoQuotaAgenzia||""} placeholder={puntoBE>0?`es. ${fmt(Math.round(puntoBE*1.2))} (BE + 20% utile)`:"es. 240.000"} onChange={e=>{if(isReadOnly)return;setObiettivoQuotaAgenzia(Number(e.target.value))}}/>
                       {obiettivoQuotaAgenzia>0&&(<>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:3}}>
                           <span>Quota agenzia attuale: € {fmt(quotaAgTot)}</span>
@@ -3107,7 +3141,6 @@ export default function App() {
               </>);
             })()}
           </div>)}
-
 
           {/* ── TAB COSTI — Gestione voci ── */}
           {tab==="Costi"&&isReadOnly&&(()=>{
@@ -3194,13 +3227,20 @@ export default function App() {
           })()}
           {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
+            // Determino da quale anno arrivano DAVVERO le categorie (fallback ad anno più recente)
+            let annoPrevisionale=annoC;
             const catAnnoC=(()=>{
               const byAnno=catCosti.filter(x=>String(x.anno)===annoC&&!x.agentId);
               if(byAnno.length>0) return byAnno;
               // fallback: usa anno più recente disponibile
               const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
-              return anni.length>0?catCosti.filter(x=>x.anno===anni[0]&&!x.agentId):[];
+              if(anni.length>0){
+                annoPrevisionale=String(anni[0]);
+                return catCosti.filter(x=>x.anno===anni[0]&&!x.agentId);
+              }
+              return [];
             })();
+            const isPrevAnnoPrec=annoPrevisionale!==annoC;
             const speseAnnoC=speseCosti[annoC]||[];
             const oggi6=todayStr();
             const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
@@ -3221,6 +3261,7 @@ export default function App() {
                 <div>
                   <h2 style={{fontSize:16,fontWeight:600,margin:0,color:BRAND.grigio}}>💰 Costi Agenzia</h2>
                   <div style={{fontSize:12,color:"#888",marginTop:3}}>Anno {annoC} — spese reali vs previsionale</div>
+                  {isPrevAnnoPrec&&<div style={{fontSize:11,color:"#A8863A",marginTop:4,padding:"3px 8px",background:"#FDF6EC",borderRadius:4,display:"inline-block",border:"0.5px solid #C9A96E44"}}>📅 Previsionale di riferimento: anno {annoPrevisionale} (categorie {annoC} non ancora configurate)</div>}
                 </div>
                 <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                   <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
@@ -3233,7 +3274,7 @@ export default function App() {
               {/* KPI */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.5rem"}}>
                 {[
-                  ["Previsionale anno","€ "+fmt(Math.round(totPrev)),"#E74C3C",null,"da Impostazioni → Categorie"],
+                  ["Previsionale "+(isPrevAnnoPrec?annoPrevisionale:"anno"),"€ "+fmt(Math.round(totPrev)),"#E74C3C",null,isPrevAnnoPrec?"da anno "+annoPrevisionale+" (fallback)":"da Impostazioni → Categorie"],
                   ["Speso YTD","€ "+fmt(Math.round(totSpeso)),"#E67E22",percSpeso,percSpeso!=null?percSpeso+"% del previsionale":""],
                   ["Fissi / mese","€ "+fmt(Math.round(catAnnoC.filter(c=>c.tipo==="fisso").reduce((s,c)=>s+Number(c.totaleAnno||0),0)/12)),"#185FA5",null,"stima mensile"],
                   ["Rimanente","€ "+fmt(Math.max(0,Math.round(totPrev-totSpeso))),"#27AE60",null,"previsionale non ancora speso"],
