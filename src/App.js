@@ -4620,6 +4620,21 @@ export default function App() {
                   const inpNum={width:48,padding:"6px 4px",fontSize:14,fontWeight:600,border:`1px solid ${BRAND.oro}66`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.grigio,outline:"none"};
                   const inpNumGrande={width:60,padding:"7px 6px",fontSize:16,fontWeight:700,border:`1.5px solid ${BRAND.oro}88`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.oroD,outline:"none"};
 
+                  // ── CHECK DI SICUREZZA ──
+                  // Se non riusciamo a determinare un agente valido, mostra messaggio invece di crashare
+                  if(!agIdSel||!agSel){
+                    return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
+                      <p style={{fontSize:18,marginBottom:8,color:BRAND.grigio,fontWeight:600}}>👤 Seleziona un agente</p>
+                      <p style={{fontSize:13,color:"#aaa",marginBottom:20}}>Per visualizzare la giornata operativa serve un agente di riferimento.</p>
+                      {(isBroker||isBackOffice)&&<select style={{...S.sel,fontSize:14,padding:"8px 14px",minWidth:220}} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="">— Seleziona —</option>
+                        {myAgentId&&<option value="self">🏠 I miei dati</option>}
+                        {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                      </select>}
+                      {!isBroker&&!isBackOffice&&!myAgentId&&<p style={{fontSize:12,color:"#E74C3C",marginTop:12,padding:"8px 14px",background:"#FDECEA",borderRadius:6,display:"inline-block"}}>⚠️ Il tuo utente non è associato a un agente. Contatta il broker per la configurazione.</p>}
+                    </div>);
+                  }
+
                   return(<>
                     {/* Selettore data e agente (broker può scegliere se stesso o altri) */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
