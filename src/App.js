@@ -842,13 +842,13 @@ export default function App() {
         if(data.mirino) setMirino(data.mirino);
         if(data.fasiConfig) setFasiConfig(data.fasiConfig);
         if(data.emailLog) setEmailLog(data.emailLog);
-        if(data.catCosti) setCatCosti(data.catCosti);
-        if(data.speseCosti) setSpeseCosti(data.speseCosti);
+        if(data.catCosti&&data.catCosti.length>0) setCatCosti(data.catCosti);
+        if(data.speseCosti&&Object.keys(data.speseCosti).length>0) setSpeseCosti(data.speseCosti);
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
-        if(data.catCosti) setCatCosti(data.catCosti);
-        if(data.speseCosti) setSpeseCosti(data.speseCosti);
+        if(data.catCosti&&data.catCosti.length>0) setCatCosti(data.catCosti);
+        if(data.speseCosti&&Object.keys(data.speseCosti).length>0) setSpeseCosti(data.speseCosti);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
@@ -3352,9 +3352,9 @@ export default function App() {
             ];
             // Categorie agente: filtro per agentId e anno
             const keyAg=`ag_${agId6}`;
-            const catAgAll=catCosti.filter(c=>c.agentId===agId6||(!c.agentId&&!c.isAgency));
+            const catAgAll=catCosti.filter(c=>String(c.agentId)===String(agId6)||(!c.agentId&&!c.isAgency));
             // Se non ha categorie proprie, usa default
-            const catAgAnno=catCosti.filter(c=>c.agentId===agId6&&String(c.anno)===annoC);
+            const catAgAnno=catCosti.filter(c=>String(c.agentId)===String(agId6)&&String(c.anno)===annoC);
             const hasCat=catAgAnno.length>0;
             const speseAgAnno=(speseCosti[`${agId6}_${annoC}`]||[]);
             const oggi7=todayStr();
@@ -3368,14 +3368,17 @@ export default function App() {
             const updCatAg=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
             const delCatAg=(id)=>{if(window.confirm("Eliminare categoria?"))setCatCosti(prev=>prev.filter(c=>c.id!==id));};
             const initCatAg=()=>{
-              CAT_AG_DEFAULT.forEach(cat=>{
-                const id="ag_"+agId6+"_"+cat.id+"_"+annoC;
-                setCatCosti(prev=>[...prev,{...cat,id,agentId:agId6,anno:Number(annoC)}]);
-              });
+              const nuove=CAT_AG_DEFAULT.map(cat=>({
+                ...cat,
+                id:"ag_"+String(agId6)+"_"+cat.id+"_"+annoC,
+                agentId:agId6,
+                anno:Number(annoC)
+              }));
+              setCatCosti(prev=>[...prev,...nuove]);
             };
             const copiaAnnoAg=()=>{
               const nextAnno=Number(annoC)+1;
-              const existing=catCosti.filter(c=>c.agentId===agId6&&c.anno===nextAnno);
+              const existing=catCosti.filter(c=>String(c.agentId)===String(agId6)&&Number(c.anno)===nextAnno);
               if(existing.length>0){if(!window.confirm(`Esistono già ${existing.length} categorie per ${nextAnno}. Sovrascrivere?`))return;}
               const nuove=catAgAnno.map(c=>({...c,id:c.id+"_"+nextAnno,anno:nextAnno,totaleAnno:0}));
               setCatCosti(prev=>[...prev.filter(c=>!(c.agentId===agId6&&c.anno===nextAnno)),...nuove]);
