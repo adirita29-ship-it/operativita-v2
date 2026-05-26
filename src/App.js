@@ -677,7 +677,13 @@ export default function App() {
   const [formSpesaCat,setFormSpesaCat]=useState({});
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
-  const [costiAnno,setCostiAnno]=useState(annoCorrente);
+  const [costiAnno,setCostiAnno]=useState(()=>{
+    // Parti dall'anno più recente con categorie, o annoCorrente
+    const ls=caricaLS();
+    const cats=ls?.catCosti||CAT_COSTI_DEFAULT;
+    const anni=[...new Set(cats.filter(x=>!x.agentId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
+    return anni.length>0?anni[0]:annoCorrente;
+  });
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
   const [costiBreakevenMode,setCostiBreakevenMode]=useState("fissi+variabili");
@@ -3202,8 +3208,10 @@ export default function App() {
               const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
               return anni.length>0?catCosti.filter(x=>String(x.anno)===anni[0]&&!x.agentId):[];
             })();
-            const annoSorgente=String(cats[0]?.anno||2025);
-            const spese=speseCosti[annoC]||[];
+            const annoSorgente=String(cats[0]?.anno||annoC);
+            // Usa l'anno sorgente per le spese se non ci sono categorie per l'anno selezionato
+            const annoSpese=cats.length>0&&cats[0]?.anno&&String(cats[0].anno)!==annoC?annoSorgente:annoC;
+            const spese=speseCosti[annoSpese]||[];
             const oggi=todayStr();
             const sposoX=(catId)=>spese.filter(s=>s.catId===catId).reduce((t,s)=>t+Number(s.importo||0),0);
             const catFissi=cats.filter(x=>x.tipo==="fisso");
@@ -3350,7 +3358,6 @@ export default function App() {
             const annoC=costiAnno||annoCorrente;
             const annoNum=Number(annoC);
             const ag=agenti.find(a=>String(a.id)===agId);
-            const keyAnno=agId+"_"+annoC;
             const spese=speseCosti[keyAnno]||[];
             const ANNI_AG=[...new Set(catCosti.filter(x=>String(x.agentId)===agId).map(x=>String(x.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
             const cats=(()=>{
@@ -3360,6 +3367,9 @@ export default function App() {
               return anni.length>0?catCosti.filter(x=>String(x.agentId)===agId&&String(x.anno)===anni[0]):[];
             })();
             const hasCat=cats.length>0;
+            const annoSorgenteAg=String(cats[0]?.anno||annoC);
+            const annoSpeseAg=cats.length>0&&cats[0]?.anno&&String(cats[0].anno)!==annoC?annoSorgenteAg:annoC;
+            const keyAnno=agId+"_"+(hasCat?annoSpeseAg:annoC);
             const oggi=todayStr();
             const sposoX=(catId)=>spese.filter(s=>s.catId===catId).reduce((t,s)=>t+Number(s.importo||0),0);
             const catFissi=cats.filter(x=>x.tipo==="fisso");
