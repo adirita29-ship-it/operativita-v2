@@ -745,7 +745,13 @@ export default function App() {
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
   const _ls = caricaLS();
   // Default tab: gli agenti aprono direttamente "Operatività" (sub-tab Oggi); broker/back office/coach aprono "Dashboard"
-  const _ruoloIniziale = _ls?.utente?.ruolo;
+  // Il ruolo va letto dall'utente loggato in sessionStorage (chiave "casa_utente")
+  const _ruoloIniziale = (()=>{
+    try{
+      const u=sessionStorage.getItem("casa_utente");
+      return u?JSON.parse(u)?.ruolo:null;
+    }catch(e){return null;}
+  })();
   const _tabIniziale = (_ruoloIniziale==="Consulente"||_ruoloIniziale==="Collaboratore"||_ruoloIniziale==="Agente") ? "Operatività" : "Dashboard";
   const [tab,setTab]=useState(_tabIniziale);
   const [dbLoaded,setDbLoaded]=useState(false);
@@ -4671,7 +4677,7 @@ export default function App() {
                     {/* ====== AZIONI OGGI ====== */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                       <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni oggi</h3>
-                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>le leve · 💡 = consigliato</span>
+                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>💡 = suggerito · clicca per impostare</span>
                     </div>
 
                     {/* Legenda colonne (compatta, una sola volta) */}
