@@ -1508,22 +1508,19 @@ export default function App() {
                 if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
                 return s+q;
               },0);
-              const incassatoAgente = myVendAnno.reduce((s,v)=>{
-                let q=0;
-                if(Number(v.agenteListing)===myAgentId) q+=calcolaIncassatoV(v)*Number(v.percListing||0)/100;
-                if(Number(v.agenteAcquirente)===myAgentId) q+=calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100;
-                return s+q;
+              // QUOTA INCASSATA = quanto l'agenzia ha effettivamente pagato all'agente
+              // Si legge da pagamentiFatture (tab Fatture Agenti → bottone Pagamento)
+              // key = v.id + "_" + myAgentId (stessa key usata in fatturaDati)
+              const incassatoAgente = myVendTutti.reduce((s,v)=>{
+                const key=`${v.id}_${myAgentId}`;
+                const pag=pagamentiFatture[key]||{};
+                return s+Number(pag.importoPagato||0);
               },0);
-              const incassatoBuyer = myVendAnno.reduce((s,v)=>{
-                let q=0;
-                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100;
-                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=calcolaIncassatoA(v)*Number(v.percBuyer||0)/100;
-                return s+q;
-              },0);
-              const totIncassato = incassatoAgente + incassatoBuyer;
-              const daIncAssAgente = Math.max(0, quotaAgente - incassatoAgente);
-              const daIncAssBuyer = Math.max(0, quotaBuyer - incassatoBuyer);
-              const totDaInc = daIncAssAgente + daIncAssBuyer;
+              const incassatoBuyer = 0; // incluso in importoPagato sopra
+              const totIncassato = incassatoAgente;
+              const daIncAssAgente = Math.max(0, quotaAgente - totIncassato);
+              const daIncAssBuyer = Math.max(0, quotaBuyer);
+              const totDaInc = Math.max(0, totMaturato - totIncassato);
               const totMaturato = quotaAgente + quotaBuyer;
 
               // Quota agente SOLO su produzione anno corrente (esclude pratiche anno prec.)
