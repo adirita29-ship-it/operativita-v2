@@ -1019,29 +1019,21 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
       if(window._gestionaleSalvato)window._gestionaleSalvato();
-      console.log("[SAVE] catCosti length:", payload.catCosti?.length, "agente cats:", payload.catCosti?.filter(x=>x.agentId)?.length);
       salvaDB(payload).finally(()=>{
         setDbSaving(false);
         // Rinnova il guard dopo il salvataggio completato
         if(window._gestionaleSalvato)window._gestionaleSalvato();
       });
-    },1500); // debounce 1500ms - da tempo a React di propagare
+    },2000); // debounce 2000ms
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,dbLoaded]);
 
-  // useEffect separato per catCosti e speseCosti - usa merge per non sovrascrivere
-  useEffect(()=>{
-    if(!dbLoaded) return;
-    const t=setTimeout(()=>{
-      salvaDBCosti(catCosti, speseCosti);
-    },1000);
-    return ()=>clearTimeout(t);
-  },[catCosti,speseCosti,dbLoaded]);
+
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
@@ -3368,7 +3360,7 @@ export default function App() {
 
           {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
           {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
-            const agId6=myAgentId;
+            const agId6=utente?.agentId||myAgentId; // sempre l'ID dell'agente loggato, non del target coach
             const annoC=costiAnno||annoCorrente;
             const CAT_AG_DEFAULT=[
               {id:"ag1",nome:"Carburante",totaleAnno:0,tipo:"variabile"},
