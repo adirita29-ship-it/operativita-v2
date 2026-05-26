@@ -46,6 +46,22 @@ const salvaDB = async (data) => {
   } catch(e){ console.error("Errore salvataggio Supabase:", e); }
 };
 
+// Salva solo catCosti e speseCosti con merge
+const salvaDBCosti = async (catCosti, speseCosti) => {
+  try {
+    // Leggi prima il record attuale
+    const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`, {
+      headers: {"apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`}
+    });
+    const rows = await res.json();
+    const current = rows?.[0]?.data || {};
+    // Fai merge: mantieni tutto il resto, aggiorna solo catCosti e speseCosti
+    const merged = {...current, catCosti, speseCosti};
+    await supaFetch("PATCH", {data: merged, updated_at: new Date().toISOString()});
+    console.log("[COSTI SAVED] catCosti:", catCosti.length, "agente:", catCosti.filter(x=>x.agentId).length);
+  } catch(e){ console.error("Errore salvataggio costi:", e); }
+};
+
 const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
 const MESI_NOMI = ["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const TAB_CONFIG = [
@@ -1003,7 +1019,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -1016,7 +1032,16 @@ export default function App() {
       });
     },1500); // debounce 1500ms - da tempo a React di propagare
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,dbLoaded]);
+
+  // useEffect separato per catCosti e speseCosti - usa merge per non sovrascrivere
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    const t=setTimeout(()=>{
+      salvaDBCosti(catCosti, speseCosti);
+    },1000);
+    return ()=>clearTimeout(t);
+  },[catCosti,speseCosti,dbLoaded]);
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
   const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
