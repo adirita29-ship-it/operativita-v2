@@ -1512,14 +1512,14 @@ export default function App() {
               // Si legge da pagamentiFatture (tab Fatture Agenti → bottone Pagamento)
               // key = v.id + "_" + myAgentId (stessa key usata in fatturaDati)
               const incassatoAgente = myVendTutti.reduce((s,v)=>{
-                const key=`${v.id}_${myAgentId}`;
+                const key=String(v.id)+"_"+String(myAgentId);
                 const pag=pagamentiFatture[key]||{};
                 return s+Number(pag.importoPagato||0);
               },0);
               const incassatoBuyer = 0; // incluso in importoPagato sopra
               const totIncassato = incassatoAgente;
               const daIncAssAgente = Math.max(0, quotaAgente - totIncassato);
-              const daIncAssBuyer = Math.max(0, quotaBuyer);
+              const daIncAssBuyer = Math.max(0, quotaBuyer - 0);
               const totDaInc = Math.max(0, totMaturato - totIncassato);
               const totMaturato = quotaAgente + quotaBuyer;
 
