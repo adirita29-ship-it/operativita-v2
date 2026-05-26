@@ -3541,7 +3541,7 @@ export default function App() {
                     const expanded=costiCatExpand[cat.id];
                     return(<div key={cat.id}>
                       <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
-                        style={{display:"flex",alignItems:"center",padding:"10px 0",cursor:"pointer",borderBottom:"0.5px solid #f5f5f5",gap:8}}>
+                        style={{display:"flex",alignItems:"center",padding:"10px 16px",cursor:"pointer",borderBottom:"0.5px solid #f5f5f5",gap:8}}>
                         <span style={{fontSize:12,color:"#aaa",flexShrink:0}}>▶</span>
                         <span style={{flex:1,fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
                         {over&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:6,background:"#FDECEA",color:"#E74C3C",fontWeight:600}}>⚠</span>}
@@ -3555,7 +3555,7 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-                      {expanded&&<div style={{background:"#fafaf8",padding:"8px 0 8px 16px",borderBottom:"0.5px solid #f0f0f0"}}>
+                      {expanded&&<div style={{background:"#fafaf8",padding:"8px 16px 8px 32px",borderBottom:"0.5px solid #f0f0f0"}}>
                         {spese.length===0&&<p style={{fontSize:12,color:"#bbb",fontStyle:"italic",margin:"4px 0"}}>Nessuna spesa inserita</p>}
                         {spese.map(sp=>(
                           <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid #f8f8f8"}}>
@@ -3577,7 +3577,7 @@ export default function App() {
                   return(<>
                     {/* FISSI */}
                     {catFissiAg.length>0&&<div style={{marginBottom:12}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #185FA5",marginBottom:4}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",borderBottom:"2px solid #185FA5",marginBottom:4}}>
                         <span style={{fontSize:12,fontWeight:700,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em"}}>📌 Fissi</span>
                         <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong style={{color:"#185FA5"}}>€ {fmt(catFissiAg.reduce((s,c)=>s+Number(c.totaleAnno||0),0))}</strong> · Speso: <strong style={{color:"#185FA5"}}>€ {fmt(catFissiAg.reduce((s,cat)=>s+speseByCatAg(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0))}</strong></span>
                       </div>
@@ -3585,7 +3585,7 @@ export default function App() {
                     </div>}
                     {/* VARIABILI */}
                     {catVariAg.length>0&&<div style={{marginBottom:12}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #533AB7",marginBottom:4}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",borderBottom:"2px solid #533AB7",marginBottom:4}}>
                         <span style={{fontSize:12,fontWeight:700,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em"}}>📊 Variabili</span>
                         <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: <strong style={{color:"#533AB7"}}>€ {fmt(catVariAg.reduce((s,c)=>s+Number(c.totaleAnno||0),0))}</strong> · Speso: <strong style={{color:"#533AB7"}}>€ {fmt(catVariAg.reduce((s,cat)=>s+speseByCatAg(cat.id).reduce((a,x)=>a+Number(x.importo||0),0),0))}</strong></span>
                       </div>
