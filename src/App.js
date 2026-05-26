@@ -676,14 +676,7 @@ export default function App() {
   const [costiCatExpand,setCostiCatExpand]=useState({});
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
-  const [costiAnno,setCostiAnno]=useState(()=>{
-    try{
-      const ls=caricaLS();
-      const cats=ls?.catCosti||CAT_COSTI_DEFAULT;
-      const anni=[...new Set(cats.filter(x=>!x.agentId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
-      return anni.length>0?anni[0]:annoCorrente;
-    }catch(e){return annoCorrente;}
-  });
+  const [costiAnno,setCostiAnno]=useState("2025");
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
   const [costiBreakevenMode,setCostiBreakevenMode]=useState("fissi+variabili");
