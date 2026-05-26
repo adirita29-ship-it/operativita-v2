@@ -63,6 +63,111 @@ const salvaDBCosti = async (catCosti, speseCosti) => {
 };
 
 const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
+
+// 90 frasi motivazionali — mix di citazioni di coach immobiliari, vendita, mindset e crescita personale
+const FRASI_MOTIVAZIONALI=[
+  {t:"Il segreto del successo è iniziare. Inizia oggi quello che vuoi essere domani.",a:"Mark Twain"},
+  {t:"Le persone non comprano quello che fai, comprano il perché lo fai.",a:"Simon Sinek"},
+  {t:"Non vendiamo case, costruiamo relazioni che durano nel tempo.",a:"Anonimo"},
+  {t:"Ogni no ti avvicina al prossimo sì. Continua a chiamare.",a:"Anonimo"},
+  {t:"I top producer non sono più talentuosi, semplicemente fanno più telefonate.",a:"Mike Ferry"},
+  {t:"Il tuo network è il tuo net worth.",a:"Tim Sanders"},
+  {t:"La differenza tra ordinario e straordinario è quel piccolo extra.",a:"Jimmy Johnson"},
+  {t:"Non rincorrere il successo, attirelo diventando una persona di valore.",a:"Jim Rohn"},
+  {t:"Il mercato premia chi è costantemente presente, non chi è occasionalmente brillante.",a:"Tom Ferry"},
+  {t:"La qualità della tua giornata dipende dalla qualità delle tue prime due ore.",a:"Brian Buffini"},
+  {t:"Acquisire è il cuore del nostro mestiere. Tutto il resto è conseguenza.",a:"Anonimo"},
+  {t:"Chi non pianifica, pianifica di fallire.",a:"Benjamin Franklin"},
+  {t:"Il follow-up è dove si fanno i soldi nel real estate.",a:"Gary Keller"},
+  {t:"Sii sempre il primo a chiamare, l'ultimo a mollare.",a:"Anonimo"},
+  {t:"L'agente di successo fa quello che gli agenti mediocri evitano.",a:"Tom Hopkins"},
+  {t:"Il talento è un mito. La disciplina quotidiana è la verità.",a:"Anonimo"},
+  {t:"Non aspettare il momento giusto. Crealo.",a:"George Bernard Shaw"},
+  {t:"Le abitudini di oggi sono i risultati di domani.",a:"James Clear"},
+  {t:"Vendere è trasferire emozione e fiducia, non solo informazione.",a:"Zig Ziglar"},
+  {t:"I clienti non ricordano cosa hai detto, ma come li hai fatti sentire.",a:"Maya Angelou"},
+  {t:"Una chiamata in più al giorno significa 250 chiamate in più all'anno.",a:"Anonimo"},
+  {t:"Più semini, più raccogli. Senza scorciatoie.",a:"Anonimo"},
+  {t:"Il tempo che passi sui clienti passati è l'investimento migliore che puoi fare.",a:"Brian Buffini"},
+  {t:"La differenza la fa chi richiama anche quando non sembra urgente.",a:"Anonimo"},
+  {t:"Sii brillante nelle fondamenta. Le cose semplici fatte bene battono le cose complicate fatte male.",a:"Tom Ferry"},
+  {t:"Non puoi controllare il mercato, ma puoi controllare le tue azioni.",a:"Anonimo"},
+  {t:"Ogni acquisizione inizia con una conversazione. Inizia tu, oggi.",a:"Anonimo"},
+  {t:"Chi vuole risultati straordinari deve accettare azioni quotidiane ordinarie.",a:"Robin Sharma"},
+  {t:"Il valore di un agente si vede nei mesi difficili, non in quelli facili.",a:"Anonimo"},
+  {t:"Coltiva il database come un orto: ogni giorno un po', non solo quando hai fame.",a:"Anonimo"},
+  {t:"Sii la persona che la tua zona pensa quando dice 'casa'.",a:"Anonimo"},
+  {t:"Non sei pagato per la difficoltà del lavoro, ma per il valore che porti.",a:"Jim Rohn"},
+  {t:"L'azione cura la paura. L'inazione la alimenta.",a:"Anonimo"},
+  {t:"Chi domina la propria agenda domina la propria vita.",a:"Anonimo"},
+  {t:"Un agente medio cerca clienti, un top agent costruisce reputazione.",a:"Tom Ferry"},
+  {t:"Le proposte non arrivano per fortuna, arrivano per processo.",a:"Anonimo"},
+  {t:"Concentrati sulla causa, il risultato seguirà.",a:"Anonimo"},
+  {t:"Il modo in cui fai una cosa è il modo in cui fai tutte le cose.",a:"Tom Hopkins"},
+  {t:"Niente di buono accade nella tua zona di comfort.",a:"Anonimo"},
+  {t:"Le difficoltà preparano persone ordinarie a destini straordinari.",a:"C.S. Lewis"},
+  {t:"Quando smetti di imparare, smetti di crescere. Quando smetti di crescere, smetti di vendere.",a:"Anonimo"},
+  {t:"Il tuo prossimo cliente è una sola conversazione di distanza.",a:"Anonimo"},
+  {t:"L'opportunità è spesso vestita da lavoro duro.",a:"Thomas Edison"},
+  {t:"Vendere è servire. Chi serve meglio, vende di più.",a:"Anonimo"},
+  {t:"Ascolta più di quanto parli. Le orecchie chiudono più contratti della bocca.",a:"Anonimo"},
+  {t:"Sei la media delle 5 persone con cui passi più tempo. Scegli bene.",a:"Jim Rohn"},
+  {t:"Non temere chi è bravo, temi chi è costante.",a:"Anonimo"},
+  {t:"I problemi sono solo opportunità con i vestiti da lavoro.",a:"Henry Kaiser"},
+  {t:"Chi insegue due lepri non ne prende nessuna. Focalizzati.",a:"Proverbio"},
+  {t:"Il momento perfetto non esiste. Esiste il momento che cogli.",a:"Anonimo"},
+  {t:"La fortuna è quello che succede quando preparazione incontra opportunità.",a:"Seneca"},
+  {t:"Tratta ogni chiamata come se fosse la più importante della giornata.",a:"Anonimo"},
+  {t:"Un cliente soddisfatto è il miglior business plan che esista.",a:"Michael LeBoeuf"},
+  {t:"L'eccellenza non è un atto, è un'abitudine.",a:"Aristotele"},
+  {t:"Sii curioso del tuo cliente, non del tuo provvigionario.",a:"Anonimo"},
+  {t:"Chi smette di migliorarsi smette di essere buono.",a:"Oliver Cromwell"},
+  {t:"Le scuse non pagano l'affitto.",a:"Anonimo"},
+  {t:"Il duro lavoro batte il talento quando il talento non lavora duramente.",a:"Tim Notke"},
+  {t:"Investi in te stesso. È l'asset che renderà di più.",a:"Warren Buffett"},
+  {t:"Sii grato per ogni 'no'. Ti sta liberando per il prossimo 'sì'.",a:"Anonimo"},
+  {t:"Il futuro appartiene a chi crede nella bellezza dei propri sogni.",a:"Eleanor Roosevelt"},
+  {t:"Pianifica la settimana la domenica, vinci la settimana il lunedì.",a:"Anonimo"},
+  {t:"Tutti vogliono il risultato, pochi accettano il processo.",a:"Anonimo"},
+  {t:"Sii ossessionato dai tuoi clienti, non dai tuoi competitor.",a:"Jeff Bezos"},
+  {t:"Una promessa mantenuta vale più di cento dichiarazioni.",a:"Anonimo"},
+  {t:"L'immobiliare è un business di relazioni nascosto dentro un business di immobili.",a:"Anonimo"},
+  {t:"Chi parla semina, chi ascolta raccoglie.",a:"Proverbio"},
+  {t:"Le scorciatoie nel lungo periodo sono sempre la via più lunga.",a:"Anonimo"},
+  {t:"Sii la sveglia, non il sonno. Chiama tu, non aspettare.",a:"Anonimo"},
+  {t:"Non vendere mai per vendere. Vendi per risolvere.",a:"Anonimo"},
+  {t:"Il tuo nome è il tuo brand. Trattalo come la cosa più preziosa.",a:"Anonimo"},
+  {t:"Chi è disposto a fare un'ora in più batte chi punta solo sul talento.",a:"Anonimo"},
+  {t:"Il primo passo verso un grande risultato è decidere che lo vuoi davvero.",a:"Anonimo"},
+  {t:"L'umiltà attira clienti, l'arroganza li allontana.",a:"Anonimo"},
+  {t:"Sii ottimista informato, non illuso. Conosci i numeri, credi nelle persone.",a:"Anonimo"},
+  {t:"Il mercato cambia ogni mese, le abitudini vincenti restano per sempre.",a:"Anonimo"},
+  {t:"Fai oggi quello che gli altri non faranno, vivi domani come gli altri non potranno.",a:"Jerry Rice"},
+  {t:"Costruisci la tua giornata sulle azioni, non sulle aspettative.",a:"Anonimo"},
+  {t:"L'agente eccellente è prima di tutto un grande comunicatore.",a:"Anonimo"},
+  {t:"Sii il professionista che vorresti incontrare se tu fossi il cliente.",a:"Anonimo"},
+  {t:"Le obiezioni non sono rifiuti, sono richieste di chiarezza.",a:"Tom Hopkins"},
+  {t:"L'energia che metti oggi è il successo che incassi tra sei mesi.",a:"Anonimo"},
+  {t:"Resta affamato. Resta umile.",a:"Steve Jobs"},
+  {t:"Chi pianifica vince due volte: prima nella mente, poi nella realtà.",a:"Anonimo"},
+  {t:"Le abitudini sono la composizione capitalizzata del tuo carattere.",a:"James Clear"},
+  {t:"Non puntare a essere il migliore al mondo, punta a essere il migliore PER il tuo cliente.",a:"Anonimo"},
+  {t:"Il successo è la somma di piccoli sforzi ripetuti giorno dopo giorno.",a:"Robert Collier"},
+  {t:"Non si tratta di quante porte bussi, ma di quante volte ne bussi una.",a:"Anonimo"},
+  {t:"Sii più disciplinato dei tuoi sentimenti.",a:"Anonimo"},
+  {t:"L'attitudine è una piccola cosa che fa una grande differenza.",a:"Winston Churchill"},
+  {t:"Chi semina nel proprio territorio raccoglie referenze a vita.",a:"Anonimo"},
+  {t:"Il prezzo del successo è il duro lavoro, la dedizione, e la determinazione che vincerai.",a:"Vince Lombardi"},
+  {t:"Oggi è il primo giorno del resto della tua carriera.",a:"Anonimo"},
+];
+// Restituisce la frase del giorno (cambia ogni 24h, uguale per tutti gli agenti)
+const getFraseDelGiorno=()=>{
+  const oggi=new Date();
+  const inizio=new Date(oggi.getFullYear(),0,0);
+  const diff=oggi-inizio;
+  const giornoAnno=Math.floor(diff/(1000*60*60*24));
+  return FRASI_MOTIVAZIONALI[giornoAnno%FRASI_MOTIVAZIONALI.length];
+};
 const MESI_NOMI = ["","Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio","Agosto","Settembre","Ottobre","Novembre","Dicembre"];
 const TAB_CONFIG = [
   { id:"Dashboard",       icon:"⊞",  label:"Dashboard" },
@@ -721,8 +826,51 @@ export default function App() {
   const [operativita,setOperativita]=useState(_ls?.operativita||{});
   // Obiettivi operatività: {agentId: {"2026-05": {obiettivi mese...}}}
   const [obiettiviOp,setObiettiviOp]=useState(_ls?.obiettiviOp||{});
-  const [opSubTab,setOpSubTab]=useState("settimana");
+  const [opSubTab,setOpSubTab]=useState(_ls?.utente?.ruolo==="Broker"?"settimana":"oggi");
   const [opMainTab,setOpMainTab]=useState("attivita");
+  // === STATE per il nuovo sub-tab "Oggi" ===
+  // Catalogo Azioni (cause): 13 voci default, 4 gruppi
+  const CATALOGO_AZIONI_DEFAULT=[
+    {id:"chiam_prop", gruppo:"telefono", nome:"Chiamate proprietari", icona:"📞", attivo:true},
+    {id:"chiam_zona", gruppo:"telefono", nome:"Chiamate in zona", icona:"📞", attivo:true},
+    {id:"chiam_pass", gruppo:"telefono", nome:"Chiamate clienti passati", icona:"📞", attivo:true},
+    {id:"chiam_infl", gruppo:"telefono", nome:"Chiamate centri di influenza", icona:"📞", attivo:true},
+    {id:"chiam_priv", gruppo:"telefono", nome:"Chiamate privati / contatti caldi", icona:"📞", attivo:true},
+    {id:"follow_mirino", gruppo:"telefono", nome:"Follow-up contatti mirino", icona:"🎯", attivo:true},
+    {id:"lettere", gruppo:"scritto", nome:"Lettere mirate", icona:"✉️", attivo:true},
+    {id:"newsletter", gruppo:"scritto", nome:"Newsletter / email database", icona:"📧", attivo:true},
+    {id:"post_social", gruppo:"social", nome:"Post social", icona:"📱", attivo:true},
+    {id:"video_social", gruppo:"social", nome:"Video per social", icona:"🎬", attivo:true},
+    {id:"volantinaggio", gruppo:"distribuzione", nome:"Volantinaggio", icona:"📢", attivo:true, hasTipoVolantino:true},
+    {id:"networking", gruppo:"distribuzione", nome:"Networking / eventi", icona:"🤝", attivo:true},
+  ];
+  const TIPI_VOLANTINO=["AMV","AV","OH","Personale Agente","Flyer3"];
+  const GRUPPI_AZIONI=[
+    {id:"telefono", nome:"Telefono", icona:"📞"},
+    {id:"scritto", nome:"Scritto", icona:"✉️"},
+    {id:"social", nome:"Social", icona:"📱"},
+    {id:"distribuzione", nome:"Distribuzione & Networking", icona:"📢"},
+  ];
+  // Conseguenze (output diretti)
+  const CATALOGO_CONSEGUENZE_DEFAULT=[
+    {id:"appt_acq_fissati", nome:"Appuntamenti acquisizione fissati", icona:"📅"},
+    {id:"immobili_visti", nome:"Immobili visti in acquisizione", icona:"🏠"},
+    {id:"presentazioni", nome:"Presentazioni Val + Piano Marketing", icona:"📊"},
+    {id:"follow_val", nome:"Follow-up post-valutazione", icona:"🔄"},
+  ];
+  // Routine professionali (linee guida broker, uguali per tutti)
+  const ROUTINE_PROFESSIONALI_DEFAULT=[
+    {id:"formazione", nome:"1H formazione mattino", attivo:true},
+    {id:"mirino", nome:"Sessione mirino · aggiornamento contatti", attivo:true},
+    {id:"crm", nome:"1H aggiornamento CRM", attivo:true},
+  ];
+  const [catalogoAzioni,setCatalogoAzioni]=useState(_ls?.catalogoAzioni||CATALOGO_AZIONI_DEFAULT);
+  const [routineProf,setRoutineProf]=useState(_ls?.routineProf||ROUTINE_PROFESSIONALI_DEFAULT);
+  // Dati operatività "Oggi" per agente/data: {agentId:{"2026-05-25":{azioni:{}, conseguenze:{}, routine:{}, spaziPersonali:[], note:""}}}
+  const [oggiDati,setOggiDati]=useState(_ls?.oggiDati||{});
+  // Volantinaggi tracciati per follow-up automatico chiamate in zona
+  // [{id, agentId, data, tipoVolantino, zona, quantita}]
+  const [volantinaggi,setVolantinaggi]=useState(_ls?.volantinaggi||[]);
   const [opDataSel,setOpDataSel]=useState(todayStr());
   const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
   const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
@@ -854,6 +1002,10 @@ export default function App() {
         if(data.tipiVolantino) setTipiVolantino(data.tipiVolantino);
         if(data.tipiSviluppo) setTipiSviluppo(data.tipiSviluppo);
         if(data.operativita) setOperativita(data.operativita);
+        if(data.catalogoAzioni) setCatalogoAzioni(data.catalogoAzioni);
+        if(data.routineProf) setRoutineProf(data.routineProf);
+        if(data.oggiDati) setOggiDati(data.oggiDati);
+        if(data.volantinaggi) setVolantinaggi(data.volantinaggi);
         if(data.obiettiviOp) setObiettiviOp(data.obiettiviOp);
         if(data.pratiche) if(data.pratiche) setPratiche(Array.isArray(data.pratiche)?data.pratiche:Object.values(data.pratiche||{}));
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
@@ -1023,7 +1175,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -1035,7 +1187,7 @@ export default function App() {
       });
     },2000); // debounce 2000ms
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
 
 
 
@@ -4311,12 +4463,313 @@ export default function App() {
                 {opMainTab==="attivita"&&<div>
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
-                  {[{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
+                  {[{v:"oggi",l:"📅 Oggi"},{v:"settimana",l:"📆 Settimana"},{v:"inserimento",l:"✏️ Inserimento"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi"}].map(o=>(
                     <button key={o.v} onClick={()=>setOpSubTab(o.v)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${opSubTab===o.v?"#A8863A":"transparent"}`,color:opSubTab===o.v?"#A8863A":"#666",fontWeight:opSubTab===o.v?600:400,fontFamily:"inherit"}}>
                       {o.l}
                     </button>
                   ))}
                 </div>
+                {/* ── VISTA OGGI ── */}
+                {opSubTab==="oggi"&&(()=>{
+                  // L'agente vede sé stesso. Il broker può selezionare un agente da opAgenteSel
+                  const agIdSel = (isBroker||isBackOffice)
+                    ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel))
+                    : myAgentId;
+                  const dataSel = opDataSel||todayStr();
+                  const agSel = agenti.find(a=>a.id===agIdSel);
+                  const isAgenteSesso = !isBroker&&!isBackOffice;
+                  const frase = getFraseDelGiorno();
+
+                  // Dati giornata corrente
+                  const datiOggi = (oggiDati[agIdSel]||{})[dataSel] || {};
+                  const azioniOggi = datiOggi.azioni || {}; // {azioneId: {target:N, fatto:N, tipoVolantino:'AMV', zona:'...'}}
+                  const conseguenzeOggi = datiOggi.conseguenze || {}; // {conseguenzaId: N}
+                  const routineOggi = datiOggi.routine || {}; // {routineId: {fatto:bool, ora:'08:45'}}
+                  const spaziPersonaliOggi = datiOggi.spaziPersonali || []; // [{id, nome, fatto, nota}]
+                  const noteOggi = datiOggi.note || "";
+
+                  // Helper salvataggio
+                  const salvaDatiOggi = (patch) => {
+                    if(!agIdSel||isReadOnly) return;
+                    setOggiDati(prev=>({
+                      ...prev,
+                      [agIdSel]:{
+                        ...(prev[agIdSel]||{}),
+                        [dataSel]:{
+                          ...((prev[agIdSel]||{})[dataSel]||{}),
+                          ...patch
+                        }
+                      }
+                    }));
+                  };
+                  const aggiornaAzione = (azId, patch) => salvaDatiOggi({azioni:{...azioniOggi, [azId]:{...(azioniOggi[azId]||{}), ...patch}}});
+                  const aggiornaConseguenza = (cId, val) => salvaDatiOggi({conseguenze:{...conseguenzeOggi, [cId]:val}});
+                  const toggleRoutine = (rId) => {
+                    const cur = routineOggi[rId]||{};
+                    salvaDatiOggi({routine:{...routineOggi, [rId]:{fatto:!cur.fatto, ora:!cur.fatto?new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):""}}});
+                  };
+                  const toggleSpazio = (idx) => {
+                    const nuovo=[...spaziPersonaliOggi];
+                    nuovo[idx]={...nuovo[idx], fatto:!nuovo[idx].fatto};
+                    salvaDatiOggi({spaziPersonali:nuovo});
+                  };
+                  const aggiungiSpazio = () => {
+                    const nome=window.prompt("Nuovo spazio personale (solo tu lo vedi):");
+                    if(!nome) return;
+                    salvaDatiOggi({spaziPersonali:[...spaziPersonaliOggi, {id:Date.now(), nome, fatto:false}]});
+                  };
+                  const rimuoviSpazio = (idx) => {
+                    if(!window.confirm("Rimuovere questo spazio personale?")) return;
+                    const nuovo=spaziPersonaliOggi.filter((_,i)=>i!==idx);
+                    salvaDatiOggi({spaziPersonali:nuovo});
+                  };
+
+                  // Calcolo avanzamento azioni complessivo
+                  const azioniAttive = catalogoAzioni.filter(a=>a.attivo);
+                  let totTarget=0, totFatto=0, totAzioniConTarget=0, totAzioniCompletate=0;
+                  azioniAttive.forEach(a=>{
+                    const dati = azioniOggi[a.id]||{};
+                    const t = Number(dati.target||0);
+                    const f = Number(dati.fatto||0);
+                    if(t>0){
+                      totAzioniConTarget++;
+                      totTarget+=t;
+                      totFatto+=Math.min(f,t);
+                      if(f>=t) totAzioniCompletate++;
+                    }
+                  });
+                  const avanzamentoPerc = totTarget>0 ? Math.round(totFatto/totTarget*100) : 0;
+                  const routineCompletate = Object.values(routineOggi).filter(r=>r&&r.fatto).length;
+                  const dataObj = new Date(dataSel);
+                  const giorniSett = ["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+                  const mesi=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+                  const settimanaCal = (()=>{
+                    const d=new Date(dataObj);
+                    d.setHours(0,0,0,0);
+                    d.setDate(d.getDate()+4-(d.getDay()||7));
+                    const yearStart=new Date(d.getFullYear(),0,1);
+                    return Math.ceil(((d-yearStart)/86400000+1)/7);
+                  })();
+
+                  // Se broker non ha selezionato un agente: mostra solo selettore
+                  if(!agIdSel){
+                    return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
+                      <p style={{fontSize:18,marginBottom:8}}>👁 Vista Broker</p>
+                      <p style={{fontSize:13,color:"#aaa",marginBottom:16}}>Seleziona un agente dalla tendina in alto per vedere la sua giornata.</p>
+                      <select style={{...S.sel,fontSize:14,padding:"8px 14px"}} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="Tutti">— Seleziona agente —</option>
+                        {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      </select>
+                    </div>);
+                  }
+
+                  return(<>
+                    {/* Selettore data e agente (sopra tutto) */}
+                    <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                      <input type="date" style={{...S.sel}} value={dataSel} onChange={e=>setOpDataSel(e.target.value)}/>
+                      {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="Tutti">— Seleziona agente —</option>
+                        {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                      </select>}
+                    </div>
+
+                    {/* HEADER: saluto + avanzamento */}
+                    <div style={{background:"#FDFBF7",borderRadius:12,padding:"1rem 1.25rem",marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`0.5px solid ${BRAND.oro}33`}}>
+                      <div>
+                        <p style={{fontSize:11,color:"#888",margin:"0 0 3px",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>{isAgenteSesso?"Buongiorno":"Vista giornata di"}</p>
+                        <h2 style={{margin:0,fontSize:20,fontWeight:600,color:BRAND.grigio}}>{agSel?.nome} {agSel?.cognome}</h2>
+                        <p style={{fontSize:12,color:"#888",margin:"3px 0 0"}}>{giorniSett[dataObj.getDay()]} {dataObj.getDate()} {mesi[dataObj.getMonth()]} · settimana {settimanaCal}</p>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <p style={{fontSize:10,color:"#888",margin:0,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>Avanzamento azioni</p>
+                        <p style={{fontSize:22,fontWeight:700,margin:"3px 0 0",color:avanzamentoPerc>=80?"#27AE60":avanzamentoPerc>=50?BRAND.oroD:"#E67E22"}}>{avanzamentoPerc}%</p>
+                        <p style={{fontSize:10,color:"#aaa",margin:0}}>{totAzioniCompletate} di {totAzioniConTarget} target</p>
+                      </div>
+                    </div>
+
+                    {/* FRASE MOTIVAZIONALE */}
+                    <div style={{background:"#FDFBF7",borderRadius:6,padding:"10px 14px",marginBottom:"1.25rem",borderLeft:`3px solid ${BRAND.oro}`}}>
+                      <p style={{margin:0,fontSize:13,fontStyle:"italic",color:BRAND.grigio,fontFamily:"Georgia,serif"}}>"{frase.t}"</p>
+                      <p style={{margin:"3px 0 0",fontSize:11,color:"#888"}}>— {frase.a}</p>
+                    </div>
+
+                    {/* ====== AZIONI OGGI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>🎯 Azioni oggi</h3>
+                      <span style={{fontSize:11,color:"#888"}}>le leve · dal piano produzione</span>
+                    </div>
+
+                    {GRUPPI_AZIONI.map(gruppo=>{
+                      const azioniDelGruppo = azioniAttive.filter(a=>a.gruppo===gruppo.id);
+                      if(azioniDelGruppo.length===0) return null;
+                      return(<div key={gruppo.id} style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.125rem",marginBottom:"0.75rem"}}>
+                        <p style={{margin:"0 0 10px",fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>{gruppo.icona} {gruppo.nome}</p>
+                        {azioniDelGruppo.map((az,idx)=>{
+                          const dati = azioniOggi[az.id]||{};
+                          const target = Number(dati.target||0);
+                          const fatto = Number(dati.fatto||0);
+                          const perc = target>0 ? Math.min(100, Math.round(fatto/target*100)) : 0;
+                          const completata = target>0&&fatto>=target;
+                          const daFare = target>0&&fatto<target;
+                          const clr = completata?"#27AE60":perc>=50?"#E67E22":perc>0?"#E74C3C":"#bbb";
+                          const isLast = idx===azioniDelGruppo.length-1;
+                          return(<div key={az.id} style={{display:"grid",gridTemplateColumns:"4px 1fr 90px 90px 50px",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                            <div style={{width:3,height:"70%",background:daFare?BRAND.oro:"transparent",borderRadius:2}}/>
+                            <div>
+                              <p style={{margin:0,fontSize:13,fontWeight:500,color:BRAND.grigio,textDecoration:completata?"line-through":"none",opacity:completata?0.6:1}}>
+                                {az.nome}
+                                {az.hasTipoVolantino&&dati.tipoVolantino&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:`${BRAND.oro}22`,color:BRAND.oroD,marginLeft:6,fontWeight:600}}>{dati.tipoVolantino}</span>}
+                                {daFare&&<span style={{fontSize:9,color:BRAND.oroD,marginLeft:6,padding:"1px 5px",borderRadius:3,background:"#FDF6EC",border:`0.5px solid ${BRAND.oro}44`,textTransform:"uppercase",letterSpacing:"0.04em",fontWeight:600}}>da fare</span>}
+                              </p>
+                              {dati.zona&&<p style={{margin:"1px 0 0",fontSize:10,color:"#888"}}>zona {dati.zona}{dati.dataVolantino?` · ${fmtD(dati.dataVolantino)}`:""}</p>}
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:4}}>
+                              <input type="number" min="0" value={fatto||""} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                                onChange={e=>aggiornaAzione(az.id,{fatto:Number(e.target.value)||0})}
+                                style={{width:42,padding:"3px 5px",fontSize:12,border:"0.5px solid #ddd",borderRadius:4,textAlign:"center",fontFamily:"inherit"}}/>
+                              <span style={{fontSize:11,color:"#aaa"}}>/</span>
+                              <input type="number" min="0" value={target||""} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                                onChange={e=>aggiornaAzione(az.id,{target:Number(e.target.value)||0})}
+                                style={{width:42,padding:"3px 5px",fontSize:12,border:"0.5px solid #ddd",borderRadius:4,textAlign:"center",fontFamily:"inherit"}}/>
+                            </div>
+                            <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s"}}/>
+                            </div>
+                            <div style={{fontSize:11,fontWeight:600,color:clr,textAlign:"right"}}>{target>0?`${perc}%`:"—"}</div>
+                          </div>);
+                        })}
+                      </div>);
+                    })}
+
+                    {/* ====== CONSEGUENZE OGGI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"1.5rem",marginBottom:8}}>
+                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>🔄 Conseguenze oggi</h3>
+                      <span style={{fontSize:11,color:"#888"}}>output diretti delle azioni</span>
+                    </div>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
+                      {CATALOGO_CONSEGUENZE_DEFAULT.map((c,idx)=>{
+                        const val = Number(conseguenzeOggi[c.id]||0);
+                        const isLast = idx===CATALOGO_CONSEGUENZE_DEFAULT.length-1;
+                        return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                          <span style={{fontSize:16}}>{c.icona}</span>
+                          <p style={{margin:0,fontSize:13,fontWeight:500,flex:1,color:BRAND.grigio}}>{c.nome}</p>
+                          <input type="number" min="0" value={val||""} placeholder="0" disabled={isReadOnly||!isAgenteSesso}
+                            onChange={e=>aggiornaConseguenza(c.id,Number(e.target.value)||0)}
+                            style={{width:50,padding:"3px 5px",fontSize:13,border:"0.5px solid #ddd",borderRadius:4,textAlign:"center",fontFamily:"inherit",fontWeight:600,color:val>0?"#27AE60":"#888"}}/>
+                        </div>);
+                      })}
+                    </div>
+
+                    {/* ====== ROUTINE PROFESSIONALI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>📌 Routine professionali</h3>
+                      <span style={{fontSize:11,color:"#888"}}>linee guida agenzia · {routineCompletate} di {routineProf.filter(r=>r.attivo).length}</span>
+                    </div>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
+                      {routineProf.filter(r=>r.attivo).map((r,idx,arr)=>{
+                        const d=routineOggi[r.id]||{};
+                        const fatto=d.fatto;
+                        const isLast=idx===arr.length-1;
+                        return(<div key={r.id} onClick={()=>!isReadOnly&&isAgenteSesso&&toggleRoutine(r.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0",cursor:(!isReadOnly&&isAgenteSesso)?"pointer":"default"}}>
+                          <span style={{fontSize:17,color:fatto?"#27AE60":"#bbb"}}>{fatto?"✅":"⬜"}</span>
+                          <p style={{margin:0,fontSize:13,flex:1,fontWeight:fatto?400:500,textDecoration:fatto?"line-through":"none",color:fatto?"#888":BRAND.grigio}}>{r.nome}</p>
+                          {fatto?<span style={{fontSize:11,color:"#aaa"}}>{d.ora}</span>:<span style={{fontSize:9,color:BRAND.oroD,padding:"1px 5px",borderRadius:3,background:"#FDF6EC",border:`0.5px solid ${BRAND.oro}44`,textTransform:"uppercase",letterSpacing:"0.04em",fontWeight:600}}>da fare</span>}
+                        </div>);
+                      })}
+                    </div>
+
+                    {/* ====== SPAZI PERSONALI (solo per l'agente, MAI per il broker) ====== */}
+                    {isAgenteSesso&&<>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>❤️ Spazi personali</h3>
+                        <span style={{fontSize:11,color:"#888"}}>privati · solo tu li vedi</span>
+                      </div>
+                      <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
+                        {spaziPersonaliOggi.length===0&&<p style={{fontSize:12,color:"#aaa",textAlign:"center",margin:"8px 0"}}>Nessuno spazio personale per oggi. Aggiungi sport, lettura, famiglia o quello che vuoi.</p>}
+                        {spaziPersonaliOggi.map((s,idx)=>{
+                          const isLast=idx===spaziPersonaliOggi.length-1;
+                          return(<div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                            <span onClick={()=>!isReadOnly&&toggleSpazio(idx)} style={{fontSize:17,color:s.fatto?"#27AE60":"#bbb",cursor:!isReadOnly?"pointer":"default"}}>{s.fatto?"✅":"⬜"}</span>
+                            <p style={{margin:0,fontSize:13,flex:1,fontWeight:s.fatto?400:500,textDecoration:s.fatto?"line-through":"none",color:s.fatto?"#888":BRAND.grigio}}>{s.nome}</p>
+                            {!isReadOnly&&<button onClick={()=>rimuoviSpazio(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:14,padding:"0 4px"}}>✕</button>}
+                          </div>);
+                        })}
+                        {!isReadOnly&&<div style={{marginTop:10,paddingTop:8,borderTop:"0.5px solid #f0f0f0"}}>
+                          <button onClick={aggiungiSpazio} style={{...S.btn,fontSize:12,padding:"6px 12px",width:"100%"}}>+ Aggiungi spazio personale</button>
+                        </div>}
+                      </div>
+                    </>}
+
+                    {/* ====== DOVE SEI (pipeline output) ====== */}
+                    {(()=>{
+                      const mese = dataSel.substring(0,7);
+                      const incMese = incarichi.filter(i=>i.agenteListing===agIdSel&&(i.dataInizio||"").startsWith(mese)&&!i.archiviato).length;
+                      const propAttive = proposte.filter(p=>(p.agenteListing===agIdSel||p.agenteAcquirente===agIdSel)&&["In trattativa","Accettata con Vincolo","In attesa / Vincolata"].includes(p.stato)).length;
+                      const annoCur = dataSel.substring(0,4);
+                      const vendYTD = venduti.filter(v=>(v.agenteListing===agIdSel||v.agenteAcquirente===agIdSel||v.buyerListing===agIdSel||v.buyer===agIdSel)&&getAnno(dataCompAgenzia(v))===annoCur).length;
+                      const oneToOneAg = (oneToOne[agIdSel]||{});
+                      const dateFuture = Object.keys(oneToOneAg).filter(d=>d>=dataSel).sort();
+                      const prossimo1to1 = dateFuture.length>0 ? dateFuture[0] : null;
+                      return(<>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                          <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>📊 Dove sei</h3>
+                          <span style={{fontSize:11,color:"#888"}}>pipeline e contesto</span>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:"1.5rem"}}>
+                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
+                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Incarichi mese</p>
+                            <p style={{margin:0,fontSize:18,fontWeight:600,color:BRAND.oroD}}>{incMese} nuovi</p>
+                          </div>
+                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
+                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Proposte attive</p>
+                            <p style={{margin:0,fontSize:18,fontWeight:600,color:BRAND.oroD}}>{propAttive}</p>
+                          </div>
+                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
+                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Vendite {annoCur}</p>
+                            <p style={{margin:0,fontSize:18,fontWeight:600,color:BRAND.oroD}}>{vendYTD}</p>
+                          </div>
+                          <div style={{background:"#FDFBF7",borderRadius:8,padding:"10px 14px"}}>
+                            <p style={{margin:"0 0 3px",fontSize:11,color:"#888"}}>Prossimo 1:1</p>
+                            <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.oroD}}>{prossimo1to1?fmtD(prossimo1to1):"—"}</p>
+                          </div>
+                        </div>
+                      </>);
+                    })()}
+
+                    {/* ====== PROMEMORIA ====== */}
+                    {(()=>{
+                      const oggiStr=dataSel;
+                      const tra7gg=(()=>{const d=new Date(oggiStr);d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);})();
+                      const incInScadenza = incarichi.filter(i=>i.agenteListing===agIdSel&&!i.archiviato&&i.scadenza&&i.scadenza>=oggiStr&&i.scadenza<=tra7gg);
+                      const propAttesa = proposte.filter(p=>(p.agenteListing===agIdSel||p.agenteAcquirente===agIdSel)&&p.stato==="In trattativa");
+                      if(incInScadenza.length===0&&propAttesa.length===0) return null;
+                      return(<>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                          <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>🔔 Promemoria</h3>
+                          <span style={{fontSize:11,color:"#888"}}>dalle altre sezioni</span>
+                        </div>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.75rem 1.125rem",marginBottom:"1.5rem"}}>
+                          {incInScadenza.length>0&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:propAttesa.length>0?"0.5px solid #f0f0f0":"none"}}>
+                            <span style={{fontSize:17}}>⚠️</span>
+                            <div style={{flex:1}}>
+                              <p style={{margin:0,fontSize:13,fontWeight:500,color:BRAND.grigio}}>{incInScadenza.length} incarico{incInScadenza.length>1?"i":""} in scadenza nei prossimi 7 giorni</p>
+                              <p style={{margin:"1px 0 0",fontSize:11,color:"#888"}}>{incInScadenza.slice(0,3).map(i=>`${i.nominativo}`).join(" · ")}{incInScadenza.length>3?" · ...":""}</p>
+                            </div>
+                          </div>}
+                          {propAttesa.length>0&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0"}}>
+                            <span style={{fontSize:17}}>📄</span>
+                            <div style={{flex:1}}>
+                              <p style={{margin:0,fontSize:13,fontWeight:500,color:BRAND.grigio}}>{propAttesa.length} proposta in attesa di risposta</p>
+                              <p style={{margin:"1px 0 0",fontSize:11,color:"#888"}}>verificare follow-up con il cliente</p>
+                            </div>
+                          </div>}
+                        </div>
+                      </>);
+                    })()}
+
+                  </>);
+                })()}
+
 
                 {/* ── VISTA SETTIMANA ── */}
                 {opSubTab==="settimana"&&(<>
