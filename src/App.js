@@ -666,8 +666,8 @@ export default function App() {
     {id:"lv10",nome:"Sponsorizzate Social",totaleAnno:70.1,tipo:"variabile",anno:2025},
     {id:"lv11",nome:"Software-Servizi Professionali",totaleAnno:5847.57,tipo:"variabile",anno:2025},
   ];
-  const [catCosti,setCatCosti]=useState(_ls?.catCosti||CAT_COSTI_DEFAULT);
-  const [speseCosti,setSpeseCosti]=useState(_ls?.speseCosti||{});
+  const [catCosti,setCatCosti]=useState(Array.isArray(_ls?.catCosti)?_ls.catCosti:CAT_COSTI_DEFAULT);
+  const [speseCosti,setSpeseCosti]=useState(typeof _ls?.speseCosti==="object"&&!Array.isArray(_ls?.speseCosti)?_ls.speseCosti:{});
   const [impCostiAnno,setImpCostiAnno]=useState(String(new Date().getFullYear()));
   const [impCostiTipo,setImpCostiTipo]=useState("fisso");
   const [formNuovaCat,setFormNuovaCat]=useState(null);
@@ -842,13 +842,13 @@ export default function App() {
         if(data.mirino) setMirino(data.mirino);
         if(data.fasiConfig) setFasiConfig(data.fasiConfig);
         if(data.emailLog) setEmailLog(data.emailLog);
-        if(data.catCosti&&data.catCosti.length>0) setCatCosti(data.catCosti);
-        if(data.speseCosti&&Object.keys(data.speseCosti).length>0) setSpeseCosti(data.speseCosti);
+        if(data.catCosti) setCatCosti(Array.isArray(data.catCosti)?data.catCosti:Object.values(data.catCosti));
+        if(data.speseCosti) setSpeseCosti(typeof data.speseCosti==="object"&&!Array.isArray(data.speseCosti)?data.speseCosti:{});
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
-        if(data.catCosti&&data.catCosti.length>0) setCatCosti(data.catCosti);
-        if(data.speseCosti&&Object.keys(data.speseCosti).length>0) setSpeseCosti(data.speseCosti);
+        if(data.catCosti) setCatCosti(Array.isArray(data.catCosti)?data.catCosti:Object.values(data.catCosti));
+        if(data.speseCosti) setSpeseCosti(typeof data.speseCosti==="object"&&!Array.isArray(data.speseCosti)?data.speseCosti:{});
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
