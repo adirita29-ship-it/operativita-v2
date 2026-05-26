@@ -666,7 +666,11 @@ export default function App() {
     {id:"lv10",nome:"Sponsorizzate Social",totaleAnno:70.1,tipo:"variabile",anno:2025},
     {id:"lv11",nome:"Software-Servizi Professionali",totaleAnno:5847.57,tipo:"variabile",anno:2025},
   ];
-  const [catCosti,setCatCosti]=useState(Array.isArray(_ls?.catCosti)?_ls.catCosti:CAT_COSTI_DEFAULT);
+  const [catCosti,_setCatCosti]=useState(Array.isArray(_ls?.catCosti)?_ls.catCosti:CAT_COSTI_DEFAULT);
+  const setCatCosti=cb=>_setCatCosti(prev=>{
+    const next=typeof cb==="function"?cb(Array.isArray(prev)?prev:[...CAT_COSTI_DEFAULT]):cb;
+    return Array.isArray(next)?next:[...CAT_COSTI_DEFAULT];
+  });
   const [speseCosti,setSpeseCosti]=useState(typeof _ls?.speseCosti==="object"&&!Array.isArray(_ls?.speseCosti)?_ls.speseCosti:{});
   const [impCostiAnno,setImpCostiAnno]=useState(String(new Date().getFullYear()));
   const [impCostiTipo,setImpCostiTipo]=useState("fisso");
