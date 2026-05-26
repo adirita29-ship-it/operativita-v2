@@ -1518,10 +1518,10 @@ export default function App() {
               },0);
               const incassatoBuyer = 0; // incluso in importoPagato sopra
               const totIncassato = incassatoAgente;
-              const daIncAssAgente = Math.max(0, quotaAgente - totIncassato);
-              const daIncAssBuyer = Math.max(0, quotaBuyer - 0);
-              const totDaInc = Math.max(0, totMaturato - totIncassato);
               const totMaturato = quotaAgente + quotaBuyer;
+              const daIncAssAgente = Math.max(0, quotaAgente - totIncassato);
+              const daIncAssBuyer = Math.max(0, quotaBuyer);
+              const totDaInc = Math.max(0, totMaturato - totIncassato);
 
               // Quota agente SOLO su produzione anno corrente (esclude pratiche anno prec.)
               const quotaAgenteProdAnno = myVendAnnoProd.reduce((s,v)=>{
