@@ -843,6 +843,8 @@ export default function App() {
         if(data.mirino) setMirino(data.mirino);
         if(data.fasiConfig) setFasiConfig(data.fasiConfig);
         if(data.emailLog) setEmailLog(data.emailLog);
+        if(data.catCosti) setCatCosti(data.catCosti);
+        if(data.speseCosti) setSpeseCosti(data.speseCosti);
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
@@ -998,7 +1000,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti};
     salvaLS(payload); // salva anche in locale come backup
     setDbSaving(true);
     const t=setTimeout(()=>{
@@ -3299,14 +3301,14 @@ export default function App() {
                         :<>
                           <button type="button" onClick={()=>setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:true,["del_"+cat.id]:false}))}
                             style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#f8f8f8",cursor:"pointer",fontFamily:"inherit",color:"#555"}}>✏️ Rinomina</button>
-                          <button type="button" onClick={()=>setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x))}
+                          <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));}}
                             style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 {cat.tipo==="fisso"?"→ Variabili":"→ Fissi"}</button>
                           {!costiCatExpand["del_"+cat.id]
                             ?<button type="button" onClick={()=>setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:true,["rename_"+cat.id]:false}))}
                               style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
                             :<div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <span style={{fontSize:12,color:"#E74C3C"}}>Elimina "{cat.nome}"?</span>
-                              <button type="button" onClick={()=>{setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
+                              <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
                                 style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"none",background:"#E74C3C",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>Sì</button>
                               <button type="button" onClick={()=>setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}))}
                                 style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>No</button>
@@ -3324,7 +3326,7 @@ export default function App() {
                           {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
                         </div>
                         <div style={{fontSize:13,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                        <button onClick={()=>{if(window.confirm("Eliminare spesa?"))delSpesa(sp.id);}}
+                        <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();delSpesa(sp.id);}}
                           style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 2px"}}
                           onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
                       </div>
@@ -3434,12 +3436,12 @@ export default function App() {
             const ag=agenti.find(a=>a.id===agId6);
             const keyAnno=agId6+"_"+annoC;
             const speseAnnoC=speseCosti[keyAnno]||[];
-            const ANNI_AG=[...new Set(catCosti.filter(cc=>cc.agentId===agId6).map(cc=>String(cc.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
+            const ANNI_AG=[...new Set(catCosti.filter(cc=>String(cc.agentId)===String(agId6)).map(cc=>String(cc.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
             const catAgAnno=(()=>{
-              const byAnno=catCosti.filter(cc=>cc.agentId===agId6&&String(cc.anno)===annoC);
+              const byAnno=catCosti.filter(cc=>String(cc.agentId)===String(agId6)&&String(cc.anno)===annoC);
               if(byAnno.length>0) return byAnno;
-              const anni=[...new Set(catCosti.filter(cc=>cc.agentId===agId6).map(cc=>String(cc.anno)))].sort((a,b)=>b-a);
-              return anni.length>0?catCosti.filter(cc=>cc.agentId===agId6&&String(cc.anno)===anni[0]):[];
+              const anni=[...new Set(catCosti.filter(cc=>String(cc.agentId)===String(agId6)).map(cc=>String(cc.anno)))].sort((a,b)=>b-a);
+              return anni.length>0?catCosti.filter(cc=>String(cc.agentId)===String(agId6)&&String(cc.anno)===anni[0]):[];
             })();
             const annoSorgente=String(catAgAnno[0]?.anno||annoC);
             const hasCat=catAgAnno.length>0;
@@ -3469,7 +3471,7 @@ export default function App() {
               const nextAnno=annoNum+1;
               if(!window.confirm("Copiare i totali spesi "+annoC+" come preventivo "+nextAnno+"?")) return;
               const nuove=catAgAnno.map(cat=>({...cat,id:cat.id+"_"+nextAnno,anno:nextAnno,totaleAnno:Math.round(sposoPerCat(cat)*100)/100,agentId:agId6}));
-              setCatCosti(prev=>[...prev.filter(cc=>!(cc.agentId===agId6&&String(cc.anno)===String(nextAnno))),...nuove]);
+              setCatCosti(prev=>[...prev.filter(cc=>!(String(cc.agentId)===String(agId6)&&String(cc.anno)===String(nextAnno))),...nuove]);
               setCostiAnno(String(nextAnno));
             };
             const CatBloccoAg=({cat,clr,bgLight})=>{
@@ -3570,14 +3572,14 @@ export default function App() {
                         :<>
                           <button type="button" onClick={()=>setCostiCatExpand(prev=>({...prev,["rename_"+cat.id]:true,["del_"+cat.id]:false}))}
                             style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#f8f8f8",cursor:"pointer",fontFamily:"inherit",color:"#555"}}>✏️ Rinomina</button>
-                          <button type="button" onClick={()=>setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x))}
+                          <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCatCosti(prev=>prev.map(x=>x.id===cat.id?{...x,tipo:x.tipo==="fisso"?"variabile":"fisso"}:x));}}
                             style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #AFA9EC",background:"#EEEDFE",cursor:"pointer",fontFamily:"inherit",color:"#533AB7"}}>🔄 {cat.tipo==="fisso"?"→ Variabili":"→ Fissi"}</button>
                           {!costiCatExpand["del_"+cat.id]
                             ?<button type="button" onClick={()=>setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:true,["rename_"+cat.id]:false}))}
                               style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #f7c1c1",background:"#FCEBEB",cursor:"pointer",fontFamily:"inherit",color:"#E74C3C"}}>🗑 Elimina</button>
                             :<div style={{display:"flex",gap:6,alignItems:"center"}}>
                               <span style={{fontSize:12,color:"#E74C3C"}}>Elimina "{cat.nome}"?</span>
-                              <button type="button" onClick={()=>{setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
+                              <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();setCatCosti(prev=>prev.filter(x=>x.id!==cat.id));setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.catId!==cat.id)}));setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}));}}
                                 style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"none",background:"#E74C3C",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>Sì</button>
                               <button type="button" onClick={()=>setCostiCatExpand(prev=>({...prev,["del_"+cat.id]:false}))}
                                 style={{fontSize:12,padding:"4px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontFamily:"inherit"}}>No</button>
@@ -3594,7 +3596,7 @@ export default function App() {
                           <div style={{fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sp.descrizione||"—"}</div>
                         </div>
                         <div style={{fontSize:13,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                        <button onClick={()=>{if(window.confirm("Eliminare?"))delSpesa(sp.id);}}
+                        <button type="button" onClick={(e)=>{e.stopPropagation();e.preventDefault();delSpesa(sp.id);}}
                           style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 2px"}}
                           onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}>🗑</button>
                       </div>
@@ -3620,7 +3622,7 @@ export default function App() {
               <h2 style={{fontSize:18,fontWeight:600,margin:"0 0 1rem",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
               <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"2rem",textAlign:"center"}}>
                 <p style={{fontSize:14,color:"#aaa",marginBottom:"1rem"}}>Nessuna categoria per {annoC}</p>
-                <button style={S.btnP} onClick={()=>setCatCosti(prev=>[...prev,...CAT_DEFAULT.map(cc=>({...cc,id:"ag_"+agId6+"_"+cc.id+"_"+annoNum}))])}>Usa categorie predefinite</button>
+                <button style={S.btnP} onClick={()=>setCatCosti(prev=>[...prev,...CAT_DEFAULT.map(cc=>({...cc,id:"ag_"+String(agId6)+"_"+cc.id+"_"+annoNum,agentId:agId6}))])}>Usa categorie predefinite</button>
               </div>
             </div>);
             return(<div style={S.sec}>
