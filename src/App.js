@@ -697,6 +697,7 @@ export default function App() {
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
   const [costiAnno,setCostiAnno]=useState("2025");
+  const [costiAnnoAg,setCostiAnnoAg]=useState("2025"); // anno separato per agente
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
   const [costiBreakevenMode,setCostiBreakevenMode]=useState("fissi+variabili");
@@ -3360,8 +3361,8 @@ export default function App() {
 
           {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
           {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
-            const agId6=utente?.agentId||myAgentId; // sempre l'ID dell'agente loggato, non del target coach
-            const annoC=costiAnno||annoCorrente;
+            const agId6=utente?.agentId||myAgentId;
+            const annoC=costiAnnoAg||annoCorrente;
             const CAT_AG_DEFAULT=[
               {id:"ag1",nome:"Carburante",totaleAnno:0,tipo:"variabile"},
               {id:"ag2",nome:"Telefono cellulare",totaleAnno:0,tipo:"fisso"},
@@ -3407,7 +3408,7 @@ export default function App() {
               if(existing.length>0){if(!window.confirm(`Esistono già ${existing.length} categorie per ${nextAnno}. Sovrascrivere?`))return;}
               const nuove=catAgAnno.map(c=>({...c,id:c.id+"_"+nextAnno,anno:nextAnno,totaleAnno:0}));
               setCatCosti(prev=>[...prev.filter(c=>!(c.agentId===agId6&&c.anno===nextAnno)),...nuove]);
-              setCostiAnno(String(nextAnno));
+              setCostiAnnoAg(String(nextAnno));
             };
             const addSpesaAg=(sp)=>{
               const id="sp_"+Date.now();
@@ -3426,7 +3427,7 @@ export default function App() {
                   <div style={{fontSize:12,color:"#888",marginTop:3}}>Anno {annoC} — spese personali</div>
                 </div>
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
+                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnnoAg(e.target.value)}>
                     {ANNI_AG.map(a=><option key={a}>{a}</option>)}
                   </select>
                   {hasCat&&<button onClick={copiaAnnoAg} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Usa {annoC} come base {Number(annoC)+1}</button>}
