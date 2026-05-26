@@ -844,12 +844,16 @@ export default function App() {
         if(data.fasiConfig) setFasiConfig(data.fasiConfig);
         if(data.emailLog) setEmailLog(data.emailLog);
         if(data.catCosti) setCatCosti(data.catCosti);
+        else{const _lsNow=caricaLS();if(_lsNow?.catCosti)setCatCosti(_lsNow.catCosti);}
         if(data.speseCosti) setSpeseCosti(data.speseCosti);
+        else{const _lsNow2=caricaLS();if(_lsNow2?.speseCosti)setSpeseCosti(_lsNow2.speseCosti);}
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
         if(data.catCosti) setCatCosti(data.catCosti);
+        else{const _lsNow=caricaLS();if(_lsNow?.catCosti)setCatCosti(_lsNow.catCosti);}
         if(data.speseCosti) setSpeseCosti(data.speseCosti);
+        else{const _lsNow2=caricaLS();if(_lsNow2?.speseCosti)setSpeseCosti(_lsNow2.speseCosti);}
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
@@ -3650,6 +3654,12 @@ export default function App() {
                     <p style={{fontSize:11,color:"#aaa",margin:0}}>{sub}</p>
                   </div>
                 ))}
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <button type="button" onClick={()=>setCatCosti(prev=>[...prev,{id:"ag_"+String(agId6)+"_f_"+Date.now(),nome:"Nuova categoria",tipo:"fisso",totaleAnno:0,anno:annoNum,agentId:agId6}])}
+                  style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>+ Fisso</button>
+                <button type="button" onClick={()=>setCatCosti(prev=>[...prev,{id:"ag_"+String(agId6)+"_v_"+Date.now(),nome:"Nuova categoria",tipo:"variabile",totaleAnno:0,anno:annoNum,agentId:agId6}])}
+                  style={{...S.btn,fontSize:12,padding:"6px 14px"}}>+ Variabile</button>
               </div>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
                 <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
