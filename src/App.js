@@ -1008,12 +1008,13 @@ export default function App() {
     setDbSaving(true);
     const t=setTimeout(()=>{
       if(window._gestionaleSalvato)window._gestionaleSalvato();
+      console.log("[SAVE] catCosti length:", payload.catCosti?.length, "agente cats:", payload.catCosti?.filter(x=>x.agentId)?.length);
       salvaDB(payload).finally(()=>{
         setDbSaving(false);
         // Rinnova il guard dopo il salvataggio completato
         if(window._gestionaleSalvato)window._gestionaleSalvato();
       });
-    },500); // debounce 500ms - salva veloce
+    },1500); // debounce 1500ms - da tempo a React di propagare
     return ()=>clearTimeout(t);
   },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,dbLoaded]);
 
@@ -3380,12 +3381,6 @@ export default function App() {
               }));
               setCatCosti(prev=>{
                 const next=[...prev,...nuove];
-                // Salva immediatamente su Supabase con le nuove categorie
-                setTimeout(()=>{
-                  const ls=caricaLS();
-                  const payload={...(ls||{}),catCosti:next};
-                  salvaDB(payload).catch(e=>console.error('Errore salvataggio catCosti:',e));
-                },100);
                 return next;
               });
             };
