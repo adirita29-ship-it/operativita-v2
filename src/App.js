@@ -674,15 +674,15 @@ export default function App() {
   const [catCostiEditId,setCatCostiEditId]=useState(null);
   const [formSpesa,setFormSpesa]=useState(null);
   const [costiCatExpand,setCostiCatExpand]=useState({});
-  const [formSpesaCat,setFormSpesaCat]=useState({});
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
   const [costiAnno,setCostiAnno]=useState(()=>{
-    // Parti dall'anno più recente con categorie, o annoCorrente
-    const ls=caricaLS();
-    const cats=ls?.catCosti||CAT_COSTI_DEFAULT;
-    const anni=[...new Set(cats.filter(x=>!x.agentId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
-    return anni.length>0?anni[0]:annoCorrente;
+    try{
+      const ls=caricaLS();
+      const cats=ls?.catCosti||CAT_COSTI_DEFAULT;
+      const anni=[...new Set(cats.filter(x=>!x.agentId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
+      return anni.length>0?anni[0]:annoCorrente;
+    }catch(e){return annoCorrente;}
   });
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
@@ -850,16 +850,12 @@ export default function App() {
         if(data.fasiConfig) setFasiConfig(data.fasiConfig);
         if(data.emailLog) setEmailLog(data.emailLog);
         if(data.catCosti) setCatCosti(data.catCosti);
-        else{const _lsNow=caricaLS();if(_lsNow?.catCosti)setCatCosti(_lsNow.catCosti);}
         if(data.speseCosti) setSpeseCosti(data.speseCosti);
-        else{const _lsNow2=caricaLS();if(_lsNow2?.speseCosti)setSpeseCosti(_lsNow2.speseCosti);}
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
         if(data.catCosti) setCatCosti(data.catCosti);
-        else{const _lsNow=caricaLS();if(_lsNow?.catCosti)setCatCosti(_lsNow.catCosti);}
         if(data.speseCosti) setSpeseCosti(data.speseCosti);
-        else{const _lsNow2=caricaLS();if(_lsNow2?.speseCosti)setSpeseCosti(_lsNow2.speseCosti);}
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
@@ -929,7 +925,7 @@ export default function App() {
         const fattSett=vAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
         const vYTD=venduti.filter(v=>(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&(v.dataVendita||v.dataAtto||"").startsWith(new Date().getFullYear()));
         const fattYTD=vYTD.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
-        const obAnno=Number((obiettivoAgente[String(ag.id)]||obiettivoAgente[ag.id]||{}).fatturato||0);
+        const obAnno=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
         const perc=obAnno>0?Math.round(fattYTD/obAnno*100):0;
         await sendEmail(EMAILJS_TEMPLATE_REPORT,{
           email_destinatario:ag.email,
@@ -2873,10 +2869,9 @@ export default function App() {
               const totConsuntivo=totSpFissi+totSpVar;
 
               // Punto di Break Even = spese (preventivo o consuntivo se disponibile)
-              const puntoBEAutomatico = costiBreakevenMode==="fissi"
+              const puntoBE = costiBreakevenMode==="fissi"
                 ? (totSpFissi>0?totSpFissi:totPrevFissi)
                 : (totConsuntivo>0?totConsuntivo:totPrevAnnuo);
-              puntoBE = obiettivoQuotaAgenzia>0 ? obiettivoQuotaAgenzia : puntoBEAutomatico;
               const puntoBELabel = costiBreakevenMode==="fissi" ? "Solo costi fissi" : "Costi fissi + variabili";
               const costoMensile = puntoBE/12;
 
@@ -2912,21 +2907,7 @@ export default function App() {
               const beRaggiuntoInc=quotaAgInc>=puntoBE;
 
               return(<>
-                {/* ── OVERRIDE MANUALE BREAK EVEN ── */}
-              <div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"12px 16px",marginBottom:"1rem",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                <span style={{fontSize:13,fontWeight:600,color:"#633806"}}>🎯 Break Even manuale</span>
-                <span style={{fontSize:11,color:"#aaa"}}>Inserisci un valore fisso (sovrascrive il calcolo automatico)</span>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-                  <span style={{fontSize:12,color:"#888"}}>€</span>
-                  <input type="number" style={{...S.inp,margin:0,width:140,fontSize:13}} 
-                    placeholder="Es. 120000" 
-                    value={obiettivoQuotaAgenzia||""}
-                    onChange={e=>setObiettivoQuotaAgenzia(Number(e.target.value||0))}/>
-                  {obiettivoQuotaAgenzia>0&&<button style={{...S.btnD,fontSize:11}} onClick={()=>setObiettivoQuotaAgenzia(0)}>✕ Rimuovi</button>}
-                </div>
-              </div>
-
-              {/* ── BOX 1: PUNTO DI BREAK EVEN ── */}
+                {/* ── BOX 1: PUNTO DI BREAK EVEN ── */}
                 <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
                   <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 6px"}}>Punto di Break Even ({puntoBELabel})</p>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:8}}>
@@ -3200,322 +3181,397 @@ export default function App() {
           })()}
           {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
-            const annoNum=Number(annoC);
-            const ANNI_C=[...new Set([...catCosti.filter(x=>!x.agentId).map(x=>String(x.anno)),annoCorrente])].sort((a,b)=>b-a);
-            const cats=(()=>{
+            const catAnnoC=(()=>{
               const byAnno=catCosti.filter(x=>String(x.anno)===annoC&&!x.agentId);
-              if(byAnno.length>0)return byAnno;
-              const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
-              return anni.length>0?catCosti.filter(x=>String(x.anno)===anni[0]&&!x.agentId):[];
+              if(byAnno.length>0) return byAnno;
+              // fallback: usa anno più recente disponibile
+              const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
+              return anni.length>0?catCosti.filter(x=>x.anno===anni[0]&&!x.agentId):[];
             })();
-            const annoSorgente=String(cats[0]?.anno||annoC);
-            // Usa l'anno sorgente per le spese se non ci sono categorie per l'anno selezionato
-            const annoSpese=cats.length>0&&cats[0]?.anno&&String(cats[0].anno)!==annoC?annoSorgente:annoC;
-            const spese=speseCosti[annoSpese]||[];
-            const oggi=todayStr();
-            const sposoX=(catId)=>spese.filter(s=>s.catId===catId).reduce((t,s)=>t+Number(s.importo||0),0);
-            const catFissi=cats.filter(x=>x.tipo==="fisso");
-            const catVar=cats.filter(x=>x.tipo==="variabile");
-            const totPrevF=catFissi.reduce((t,x)=>t+Number(x.totaleAnno||0),0);
-            const totPrevV=catVar.reduce((t,x)=>t+Number(x.totaleAnno||0),0);
-            const totPrev=totPrevF+totPrevV;
-            const totSpF=catFissi.reduce((t,x)=>t+sposoX(x.id),0);
-            const totSpV=catVar.reduce((t,x)=>t+sposoX(x.id),0);
-            const totSp=totSpF+totSpV;
-            const perc=totPrev>0?Math.min(100,Math.round(totSp/totPrev*100)):0;
-            const rim=Math.max(0,totPrev-totSp);
-            const addSpesa=(catId)=>{
-              const d=document.getElementById("cd_"+catId)?.value||oggi;
-              const i=document.getElementById("ci_"+catId)?.value;
-              const desc=document.getElementById("cdesc_"+catId)?.value||"";
-              if(!i||!Number(i))return;
+            const speseAnnoC=speseCosti[annoC]||[];
+            const oggi6=todayStr();
+            const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+            const totSpeso=speseAnnoC.reduce((s,x)=>s+Number(x.importo||0),0);
+            const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):null;
+            const addSpesa=(sp)=>{
               const id="sp_"+Date.now();
-              setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,catId,data:d,importo:Number(i),descrizione:desc}]}));
-              const el=document.getElementById("ci_"+catId);if(el)el.value="";
-              const el2=document.getElementById("cdesc_"+catId);if(el2)el2.value="";
+              setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,...sp}]}));
+              setFormSpesa(null);
             };
             const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)}));
-            const copiaAnno=()=>{
-              const next=annoNum+1;
-              const nuove=cats.map(cat=>({...cat,id:cat.id+"_"+next,anno:next,totaleAnno:Math.round(sposoX(cat.id)*100)/100}));
-              setCatCosti(prev=>[...prev.filter(x=>!(String(x.anno)===String(next)&&!x.agentId)),...nuove]);
-              setCostiAnno(String(next));
-            };
-            const BloccoC=({cat,clr,bg})=>{
-              const sp=spese.filter(s=>s.catId===cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
-              const speso=sp.reduce((t,s)=>t+Number(s.importo||0),0);
-              const prev=Number(cat.totaleAnno||0);
-              const p=prev>0?Math.min(100,Math.round(speso/prev*100)):null;
-              const over=prev>0&&speso>prev;
-              const exp=costiCatExpand[cat.id];
-              return(<div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                <div onClick={()=>setCostiCatExpand(v=>({...v,[cat.id]:!v[cat.id]}))}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer",background:exp?"#fafaf8":"#fff"}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:p!==null?5:0}}>
-                      <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
-                      {over&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:"#FDECEA",color:"#E74C3C"}}>⚠</span>}
-                      {sp.length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:bg,color:clr}}>{sp.length}</span>}
-                    </div>
-                    {p!==null&&<div style={{height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:p+"%",background:over?"#E74C3C":p>=80?"#E67E22":clr,borderRadius:2,transition:"width .3s"}}/>
-                    </div>}
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
-                    {prev>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(prev)}</div>}
-                  </div>
-                  <span style={{color:"#ccc",fontSize:11}}>{exp?"▲":"▼"}</span>
-                </div>
-                {exp&&<div style={{background:"#fafaf8",borderLeft:"3px solid "+clr}}>
-                  {sp.length===0&&<div style={{padding:"8px 16px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
-                  {sp.map(s=>(
-                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px 7px 16px",borderBottom:"0.5px solid #f5f5f5"}}>
-                      <span style={{fontSize:11,color:"#aaa",flexShrink:0,minWidth:38}}>{s.data?fmtD(s.data).slice(0,5):"—"}</span>
-                      <span style={{flex:1,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.descrizione||"—"}</span>
-                      <span style={{fontSize:13,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(s.importo||0))}</span>
-                      <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:14,padding:"0 2px",flexShrink:0}}
-                        onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}
-                        onClick={()=>delSpesa(s.id)}>×</button>
-                    </div>
-                  ))}
-                  <div style={{padding:"10px 12px 12px 16px"}}>
-                    <div style={{fontSize:11,color:clr,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>+ Nuova spesa</div>
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"flex-end"}}>
-                      <div><div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Data</div>
-                        <input type="date" id={"cd_"+cat.id} defaultValue={oggi} style={{border:"0.5px solid #ddd",borderRadius:6,padding:"5px 7px",fontSize:12,fontFamily:"inherit",outline:"none",width:130}}/></div>
-                      <div><div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Importo €</div>
-                        <input type="number" min="0" id={"ci_"+cat.id} placeholder="0" style={{border:"0.5px solid #ddd",borderRadius:6,padding:"5px 7px",fontSize:12,fontFamily:"inherit",outline:"none",width:80}}
-                          onKeyDown={e=>e.key==="Enter"&&addSpesa(cat.id)}/></div>
-                      <div style={{flex:1,minWidth:120}}><div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Descrizione</div>
-                        <input id={"cdesc_"+cat.id} placeholder="es. Bolletta, fattura..." style={{border:"0.5px solid #ddd",borderRadius:6,padding:"5px 7px",fontSize:12,fontFamily:"inherit",outline:"none",width:"100%"}}
-                          onKeyDown={e=>e.key==="Enter"&&addSpesa(cat.id)}/></div>
-                      <button onClick={()=>addSpesa(cat.id)} style={{...S.btnP,fontSize:12,padding:"6px 12px",whiteSpace:"nowrap"}}>💾 Salva</button>
-                    </div>
-                  </div>
-                </div>}
-              </div>);
-            };
+            const speseByCat=(catId)=>speseAnnoC.filter(s=>s.catId===catId);
+            const ANNI_C=[...new Set([...catCosti.map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
+            const sC2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
             return(<div style={S.sec}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.2rem",flexWrap:"wrap",gap:8}}>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
                 <div>
-                  <h2 style={{fontSize:17,fontWeight:600,margin:"0 0 3px",color:BRAND.grigio}}>💰 Costi Agenzia</h2>
-                  {annoSorgente!==annoC&&<div style={{fontSize:12,color:"#E67E22"}}>⚠ Preventivo da {annoSorgente}</div>}
-                  {annoSorgente===annoC&&<div style={{fontSize:12,color:"#888"}}>Anno {annoC}</div>}
+                  <h2 style={{fontSize:16,fontWeight:600,margin:0,color:BRAND.grigio}}>💰 Costi Agenzia</h2>
+                  <div style={{fontSize:12,color:"#888",marginTop:3}}>Anno {annoC} — spese reali vs previsionale</div>
                 </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>{ANNI_C.map(a=><option key={a}>{a}</option>)}</select>
-                  {cats.length>0&&<button onClick={copiaAnno} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Copia {annoC} → {annoNum+1}</button>}
-                  <button onClick={()=>setCatCosti(prev=>[...prev,{id:"bc_"+Date.now(),nome:"Nuova categoria",tipo:"variabile",totaleAnno:0,anno:annoNum}])}
-                    style={{...S.btn,fontSize:11}}>+ Categoria</button>
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
+                    {ANNI_C.map(a=><option key={a}>{a}</option>)}
+                  </select>
+                  <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:"",note:""})} style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>+ Aggiungi spesa</button>
                 </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.2rem"}}>
+
+              {/* KPI */}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.5rem"}}>
                 {[
-                  {l:"Preventivo",v:"€ "+fmt(Math.round(totPrev)),c:"#533AB7"},
-                  {l:"Speso YTD",v:"€ "+fmt(Math.round(totSp)),c:"#E67E22",s:perc+"%"},
-                  {l:"Fissi YTD",v:"€ "+fmt(Math.round(totSpF)),c:"#185FA5",s:"prev. € "+fmt(Math.round(totPrevF))},
-                  {l:"Rimanente",v:"€ "+fmt(Math.round(rim)),c:rim>=0?"#27AE60":"#E74C3C"},
-                ].map(({l,v,c,s})=>(
-                  <div key={l} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:".9rem 1rem",borderTop:"3px solid "+c}}>
-                    <p style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 4px",fontWeight:600}}>{l}</p>
-                    <p style={{fontSize:19,fontWeight:700,color:c,margin:"0 0 2px"}}>{v}</p>
-                    {s&&<p style={{fontSize:11,color:"#aaa",margin:0}}>{s}</p>}
+                  ["Previsionale anno","€ "+fmt(Math.round(totPrev)),"#E74C3C",null,"da Impostazioni → Categorie"],
+                  ["Speso YTD","€ "+fmt(Math.round(totSpeso)),"#E67E22",percSpeso,percSpeso!=null?percSpeso+"% del previsionale":""],
+                  ["Fissi / mese","€ "+fmt(Math.round(catAnnoC.filter(c=>c.tipo==="fisso").reduce((s,c)=>s+Number(c.totaleAnno||0),0)/12)),"#185FA5",null,"stima mensile"],
+                  ["Rimanente","€ "+fmt(Math.max(0,Math.round(totPrev-totSpeso))),"#27AE60",null,"previsionale non ancora speso"],
+                ].map(([lbl,val,clr,perc,sub])=>(
+                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",textAlign:"center",borderTop:`3px solid ${clr}`}}>
+                    <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{lbl}</div>
+                    <div style={{fontSize:22,fontWeight:700,color:clr,marginBottom:4}}>{val}</div>
+                    {perc!=null&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",margin:"4px 0"}}><div style={{height:"100%",width:perc+"%",background:perc>=100?"#E74C3C":perc>=70?"#E67E22":clr,borderRadius:2}}/></div>}
+                    <div style={{fontSize:10,color:"#aaa"}}>{sub}</div>
                   </div>
                 ))}
               </div>
-              {totPrev>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:".8rem 1rem",marginBottom:"1.2rem"}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                  <span style={{fontSize:12,fontWeight:500}}>Budget {annoC}</span>
-                  <span style={{fontSize:12,fontWeight:700,color:perc>=100?"#E74C3C":perc>=80?"#E67E22":"#27AE60"}}>{perc}%</span>
+
+              {/* Form aggiungi spesa */}
+              {formSpesa&&<div style={{...sC2,border:"1px solid #A8863A",marginBottom:"1.5rem"}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:12}}>+ Nuova spesa — {annoC}</div>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 110px 110px 150px",gap:10,marginBottom:10}}>
+                  <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione} placeholder="es. Bolletta maggio" onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Tipologia</label>
+                    <select style={S.inp} value={formSpesa.tipo||""} onChange={e=>setFormSpesa({...formSpesa,tipo:e.target.value,catId:""})}>
+                      <option value="">Seleziona...</option>
+                      <option value="fisso">📌 Fisso</option>
+                      <option value="variabile">📊 Variabile</option>
+                    </select>
+                  </div>
+                  <div><label style={S.lbl}>Categoria</label>
+                    <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})} disabled={!formSpesa.tipo}>
+                      <option value="">{!formSpesa.tipo?"Prima scegli tipologia":"Seleziona..."}</option>
+                      {formSpesa.tipo&&catCosti.filter(c=>c.tipo===formSpesa.tipo&&!c.agentId).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
-                  <div style={{height:"100%",width:perc+"%",background:perc>=100?"#E74C3C":perc>=80?"#E67E22":"#27AE60",borderRadius:3,transition:"width .5s"}}/>
+                <div style={{marginBottom:10}}><label style={S.lbl}>Note (opzionale)</label><input style={S.inp} value={formSpesa.note||""} placeholder="Annotazioni..." onChange={e=>setFormSpesa({...formSpesa,note:e.target.value})}/></div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setFormSpesa(null)} style={{...S.btn,fontSize:12}}>Annulla</button>
+                  <button onClick={()=>{if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo, tipologia e categoria");addSpesa(formSpesa);}} style={{...S.btnP,fontSize:12,padding:"7px 18px"}}>💾 Salva spesa</button>
                 </div>
               </div>}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                  <div style={{padding:"10px 14px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4",display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,fontWeight:600,color:"#0C447C"}}>📌 Fissi · {catFissi.length} voci</span>
-                    <span style={{fontSize:11,color:"#185FA5"}}>€ {fmt(Math.round(totSpF))} / € {fmt(Math.round(totPrevF))}</span>
-                  </div>
-                  {catFissi.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
-                  {catFissi.map(cat=><BloccoC key={cat.id} cat={cat} clr="#185FA5" bg="#E6F1FB"/>)}
+
+              {/* Categorie con spese */}
+              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
+                <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:4,height:18,borderRadius:2,background:"#E74C3C"}}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"#E74C3C"}}>Spese per categoria</span>
+                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{speseAnnoC.length} spese inserite</span>
                 </div>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                  <div style={{padding:"10px 14px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC",display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,fontWeight:600,color:"#3C3489"}}>📊 Variabili · {catVar.length} voci</span>
-                    <span style={{fontSize:11,color:"#533AB7"}}>€ {fmt(Math.round(totSpV))} / € {fmt(Math.round(totPrevV))}</span>
+                {catAnnoC.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria configurata per {annoC}.<br/>Vai in Impostazioni → Categorie Costi.</div>}
+                {["fisso","variabile"].map(tipo=>{
+                  const cats=catAnnoC.filter(c=>c.tipo===tipo);
+                  if(cats.length===0) return null;
+                  const totTipo=cats.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+                  const spasTipo=cats.reduce((s,c)=>s+speseByCat(c.id).reduce((a,x)=>a+Number(x.importo||0),0),0);
+                  return(<div key={tipo}>
+                    <div style={{padding:"7px 16px",background:tipo==="fisso"?"#E6F1FB22":"#EEEDFE22",borderBottom:"0.5px solid #eee",display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:10,fontWeight:700,color:tipo==="fisso"?"#185FA5":"#533AB7",textTransform:"uppercase",letterSpacing:".08em"}}>{tipo==="fisso"?"📌 Fissi":"📊 Variabili"}</span>
+                      <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: € {fmt(Math.round(totTipo))} · Speso: € {fmt(Math.round(spasTipo))}</span>
+                    </div>
+                    {cats.map(cat=>{
+                      const spese=speseByCat(cat.id).sort((a,b)=>b.data?.localeCompare(a.data||"")||0);
+                      const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
+                      const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
+                      const expanded=costiCatExpand[cat.id];
+                      const over=cat.totaleAnno>0&&totCat>cat.totaleAnno;
+                      return(<div key={cat.id}>
+                        <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                          style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",borderBottom:"0.5px solid #f5f5f5",background:expanded?"#fafaf8":"#fff",transition:"background .15s"}}>
+                          <span style={{fontSize:11,color:"#aaa",width:12}}>{expanded?"▼":"▶"}</span>
+                          <span style={{fontSize:13,fontWeight:500,flex:1}}>{cat.nome}</span>
+                          {spese.length>0&&<span style={{fontSize:10,color:"#aaa"}}>{spese.length} spese</span>}
+                          <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+                            <div style={{textAlign:"right",minWidth:80}}>
+                              <div style={{fontSize:10,color:"#aaa"}}>Prev.</div>
+                              <div style={{fontSize:12,fontWeight:500,color:"#888"}}>€ {fmt(Math.round(cat.totaleAnno||0))}</div>
+                            </div>
+                            <div style={{textAlign:"right",minWidth:80}}>
+                              <div style={{fontSize:10,color:"#aaa"}}>Speso</div>
+                              <div style={{fontSize:13,fontWeight:600,color:over?"#E74C3C":totCat>0?"#0F6E56":"#bbb"}}>€ {fmt(Math.round(totCat))}</div>
+                            </div>
+                            <div style={{width:60}}>
+                              {percCat!=null&&<><div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",marginBottom:2}}><div style={{height:"100%",width:percCat+"%",background:over?"#E74C3C":percCat>=70?"#E67E22":"#0F6E56",borderRadius:2}}/></div><div style={{fontSize:9,color:"#aaa",textAlign:"right"}}>{percCat}%</div></>}
+                            </div>
+                          </div>
+                        </div>
+                        {expanded&&<div style={{background:"#fafaf8",borderBottom:"0.5px solid #f0f0f0"}}>
+                          {spese.length===0&&<div style={{padding:"12px 16px",fontSize:12,color:"#bbb",fontStyle:"italic",paddingLeft:40}}>Nessuna spesa inserita</div>}
+                          {spese.map(sp=>(
+                            <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px 8px 40px",borderBottom:"0.5px solid #f0f0f0"}}>
+                              <div style={{width:34,height:34,borderRadius:8,background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#888",flexShrink:0,fontWeight:500}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</div>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:13,fontWeight:500}}>{sp.descrizione}</div>
+                                {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
+                              </div>
+                              <div style={{fontSize:14,fontWeight:700,color:"#E74C3C",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
+                              <button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
+                            </div>
+                          ))}
+                          <div style={{padding:"8px 16px 8px 40px"}}>
+                            <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:cat.id,note:""})}
+                              style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px dashed #A8863A",background:"#FDF6EC",color:"#A8863A",cursor:"pointer",fontFamily:"inherit"}}>
+                              + Aggiungi spesa qui
+                            </button>
+                          </div>
+                        </div>}
+                      </div>);
+                    })}
+                  </div>);
+                })}
+                {/* Totale */}
+                <div style={{background:"#FFFBF0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"2px solid #f0e8d0"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"#633806"}}>TOTALE {annoC}</span>
+                  <div style={{display:"flex",gap:24}}>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Previsionale</div><div style={{fontSize:14,fontWeight:700,color:"#633806"}}>€ {fmt(Math.round(totPrev))}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Speso YTD</div><div style={{fontSize:14,fontWeight:700,color:"#E67E22"}}>€ {fmt(Math.round(totSpeso))}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Rimanente</div><div style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>€ {fmt(Math.max(0,Math.round(totPrev-totSpeso)))}</div></div>
                   </div>
-                  {catVar.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile</div>}
-                  {catVar.map(cat=><BloccoC key={cat.id} cat={cat} clr="#533AB7" bg="#EEEDFE"/>)}
                 </div>
               </div>
             </div>);
           })()}
+
+          {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
           {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
-            const agId=String(myAgentId);
+            const agId6=myAgentId;
             const annoC=costiAnno||annoCorrente;
-            const annoNum=Number(annoC);
-            const ag=agenti.find(a=>String(a.id)===agId);
-            const spese=speseCosti[keyAnno]||[];
-            const ANNI_AG=[...new Set(catCosti.filter(x=>String(x.agentId)===agId).map(x=>String(x.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
-            const cats=(()=>{
-              const byAnno=catCosti.filter(x=>String(x.agentId)===agId&&String(x.anno)===annoC);
-              if(byAnno.length>0)return byAnno;
-              const anni=[...new Set(catCosti.filter(x=>String(x.agentId)===agId).map(x=>String(x.anno)))].sort((a,b)=>b-a);
-              return anni.length>0?catCosti.filter(x=>String(x.agentId)===agId&&String(x.anno)===anni[0]):[];
-            })();
-            const hasCat=cats.length>0;
-            const annoSorgenteAg=String(cats[0]?.anno||annoC);
-            const annoSpeseAg=cats.length>0&&cats[0]?.anno&&String(cats[0].anno)!==annoC?annoSorgenteAg:annoC;
-            const keyAnno=agId+"_"+(hasCat?annoSpeseAg:annoC);
-            const oggi=todayStr();
-            const sposoX=(catId)=>spese.filter(s=>s.catId===catId).reduce((t,s)=>t+Number(s.importo||0),0);
-            const catFissi=cats.filter(x=>x.tipo==="fisso");
-            const catVar=cats.filter(x=>x.tipo==="variabile");
-            const totPrevF=catFissi.reduce((t,x)=>t+Number(x.totaleAnno||0),0);
-            const totPrevV=catVar.reduce((t,x)=>t+Number(x.totaleAnno||0),0);
-            const totPrev=totPrevF+totPrevV;
-            const totSpF=catFissi.reduce((t,x)=>t+sposoX(x.id),0);
-            const totSpV=catVar.reduce((t,x)=>t+sposoX(x.id),0);
-            const totSp=totSpF+totSpV;
-            const perc=totPrev>0?Math.min(100,Math.round(totSp/totPrev*100)):0;
-            const rim=Math.max(0,totPrev-totSp);
-            const CAT_DEF=[
-              {nome:"Carburante / Auto",tipo:"variabile"},{nome:"Telefono cellulare",tipo:"fisso"},
-              {nome:"Corsi di formazione",tipo:"variabile"},{nome:"Abbigliamento professionale",tipo:"variabile"},
-              {nome:"Software & App",tipo:"fisso"},{nome:"Materiale promozionale",tipo:"variabile"},
-              {nome:"Spese varie",tipo:"variabile"},
+            const CAT_AG_DEFAULT=[
+              {id:"ag1",nome:"Carburante",totaleAnno:0,tipo:"variabile"},
+              {id:"ag2",nome:"Telefono cellulare",totaleAnno:0,tipo:"fisso"},
+              {id:"ag3",nome:"Corsi di formazione",totaleAnno:0,tipo:"variabile"},
+              {id:"ag4",nome:"Abbigliamento professionale",totaleAnno:0,tipo:"variabile"},
+              {id:"ag5",nome:"Software & App",totaleAnno:0,tipo:"fisso"},
+              {id:"ag6",nome:"Materiale promozionale",totaleAnno:0,tipo:"variabile"},
+              {id:"ag7",nome:"Spese auto",totaleAnno:0,tipo:"variabile"},
+              {id:"ag8",nome:"Varie",totaleAnno:0,tipo:"variabile"},
             ];
-            const addSpesa=(catId)=>{
-              const d=document.getElementById("agd_"+catId)?.value||oggi;
-              const i=document.getElementById("agi_"+catId)?.value;
-              const desc=document.getElementById("agdesc_"+catId)?.value||"";
-              if(!i||!Number(i))return;
+            // Categorie agente: filtro per agentId e anno
+            const keyAg=`ag_${agId6}`;
+            const catAgAll=catCosti.filter(c=>c.agentId===agId6||(!c.agentId&&!c.isAgency));
+            // Se non ha categorie proprie, usa default
+            const catAgAnno=catCosti.filter(c=>c.agentId===agId6&&String(c.anno)===annoC);
+            const hasCat=catAgAnno.length>0;
+            const speseAgAnno=(speseCosti[`${agId6}_${annoC}`]||[]);
+            const oggi7=todayStr();
+            const totPrevAg=catAgAnno.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+            const totSpesoAg=speseAgAnno.reduce((s,x)=>s+Number(x.importo||0),0);
+            const percAg=totPrevAg>0?Math.min(100,Math.round(totSpesoAg/totPrevAg*100)):null;
+            const addCatAg=(cat)=>{
+              const id="ag_"+agId6+"_"+Date.now();
+              setCatCosti(prev=>[...prev,{...cat,id,agentId:agId6,anno:Number(annoC)}]);
+            };
+            const updCatAg=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
+            const delCatAg=(id)=>{if(window.confirm("Eliminare categoria?"))setCatCosti(prev=>prev.filter(c=>c.id!==id));};
+            const initCatAg=()=>{
+              CAT_AG_DEFAULT.forEach(cat=>{
+                const id="ag_"+agId6+"_"+cat.id+"_"+annoC;
+                setCatCosti(prev=>[...prev,{...cat,id,agentId:agId6,anno:Number(annoC)}]);
+              });
+            };
+            const copiaAnnoAg=()=>{
+              const nextAnno=Number(annoC)+1;
+              const existing=catCosti.filter(c=>c.agentId===agId6&&c.anno===nextAnno);
+              if(existing.length>0){if(!window.confirm(`Esistono già ${existing.length} categorie per ${nextAnno}. Sovrascrivere?`))return;}
+              const nuove=catAgAnno.map(c=>({...c,id:c.id+"_"+nextAnno,anno:nextAnno,totaleAnno:0}));
+              setCatCosti(prev=>[...prev.filter(c=>!(c.agentId===agId6&&c.anno===nextAnno)),...nuove]);
+              setCostiAnno(String(nextAnno));
+            };
+            const addSpesaAg=(sp)=>{
               const id="sp_"+Date.now();
-              setSpeseCosti(prev=>({...prev,[keyAnno]:[...(prev[keyAnno]||[]),{id,catId,data:d,importo:Number(i),descrizione:desc}]}));
-              const el=document.getElementById("agi_"+catId);if(el)el.value="";
-              const el2=document.getElementById("agdesc_"+catId);if(el2)el2.value="";
+              setSpeseCosti(prev=>({...prev,[`${agId6}_${annoC}`]:[...(prev[`${agId6}_${annoC}`]||[]),{id,...sp}]}));
+              setFormSpesa(null);
             };
-            const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[keyAnno]:(prev[keyAnno]||[]).filter(s=>s.id!==id)}));
-            const initCat=()=>setCatCosti(prev=>[...prev,...CAT_DEF.map((x,i)=>({...x,id:"ag_"+agId+"_"+i+"_"+annoNum,anno:annoNum,agentId:agId,totaleAnno:0}))]);
-            const addCat=(tipo)=>setCatCosti(prev=>[...prev,{id:"ag_"+agId+"_"+Date.now(),nome:"Nuova categoria",tipo,totaleAnno:0,anno:annoNum,agentId:agId}]);
-            const copiaAnno=()=>{
-              const next=annoNum+1;
-              const nuove=cats.map(cat=>({...cat,id:cat.id+"_"+next,anno:next,totaleAnno:Math.round(sposoX(cat.id)*100)/100,agentId:agId}));
-              setCatCosti(prev=>[...prev.filter(x=>!(String(x.agentId)===agId&&String(x.anno)===String(next))),...nuove]);
-              setCostiAnno(String(next));
-            };
-            const BloccoAg=({cat,clr,bg})=>{
-              const sp=spese.filter(s=>s.catId===cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
-              const speso=sp.reduce((t,s)=>t+Number(s.importo||0),0);
-              const prev=Number(cat.totaleAnno||0);
-              const p=prev>0?Math.min(100,Math.round(speso/prev*100)):null;
-              const over=prev>0&&speso>prev;
-              const exp=costiCatExpand[cat.id];
-              return(<div style={{borderBottom:"0.5px solid #f0f0f0"}}>
-                <div onClick={()=>setCostiCatExpand(v=>({...v,[cat.id]:!v[cat.id]}))}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer",background:exp?"#fafal8":"#fff"}}>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:p!==null?5:0}}>
-                      <span style={{fontSize:13,fontWeight:500,color:"#2c2c2c"}}>{cat.nome}</span>
-                      {over&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:"#FDECEA",color:"#E74C3C"}}>⚠</span>}
-                      {sp.length>0&&<span style={{fontSize:10,padding:"1px 5px",borderRadius:6,background:bg,color:clr}}>{sp.length}</span>}
-                    </div>
-                    {p!==null&&<div style={{height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:p+"%",background:over?"#E74C3C":p>=80?"#E67E22":clr,borderRadius:2}}/>
-                    </div>}
-                  </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:500,color:over?"#E74C3C":speso>0?clr:"#bbb"}}>€ {fmt(speso)}</div>
-                    {prev>0&&<div style={{fontSize:11,color:"#aaa"}}>prev. € {fmt(prev)}</div>}
-                  </div>
-                  <span style={{color:"#ccc",fontSize:11}}>{exp?"▲":"▼"}</span>
-                </div>
-                {exp&&<div style={{background:"#fafal8",borderLeft:"3px solid "+clr}}>
-                  {sp.length===0&&<div style={{padding:"8px 16px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
-                  {sp.map(s=>(
-                    <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px 7px 16px",borderBottom:"0.5px solid #f5f5f5"}}>
-                      <span style={{fontSize:11,color:"#aaa",flexShrink:0,minWidth:38}}>{s.data?fmtD(s.data).slice(0,5):"—"}</span>
-                      <span style={{flex:1,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.descrizione||"—"}</span>
-                      <span style={{fontSize:13,fontWeight:500,color:clr,flexShrink:0}}>€ {fmt(Number(s.importo||0))}</span>
-                      <button style={{background:"none",border:"none",cursor:"pointer",color:"#ddd",fontSize:14,padding:"0 2px",flexShrink:0}}
-                        onMouseEnter={e=>e.currentTarget.style.color="#E74C3C"} onMouseLeave={e=>e.currentTarget.style.color="#ddd"}
-                        onClick={()=>delSpesa(s.id)}>×</button>
-                    </div>
-                  ))}
-                  <div style={{padding:"10px 12px 12px 16px"}}>
-                    <div style={{fontSize:11,color:clr,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>+ Nuova spesa</div>
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"flex-end"}}>
-                      <div><div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Data</div>
-                        <input type="date" id={"agd_"+cat.id} defaultValue={oggi} style={{border:"0.5px solid #ddd",borderRadius:6,padding:"5px 7px",fontSize:12,fontFamily:"inherit",outline:"none",width:130}}/></div>
-                      <div><div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Importo €</div>
-                        <input type="number" min="0" id={"agi_"+cat.id} placeholder="0" style={{border:"0.5px solid #ddd",borderRadius:6,padding:"5px 7px",fontSize:12,fontFamily:"inherit",outline:"none",width:80}}
-                          onKeyDown={e=>e.key==="Enter"&&addSpesa(cat.id)}/></div>
-                      <div style={{flex:1,minWidth:120}}><div style={{fontSize:10,color:"#aaa",marginBottom:2}}>Descrizione</div>
-                        <input id={"agdesc_"+cat.id} placeholder="es. Benzina, corso..." style={{border:"0.5px solid #ddd",borderRadius:6,padding:"5px 7px",fontSize:12,fontFamily:"inherit",outline:"none",width:"100%"}}
-                          onKeyDown={e=>e.key==="Enter"&&addSpesa(cat.id)}/></div>
-                      <button onClick={()=>addSpesa(cat.id)} style={{...S.btnP,fontSize:12,padding:"6px 12px",whiteSpace:"nowrap"}}>💾 Salva</button>
-                    </div>
-                  </div>
-                </div>}
-              </div>);
-            };
-            if(!hasCat)return(<div style={S.sec}>
-              <h2 style={{fontSize:17,fontWeight:600,margin:"0 0 1rem",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
-              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"2rem",textAlign:"center"}}>
-                <p style={{color:"#aaa",fontSize:13,marginBottom:"1rem"}}>Nessuna categoria per {annoC}</p>
-                <button style={S.btnP} onClick={initCat}>Usa categorie predefinite</button>
-              </div>
-            </div>);
+            const delSpesaAg=(id)=>setSpeseCosti(prev=>({...prev,[`${agId6}_${annoC}`]:(prev[`${agId6}_${annoC}`]||[]).filter(s=>s.id!==id)}));
+            const speseByCatAg=(catId)=>speseAgAnno.filter(s=>s.catId===catId);
+            const ANNI_AG=[...new Set(catCosti.filter(c=>c.agentId===agId6).map(c=>String(c.anno)).concat([annoCorrente]))].sort((a,b)=>b-a);
+            const sC3={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
             return(<div style={S.sec}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1.2rem",flexWrap:"wrap",gap:8}}>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
                 <div>
-                  <h2 style={{fontSize:17,fontWeight:600,margin:"0 0 3px",color:BRAND.grigio}}>💰 I miei costi — {ag?.nome}</h2>
-                  <div style={{fontSize:12,color:"#888"}}>Anno {annoC}</div>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:0,color:BRAND.grigio}}>💰 I miei costi</h2>
+                  <div style={{fontSize:12,color:"#888",marginTop:3}}>Anno {annoC} — spese personali</div>
                 </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>{ANNI_AG.map(a=><option key={a}>{a}</option>)}</select>
-                  <button onClick={copiaAnno} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Copia {annoC} → {annoNum+1}</button>
-                  <button onClick={()=>addCat("fisso")} style={{...S.btn,fontSize:11}}>+ Fisso</button>
-                  <button onClick={()=>addCat("variabile")} style={{...S.btn,fontSize:11}}>+ Variabile</button>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                  <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
+                    {ANNI_AG.map(a=><option key={a}>{a}</option>)}
+                  </select>
+                  {hasCat&&<button onClick={copiaAnnoAg} style={{...S.btn,fontSize:11,background:"#E1F5EE",border:"0.5px solid #27AE60",color:"#085041"}}>📥 Usa {annoC} come base {Number(annoC)+1}</button>}
+                  <button onClick={()=>setShowGestCat(!showGestCat)} style={{...S.btn,fontSize:11,background:showGestCat?"#EEEDFE":"#fafaf8",border:`0.5px solid ${showGestCat?"#533AB7":"#ddd"}`,color:showGestCat?"#533AB7":"#888"}}>⚙ Gestisci categorie</button>
+                  {hasCat&&<button onClick={()=>setFormSpesa({data:oggi7,descrizione:"",importo:"",catId:"",note:""})} style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>+ Aggiungi spesa</button>}
                 </div>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.2rem"}}>
-                {[
-                  {l:"Preventivo",v:"€ "+fmt(Math.round(totPrev)),c:"#533AB7"},
-                  {l:"Speso YTD",v:"€ "+fmt(Math.round(totSp)),c:"#E67E22",s:perc+"%"},
-                  {l:"Fissi YTD",v:"€ "+fmt(Math.round(totSpF)),c:"#185FA5",s:"prev. € "+fmt(Math.round(totPrevF))},
-                  {l:"Rimanente",v:"€ "+fmt(Math.round(rim)),c:rim>=0?"#27AE60":"#E74C3C"},
-                ].map(({l,v,c,s})=>(
-                  <div key={l} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:".9rem 1rem",borderTop:"3px solid "+c}}>
-                    <p style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 4px",fontWeight:600}}>{l}</p>
-                    <p style={{fontSize:19,fontWeight:700,color:c,margin:"0 0 2px"}}>{v}</p>
-                    {s&&<p style={{fontSize:11,color:"#aaa",margin:0}}>{s}</p>}
+
+              {/* Setup iniziale */}
+              {!hasCat&&<div style={{...sC3,border:"1px dashed #A8863A",textAlign:"center",padding:"2rem",marginBottom:"1.5rem"}}>
+                <div style={{fontSize:28,marginBottom:12}}>💰</div>
+                <div style={{fontSize:14,fontWeight:600,color:"#633806",marginBottom:6}}>Configura i tuoi costi personali</div>
+                <div style={{fontSize:12,color:"#888",marginBottom:"1.5rem"}}>Crea le categorie di spesa per l'anno {annoC}.<br/>Puoi partire dalle categorie suggerite o crearne di personalizzate.</div>
+                <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                  <button onClick={initCatAg} style={{...S.btnP,fontSize:12,padding:"8px 20px"}}>🚀 Usa categorie suggerite</button>
+                  <button onClick={()=>{setShowGestCat(true);}} style={{...S.btn,fontSize:12,padding:"8px 16px"}}>+ Crea categorie personalizzate</button>
+                </div>
+              </div>}
+
+              {/* Gestione categorie inline */}
+              {showGestCat&&<div style={{...sC3,border:"1px solid #533AB7",marginBottom:"1.5rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <span style={{fontSize:13,fontWeight:600,color:"#533AB7"}}>⚙ Le mie categorie — {annoC}</span>
+                  <button onClick={()=>setShowGestCat(false)} style={{...S.btn,fontSize:11}}>✕ Chiudi</button>
+                </div>
+                {catAgAnno.length===0&&<div style={{fontSize:12,color:"#bbb",fontStyle:"italic",marginBottom:10}}>Nessuna categoria. Aggiungine una qui sotto.</div>}
+                {catAgAnno.map(cat=>(
+                  <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 100px 40px",gap:8,alignItems:"center",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                    <input style={{...S.inp,margin:0,fontSize:12}} value={cat.nome} onChange={e=>updCatAg(cat.id,"nome",e.target.value)}/>
+                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                      <span style={{fontSize:11,color:"#888"}}>€</span>
+                      <input type="number" min="0" style={{...S.inp,margin:0,fontSize:12,textAlign:"right"}} value={cat.totaleAnno||""} placeholder="Prev. anno" onChange={e=>updCatAg(cat.id,"totaleAnno",Number(e.target.value))}/>
+                    </div>
+                    <select style={{...S.sel,fontSize:11}} value={cat.tipo} onChange={e=>updCatAg(cat.id,"tipo",e.target.value)}>
+                      <option value="fisso">Fisso</option>
+                      <option value="variabile">Variabile</option>
+                    </select>
+                    <button onClick={()=>delCatAg(cat.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd"}}>🗑</button>
                   </div>
                 ))}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                  <div style={{padding:"10px 14px",background:"#E6F1FB",borderBottom:"0.5px solid #B5D4F4",display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,fontWeight:600,color:"#0C447C"}}>📌 Fissi · {catFissi.length} voci</span>
-                    <span style={{fontSize:11,color:"#185FA5"}}>€ {fmt(Math.round(totSpF))} / € {fmt(Math.round(totPrevF))}</span>
+                {formNuovaCatAg!==null
+                  ?<div style={{display:"grid",gridTemplateColumns:"1fr 120px 100px auto",gap:8,alignItems:"center",marginTop:10}}>
+                    <input autoFocus style={{...S.inp,margin:0,fontSize:12}} value={formNuovaCatAg.nome||""} placeholder="Nome categoria..." onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,nome:e.target.value})} onKeyDown={e=>{if(e.key==="Enter"&&formNuovaCatAg.nome?.trim()){addCatAg({...formNuovaCatAg,totaleAnno:Number(formNuovaCatAg.totale||0)});setFormNuovaCatAg(null);}}}/>
+                    <input type="number" style={{...S.inp,margin:0,fontSize:12}} value={formNuovaCatAg.totale||""} placeholder="Prev. (€)" onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,totale:e.target.value})}/>
+                    <select style={{...S.sel,fontSize:11}} value={formNuovaCatAg.tipo||"variabile"} onChange={e=>setFormNuovaCatAg({...formNuovaCatAg,tipo:e.target.value})}>
+                      <option value="fisso">Fisso</option>
+                      <option value="variabile">Variabile</option>
+                    </select>
+                    <div style={{display:"flex",gap:4}}>
+                      <button onClick={()=>{if(formNuovaCatAg.nome?.trim()){addCatAg({...formNuovaCatAg,totaleAnno:Number(formNuovaCatAg.totale||0)});setFormNuovaCatAg(null);}}} style={{...S.btnP,fontSize:11,padding:"5px 10px"}}>✓</button>
+                      <button onClick={()=>setFormNuovaCatAg(null)} style={{...S.btn,fontSize:11,padding:"5px 8px"}}>✕</button>
+                    </div>
                   </div>
-                  {catFissi.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria fissa</div>}
-                  {catFissi.map(cat=><BloccoAg key={cat.id} cat={cat} clr="#185FA5" bg="#E6F1FB"/>)}
-                </div>
-                <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
-                  <div style={{padding:"10px 14px",background:"#EEEDFE",borderBottom:"0.5px solid #AFA9EC",display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:12,fontWeight:600,color:"#3C3489"}}>📊 Variabili · {catVar.length} voci</span>
-                    <span style={{fontSize:11,color:"#533AB7"}}>€ {fmt(Math.round(totSpV))} / € {fmt(Math.round(totPrevV))}</span>
+                  :<button onClick={()=>setFormNuovaCatAg({nome:"",totale:"",tipo:"variabile"})} style={{...S.btn,fontSize:11,marginTop:10,width:"100%"}}>+ Aggiungi categoria</button>
+                }
+              </div>}
+
+              {/* KPI */}
+              {hasCat&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.5rem"}}>
+                {[
+                  ["Previsionale anno","€ "+fmt(Math.round(totPrevAg)),"#E74C3C",null,"da categorie configurate"],
+                  ["Speso YTD","€ "+fmt(Math.round(totSpesoAg)),"#E67E22",percAg,percAg!=null?percAg+"% del previsionale":""],
+                  ["Fissi / mese","€ "+fmt(Math.round(catAgAnno.filter(c=>c.tipo==="fisso").reduce((s,c)=>s+Number(c.totaleAnno||0),0)/12)),"#185FA5",null,"stima mensile"],
+                  ["Rimanente","€ "+fmt(Math.max(0,Math.round(totPrevAg-totSpesoAg))),"#27AE60",null,"previsionale residuo"],
+                ].map(([lbl,val,clr,perc,sub])=>(
+                  <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",textAlign:"center",borderTop:`3px solid ${clr}`}}>
+                    <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{lbl}</div>
+                    <div style={{fontSize:22,fontWeight:700,color:clr,marginBottom:4}}>{val}</div>
+                    {perc!=null&&<div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",margin:"4px 0"}}><div style={{height:"100%",width:perc+"%",background:perc>=100?"#E74C3C":perc>=70?"#E67E22":clr,borderRadius:2}}/></div>}
+                    <div style={{fontSize:10,color:"#aaa"}}>{sub}</div>
                   </div>
-                  {catVar.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria variabile</div>}
-                  {catVar.map(cat=><BloccoAg key={cat.id} cat={cat} clr="#533AB7" bg="#EEEDFE"/>)}
+                ))}
+              </div>}
+
+              {/* Form aggiungi spesa */}
+              {formSpesa&&<div style={{...sC3,border:"1px solid #A8863A",marginBottom:"1.5rem"}}>
+                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:12}}>+ Nuova spesa — {annoC}</div>
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 120px 160px",gap:10,marginBottom:10}}>
+                  <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione} placeholder="es. Benzina" onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
+                  <div><label style={S.lbl}>Categoria</label>
+                    <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})}>
+                      <option value="">Seleziona...</option>
+                      {catAgAnno.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                    </select>
+                  </div>
                 </div>
-              </div>
+                <div style={{marginBottom:10}}><label style={S.lbl}>Note (opzionale)</label><input style={S.inp} value={formSpesa.note||""} placeholder="Annotazioni..." onChange={e=>setFormSpesa({...formSpesa,note:e.target.value})}/></div>
+                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                  <button onClick={()=>setFormSpesa(null)} style={{...S.btn,fontSize:12}}>Annulla</button>
+                  <button onClick={()=>{if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo e categoria");addSpesaAg(formSpesa);}} style={{...S.btnP,fontSize:12,padding:"7px 18px"}}>💾 Salva</button>
+                </div>
+              </div>}
+
+              {/* Categorie con spese */}
+              {hasCat&&<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:4,height:18,borderRadius:2,background:"#E74C3C"}}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"#E74C3C"}}>Le mie spese per categoria</span>
+                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{speseAgAnno.length} spese · anno {annoC}</span>
+                </div>
+                {catAgAnno.map(cat=>{
+                  const spese=speseByCatAg(cat.id).sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+                  const totCat=spese.reduce((s,x)=>s+Number(x.importo||0),0);
+                  const percCat=cat.totaleAnno>0?Math.min(100,Math.round(totCat/cat.totaleAnno*100)):null;
+                  const over=cat.totaleAnno>0&&totCat>cat.totaleAnno;
+                  const expanded=costiCatExpand[cat.id];
+                  return(<div key={cat.id}>
+                    <div onClick={()=>setCostiCatExpand(prev=>({...prev,[cat.id]:!prev[cat.id]}))}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",cursor:"pointer",borderBottom:"0.5px solid #f5f5f5",background:expanded?"#fafaf8":"#fff"}}>
+                      <span style={{fontSize:11,color:"#aaa",width:12}}>{expanded?"▼":"▶"}</span>
+                      <span style={{fontSize:13,fontWeight:500,flex:1}}>{cat.nome}</span>
+                      <span style={{fontSize:10,color:cat.tipo==="fisso"?"#185FA5":"#533AB7"}}>{cat.tipo}</span>
+                      {spese.length>0&&<span style={{fontSize:10,color:"#aaa"}}>{spese.length} spese</span>}
+                      <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+                        {cat.totaleAnno>0&&<div style={{textAlign:"right",minWidth:70}}>
+                          <div style={{fontSize:10,color:"#aaa"}}>Prev.</div>
+                          <div style={{fontSize:12,color:"#888"}}>€ {fmt(cat.totaleAnno)}</div>
+                        </div>}
+                        <div style={{textAlign:"right",minWidth:80}}>
+                          <div style={{fontSize:10,color:"#aaa"}}>Speso</div>
+                          <div style={{fontSize:13,fontWeight:600,color:over?"#E74C3C":totCat>0?"#0F6E56":"#bbb"}}>€ {fmt(Math.round(totCat))}</div>
+                        </div>
+                        {percCat!=null&&<div style={{width:50}}>
+                          <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden",marginBottom:2}}><div style={{height:"100%",width:percCat+"%",background:over?"#E74C3C":percCat>=70?"#E67E22":"#0F6E56",borderRadius:2}}/></div>
+                          <div style={{fontSize:9,color:"#aaa",textAlign:"right"}}>{percCat}%</div>
+                        </div>}
+                      </div>
+                    </div>
+                    {expanded&&<div style={{background:"#fafaf8",borderBottom:"0.5px solid #f0f0f0"}}>
+                      {spese.length===0&&<div style={{padding:"12px 16px 8px 40px",fontSize:12,color:"#bbb",fontStyle:"italic"}}>Nessuna spesa inserita</div>}
+                      {spese.map(sp=>(
+                        <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px 8px 40px",borderBottom:"0.5px solid #f0f0f0"}}>
+                          <div style={{width:34,height:34,borderRadius:8,background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#888",flexShrink:0,fontWeight:500}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</div>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:13,fontWeight:500}}>{sp.descrizione}</div>
+                            {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
+                          </div>
+                          <div style={{fontSize:14,fontWeight:700,color:"#E74C3C",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
+                          <button onClick={()=>delSpesaAg(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd"}}>🗑</button>
+                        </div>
+                      ))}
+                      <div style={{padding:"8px 16px 8px 40px"}}>
+                        <button onClick={()=>setFormSpesa({data:oggi7,descrizione:"",importo:"",catId:cat.id,note:""})}
+                          style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px dashed #A8863A",background:"#FDF6EC",color:"#A8863A",cursor:"pointer",fontFamily:"inherit"}}>
+                          + Aggiungi spesa qui
+                        </button>
+                      </div>
+                    </div>}
+                  </div>);
+                })}
+                {/* Totale */}
+                <div style={{background:"#FFFBF0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"2px solid #f0e8d0"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"#633806"}}>TOTALE {annoC}</span>
+                  <div style={{display:"flex",gap:24}}>
+                    {totPrevAg>0&&<div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Previsionale</div><div style={{fontSize:14,fontWeight:700,color:"#633806"}}>€ {fmt(Math.round(totPrevAg))}</div></div>}
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Speso YTD</div><div style={{fontSize:14,fontWeight:700,color:"#E67E22"}}>€ {fmt(Math.round(totSpesoAg))}</div></div>
+                    {totPrevAg>0&&<div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Rimanente</div><div style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>€ {fmt(Math.max(0,Math.round(totPrevAg-totSpesoAg)))}</div></div>}
+                  </div>
+                </div>
+              </div>}
             </div>);
           })()}
+
+          {/* ── BREAK EVEN AGENTE ── */}
           {tab==="Break Even"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
             // Usa nuovo sistema catCosti per agente
@@ -3566,20 +3622,7 @@ export default function App() {
                 <p style={{fontSize:14,color:"#aaa",margin:"0 0 12px"}}>Nessuna spesa inserita per {costiAgenteAnno}</p>
                 <p style={{fontSize:12,color:"#aaa"}}>Vai al TAB <strong>Costi</strong> e inserisci le tue voci di spesa per vedere il Break Even</p>
               </div>):(<>
-                {/* ── OVERRIDE MANUALE BREAK EVEN AGENTE ── */}
-              <div style={{background:"#fff",borderRadius:10,border:"1px solid #A8863A44",padding:"12px 16px",marginBottom:"1rem",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-                <span style={{fontSize:13,fontWeight:600,color:"#633806"}}>🎯 Break Even manuale</span>
-                <span style={{fontSize:11,color:"#aaa"}}>Inserisci un valore fisso (sovrascrive il calcolo automatico)</span>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginLeft:"auto"}}>
-                  <span style={{fontSize:12,color:"#888"}}>€</span>
-                  <input type="number" style={{...S.inp,margin:0,width:140,fontSize:13}}
-                    placeholder="Es. 30000"
-                    value={(obiettivoAgente[myAgentId]||{}).breakEven||""}
-                    onChange={e=>setObiettivoAgente(prev=>({...prev,[myAgentId]:{...(prev[myAgentId]||{}),breakEven:Number(e.target.value||0)}}))}/>
-                  {(obiettivoAgente[myAgentId]||{}).breakEven>0&&<button style={{...S.btnD,fontSize:11}} onClick={()=>setObiettivoAgente(prev=>({...prev,[myAgentId]:{...(prev[myAgentId]||{}),breakEven:0}}))}>✕ Rimuovi</button>}
-                </div>
-              </div>
-              {/* Box 1: Punto BE */}
+                {/* Box 1: Punto BE */}
                 <div style={{background:"linear-gradient(135deg,#2C2C2C,#3D3D3D)",borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",color:"#fff"}}>
                   <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",margin:"0 0 6px"}}>Il tuo Punto di Break Even</p>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:8}}>
@@ -4250,7 +4293,7 @@ export default function App() {
                         <thead><tr style={{background:"#fafaf8"}}>
                           {["Agente","Giorni","Chiamate","Appt.","OH","Acquisiz.","Post"].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}
                         </tr></thead>
-                        <tbody>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(ag=>{
+                        <tbody>{agenti.map(ag=>{
                           const totGiorni = settimana.filter(d=>intensita(ag.id,d)!=="vuoto").length;
                           const sum = k => settimana.reduce((s,d)=>s+Number(getGiornata(ag.id,d)[k]||0),0);
                           const ohN = settimana.reduce((s,d)=>s+(getGiornata(ag.id,d).ohImmobili||[]).length,0);
@@ -4277,10 +4320,11 @@ export default function App() {
                     const oggi5=todayStr();
                     const opAg5=operativita[agIdOggi]||operativita[String(agIdOggi)]||{};
                     const gOggi=opAg5[oggi5]||{};
-                    const obAg5=(obiettivoAgente[String(agIdOggi)]||obiettivoAgente[agIdOggi])||{};
-                    // Obiettivi giornalieri - letti direttamente (salvati come valori giornalieri)
-                    const obChDay=Number(obAg5.chiamate||0);
-                    const obApptDay=Number(obAg5.appuntamenti||0);
+                    const obAg5=(obiettivoAgente[agIdOggi])||{};
+                    const obChSett=Number(obAg5.chiamate||0);
+                    const obChDay=obChSett>0?Math.round(obChSett/5):0;
+                    const obApptSett=Number(obAg5.appuntamenti||0);
+                    const obApptDay=obApptSett>0?Math.round(obApptSett/5):0;
                     const obSocDay=Number(obAg5.postSocial||0);
                     const ct=gOggi.chiamate_tipi||{};
                     const chOggi=Object.values(ct).reduce((s,v)=>s+Number(v||0),0);
@@ -4346,7 +4390,7 @@ export default function App() {
                         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8}}>
                           {[["📞 Chiamate","chiamate","#533AB7"],["🤝 Appt. acq.","appuntamenti","#A8863A"],["📱 Post/Video","postSocial","#8E44AD"],["⏱ Ore ricerca","oreRicerca","#854F0B"],["📰 Notizie","notizie","#2980B9"],["✉️ Volantini","volantini","#D35400"]].map(([lbl,k,clr])=>{
                             const cur=Number(obAg5[k]||0);
-                            const set=(v)=>setObiettivoAgente(prev=>{const sk=String(agIdOggi);return{...prev,[sk]:{...(prev[sk]||prev[agIdOggi]||{}),[k]:Math.max(0,v)}};});
+                            const set=(v)=>setObiettivoAgente(prev=>({...prev,[agIdOggi]:{...(prev[agIdOggi]||{}),[k]:Math.max(0,v)}}));
                             return(<div key={k} style={{background:"#fafaf8",borderRadius:8,padding:"8px 10px",border:"0.5px solid #eee"}}>
                               <p style={{fontSize:9,color:clr,textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 5px",fontWeight:600}}>{lbl}</p>
                               <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -4567,7 +4611,7 @@ export default function App() {
                         <thead><tr style={{background:"#fafaf8"}}>
                           {["Agente","Giorni","Chiamate","Appt.","Acq.","Prop.","Prelim.","OH","Post"].map(h=><th key={h} style={{...S.th,fontSize:11}}>{h}</th>)}
                         </tr></thead>
-                        <tbody>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(ag=>{
+                        <tbody>{agenti.map(ag=>{
                           const r=calcReport(ag.id,opMeseSel);
                           return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
                             <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:24,height:24,borderRadius:"50%",background:"linear-gradient(135deg,#C9A96E,#A8863A)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff"}}>{ag.nome.charAt(0)}</div>{ag.nome} {ag.cognome}</div></td>
@@ -4952,7 +4996,7 @@ export default function App() {
                         </tr></thead>
                         <tbody>
                           {agentiProd2.map((ag,idx)=>{
-                            const ob=Number((obiettivoAgente[String(ag.id)]||obiettivoAgente[ag.id]||{}).fatturato||0);
+                            const ob=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
                             const fYTD=calcFattYTD(ag.id);
                             const aYTD=calcAcqYTD(ag.id);
                             const tYTD=calcTransYTD(ag.id);
@@ -5813,7 +5857,7 @@ export default function App() {
                         </table>
                       </div>
                     </div>
-                    <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
+                    <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
                       <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
                         <div style={{width:4,height:18,borderRadius:2,background:"#0F6E56",flexShrink:0}}/>
                         <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>Risultati finali</span>
