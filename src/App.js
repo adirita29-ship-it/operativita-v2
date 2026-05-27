@@ -215,6 +215,59 @@ const matchSearch = (query, ...fields) => {
   return words.every(w=>haystack.includes(w));
 };
 
+// Barra di ricerca con stato INTERNO + debounce per evitare re-render dell'intero App ad ogni tasto.
+// Il valore "esterno" (filtro vero e proprio) si aggiorna 250ms dopo l'ultimo tasto premuto.
+// Definita a livello modulo + React.memo per stabilità di riferimento (altrimenti re-render = perdita focus).
+const SEARCH_INPUT_STYLE = {
+  paddingLeft:30,
+  paddingRight:30,
+  width:"100%",
+  fontSize:13,
+  border:"0.5px solid #ddd",
+  borderRadius:6,
+  padding:"6px 30px 6px 30px",
+  background:"#fff",
+  outline:"none",
+  fontFamily:"inherit"
+};
+const SearchBar = React.memo(function SearchBar({value, onChange, placeholder, nResults}) {
+  const [local, setLocal] = React.useState(value || "");
+  const debRef = React.useRef(null);
+
+  // Sincronizzo se il valore esterno cambia da fuori (es. reset programmato)
+  React.useEffect(() => {
+    setLocal(value || "");
+  }, [value]);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setLocal(v);
+    if(debRef.current) clearTimeout(debRef.current);
+    debRef.current = setTimeout(() => onChange(v), 250);
+  };
+
+  const handleClear = () => {
+    setLocal("");
+    if(debRef.current) clearTimeout(debRef.current);
+    onChange("");
+  };
+
+  return (
+    <div style={{position:"relative", display:"inline-block", minWidth:240}}>
+      <span style={{position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", fontSize:13, color:"#aaa", pointerEvents:"none"}}>🔍</span>
+      <input
+        type="text"
+        value={local}
+        onChange={handleChange}
+        placeholder={placeholder || "Cerca..."}
+        style={SEARCH_INPUT_STYLE}
+      />
+      {local && <button onClick={handleClear} title="Pulisci ricerca" style={{position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", background:"transparent", border:"none", cursor:"pointer", fontSize:14, color:"#888", padding:"2px 6px", lineHeight:1}}>×</button>}
+      {value && typeof nResults === "number" && <div style={{position:"absolute", left:0, top:"100%", marginTop:2, fontSize:10, color:"#888", whiteSpace:"nowrap"}}>{nResults} risultat{nResults===1?"o":"i"}</div>}
+    </div>
+  );
+});
+
 const STATI_INC = { Attivo:{clr:"#27AE60",bg:"#E9F7EF"}, Scaduto:{clr:"#E74C3C",bg:"#FDECEA"}, Venduto:{clr:"#C9A96E",bg:"#FDF6EC"}, Locato:{clr:"#8E44AD",bg:"#F5EEF8"} };
 const STATI_PROP = {
   "In attesa":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa"},
@@ -1642,21 +1695,6 @@ export default function App() {
   };
 
   const Sel=({value,onChange,children})=>(<select style={S.sel} value={value} onChange={e=>{e.stopPropagation();onChange(e.target.value);}} onClick={e=>e.stopPropagation()}>{children}</select>);
-  // Barra di ricerca testuale: live, multi-parola, con tasto X per pulire
-  const SearchBar=({value,onChange,placeholder,nResults,nTotal})=>(
-    <div style={{position:"relative",display:"inline-block",minWidth:240}}>
-      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"#aaa",pointerEvents:"none"}}>🔍</span>
-      <input
-        type="text"
-        value={value}
-        onChange={e=>onChange(e.target.value)}
-        placeholder={placeholder||"Cerca..."}
-        style={{...S.sel,paddingLeft:30,paddingRight:value?30:12,width:"100%",fontSize:13}}
-      />
-      {value&&<button onClick={()=>onChange("")} title="Pulisci ricerca" style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",cursor:"pointer",fontSize:14,color:"#888",padding:"2px 6px",lineHeight:1}}>×</button>}
-      {value&&typeof nResults==="number"&&<div style={{position:"absolute",left:0,top:"100%",marginTop:2,fontSize:10,color:"#888",whiteSpace:"nowrap"}}>{nResults} risultat{nResults===1?"o":"i"}{typeof nTotal==="number"?` su ${nTotal}`:""}</div>}
-    </div>
-  );
   const SubTabs=({value,onChange,options})=>(<div style={{display:"flex",gap:8}}>{options.map(o=><button key={o.v} style={S.subTab(value===o.v)} onClick={()=>onChange(o.v)}>{o.l}</button>)}</div>);
   const SettSec=({title,items,setItems,ph})=>{
     const [localVal,setLocalVal]=React.useState("");
