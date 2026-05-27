@@ -984,6 +984,10 @@ export default function App() {
   const [showProspetto,setShowProspetto]=useState(null);
   // Modale stampa prospetto
   const [stampaProspetto,setStampaProspetto]=useState(null);
+  // Modale dettaglio prospetto lato agente (sola lettura)
+  const [showProspettoAg,setShowProspettoAg]=useState(null);
+  // Filtro anno per vista agente "Le mie fatture"
+  const [fatAgAnno,setFatAgAnno]=useState("");
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const [mirino,setMirino]=useState(_ls?.mirino||{});
   const [emailLog,setEmailLog]=useState(_ls?.emailLog||{});
@@ -4886,155 +4890,310 @@ export default function App() {
 
 
           {tab==="Fatture Agente"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
-            const ag=agenti.find(a=>a.id===myAgentId);
-            // Tutte le pratiche dove l'agente ha un ruolo e ha incassato qualcosa
-            const tuttiMiei=venduti.filter(v=>{
-              const hasRuolo=Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId;
-              if(!hasRuolo) return false;
-              return true;
-            }).sort((a,b)=>(b.dataVendita||b.dataAtto||"").localeCompare(a.dataVendita||a.dataAtto||""));
+            const agMio = agenti.find(a=>a.id===myAgentId);
+            if(!agMio) return null;
 
-            const anniMioFat=Array.from(new Set(tuttiMiei.map(v=>getAnno(dataCompAgenzia(v))).filter(Boolean))).sort().reverse();
-            const mesiMioFat=Array.from(new Set(tuttiMiei.filter(v=>mioFatAnno==="Tutti"||getAnno(dataCompAgenzia(v))===mioFatAnno).map(v=>getMese(dataCompAgenzia(v))).filter(Boolean))).sort().reverse();
-
-            // Stato pagamento agente — cerca con chiave numerica e stringa
-            const getPagAg=v=>{
-              const key=`${v.id}_${Number(myAgentId)}`;
-              const raw=pagamentiFatture[key]||{stato:"Da pagare",importoPagato:0,dataPagamento:""};
-              // Normalizza "Pagato parzialmente" → "Parziale"
-              return {...raw, stato:normStatoPag(raw.stato)};
+            // === Helpers (stessi del broker per coerenza) ===
+            const calcQuotaPerRuolo = (v, agId, ruolo) => {
+              if(ruolo==="listing"&&Number(v.agenteListing)===agId) return Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+              if(ruolo==="acquirente"&&Number(v.agenteAcquirente)===agId) return Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+              if(ruolo==="buyerListing"&&Number(v.buyerListing)===agId&&Number(v.agenteListing)!==agId) return Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+              if(ruolo==="buyer"&&Number(v.buyer)===agId&&Number(v.agenteAcquirente)!==agId) return Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+              return 0;
+            };
+            const calcPercIncasso = (v) => {
+              const provTot = Number(v.provvVenditore||0)+Number(v.provvAcquirente||0);
+              if(provTot===0) return 0;
+              const incTot = calcolaIncassatoV(v)+calcolaIncassatoA(v);
+              return Math.round(incTot/provTot*100);
+            };
+            const stCli = (v) => {
+              const p = calcPercIncasso(v);
+              if(p>=100) return {lbl:"Sì",clr:"#0F6E56",bg:"#E1F5EE",ic:"✓"};
+              if(p>0) return {lbl:`${p}%`,clr:"#BA7517",bg:"#FAEEDA",ic:"⏳"};
+              return {lbl:"No",clr:"#A32D2D",bg:"#FCEBEB",ic:"✕"};
+            };
+            const ruoloLbl = {"listing":"Listing","acquirente":"Acquirente","buyerListing":"Buyer L","buyer":"Buyer"};
+            const ruoloClr = {"listing":"#0C447C","acquirente":"#3C3489","buyerListing":"#633806","buyer":"#A32D2D"};
+            const ruoloBg = {"listing":"#E6F1FB","acquirente":"#EEEDFE","buyerListing":"#FAEEDA","buyer":"#FCEBEB"};
+            const cfgStatoP = {
+              "inviato":{lbl:"Da fatturare",clr:"#0C447C",bg:"#E6F1FB",ic:"✉",hint:"Il broker ha preparato il prospetto, devi emettere fattura"},
+              "fatturato":{lbl:"In attesa bonifico",clr:"#633806",bg:"#FAEEDA",ic:"⏳",hint:"La tua fattura è registrata, in attesa di pagamento dal broker"},
+              "pagato":{lbl:"Incassato",clr:"#0F6E56",bg:"#E1F5EE",ic:"✓",hint:"Bonifico ricevuto"},
+              "annullato":{lbl:"Annullato",clr:"#666",bg:"#F1EFE8",ic:"—",hint:"Prospetto annullato"},
             };
 
-            const myFatDati=tuttiMiei.filter(v=>{
-              const dataRif=dataCompAgenzia(v);
-              if(mioFatAnno!=="Tutti"&&getAnno(dataRif)!==mioFatAnno) return false;
-              if(mioFatMese!=="Tutti"&&getMese(dataRif)!==mioFatMese) return false;
-              if(mioFatStato!=="Tutti"){
-                const pag=getPagAg(v); // già normalizzato da normStatoPag
-                if(pag.stato!==mioFatStato) return false;
-              }
-              return true;
+            // === venditoId/ruolo già in un prospetto NON annullato (queste sono "in lavorazione") ===
+            const venditoIdOccupati = new Set();
+            prospetti.forEach(p=>{
+              if(p.statoFlow==="annullato") return;
+              (p.righe||[]).forEach(r=>{
+                venditoIdOccupati.add(`${r.venditoId}_${r.ruolo}_${p.agenteId}`);
+              });
             });
 
-            // Quota TOTALE maturata (su provv totale — quello che spetta all'agente)
-            const calcolaQuotaMiaTot=(v)=>{
-              let q=0;
-              if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-              if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-              if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-              if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-              return q;
-            };
+            // === Quote maturate disponibili (non ancora in prospetto) ===
+            const annoSel = fatAgAnno || annoCorrente;
+            const righeDisponibili = (()=>{
+              const out = [];
+              venduti.forEach(v=>{
+                if(annoSel!=="Tutti" && getAnno(dataCompAgenzia(v))!==annoSel) return;
+                ["listing","acquirente","buyerListing","buyer"].forEach(ruolo=>{
+                  const importo = calcQuotaPerRuolo(v, myAgentId, ruolo);
+                  if(importo<=0) return;
+                  const key = `${v.id}_${ruolo}_${myAgentId}`;
+                  if(venditoIdOccupati.has(key)) return;
+                  out.push({venditoId:v.id, v, ruolo, importo, key});
+                });
+              });
+              return out.sort((a,b)=>(dataCompAgenzia(b.v)||"").localeCompare(dataCompAgenzia(a.v)||""));
+            })();
 
-            // KPI basati su pagamento AGENZIA → AGENTE (pagamentiFatture)
-            // "Pagato" = agenzia ha già pagato l'agente
-            const totFatture=tuttiMiei.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0);
+            // === I MIEI prospetti (filtrati per anno) ===
+            const mieiProspetti = prospetti
+              .filter(p=>p.agenteId===myAgentId)
+              .filter(p=>annoSel==="Tutti" || (p.dataCreazione||"").startsWith(annoSel))
+              .sort((a,b)=>(b.dataCreazione||"").localeCompare(a.dataCreazione||""));
 
-            // Già pagato dall'agenzia all'agente (usa getPagAg)
-            const totPagatoAgente=tuttiMiei.reduce((s,v)=>{
-              const pag=getPagAg(v);
-              if(pag.stato==="Pagato") return s+calcolaQuotaMiaTot(v);
-              if(pag.stato==="Parziale") return s+Number(pag.importoPagato||0);
-              return s;
-            },0);
-            const totDaPagare=Math.max(0,totFatture-totPagatoAgente);
-            const totTransazioni=tuttiMiei.reduce((s,v)=>{
-              let n=0;
-              if(Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna) n++;
-              if(Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0) n++;
-              if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.provvVenditore||0)>0) n++;
-              if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId&&Number(v.provvAcquirente||0)>0) n++;
-              return s+n;
-            },0);
-            const cfgStatoFat={
-              "Pagato":{bg:"#E9F7EF",clr:"#27AE60",s:"✅"},
-              "Parziale":{bg:"#FEF0E0",clr:"#E67E22",s:"⏳"},
-              "Pagato parzialmente":{bg:"#FEF0E0",clr:"#E67E22",s:"⏳"},
-              "Da pagare":{bg:"#FDECEA",clr:"#E74C3C",s:"🔴"},
-            };
+            // === KPI ===
+            const totDaFatturare = righeDisponibili.reduce((s,r)=>s+r.importo,0);
+            const totDaEmettere = mieiProspetti.filter(p=>p.statoFlow==="inviato").reduce((s,p)=>s+Number(p.totale||0),0);
+            const totInAttesa = mieiProspetti.filter(p=>p.statoFlow==="fatturato").reduce((s,p)=>s+Number(p.totale||0),0);
+            const totIncassato = mieiProspetti.filter(p=>p.statoFlow==="pagato").reduce((s,p)=>s+Number(p.totale||0),0);
+            const nDaFatt = mieiProspetti.filter(p=>p.statoFlow==="inviato").length;
+            const nInAttesa = mieiProspetti.filter(p=>p.statoFlow==="fatturato").length;
+            const nPagati = mieiProspetti.filter(p=>p.statoFlow==="pagato").length;
 
-            return(
-              <div style={S.sec}>
-                <div style={{marginBottom:"1rem"}}>
-                  <h2 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:BRAND.grigio}}>🧾 Le mie fatture — {ag?.nome} {ag?.cognome}</h2>
-                  <p style={{fontSize:11,color:"#aaa",margin:0}}>Quota provvigionale maturata · stato pagamento <strong>Agenzia → Agente</strong></p>
-                </div>
-                {/* Filtri */}
-                <div style={S.fRow}>
-                  <Sel value={mioFatAnno} onChange={v=>{setMioFatAnno(v);setMioFatMese("Tutti");}}>
-                    <option value="Tutti">Tutti gli anni</option>{anniMioFat.map(a=><option key={a}>{a}</option>)}
-                  </Sel>
-                  <Sel value={mioFatMese} onChange={setMioFatMese}>
-                    <option value="Tutti">Tutti i mesi</option>{mesiMioFat.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}
-                  </Sel>
-                  <Sel value={mioFatStato} onChange={setMioFatStato}>
-                    <option value="Tutti">Tutti gli stati</option>
-                    <option value="Da pagare">🔴 Da pagare</option>
-                    <option value="Parziale">⏳ Pagato parzialmente</option>
-                    <option value="Pagato">✅ Pagato</option>
-                  </Sel>
-                </div>
-                {/* KPI — 3 box: Agenzia→Agente */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <div style={S.card(BRAND.oroD)}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Quota totale maturata</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:BRAND.oroD}}>€ {fmt(totFatture)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{totTransazioni} transazioni · ciò che ti spetta</p>
-                  </div>
-                  <div style={S.card("#27AE60")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Pagato dall'agenzia</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:"#27AE60"}}>€ {fmt(totPagatoAgente)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>{const p=getPagAg(v);return p.stato==="Pagato"||p.stato==="Parziale";}).length} trans. pagate/parziali</p>
-                  </div>
-                  <div style={S.card(totDaPagare>0?"#E74C3C":"#27AE60")}>
-                    <p style={{fontSize:11,color:"#888",margin:"0 0 4px"}}>Da pagare dall'agenzia</p>
-                    <p style={{fontSize:22,fontWeight:600,margin:0,color:totDaPagare>0?"#E74C3C":"#27AE60"}}>€ {fmt(totDaPagare)}</p>
-                    <p style={{fontSize:11,color:"#aaa",margin:"4px 0 0"}}>{tuttiMiei.filter(v=>getPagAg(v).stato==="Da pagare").length} trans. in attesa</p>
+            // === Modale dettaglio prospetto aperto (solo lettura per agente) ===
+            const prAttivoMio = showProspettoAg ? mieiProspetti.find(p=>p.id===showProspettoAg) : null;
+
+            // === Anni disponibili ===
+            const anniMieiSet = new Set();
+            venduti.forEach(v=>{
+              if(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId){
+                const a = getAnno(dataCompAgenzia(v));
+                if(a) anniMieiSet.add(a);
+              }
+            });
+            prospetti.filter(p=>p.agenteId===myAgentId).forEach(p=>{
+              const a = (p.dataCreazione||"").substring(0,4);
+              if(a) anniMieiSet.add(a);
+            });
+            anniMieiSet.add(String(annoCorrente));
+            const anniMieiArr = [...anniMieiSet].sort().reverse();
+
+            return(<div style={S.sec}>
+              {/* HEADER */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:"1.25rem",padding:"1rem 1.25rem",background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
+                <div style={{display:"flex",alignItems:"center",gap:14}}>
+                  <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{agMio.nome.charAt(0)}</div>
+                  <div>
+                    <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 2px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>🧾 Le mie fatture</p>
+                    <h2 style={{margin:0,fontSize:18,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{agMio.nome} {agMio.cognome}</h2>
+                    <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>Compensi maturati, fatture emesse, bonifici ricevuti</p>
                   </div>
                 </div>
-                {(mioFatAnno!=="Tutti"||mioFatMese!=="Tutti"||mioFatStato!=="Tutti")&&<div style={{fontSize:12,color:"#888",marginBottom:"0.75rem",padding:"6px 12px",background:"#f5f5f5",borderRadius:6}}>Filtro attivo · {myFatDati.length} transazioni · <strong style={{color:BRAND.oroD}}>€ {fmt(myFatDati.reduce((s,v)=>s+calcolaQuotaMiaTot(v),0))}</strong></div>}
-                {myFatDati.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#bbb"}}>Nessuna pratica nel periodo / stato selezionato</div>}
-                {myFatDati.map((v,i)=>{
-                  const ruoli=[];
-                  if(Number(v.agenteListing)===myAgentId) ruoli.push({tipo:"Listing",provvTot:Number(v.provvVenditore||0),provvInc:calcolaIncassatoV(v),perc:Number(v.percListing||0),quotaTot:Number(v.provvVenditore||0)*Number(v.percListing||0)/100,quotaInc:calcolaIncassatoV(v)*Number(v.percListing||0)/100,cliente:v.nominativoVenditore});
-                  if(Number(v.agenteAcquirente)===myAgentId) ruoli.push({tipo:"Acquirente",provvTot:Number(v.provvAcquirente||0),provvInc:calcolaIncassatoA(v),perc:Number(v.percAcquirente||0),quotaTot:Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100,quotaInc:calcolaIncassatoA(v)*Number(v.percAcquirente||0)/100,cliente:v.nomeAcquirente});
-                  if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) ruoli.push({tipo:"Buyer L",provvTot:Number(v.provvVenditore||0),provvInc:calcolaIncassatoV(v),perc:Number(v.percBuyerListing||0),quotaTot:Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100,quotaInc:calcolaIncassatoV(v)*Number(v.percBuyerListing||0)/100,cliente:v.nominativoVenditore});
-                  if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) ruoli.push({tipo:"Buyer",provvTot:Number(v.provvAcquirente||0),provvInc:calcolaIncassatoA(v),perc:Number(v.percBuyer||0),quotaTot:Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100,quotaInc:calcolaIncassatoA(v)*Number(v.percBuyer||0)/100,cliente:v.nomeAcquirente});
-                  const totPraticaTot=ruoli.reduce((s,r)=>s+r.quotaTot,0);
-                  const totPraticaInc=ruoli.reduce((s,r)=>s+r.quotaInc,0);
-                  const statoInc=calcolaStatoIncasso(v);
-                  const cfgInc=STATI_INCASSO[statoInc]||STATI_INCASSO["Da incassare"];
-                  const pag=getPagAg(v);
-                  const cfgPag=cfgStatoFat[pag.stato]||cfgStatoFat["Da pagare"];
-                  if(totPraticaTot===0) return null;
-                  return(<div key={v.id} style={{border:`0.5px solid ${cfgInc.clr}33`,borderRadius:8,padding:"1rem",marginBottom:"0.75rem",background:"#fff"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,flexWrap:"wrap",gap:6}}>
-                      <div>
-                        <p style={{fontSize:14,fontWeight:500,margin:"0 0 2px"}}>{i+1}. {v.comuneImmobile} — {v.indirizzoImmobile}</p>
-                        <p style={{fontSize:12,color:"#aaa",margin:0}}>Competenza: <strong style={{color:BRAND.oroD}}>{fmtD(dataCompAgenzia(v))}</strong>{v.dataAtto?` · Rogito: ${fmtD(v.dataAtto)}`:""} · Prezzo: <strong style={{color:BRAND.oroD}}>€ {fmtN(v.prezzoVendita)}</strong></p>
-                      </div>
-                      <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
-                        <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgInc.bg,color:cfgInc.clr,fontWeight:500}}>🏢 {cfgInc.s} {calcolaStatoIncasso(v)}</span>
-                        <span style={{fontSize:11,padding:"3px 9px",borderRadius:4,background:cfgPag.bg,color:cfgPag.clr,fontWeight:500}}>{cfgPag.s} {pag.stato}</span>
-                        {pag.dataPagamento&&<span style={{fontSize:11,color:"#aaa"}}>Pagato {fmtD(pag.dataPagamento)}</span>}
-                      </div>
-                    </div>
-                    {ruoli.filter(r=>r.quotaTot>0).map((r,j)=>(<div key={j} style={{background:BRAND.beige,borderRadius:6,border:"0.5px solid #e8e5e0",padding:"8px 12px",marginBottom:6}}>
-                      <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",margin:"0 0 4px"}}>{r.tipo}</p>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}><span style={{color:"#888"}}>Cliente</span><span style={{fontWeight:500}}>{r.cliente}</span></div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}><span style={{color:"#888"}}>Provv. agenzia (tot/inc.)</span><span>€ {fmt(r.provvTot)} / € {fmt(r.provvInc)}</span></div>
-                      <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:r.quotaTot!==r.quotaInc?2:0}}><span style={{color:"#888"}}>Quota totale ({r.perc}%)</span><span style={{fontWeight:600,color:BRAND.oroD}}>€ {fmt(r.quotaTot)}</span></div>
-                      {r.quotaTot!==r.quotaInc&&<div style={{display:"flex",justifyContent:"space-between",fontSize:12}}><span style={{color:"#888"}}>di cui incassata</span><span style={{fontWeight:500,color:"#27AE60"}}>€ {fmt(r.quotaInc)}</span></div>}
-                    </div>))}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:6}}>
-                      <span style={{fontSize:12,color:"#888"}}>Subtotale: <strong style={{color:BRAND.oroD}}>€ {fmt(totPraticaTot)}</strong></span>
-                      {totPraticaTot!==totPraticaInc&&<span style={{fontSize:12,color:"#27AE60"}}>Incassata: <strong>€ {fmt(totPraticaInc)}</strong> · Da inc.: <strong style={{color:"#E67E22"}}>€ {fmt(totPraticaTot-totPraticaInc)}</strong></span>}
-                    </div>
-                  </div>);
-                })}
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <label style={{fontSize:11,color:"#888",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em"}}>Anno:</label>
+                  <select style={S.sel} value={annoSel} onChange={e=>setFatAgAnno(e.target.value)}>
+                    {anniMieiArr.map(a=><option key={a} value={a}>{a}</option>)}
+                    <option value="Tutti">Tutti gli anni</option>
+                  </select>
+                </div>
               </div>
-            );
+
+              {/* Banner didascalico */}
+              <div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderLeft:"4px solid #2980B9",borderRadius:8,padding:"10px 14px",marginBottom:"1.25rem",fontSize:12,color:"#1B5C8C",lineHeight:1.5}}>
+                <strong>💡 Come funziona:</strong> il broker prepara un <strong>prospetto</strong> con le tue quote maturate → tu emetti la <strong>fattura</strong> per quell'importo → il broker la registra e ti paga con bonifico. Vedi qui ogni fase del processo.
+              </div>
+
+              {/* 4 KPI */}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #BA7517`,padding:"1rem",textAlign:"center"}}>
+                  <p style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 6px",fontWeight:700}}>Quote disponibili</p>
+                  <p style={{fontSize:20,fontWeight:700,color:"#BA7517",fontFamily:"Georgia,serif",margin:0}}>€ {fmt(Math.round(totDaFatturare))}</p>
+                  <p style={{fontSize:10,color:"#aaa",margin:"3px 0 0"}}>{righeDisponibili.length} righe in attesa prospetto</p>
+                </div>
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #0C447C`,padding:"1rem",textAlign:"center"}}>
+                  <p style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 6px",fontWeight:700}}>Da fatturare</p>
+                  <p style={{fontSize:20,fontWeight:700,color:"#0C447C",fontFamily:"Georgia,serif",margin:0}}>€ {fmt(Math.round(totDaEmettere))}</p>
+                  <p style={{fontSize:10,color:"#aaa",margin:"3px 0 0"}}>{nDaFatt} prospett{nDaFatt===1?"o":"i"} ricevut{nDaFatt===1?"o":"i"}</p>
+                </div>
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #633806`,padding:"1rem",textAlign:"center"}}>
+                  <p style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 6px",fontWeight:700}}>In attesa bonifico</p>
+                  <p style={{fontSize:20,fontWeight:700,color:"#633806",fontFamily:"Georgia,serif",margin:0}}>€ {fmt(Math.round(totInAttesa))}</p>
+                  <p style={{fontSize:10,color:"#aaa",margin:"3px 0 0"}}>{nInAttesa} fattur{nInAttesa===1?"a":"e"} emess{nInAttesa===1?"a":"e"}</p>
+                </div>
+                <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #0F6E56`,padding:"1rem",textAlign:"center"}}>
+                  <p style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 6px",fontWeight:700}}>Già incassato</p>
+                  <p style={{fontSize:20,fontWeight:700,color:"#0F6E56",fontFamily:"Georgia,serif",margin:0}}>€ {fmt(Math.round(totIncassato))}</p>
+                  <p style={{fontSize:10,color:"#aaa",margin:"3px 0 0"}}>{nPagati} bonifici ricevuti</p>
+                </div>
+              </div>
+
+              {/* SEZIONE 1: I miei prospetti */}
+              <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+                <div style={{padding:"10px 14px",background:"#FDFBF7",borderBottom:"0.5px solid #e8e5e0"}}>
+                  <p style={{margin:0,fontSize:13,fontWeight:600,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📋 Prospetti ricevuti dal broker</p>
+                  <p style={{margin:"3px 0 0",fontSize:11,color:"#888"}}>{mieiProspetti.length} prospett{mieiProspetti.length===1?"o":"i"} {annoSel==="Tutti"?"in totale":"nel "+annoSel} · Clicca per vedere il dettaglio</p>
+                </div>
+                {mieiProspetti.length===0?(
+                  <div style={{padding:"2rem 1rem",textAlign:"center",color:"#aaa",fontSize:13}}>
+                    Nessun prospetto ricevuto {annoSel==="Tutti"?"":"nel "+annoSel}.<br/>
+                    <span style={{fontSize:11,color:"#bbb"}}>Quando il broker preparerà i tuoi compensi vedrai i prospetti qui.</span>
+                  </div>
+                ):(
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
+                      <thead><tr style={{background:"#fafaf8"}}>
+                        {["Prospetto","Data","Pratiche","Importo","N° mia fattura","Stato"].map(h=><th key={h} style={{...S.th,fontSize:10}}>{h}</th>)}
+                      </tr></thead>
+                      <tbody>
+                        {mieiProspetti.map(p=>{
+                          const cfg = cfgStatoP[p.statoFlow]||cfgStatoP["inviato"];
+                          return(<tr key={p.id} onClick={()=>setShowProspettoAg(p.id)} style={{cursor:"pointer",borderBottom:"0.5px solid #f0f0f0",background:p.statoFlow==="annullato"?"#fafafa":"#fff",opacity:p.statoFlow==="annullato"?0.6:1}}>
+                            <td style={{...S.td,fontWeight:600,color:BRAND.oroD}}>{p.numero}</td>
+                            <td style={{...S.td,color:"#888",fontSize:12,whiteSpace:"nowrap"}}>{fmtD(p.dataCreazione)}</td>
+                            <td style={{...S.td,fontSize:12,color:"#666"}}>{(p.righe||[]).length} pratich{(p.righe||[]).length===1?"a":"e"}</td>
+                            <td style={{...S.td,textAlign:"right",fontWeight:600}}>€ {fmt(Math.round(Number(p.totale||0)))}</td>
+                            <td style={{...S.td,fontSize:12}}>
+                              {p.numFatturaAg?<><strong>{p.numFatturaAg}</strong>{p.dataFatturaAg&&<span style={{color:"#888"}}> ({fmtD(p.dataFatturaAg)})</span>}</>:<span style={{color:"#bbb",fontStyle:"italic"}}>da emettere</span>}
+                            </td>
+                            <td style={{...S.td}}><span style={{fontSize:11,padding:"3px 10px",borderRadius:4,background:cfg.bg,color:cfg.clr,fontWeight:600}}>{cfg.ic} {cfg.lbl}{p.statoFlow==="pagato"&&p.dataPagamento?` ${fmtD(p.dataPagamento)}`:""}</span></td>
+                          </tr>);
+                        })}
+                      </tbody>
+                      {mieiProspetti.length>0&&<tfoot><tr style={{background:`${BRAND.oro}15`,fontWeight:700}}>
+                        <td colSpan={3} style={{padding:"10px 12px",fontFamily:"Georgia,serif",borderTop:`1.5px solid ${BRAND.oro}`}}>TOTALE</td>
+                        <td style={{padding:"10px 12px",textAlign:"right",color:BRAND.oroD,borderTop:`1.5px solid ${BRAND.oro}`,fontSize:14}}>€ {fmt(Math.round(mieiProspetti.reduce((s,p)=>p.statoFlow==="annullato"?s:s+Number(p.totale||0),0)))}</td>
+                        <td colSpan={2} style={{padding:"10px 12px",borderTop:`1.5px solid ${BRAND.oro}`}}/>
+                      </tr></tfoot>}
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* SEZIONE 2: Quote maturate non ancora in prospetto (informativo) */}
+              {righeDisponibili.length>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+                <div style={{padding:"10px 14px",background:"#FDFBF7",borderBottom:"0.5px solid #e8e5e0",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <p style={{margin:0,fontSize:13,fontWeight:600,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🧾 Quote disponibili (in attesa di prospetto dal broker)</p>
+                    <p style={{margin:"3px 0 0",fontSize:11,color:"#888"}}>Pratiche dove hai maturato una quota che il broker non ha ancora inserito in un prospetto</p>
+                  </div>
+                  <span style={{fontSize:12,color:"#888"}}>{righeDisponibili.length} righe · € {fmt(Math.round(totDaFatturare))}</span>
+                </div>
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
+                    <thead><tr style={{background:"#fafaf8"}}>
+                      {["Pratica","Data","Ruolo","Cliente ha pagato?","Quota"].map((h,i)=><th key={h} style={{...S.th,fontSize:10,textAlign:i===4?"right":(i===3?"center":"left")}}>{h}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {righeDisponibili.map(r=>{
+                        const cli = stCli(r.v);
+                        return(<tr key={r.key} style={{borderBottom:"0.5px solid #f0f0f0"}}>
+                          <td style={{...S.td}}><strong>{r.v.comuneImmobile}</strong> — {r.v.indirizzoImmobile}</td>
+                          <td style={{...S.td,color:"#888",fontSize:12,whiteSpace:"nowrap"}}>{fmtD(dataCompAgenzia(r.v))}</td>
+                          <td style={{...S.td}}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:ruoloBg[r.ruolo],color:ruoloClr[r.ruolo],fontWeight:600}}>{ruoloLbl[r.ruolo]}</span></td>
+                          <td style={{...S.td,textAlign:"center"}}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:cli.bg,color:cli.clr,fontWeight:600}}>{cli.ic} {cli.lbl}</span></td>
+                          <td style={{...S.td,textAlign:"right",fontWeight:600,color:"#BA7517"}}>€ {fmt(Math.round(r.importo))}</td>
+                        </tr>);
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>}
+
+              {/* ────────────────────── MODALE DETTAGLIO PROSPETTO (SOLA LETTURA) ────────────────────── */}
+              {prAttivoMio&&(()=>{
+                const cfg = cfgStatoP[prAttivoMio.statoFlow]||cfgStatoP["inviato"];
+                return(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setShowProspettoAg(null)}>
+                  <div style={{...S.modal,maxWidth:620}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"1rem",paddingBottom:"0.875rem",borderBottom:`2px solid ${BRAND.oro}`,flexWrap:"wrap",gap:8}}>
+                      <div>
+                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Prospetto ricevuto</p>
+                        <h3 style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{prAttivoMio.numero}</h3>
+                        <p style={{margin:"4px 0 0",fontSize:12,color:"#888"}}>Creato dal broker il {fmtD(prAttivoMio.dataCreazione)}</p>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:12,padding:"4px 12px",borderRadius:4,background:cfg.bg,color:cfg.clr,fontWeight:600}}>{cfg.ic} {cfg.lbl}</span>
+                        <button onClick={()=>setShowProspettoAg(null)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#888",padding:0,lineHeight:1}}>×</button>
+                      </div>
+                    </div>
+
+                    {/* Hint stato */}
+                    <div style={{background:cfg.bg,border:`1px solid ${cfg.clr}33`,borderLeft:`4px solid ${cfg.clr}`,borderRadius:6,padding:"10px 12px",marginBottom:"1rem",fontSize:12,color:cfg.clr,lineHeight:1.5}}>
+                      {cfg.hint}
+                    </div>
+
+                    {/* Righe del prospetto */}
+                    <p style={{margin:"0 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Dettaglio pratiche</p>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:"1rem"}}>
+                      <thead><tr style={{background:"#fafaf8"}}>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Pratica</th>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Cliente</th>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Ruolo</th>
+                        <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Importo</th>
+                      </tr></thead>
+                      <tbody>
+                        {(prAttivoMio.righe||[]).map((r,i)=>{
+                          const v = venduti.find(x=>x.id===r.venditoId);
+                          if(!v) return(<tr key={i}><td colSpan={4} style={{padding:"6px 8px",color:"#aaa",fontStyle:"italic"}}>Pratica eliminata</td></tr>);
+                          const cliente = r.ruolo==="listing"||r.ruolo==="buyerListing" ? (v.nominativoVenditore||"—") : (v.nomeAcquirente||"—");
+                          return(<tr key={i} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                            <td style={{padding:"6px 8px"}}><strong>{v.comuneImmobile}</strong> — {v.indirizzoImmobile}</td>
+                            <td style={{padding:"6px 8px",color:"#666"}}>{cliente}</td>
+                            <td style={{padding:"6px 8px"}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:4,background:ruoloBg[r.ruolo],color:ruoloClr[r.ruolo],fontWeight:600}}>{ruoloLbl[r.ruolo]}</span></td>
+                            <td style={{padding:"6px 8px",textAlign:"right",fontWeight:600}}>€ {fmt(Math.round(r.importo))}</td>
+                          </tr>);
+                        })}
+                      </tbody>
+                      <tfoot><tr style={{background:`${BRAND.oro}15`,fontWeight:700}}>
+                        <td colSpan={3} style={{padding:"8px",borderTop:`1.5px solid ${BRAND.oro}`}}>TOTALE</td>
+                        <td style={{padding:"8px",textAlign:"right",fontSize:14,color:BRAND.oroD,borderTop:`1.5px solid ${BRAND.oro}`}}>€ {fmt(Math.round(Number(prAttivoMio.totale||0)))}</td>
+                      </tr></tfoot>
+                    </table>
+
+                    {/* Info fattura emessa (sola lettura) */}
+                    {prAttivoMio.numFatturaAg&&<>
+                      <p style={{margin:"1rem 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>La tua fattura registrata</p>
+                      <div style={{background:"#fafaf8",borderRadius:8,padding:"12px 14px",marginBottom:"1rem",display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                        <div>
+                          <p style={{margin:"0 0 2px",fontSize:10,color:"#888"}}>N° fattura</p>
+                          <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>{prAttivoMio.numFatturaAg}</p>
+                        </div>
+                        {prAttivoMio.dataFatturaAg&&<div>
+                          <p style={{margin:"0 0 2px",fontSize:10,color:"#888"}}>Data emissione</p>
+                          <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio}}>{fmtD(prAttivoMio.dataFatturaAg)}</p>
+                        </div>}
+                      </div>
+                    </>}
+
+                    {/* Info bonifico (sola lettura) */}
+                    {prAttivoMio.dataPagamento&&<>
+                      <p style={{margin:"1rem 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Bonifico ricevuto</p>
+                      <div style={{background:"#E1F5EE",border:"1px solid #0F6E5644",borderRadius:8,padding:"12px 14px",marginBottom:"1rem"}}>
+                        <p style={{margin:0,fontSize:14,fontWeight:600,color:"#0F6E56"}}>✓ Pagato il {fmtD(prAttivoMio.dataPagamento)}</p>
+                        <p style={{margin:"3px 0 0",fontSize:11,color:"#0F6E56",opacity:0.8}}>Importo: € {fmt(Math.round(Number(prAttivoMio.totale||0)))} · Metodo: bonifico bancario</p>
+                      </div>
+                    </>}
+
+                    {/* Note (se ci sono, sola lettura) */}
+                    {prAttivoMio.note&&<>
+                      <p style={{margin:"1rem 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Note del broker</p>
+                      <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:12,color:"#666",fontStyle:"italic",lineHeight:1.5}}>{prAttivoMio.note}</div>
+                    </>}
+
+                    {/* Bottoni in basso */}
+                    <div style={{display:"flex",justifyContent:"flex-end",paddingTop:"0.875rem",borderTop:"0.5px solid #e8e5e0"}}>
+                      <button onClick={()=>setShowProspettoAg(null)} style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>Chiudi</button>
+                    </div>
+                  </div>
+                </div>);
+              })()}
+
+            </div>);
           })()}
+
 
           {/* OPERATIVITÀ */}
           {tab==="Operatività"&&(()=>{
