@@ -6425,49 +6425,56 @@ export default function App() {
             const datiMulti = anniMieiArr.slice(0,5).map(a=>({anno:a, ...calcolaAnno(a)}));
 
             // === TOP MOMENTS dell'anno selezionato ===
+            // Filosofia coerente con i 5 KPI: SOLO ruoli principali (Listing + Acquirente), NO buyer
             const topMoments = (()=>{
               if(datiSel.vendAnno.length===0 && datiSel.incAnno===0) return null;
 
-              // 🥇 Vendita più alta (prezzo immobile)
-              const vendPrezzo = datiSel.vendAnno.filter(v=>Number(v.prezzoVendita||0)>0);
+              // Helper: pratiche dove sono RUOLO PRINCIPALE (Listing o Acquirente, no buyer)
+              const isRuoloPrincipale = (v) => Number(v.agenteListing)===myAgentId || Number(v.agenteAcquirente)===myAgentId;
+              const pratPrincipali = datiSel.vendAnno.filter(isRuoloPrincipale);
+
+              // 🥇 Vendita più alta (prezzo immobile) — solo dove sono Listing o Acquirente
+              const vendPrezzo = pratPrincipali.filter(v=>Number(v.prezzoVendita||0)>0);
               const venditaPiuAlta = vendPrezzo.length>0 ? vendPrezzo.reduce((a,b)=>Number(b.prezzoVendita||0)>Number(a.prezzoVendita||0)?b:a, vendPrezzo[0]) : null;
 
-              // 💰 Quota maggiore incassata (quota MATURATA in qualsiasi ruolo dove la pratica è già stata incassata dal cliente)
-              // Calcolo per ogni pratica: la mia quota totale × % incassato del cliente
-              const pratConQuota = datiSel.vendAnno.map(v=>{
-                // Quota totale che ho maturato su questa pratica (Ag+Buyer)
-                let qTot=0;
-                if(Number(v.agenteListing)===myAgentId) qTot+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) qTot+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-                if(Number(v.agenteAcquirente)===myAgentId) qTot+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) qTot+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-                // Quota effettivamente entrata in cassa (proporzionale alla % incassata della pratica)
+              // 💰 Quota maggiore incassata — calcolo solo sulla Quota Agente (versione A, no buyer)
+              const pratConQuota = pratPrincipali.map(v=>{
+                // Quota Agente (versione A: solo ruoli principali, NIENTE buyer)
+                let qAg=0;
+                if(Number(v.agenteListing)===myAgentId) qAg+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) qAg+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                // Quanto ho realmente incassato di questa quota (proporzionale alla % incassata dal cliente)
                 const provTotPrat = Number(v.provvVenditore||0)+Number(v.provvAcquirente||0);
                 const incTotPrat = calcolaIncassatoV(v)+calcolaIncassatoA(v);
                 const percIncasso = provTotPrat>0 ? incTotPrat/provTotPrat : 0;
-                const qIncassata = qTot*percIncasso;
-                return {v, qTot, qIncassata};
+                const qIncassata = qAg*percIncasso;
+                return {v, qTot:qAg, qIncassata};
               }).filter(x=>x.qIncassata>0);
               const quotaMaxIncassata = pratConQuota.length>0 ? pratConQuota.reduce((a,b)=>b.qIncassata>a.qIncassata?b:a, pratConQuota[0]) : null;
 
-              // 📈 Mese migliore (per quota Ag+Buyer)
+              // 📈 Mese migliore — per Quota TOTALE Ag+Buyer (include sostegno da ruoli buyer)
+              // Filosofia: questo box racconta "qual è il mese in cui ho guadagnato di più", includendo anche
+              // il contributo da Buyer perché è comunque guadagno reale e mostra il valore della collaborazione.
               const perMese = {};
               datiSel.vendAnno.forEach(v=>{
-                let q=0;
-                if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                let qAg=0, qBuy=0;
+                if(Number(v.agenteListing)===myAgentId) qAg+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) qAg+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) qBuy+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) qBuy+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                const q=qAg+qBuy;
                 if(q<=0) return;
                 const m = getMese(dataCompAgenzia(v));
                 if(!m) return;
-                if(!perMese[m]) perMese[m]={mese:m, totale:0, count:0};
+                if(!perMese[m]) perMese[m]={mese:m, totale:0, totAg:0, totBuy:0, count:0};
                 perMese[m].totale += q;
+                perMese[m].totAg += qAg;
+                perMese[m].totBuy += qBuy;
                 perMese[m].count += 1;
               });
               const meseMigliore = Object.values(perMese).length>0 ? Object.values(perMese).reduce((a,b)=>b.totale>a.totale?b:a, Object.values(perMese)[0]) : null;
 
-              // 🏆 Record acquisizioni mensili (mese con più incarichi nuovi)
+              // 🏆 Record acquisizioni mensili (mese con più incarichi nuovi) - già OK, solo agenteListing
               const incPerMese = {};
               incarichi.filter(i=>Number(i.agenteListing)===myAgentId&&!i.archiviato&&(annoSel==="Tutti"||getAnno(i.dataInizio)===annoSel)).forEach(i=>{
                 const m = getMese(i.dataInizio);
@@ -6610,7 +6617,8 @@ export default function App() {
                       {topMoments.meseMigliore ? (<>
                         <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#8E44AD",fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(topMoments.meseMigliore.totale))}</p>
                         <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{fmtMese(topMoments.meseMigliore.mese)}</p>
-                        <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>{topMoments.meseMigliore.count} pratic{topMoments.meseMigliore.count===1?"a":"he"} (quota Ag+Buyer)</p>
+                        <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>Ag €{fmt(Math.round(topMoments.meseMigliore.totAg))} · B €{fmt(Math.round(topMoments.meseMigliore.totBuy))}</p>
+                        <p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>{topMoments.meseMigliore.count} pratic{topMoments.meseMigliore.count===1?"a":"he"}</p>
                       </>) : (<p style={{fontSize:12,color:"#aaa",margin:0,fontStyle:"italic"}}>Nessuna quota</p>)}
                     </div>
 
