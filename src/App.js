@@ -1048,13 +1048,20 @@ export default function App() {
         if(data.mirino) setMirino(data.mirino);
         if(data.fasiConfig) setFasiConfig(data.fasiConfig);
         if(data.emailLog) setEmailLog(data.emailLog);
-        if(data.catCosti) setCatCosti(Array.isArray(data.catCosti)?data.catCosti:Object.values(data.catCosti));
+        if(data.catCosti) {
+          // Pulisco automaticamente le categorie placeholder vuote ("Nuova categoria" con totale 0)
+          // che si accumulano e bloccano il fallback al previsionale anno precedente
+          const raw = Array.isArray(data.catCosti)?data.catCosti:Object.values(data.catCosti);
+          const pulito = raw.filter(c => !(
+            (c.nome==="Nuova categoria"||!c.nome||c.nome.trim()==="") 
+            && Number(c.totaleAnno||0)===0
+          ));
+          setCatCosti(pulito);
+        }
         if(data.speseCosti) setSpeseCosti(typeof data.speseCosti==="object"&&!Array.isArray(data.speseCosti)?data.speseCosti:{});
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
-        if(data.catCosti) setCatCosti(Array.isArray(data.catCosti)?data.catCosti:Object.values(data.catCosti));
-        if(data.speseCosti) setSpeseCosti(typeof data.speseCosti==="object"&&!Array.isArray(data.speseCosti)?data.speseCosti:{});
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
@@ -3050,12 +3057,25 @@ export default function App() {
             </div>
             {(()=>{
               // Calcolo preventivo (catCosti) e consuntivo (speseCosti)
+              // === LOGICA PREVISIONALE INTELLIGENTE (uguale al TAB Costi) ===
+              let annoPrevBE=costiAnno;
               const catAnnosBE=(()=>{
                 const byAnno=catCosti.filter(x=>String(x.anno)===costiAnno&&!x.agentId);
-                if(byAnno.length>0) return byAnno;
-                const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
-                return anni.length>0?catCosti.filter(x=>x.anno===anni[0]&&!x.agentId):[];
+                const haDatiPieni = byAnno.some(c => Number(c.totaleAnno||0) > 0);
+                if(byAnno.length>0 && haDatiPieni) return byAnno;
+                // Fallback: cerco l'anno più recente CON dati pieni
+                const tuttiAnni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
+                for(const anno of tuttiAnni){
+                  if(String(anno)===costiAnno) continue;
+                  const cats = catCosti.filter(x=>x.anno===anno&&!x.agentId);
+                  if(cats.some(c=>Number(c.totaleAnno||0)>0)){
+                    annoPrevBE=String(anno);
+                    return cats;
+                  }
+                }
+                return byAnno;
               })();
+              const isBEprevAnnoPrec = annoPrevBE!==costiAnno;
               const speseAnnoBE=speseCosti[costiAnno]||[];
               const fissi=catAnnosBE.filter(c=>c.tipo==="fisso");
               const variabili=catAnnosBE.filter(c=>c.tipo==="variabile");
@@ -3155,8 +3175,10 @@ export default function App() {
                       <p style={{fontSize:13,color:"#aaa",margin:0}}>€ {fmt(Math.round(costoMensile))}<span style={{fontSize:11}}>/mese</span></p>
                       <div style={{marginTop:10,padding:"8px 10px",background:"#fafaf8",borderRadius:6,fontSize:11,lineHeight:1.6,textAlign:"left"}}>
                         <div style={{color:"#888",fontWeight:600,marginBottom:3}}>📊 Riferimenti automatici</div>
-                        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#888"}}>Preventivo:</span><strong style={{color:"#2980B9"}}>€ {fmt(Math.round(totPrevAnnuo))}</strong></div>
-                        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#888"}}>Consuntivo:</span><strong style={{color:totConsuntivo>0?"#E67E22":"#ccc"}}>€ {fmt(Math.round(totConsuntivo))}</strong></div>
+                        <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#888"}}>Preventivo{isBEprevAnnoPrec?` (da ${annoPrevBE})`:""}:</span><strong style={{color:"#2980B9"}}>€ {fmt(Math.round(totPrevAnnuo))}</strong></div>
+                        <div style={{display:"flex",justifyContent:"space-between",paddingLeft:8,fontSize:10,color:"#aaa"}}><span>↳ fissi:</span><span>€ {fmt(Math.round(totPrevFissi))}</span></div>
+                        <div style={{display:"flex",justifyContent:"space-between",paddingLeft:8,fontSize:10,color:"#aaa"}}><span>↳ variabili:</span><span>€ {fmt(Math.round(totPrevVar))}</span></div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}><span style={{color:"#888"}}>Consuntivo {costiAnno}:</span><strong style={{color:totConsuntivo>0?"#E67E22":"#ccc"}}>€ {fmt(Math.round(totConsuntivo))}</strong></div>
                       </div>
                     </div>
                   </div>
@@ -3409,18 +3431,28 @@ export default function App() {
           })()}
           {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
             const annoC=costiAnno||annoCorrente;
-            // Determino da quale anno arrivano DAVVERO le categorie (fallback ad anno più recente)
+            // === LOGICA PREVISIONALE INTELLIGENTE ===
+            // 1. Cerco categorie nell'anno selezionato CON ALMENO UNA con totaleAnno > 0
+            // 2. Se non trovo dati significativi, fallback all'anno più recente con dati pieni
+            // 3. Le SPESE REALI restano sempre dell'anno selezionato (per tracciare le spese 2026 nel 2026)
             let annoPrevisionale=annoC;
             const catAnnoC=(()=>{
               const byAnno=catCosti.filter(x=>String(x.anno)===annoC&&!x.agentId);
-              if(byAnno.length>0) return byAnno;
-              // fallback: usa anno più recente disponibile
-              const anni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
-              if(anni.length>0){
-                annoPrevisionale=String(anni[0]);
-                return catCosti.filter(x=>x.anno===anni[0]&&!x.agentId);
+              // Controllo se le categorie dell'anno selezionato sono "piene" (almeno una con totale > 0)
+              const haDatiPieni = byAnno.some(c => Number(c.totaleAnno||0) > 0);
+              if(byAnno.length>0 && haDatiPieni) return byAnno;
+              // Fallback: cerco l'anno più recente CON dati pieni (almeno una categoria > 0)
+              const tuttiAnni=[...new Set(catCosti.filter(x=>!x.agentId).map(x=>x.anno))].sort((a,b)=>b-a);
+              for(const anno of tuttiAnni){
+                if(String(anno)===annoC) continue; // già controllato
+                const cats = catCosti.filter(x=>x.anno===anno&&!x.agentId);
+                if(cats.some(c=>Number(c.totaleAnno||0)>0)){
+                  annoPrevisionale=String(anno);
+                  return cats;
+                }
               }
-              return [];
+              // Nessun anno con dati pieni: ritorno comunque le categorie dell'anno selezionato (anche vuote)
+              return byAnno;
             })();
             const isPrevAnnoPrec=annoPrevisionale!==annoC;
             const speseAnnoC=speseCosti[annoC]||[];
