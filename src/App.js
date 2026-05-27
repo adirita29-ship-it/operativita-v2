@@ -742,6 +742,12 @@ export default function App() {
   const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
   const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
   const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
+  // Funzione "Salva ora" — forza un salvataggio immediato bypassando il debounce.
+  // Usata dal bottone "💾 Salva ora" in TAB Oggi come rete di sicurezza per evitare perdita dati.
+  const salvaOraManualeRef = useRef(null);
+  const salvaOraManuale = () => {
+    if(salvaOraManualeRef.current) salvaOraManualeRef.current();
+  };
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
   const _ls = caricaLS();
   // Default tab: gli agenti aprono direttamente "Operatività" (sub-tab Oggi); broker/back office/coach aprono "Dashboard"
@@ -756,6 +762,7 @@ export default function App() {
   const [tab,setTab]=useState(_tabIniziale);
   const [dbLoaded,setDbLoaded]=useState(false);
   const [dbSaving,setDbSaving]=useState(false);
+  const [ultimoSalvataggio,setUltimoSalvataggio]=useState(null);
   const [agenti,setAgenti]=useState(_ls?.agenti||INIT_AGENTI);
   const [incarichi,setIncarichi]=useState(_ls?.incarichi||INIT_INCARICHI);
   const [proposte,setProposte]=useState(_ls?.proposte||INIT_PROPOSTE);
@@ -1066,7 +1073,6 @@ export default function App() {
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
-        if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
       }
       setDbLoaded(true);
     });
@@ -1216,19 +1222,30 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
     salvaLS(payload); // salva anche in locale come backup
+    // Popola la ref per il salvataggio manuale immediato (bypass debounce)
+    salvaOraManualeRef.current = () => {
+      setDbSaving(true);
+      if(window._gestionaleSalvato) window._gestionaleSalvato();
+      salvaDB(payload).finally(()=>{
+        setDbSaving(false);
+        setUltimoSalvataggio(new Date());
+        if(window._gestionaleSalvato) window._gestionaleSalvato();
+      });
+    };
     setDbSaving(true);
     const t=setTimeout(()=>{
       if(window._gestionaleSalvato)window._gestionaleSalvato();
       salvaDB(payload).finally(()=>{
         setDbSaving(false);
+        setUltimoSalvataggio(new Date());
         // Rinnova il guard dopo il salvataggio completato
         if(window._gestionaleSalvato)window._gestionaleSalvato();
       });
-    },2000); // debounce 2000ms
+    },800); // debounce 800ms (era 2000ms, ridotto per minimizzare rischio perdita dati)
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,obiettivoAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
 
 
 
@@ -4884,6 +4901,13 @@ export default function App() {
                         </optgroup>
                       </select>}
                       {!stoGuardandomi&&<div style={{padding:"6px 12px",background:"#EAF4FB",borderRadius:6,fontSize:12,color:"#2980B9",fontWeight:600,border:"0.5px solid #2980B944"}}>👁 Stai guardando {agSel?.nome} — sola lettura</div>}
+                      {/* Stato salvataggio + bottone Salva ora */}
+                      {puoModificare&&<div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <div style={{fontSize:11,color:dbSaving?"#E67E22":"#27AE60",fontWeight:600,padding:"5px 10px",background:dbSaving?"#FEF6E6":"#E8F8EF",borderRadius:6,border:`0.5px solid ${dbSaving?"#F39C1244":"#27AE6044"}`}}>
+                          {dbSaving ? "⏳ Salvataggio..." : ultimoSalvataggio ? `✓ Salvato alle ${ultimoSalvataggio.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}` : "✓ Sincronizzato"}
+                        </div>
+                        <button onClick={salvaOraManuale} disabled={dbSaving} style={{...S.btn,fontSize:12,padding:"6px 14px",background:BRAND.oro,color:"#fff",border:"none",fontWeight:600,opacity:dbSaving?0.6:1,cursor:dbSaving?"default":"pointer"}}>💾 Salva ora</button>
+                      </div>}
                     </div>
 
                     {/* HEADER MOTIVAZIONALE */}
@@ -6076,28 +6100,60 @@ export default function App() {
                   {!vistaTotale&&<>
                     <p style={{fontSize:11,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Revisioni obiettivo</p>
                     <div style={sCard2}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:revisioni.length>0?"1rem":0}}>
-                        <span style={{fontSize:12,color:"#888"}}>{revisioni.length===0?"Nessuna revisione registrata":revisioni.length+" revisioni"}</span>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:revisioni.length>0?"1rem":0,flexWrap:"wrap",gap:8}}>
+                        <span style={{fontSize:12,color:"#888"}}>{revisioni.length===0?"Nessuna revisione registrata":`${revisioni.length} revisione${revisioni.length>1?"i":""} · ultima è quella attiva`}</span>
                         {!isReadOnly&&<button onClick={()=>{
                           const motivo=prompt("Motivo della revisione:");
                           if(!motivo) return;
                           const nuovoOb=Number(prompt("Nuovo obiettivo fatturato €:"));
-                          if(!nuovoOb) return;
-                          const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb};
+                          if(!nuovoOb||isNaN(nuovoOb)||nuovoOb<=0){alert("Inserisci un importo valido.");return;}
+                          // Snapshot dei nuovi calcoli (basati sui parametri attuali)
+                          const provvMediaPiano=Number(obAnnPiano.provvMedia)||5386;
+                          const trans=Math.ceil(nuovoOb/provvMediaPiano);
+                          const imm=Math.ceil(trans/2);
+                          const acquis=Math.ceil(imm/0.65);
+                          const appt=Math.ceil((acquis/12)/0.40);
+                          const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb,calc:{trans,imm,acquis,appt}};
                           setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:nuovoOb,revisioni:[...(prev[agIdPiano]?.revisioni||[]),rev]}}));
                         }} style={{...S.btnP,fontSize:11,padding:"4px 14px"}}>+ Revisiona</button>}
                       </div>
                       {revisioni.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
-                        {revisioni.map((r,i)=>(
-                          <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:"#fafaf8",border:"0.5px solid #eee"}}>
-                            <div style={{width:10,height:10,borderRadius:"50%",background:r.nuovo>r.vecchio?"#27AE60":"#E67E22",flexShrink:0}}/>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:13,fontWeight:500}}>{r.motivo}</div>
-                              <div style={{fontSize:11,color:"#888"}}>{fmtD(r.data)} · da € {fmt(r.vecchio)} → € {fmt(r.nuovo)}</div>
+                        {revisioni.map((r,i)=>{
+                          const isUltima=i===revisioni.length-1;
+                          return(
+                          <div key={i} style={{padding:"12px 14px",borderRadius:8,background:isUltima?"#FDFBF7":"#fafaf8",border:`0.5px solid ${isUltima?BRAND.oro+"66":"#eee"}`,position:"relative"}}>
+                            {/* Riga superiore: motivo + variazione + cancellazione */}
+                            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:r.calc?8:0}}>
+                              <div style={{width:10,height:10,borderRadius:"50%",background:r.nuovo>r.vecchio?"#27AE60":"#E67E22",flexShrink:0}}/>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>{r.motivo}{isUltima&&<span style={{fontSize:9,color:"#fff",marginLeft:8,padding:"1px 8px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,verticalAlign:"middle"}}>ATTIVA</span>}</div>
+                                <div style={{fontSize:11,color:"#888",marginTop:2}}>{fmtD(r.data)} · da € {fmt(r.vecchio)} → <strong style={{color:BRAND.grigio}}>€ {fmt(r.nuovo)}</strong> {r.nuovo>r.vecchio?<span style={{color:"#27AE60"}}>↑</span>:<span style={{color:"#E67E22"}}>↓</span>}</div>
+                              </div>
+                              {!isReadOnly&&<button onClick={()=>{
+                                if(!window.confirm(`Eliminare questa revisione?\\n\\nMotivo: ${r.motivo}\\nData: ${fmtD(r.data)}\\n\\nSe è l'ultima revisione, il fatturato tornerà al valore precedente.`)) return;
+                                setObiettivoAgente(prev=>{
+                                  const cur = prev[agIdPiano]||{};
+                                  const nuoveRev = (cur.revisioni||[]).filter((_,idx)=>idx!==i);
+                                  // Se elimino l'ULTIMA revisione, il fatturato torna al valore "vecchio" della revisione eliminata
+                                  // Se invece elimino una in mezzo, il fatturato resta quello dell'ultima rimanente
+                                  let nuovoFatt = cur.fatturato;
+                                  if(i===(cur.revisioni||[]).length-1){
+                                    // Era l'ultima → uso il "nuovo" dell'ultima rimanente, o il "vecchio" di questa se era l'unica
+                                    nuovoFatt = nuoveRev.length>0 ? nuoveRev[nuoveRev.length-1].nuovo : r.vecchio;
+                                  }
+                                  return {...prev,[agIdPiano]:{...cur,fatturato:nuovoFatt,revisioni:nuoveRev}};
+                                });
+                              }} title="Elimina questa revisione" style={{background:"transparent",border:"0.5px solid #ddd",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#E74C3C",fontSize:13,fontWeight:600,flexShrink:0}}>✕</button>}
                             </div>
-                            <div style={{fontSize:14,fontWeight:700,color:r.nuovo>r.vecchio?"#27AE60":"#E67E22"}}>€ {fmt(r.nuovo)}</div>
-                          </div>
-                        ))}
+                            {/* Dettaglio nuovi calcoli (se presenti) */}
+                            {r.calc&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:6,marginTop:8,paddingTop:8,borderTop:`0.5px dashed ${isUltima?BRAND.oro+"44":"#ddd"}`}}>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.trans}</strong>Transazioni</div>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.imm}</strong>Immobili</div>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.acquis}</strong>Acquisizioni</div>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.appt}</strong>Appt/sett</div>
+                            </div>}
+                          </div>);
+                        })}
                       </div>}
                     </div>
                   </>}
