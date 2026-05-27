@@ -505,7 +505,7 @@ function ModalIncassoLato({vend,lato,onSave,onClose}) {
   </div>);
 }
 
-function SchedaAgente({agente,venduti,incarichi,onClose}) {
+function SchedaAgente({agente,venduti,incarichi,prospetti,onClose}) {
   const [fA,setFA]=useState(annoCorrente); const [fM,setFM]=useState("Tutti");
   const [showTabella,setShowTabella]=useState(true);
   const anni=useMemo(()=>Array.from(new Set(venduti.map(v=>getAnno(v.dataVendita||v.dataAtto||"")).filter(Boolean))).sort().reverse(),[venduti]);
@@ -583,8 +583,24 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
           <span style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>Lista pratiche ({prat.length})</span>
           <button style={{background:"none",border:`0.5px solid #ddd`,borderRadius:6,padding:"3px 12px",fontSize:12,cursor:"pointer",color:BRAND.oroD}}>{showTabella?"▲ Nascondi":"▼ Mostra"}</button>
         </div>
-        {showTabella&&<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:600}}>
-          <thead><tr>{["Data","Immobile","Ruolo","Provv. Agenzia","Quota Agente","Quota Buyer","Stato"].map(h=><th key={h} style={Ss.th}>{h}</th>)}</tr></thead>
+        {showTabella&&(()=>{
+          // Helper: stato pagamento agenzia→agente per (pratica, agente) basato sui prospetti
+          // Considera TUTTI i ruoli dell'agente su quella pratica
+          const calcStatoPag = (venditoId) => {
+            if(!prospetti||prospetti.length===0) return {lbl:"Da fatturare",clr:"#BA7517",bg:"#FAEEDA",ic:"🧾"};
+            // Cerco prospetti non annullati per questo agente che contengano questa pratica
+            const prosp = prospetti.find(p=>
+              p.agenteId===agente.id &&
+              p.statoFlow!=="annullato" &&
+              (p.righe||[]).some(r=>r.venditoId===venditoId)
+            );
+            if(!prosp) return {lbl:"Da fatturare",clr:"#BA7517",bg:"#FAEEDA",ic:"🧾"};
+            if(prosp.statoFlow==="pagato") return {lbl:"Pagato",clr:"#0F6E56",bg:"#E1F5EE",ic:"✓",extra:prosp.numero};
+            if(prosp.statoFlow==="fatturato") return {lbl:"Da pagare",clr:"#633806",bg:"#FAEEDA",ic:"⏳",extra:prosp.numero};
+            return {lbl:"In prospetto",clr:"#0C447C",bg:"#E6F1FB",ic:"✉",extra:prosp.numero};
+          };
+        return(<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:700}}>
+          <thead><tr>{["Data","Immobile","Ruolo","Provv. Agenzia","Quota Agente","Quota Buyer","Stato cliente","Stato pagamento"].map(h=><th key={h} style={Ss.th}>{h}</th>)}</tr></thead>
           <tbody>
             {prat.map(v=>{
               const ruoli=[];
@@ -594,6 +610,7 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
               const qBuy=(()=>{let q=0;if(v.buyerListing===agente.id&&v.agenteListing!==agente.id)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;if(v.buyer===agente.id&&v.agenteAcquirente!==agente.id)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;return q;})();
               const provvAg=(()=>{let p=0;if(v.agenteListing===agente.id)p+=Number(v.provvVenditore||0);if(v.agenteAcquirente===agente.id)p+=Number(v.provvAcquirente||0);return p;})();
               const cfg=STATI_INCASSO[calcolaStatoIncasso(v)]||STATI_INCASSO["Da incassare"];
+              const cfgPag=calcStatoPag(v.id);
               return(<tr key={v.id}>
                 <td style={Ss.td}>{fmtD(v.dataVendita||v.dataAtto)}</td>
                 <td style={Ss.td}><strong>{v.comuneImmobile}</strong> — {v.indirizzoImmobile}<br/><span style={{fontSize:11,color:"#aaa"}}>{v.tipologia}</span></td>
@@ -602,9 +619,10 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
                 <td style={{...Ss.tdR,fontWeight:600,color:"#8E44AD"}}>{qAg>0?`€ ${fmt(qAg)}`:"—"}</td>
                 <td style={{...Ss.tdR,fontWeight:600,color:"#2980B9"}}>{qBuy>0?`€ ${fmt(qBuy)}`:"—"}</td>
                 <td style={Ss.td}><span style={bdg(cfg)}>{calcolaStatoIncasso(v)}</span></td>
+                <td style={Ss.td}><span style={{fontSize:11,padding:"3px 8px",borderRadius:4,background:cfgPag.bg,color:cfgPag.clr,fontWeight:600,whiteSpace:"nowrap"}}>{cfgPag.ic} {cfgPag.lbl}{cfgPag.extra?` ${cfgPag.extra}`:""}</span></td>
               </tr>);
             })}
-            {prat.length===0&&<tr><td colSpan={7} style={{...Ss.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna pratica nel periodo</td></tr>}
+            {prat.length===0&&<tr><td colSpan={8} style={{...Ss.td,textAlign:"center",color:"#bbb",padding:"2rem"}}>Nessuna pratica nel periodo</td></tr>}
           </tbody>
           {prat.length>0&&<tfoot><tr style={{background:"#F2F0EB",fontWeight:500}}>
             <td colSpan={3} style={Ss.td}>Totale</td>
@@ -612,8 +630,10 @@ function SchedaAgente({agente,venduti,incarichi,onClose}) {
             <td style={{...Ss.tdR,color:"#8E44AD"}}>{totQ>0?`€ ${fmt(totQ)}`:"—"}</td>
             <td style={{...Ss.tdR,color:"#2980B9"}}>{totQBuy>0?`€ ${fmt(totQBuy)}`:"—"}</td>
             <td style={Ss.td}/>
+            <td style={Ss.td}/>
           </tr></tfoot>}
-        </table></div>}
+        </table></div>);
+        })()}
       </div>
       <div style={{display:"flex",justifyContent:"flex-end",marginTop:"1rem"}}>
         <button onClick={onClose} style={{padding:"7px 18px",fontSize:13,borderRadius:6,border:`1px solid ${BRAND.oro}`,background:BRAND.oro,color:"#fff",cursor:"pointer",fontWeight:500}}>Chiudi</button>
@@ -9621,7 +9641,7 @@ export default function App() {
         </div>
       </div>
 
-      {schedaAgente&&<SchedaAgente agente={schedaAgente} venduti={vendReport} incarichi={incarichi} onClose={()=>setSchedaAgente(null)}/>}
+      {schedaAgente&&<SchedaAgente agente={schedaAgente} venduti={vendReport} incarichi={incarichi} prospetti={prospetti} onClose={()=>setSchedaAgente(null)}/>}
 
       {/* MODAL SELEZIONE INCARICO AGENZIA PER PROPOSTA */}
       {showSelIncaricoAg&&(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setShowSelIncaricoAg(false)}>
