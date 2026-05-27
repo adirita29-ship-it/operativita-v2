@@ -811,6 +811,7 @@ export default function App() {
   const [showGestCat,setShowGestCat]=useState(false);
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
   const [costiAnno,setCostiAnno]=useState(annoCorrente);
+  const [costiSubTab,setCostiSubTab]=useState("anno"); // "anno" = vista anno singolo, "confronto" = confronto anni
   const [costiAnnoAg,setCostiAnnoAg]=useState("2025"); // anno separato per agente
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
@@ -3485,6 +3486,15 @@ export default function App() {
                 </div>
               </div>
 
+              {/* SUB-TAB: Anno corrente | Confronto Anni */}
+              <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.5rem"}}>
+                {[{v:"anno",l:"📅 Anno corrente"},{v:"confronto",l:"📊 Confronto Anni"}].map(o=>(
+                  <button key={o.v} onClick={()=>setCostiSubTab(o.v)} style={{...S.btn,fontSize:13,padding:"6px 14px",background:costiSubTab===o.v?BRAND.oro:"transparent",color:costiSubTab===o.v?"#fff":BRAND.grigio,border:`1px solid ${costiSubTab===o.v?BRAND.oro:"transparent"}`,fontWeight:costiSubTab===o.v?600:500}}>{o.l}</button>
+                ))}
+              </div>
+
+              {costiSubTab==="anno"&&<>
+
               {/* KPI */}
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.5rem"}}>
                 {[
@@ -3608,6 +3618,193 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              </>}
+
+              {/* ===== SUB-TAB CONFRONTO ANNI ===== */}
+              {costiSubTab==="confronto"&&(()=>{
+                // Raccolgo tutti gli anni che hanno categorie o spese
+                const anniCat = [...new Set(catCosti.filter(c=>!c.agentId).map(c=>String(c.anno)))];
+                const anniSpese = Object.keys(speseCosti).filter(k=>/^\d{4}$/.test(k));
+                const anniDisp = [...new Set([...anniCat,...anniSpese])].sort();
+                if(anniDisp.length===0){
+                  return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
+                    <p style={{fontSize:14}}>Nessun dato disponibile per il confronto.</p>
+                    <p style={{fontSize:12,color:"#aaa"}}>Configura le categorie in Impostazioni e inserisci spese per vedere il confronto.</p>
+                  </div>);
+                }
+
+                // Costruisco un dizionario unico di "voci di costo":
+                // - key = nome categoria normalizzato (lowercase, trim)
+                // - value = {nome, tipo, perAnno:{2025:{prev, speso}, 2026:{prev, speso}, ...}}
+                const voci = {};
+                catCosti.filter(c=>!c.agentId).forEach(c=>{
+                  const key = (c.nome||"").toLowerCase().trim();
+                  if(!key||key==="nuova categoria") return;
+                  if(!voci[key]){
+                    voci[key]={nome:c.nome, tipo:c.tipo||"fisso", perAnno:{}};
+                  }
+                  const anno=String(c.anno);
+                  if(!voci[key].perAnno[anno]) voci[key].perAnno[anno]={prev:0,speso:0,catId:c.id};
+                  voci[key].perAnno[anno].prev = Number(c.totaleAnno||0);
+                  voci[key].perAnno[anno].catId = c.id;
+                });
+                // Ora aggrego le spese per categoria/anno
+                Object.keys(speseCosti).forEach(annoKey=>{
+                  if(!/^\d{4}$/.test(annoKey)) return; // skip chiavi tipo "ag_1_2025"
+                  const speseAnno = speseCosti[annoKey]||[];
+                  speseAnno.forEach(sp=>{
+                    // Trovo a quale "voce" appartiene cercando il catId nelle categorie
+                    const cat = catCosti.find(c=>c.id===sp.catId&&!c.agentId);
+                    if(!cat) return;
+                    const key = (cat.nome||"").toLowerCase().trim();
+                    if(!voci[key]) return;
+                    if(!voci[key].perAnno[annoKey]) voci[key].perAnno[annoKey]={prev:0,speso:0};
+                    voci[key].perAnno[annoKey].speso += Number(sp.importo||0);
+                  });
+                });
+
+                // Calcolo totali per anno e per tipo
+                const totaliPerAnno = {};
+                anniDisp.forEach(a=>{
+                  totaliPerAnno[a]={prevFissi:0,prevVar:0,spesoFissi:0,spesoVar:0,prevTot:0,spesoTot:0};
+                });
+                Object.values(voci).forEach(v=>{
+                  anniDisp.forEach(a=>{
+                    const d=v.perAnno[a]||{prev:0,speso:0};
+                    if(v.tipo==="fisso"){
+                      totaliPerAnno[a].prevFissi+=d.prev;
+                      totaliPerAnno[a].spesoFissi+=d.speso;
+                    } else {
+                      totaliPerAnno[a].prevVar+=d.prev;
+                      totaliPerAnno[a].spesoVar+=d.speso;
+                    }
+                    totaliPerAnno[a].prevTot+=d.prev;
+                    totaliPerAnno[a].spesoTot+=d.speso;
+                  });
+                });
+
+                // Helper: calcolo variazione % tra due valori
+                const calcVar=(curr, prev)=>{
+                  if(!prev||prev===0) return null;
+                  return Math.round((curr-prev)/prev*100);
+                };
+                const renderVar=(perc)=>{
+                  if(perc===null||perc===undefined) return <span style={{color:"#ccc"}}>—</span>;
+                  if(perc===0) return <span style={{color:"#888",fontWeight:600}}>=</span>;
+                  const isUp=perc>0;
+                  const clr = isUp?"#E74C3C":"#27AE60";
+                  const arrow = isUp?"↑":"↓";
+                  return <span style={{color:clr,fontWeight:700,fontSize:11}}>{arrow} {Math.abs(perc)}%</span>;
+                };
+
+                // Separazione voci per tipo (fissi e variabili)
+                const vociFissi = Object.values(voci).filter(v=>v.tipo==="fisso").sort((a,b)=>a.nome.localeCompare(b.nome));
+                const vociVar = Object.values(voci).filter(v=>v.tipo==="variabile").sort((a,b)=>a.nome.localeCompare(b.nome));
+
+                // Stili tabella
+                const thStyle={padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textTransform:"uppercase",letterSpacing:"0.06em",textAlign:"right",borderBottom:"1px solid #e8e5e0",background:"#fafaf8"};
+                const thStyleLeft={...thStyle,textAlign:"left"};
+                const tdStyle={padding:"7px 10px",fontSize:13,color:BRAND.grigio,textAlign:"right",borderBottom:"0.5px solid #f0f0f0"};
+                const tdStyleLeft={...tdStyle,textAlign:"left",fontWeight:500};
+
+                // Funzione per renderizzare una riga di voce
+                const renderRigaVoce=(v)=>{
+                  const importi = anniDisp.map(a=>v.perAnno[a]||{prev:0,speso:0});
+                  // Mostro il valore "rappresentativo" per anno: speso se presente, altrimenti prev
+                  const valori = importi.map(d=>d.speso>0?d.speso:d.prev);
+                  const haAlmenoUnValore = valori.some(v=>v>0);
+                  if(!haAlmenoUnValore) return null;
+                  // Variazione: confronto ultimo anno con dati vs precedente con dati
+                  let variazione=null;
+                  for(let i=valori.length-1;i>0;i--){
+                    if(valori[i]>0 && valori[i-1]>0){
+                      variazione=calcVar(valori[i],valori[i-1]);
+                      break;
+                    }
+                  }
+                  return(<tr key={v.nome}>
+                    <td style={tdStyleLeft}>{v.nome}</td>
+                    {importi.map((d,i)=>(
+                      <td key={i} style={tdStyle}>
+                        {d.speso>0?<span style={{color:"#E67E22",fontWeight:600}}>€ {fmt(Math.round(d.speso))}</span>
+                         :d.prev>0?<span style={{color:"#888"}}>€ {fmt(Math.round(d.prev))}<sub style={{fontSize:8,marginLeft:2,color:"#bbb"}}>prev</sub></span>
+                         :<span style={{color:"#ddd"}}>—</span>}
+                      </td>
+                    ))}
+                    <td style={{...tdStyle,minWidth:80}}>{renderVar(variazione)}</td>
+                  </tr>);
+                };
+
+                return(<>
+                  <div style={{background:"#FDFBF7",border:"1px solid #C9A96E33",borderLeft:`4px solid ${BRAND.oro}`,borderRadius:8,padding:"10px 14px",marginBottom:"1.25rem",fontSize:12,color:"#7E5109",lineHeight:1.6}}>
+                    <strong>📊 Confronto Anni:</strong> tabella comparativa multi-anno delle voci di costo. I valori <span style={{color:"#E67E22",fontWeight:700}}>arancioni</span> sono spese reali consuntivate; i valori <span style={{color:"#888"}}>grigi</span> con "prev" sono previsionali non ancora speso. La colonna <strong>Variazione</strong> confronta gli ultimi due anni con dati reali.
+                  </div>
+
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead>
+                        <tr>
+                          <th style={thStyleLeft}>Categoria</th>
+                          {anniDisp.map(a=><th key={a} style={thStyle}>{a}</th>)}
+                          <th style={thStyle}>Var.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vociFissi.length>0&&<tr><td colSpan={anniDisp.length+2} style={{padding:"10px 10px 6px",fontSize:11,fontWeight:700,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",background:"#FDFBF7"}}>📌 Costi Fissi</td></tr>}
+                        {vociFissi.map(v=>renderRigaVoce(v))}
+                        {vociFissi.length>0&&<tr style={{background:"#FDFBF7"}}>
+                          <td style={{...tdStyleLeft,fontWeight:700,color:BRAND.oroD}}>Totale Fissi</td>
+                          {anniDisp.map(a=>{
+                            const t=totaliPerAnno[a];
+                            const valore = t.spesoFissi>0?t.spesoFissi:t.prevFissi;
+                            return <td key={a} style={{...tdStyle,fontWeight:700,color:BRAND.oroD}}>€ {fmt(Math.round(valore))}</td>;
+                          })}
+                          <td style={tdStyle}>{(()=>{
+                            const vals=anniDisp.map(a=>(totaliPerAnno[a].spesoFissi>0?totaliPerAnno[a].spesoFissi:totaliPerAnno[a].prevFissi));
+                            for(let i=vals.length-1;i>0;i--) if(vals[i]>0&&vals[i-1]>0) return renderVar(calcVar(vals[i],vals[i-1]));
+                            return renderVar(null);
+                          })()}</td>
+                        </tr>}
+
+                        {vociVar.length>0&&<tr><td colSpan={anniDisp.length+2} style={{padding:"14px 10px 6px",fontSize:11,fontWeight:700,color:"#8E44AD",textTransform:"uppercase",letterSpacing:"0.08em",background:"#FDFBF7"}}>📊 Costi Variabili</td></tr>}
+                        {vociVar.map(v=>renderRigaVoce(v))}
+                        {vociVar.length>0&&<tr style={{background:"#FDFBF7"}}>
+                          <td style={{...tdStyleLeft,fontWeight:700,color:"#8E44AD"}}>Totale Variabili</td>
+                          {anniDisp.map(a=>{
+                            const t=totaliPerAnno[a];
+                            const valore = t.spesoVar>0?t.spesoVar:t.prevVar;
+                            return <td key={a} style={{...tdStyle,fontWeight:700,color:"#8E44AD"}}>€ {fmt(Math.round(valore))}</td>;
+                          })}
+                          <td style={tdStyle}>{(()=>{
+                            const vals=anniDisp.map(a=>(totaliPerAnno[a].spesoVar>0?totaliPerAnno[a].spesoVar:totaliPerAnno[a].prevVar));
+                            for(let i=vals.length-1;i>0;i--) if(vals[i]>0&&vals[i-1]>0) return renderVar(calcVar(vals[i],vals[i-1]));
+                            return renderVar(null);
+                          })()}</td>
+                        </tr>}
+
+                        <tr style={{background:`${BRAND.oro}22`}}>
+                          <td style={{...tdStyleLeft,fontWeight:800,color:BRAND.grigio,fontSize:14,borderTop:`2px solid ${BRAND.oro}`}}>TOTALE GENERALE</td>
+                          {anniDisp.map(a=>{
+                            const t=totaliPerAnno[a];
+                            const valore = t.spesoTot>0?t.spesoTot:t.prevTot;
+                            return <td key={a} style={{...tdStyle,fontWeight:800,color:BRAND.grigio,fontSize:14,borderTop:`2px solid ${BRAND.oro}`}}>€ {fmt(Math.round(valore))}</td>;
+                          })}
+                          <td style={{...tdStyle,borderTop:`2px solid ${BRAND.oro}`}}>{(()=>{
+                            const vals=anniDisp.map(a=>(totaliPerAnno[a].spesoTot>0?totaliPerAnno[a].spesoTot:totaliPerAnno[a].prevTot));
+                            for(let i=vals.length-1;i>0;i--) if(vals[i]>0&&vals[i-1]>0) return renderVar(calcVar(vals[i],vals[i-1]));
+                            return renderVar(null);
+                          })()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div style={{fontSize:11,color:"#888",lineHeight:1.6,padding:"8px 12px",background:"#fafaf8",borderRadius:6}}>
+                    <strong>Note:</strong> il confronto avviene per nome categoria (normalizzato). Se rinomini una categoria, il confronto storico per quella voce si interromperà. Le variazioni in <span style={{color:"#E74C3C",fontWeight:700}}>↑ rosso</span> indicano aumento di spesa, in <span style={{color:"#27AE60",fontWeight:700}}>↓ verde</span> indicano risparmio.
+                  </div>
+                </>);
+              })()}
+
             </div>);
           })()}
 
