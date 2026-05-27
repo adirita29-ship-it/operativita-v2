@@ -4970,19 +4970,31 @@ export default function App() {
             })();
 
             // === I MIEI prospetti (filtrati per anno) ===
+            // Per i prospetti PAGATI: filtro per anno di dataPagamento (criterio cassa)
+            // Per gli altri (inviato/fatturato/annullato): filtro per anno di dataCreazione (sono "aperti")
             const mieiProspetti = prospetti
               .filter(p=>p.agenteId===myAgentId)
-              .filter(p=>annoSel==="Tutti" || (p.dataCreazione||"").startsWith(annoSel))
+              .filter(p=>{
+                if(annoSel==="Tutti") return true;
+                if(p.statoFlow==="pagato") return (p.dataPagamento||"").startsWith(annoSel);
+                return (p.dataCreazione||"").startsWith(annoSel);
+              })
               .sort((a,b)=>(b.dataCreazione||"").localeCompare(a.dataCreazione||""));
 
             // === KPI ===
+            // CRITERIO DI CASSA per l'agente: "Già incassato" filtra per anno di dataPagamento (bonifico effettivo)
+            // Le altre voci (Da fatturare, In attesa) sono "aperte" e non hanno anno definitivo finché non vengono pagate
             const totDaFatturare = righeDisponibili.reduce((s,r)=>s+r.importo,0);
-            const totDaEmettere = mieiProspetti.filter(p=>p.statoFlow==="inviato").reduce((s,p)=>s+Number(p.totale||0),0);
-            const totInAttesa = mieiProspetti.filter(p=>p.statoFlow==="fatturato").reduce((s,p)=>s+Number(p.totale||0),0);
-            const totIncassato = mieiProspetti.filter(p=>p.statoFlow==="pagato").reduce((s,p)=>s+Number(p.totale||0),0);
-            const nDaFatt = mieiProspetti.filter(p=>p.statoFlow==="inviato").length;
-            const nInAttesa = mieiProspetti.filter(p=>p.statoFlow==="fatturato").length;
-            const nPagati = mieiProspetti.filter(p=>p.statoFlow==="pagato").length;
+            // Da fatturare/In attesa bonifico: tutti i prospetti dell'agente che non sono pagati né annullati (no filtro anno)
+            const prospAttiviTot = prospetti.filter(p=>p.agenteId===myAgentId);
+            const totDaEmettere = prospAttiviTot.filter(p=>p.statoFlow==="inviato").reduce((s,p)=>s+Number(p.totale||0),0);
+            const totInAttesa = prospAttiviTot.filter(p=>p.statoFlow==="fatturato").reduce((s,p)=>s+Number(p.totale||0),0);
+            // Già incassato: prospetti pagati con dataPagamento nell'anno selezionato (criterio CASSA per l'agente)
+            const prospPagatiAnno = prospAttiviTot.filter(p=>p.statoFlow==="pagato" && p.dataPagamento && (annoSel==="Tutti" || p.dataPagamento.startsWith(annoSel)));
+            const totIncassato = prospPagatiAnno.reduce((s,p)=>s+Number(p.totale||0),0);
+            const nDaFatt = prospAttiviTot.filter(p=>p.statoFlow==="inviato").length;
+            const nInAttesa = prospAttiviTot.filter(p=>p.statoFlow==="fatturato").length;
+            const nPagati = prospPagatiAnno.length;
 
             // === Modale dettaglio prospetto aperto (solo lettura per agente) ===
             const prAttivoMio = showProspettoAg ? mieiProspetti.find(p=>p.id===showProspettoAg) : null;
@@ -5024,7 +5036,8 @@ export default function App() {
 
               {/* Banner didascalico */}
               <div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderLeft:"4px solid #2980B9",borderRadius:8,padding:"10px 14px",marginBottom:"1.25rem",fontSize:12,color:"#1B5C8C",lineHeight:1.5}}>
-                <strong>💡 Come funziona:</strong> il broker prepara un <strong>prospetto</strong> con le tue quote maturate → tu emetti la <strong>fattura</strong> per quell'importo → il broker la registra e ti paga con bonifico. Vedi qui ogni fase del processo.
+                <strong>💡 Come funziona:</strong> il broker prepara un <strong>prospetto</strong> con le tue quote maturate → tu emetti la <strong>fattura</strong> per quell'importo → il broker la registra e ti paga con bonifico.
+                <br/><strong style={{color:BRAND.oroD}}>📅 Criterio di cassa:</strong> i bonifici sono conteggiati nell'anno in cui sono stati <strong>effettivamente ricevuti</strong> (data bonifico), non l'anno della pratica. Questo allinea il dato a quello che vede il tuo commercialista.
               </div>
 
               {/* 4 KPI */}
@@ -7307,13 +7320,21 @@ export default function App() {
                 if(Number(v.agenteAcquirente)===myAgentId) p+=Number(v.provvAcquirente||0);
                 return s+p;
               },0);
-              // Incassato (Versione A: solo ruoli principali)
+              // Incassato (Versione A: solo ruoli principali) - vista AGENZIA (data competenza)
               const incassato = vendAnno.reduce((s,v)=>{
                 let p=0;
                 if(Number(v.agenteListing)===myAgentId) p+=calcolaIncassatoV(v);
                 if(Number(v.agenteAcquirente)===myAgentId) p+=calcolaIncassatoA(v);
                 return s+p;
               },0);
+              // INCASSATO AGENTE (criterio cassa): somma dei prospetti PAGATI con dataPagamento nell'anno
+              // Questo è quanto l'agente ha ricevuto in tasca nell'anno solare (utile per dichiarazioni fiscali)
+              const incassatoAgente = prospetti.filter(p=>
+                p.agenteId===myAgentId &&
+                p.statoFlow==="pagato" &&
+                p.dataPagamento &&
+                (anno==="Tutti" || p.dataPagamento.startsWith(anno))
+              ).reduce((s,p)=>s+Number(p.totale||0),0);
               // Quota Agente (ruoli principali) + Quota Buyer (ruoli buyer) — tutte le quote maturate
               const quotaAg = vendAnno.reduce((s,v)=>{
                 let q=0;
@@ -7327,7 +7348,7 @@ export default function App() {
                 if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
                 return s+q;
               },0);
-              return {vendAnno, incAnno, nTV, nTA, provvAgenzia, incassato, quotaAg, quotaBuy, quotaTot:quotaAg+quotaBuy};
+              return {vendAnno, incAnno, nTV, nTA, provvAgenzia, incassato, incassatoAgente, quotaAg, quotaBuy, quotaTot:quotaAg+quotaBuy};
             };
 
             // === DATI ANNO SELEZIONATO ===
@@ -7438,7 +7459,8 @@ export default function App() {
 
                 {/* NOTA: vedi anche Fatture Agente per i pagamenti */}
                 <div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderLeft:"4px solid #2980B9",borderRadius:8,padding:"10px 14px",marginBottom:"1.25rem",fontSize:12,color:"#1B5C8C",lineHeight:1.5}}>
-                  <strong>💡 Cosa vedi qui:</strong> la tua <strong>produzione professionale</strong> — incarichi acquisiti, transazioni chiuse, provvigione generata per l'agenzia, e le tue quote maturate. Per i <strong>pagamenti agenzia → te</strong> (cosa ti è stato versato e cosa devi ancora ricevere), vai in <strong>Fatture Agente</strong>.
+                  <strong>💡 Cosa vedi qui:</strong> la tua <strong>produzione professionale</strong> — incarichi acquisiti, transazioni chiuse, provvigione generata per l'agenzia, e le tue quote maturate.
+                  <br/><strong style={{color:BRAND.oroD}}>📅 KPI "Incassato in tasca":</strong> usa il <strong>criterio di cassa</strong> (anno in cui hai effettivamente ricevuto il bonifico), così puoi confrontarlo con la dichiarazione fiscale. Per il dettaglio dei singoli prospetti vai in <strong>Le mie fatture</strong>.
                 </div>
 
                 {/* 5 KPI ANNO SELEZIONATO — stesse colonne tabella "Produzione Agenti" broker */}
@@ -7447,7 +7469,7 @@ export default function App() {
                     {l:"Incarichi",v:datiSel.incAnno,c:"#4A90D9",ic:"📋",sub:"acquisiti da te"},
                     {l:"N° Transazioni",v:`${datiSel.nTV+datiSel.nTA}`,sub:`${datiSel.nTV} V · ${datiSel.nTA} A`,c:BRAND.oroD,ic:"🤝"},
                     {l:"Provv. Agenzia",v:`€ ${fmt(Math.round(datiSel.provvAgenzia))}`,sub:"da te generata",c:"#27AE60",ic:"💰"},
-                    {l:"Incassato",v:`€ ${fmt(Math.round(datiSel.incassato))}`,sub:"dai clienti",c:"#E67E22",ic:"💵"},
+                    {l:"Incassato in tasca",v:`€ ${fmt(Math.round(datiSel.incassatoAgente))}`,sub:`bonifici ${annoSel} (cassa)`,c:"#E67E22",ic:"💵"},
                     {l:"Tot Ag+Buyer",v:`€ ${fmt(Math.round(datiSel.quotaTot))}`,sub:`Ag €${fmt(Math.round(datiSel.quotaAg))} · B €${fmt(Math.round(datiSel.quotaBuy))}`,c:"#8E44AD",ic:"🎯"},
                   ].map(({l,v,sub,c,ic})=>(
                     <div key={l} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px",borderTop:`3px solid ${c}`,position:"relative"}}>
@@ -7486,7 +7508,7 @@ export default function App() {
                             {lbl:"Incarichi", calc:d=>d.incAnno, format:v=>v||"—", clr:"#4A90D9"},
                             {lbl:"N° Transazioni", calc:d=>d.nTV+d.nTA, format:v=>v||"—", clr:BRAND.oroD},
                             {lbl:"Provv. Agenzia (€)", calc:d=>d.provvAgenzia, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#27AE60"},
-                            {lbl:"Incassato (€)", calc:d=>d.incassato, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#E67E22"},
+                            {lbl:"Incassato in tasca (€)", calc:d=>d.incassatoAgente, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#E67E22"},
                             {lbl:"Tot Ag+Buyer (€)", calc:d=>d.quotaTot, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#8E44AD"},
                           ].map(riga=>{
                             const valori = datiMulti.map(d=>riga.calc(d));
