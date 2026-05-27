@@ -206,6 +206,15 @@ const isScad = s => s && new Date(s) < new Date();
 const annoCorrente = String(new Date().getFullYear());
 const diffGiorni = (d1,d2) => { if(!d1||!d2) return null; const ms=new Date(d2)-new Date(d1); return Math.round(ms/86400000); };
 
+// Ricerca multi-parola case-insensitive su più campi. Tutte le parole devono essere presenti in almeno UNO dei campi (AND tra parole, OR tra campi).
+// Es: matchSearch("varese rossi", "Varese - Via Manzoni", "Rossi Marco") → true (entrambe le parole presenti)
+const matchSearch = (query, ...fields) => {
+  if(!query||!query.trim()) return true;
+  const haystack = fields.filter(Boolean).map(f=>String(f).toLowerCase()).join(" ");
+  const words = query.toLowerCase().trim().split(/\s+/);
+  return words.every(w=>haystack.includes(w));
+};
+
 const STATI_INC = { Attivo:{clr:"#27AE60",bg:"#E9F7EF"}, Scaduto:{clr:"#E74C3C",bg:"#FDECEA"}, Venduto:{clr:"#C9A96E",bg:"#FDF6EC"}, Locato:{clr:"#8E44AD",bg:"#F5EEF8"} };
 const STATI_PROP = {
   "In attesa":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa"},
@@ -1008,6 +1017,13 @@ export default function App() {
   const [showProspettoAg,setShowProspettoAg]=useState(null);
   // Filtro anno per vista agente "Le mie fatture"
   const [fatAgAnno,setFatAgAnno]=useState("");
+  // === RICERCA TESTUALE (live, multi-parola, multi-campo) per tutte le viste lista ===
+  const [searchIncarichi,setSearchIncarichi]=useState("");
+  const [searchProposte,setSearchProposte]=useState("");
+  const [searchVenduti,setSearchVenduti]=useState("");
+  const [searchMirino,setSearchMirino]=useState("");
+  const [searchPratiche,setSearchPratiche]=useState("");
+  const [searchArchiviati,setSearchArchiviati]=useState("");
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const [mirino,setMirino]=useState(_ls?.mirino||{});
   const [emailLog,setEmailLog]=useState(_ls?.emailLog||{});
@@ -1311,8 +1327,10 @@ export default function App() {
     if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno) return false;
     if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese) return false;
     if(fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg)) return false;
+    // Ricerca testuale (live, multi-parola)
+    if(!matchSearch(searchIncarichi, i.comuneImmobile, i.indirizzoImmobile, i.tipologia, i.nominativoVenditore, i.note)) return false;
     return true;
-  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,mostraArchiviati,isBroker,myAgentId,incVistaTutti]);
+  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,mostraArchiviati,isBroker,myAgentId,incVistaTutti,searchIncarichi]);
 
   const cntInc=useMemo(()=>{
     const b=incarichi.filter(i=>{
@@ -1336,8 +1354,10 @@ export default function App() {
     if(fPropAnno!=="Tutti"&&getAnno(p.dataStato)!==fPropAnno) return false;
     if(fPropMese!=="Tutti"&&getMese(p.dataStato)!==fPropMese) return false;
     if(fPropAg!=="Tutti"&&Number(p.agenteAcquirente)!==Number(fPropAg)&&Number(p.agenteListing)!==Number(fPropAg)) return false;
+    // Ricerca testuale (live, multi-parola)
+    if(!matchSearch(searchProposte, p.comuneImmobile, p.indirizzoImmobile, p.tipologia, p.nominativoVenditore, p.nomeAcquirente, p.noteStato)) return false;
     return true;
-  }),[proposte,subProp,fPropStato,fPropAnno,fPropMese,fPropAg,isBroker,myAgentId]);
+  }),[proposte,subProp,fPropStato,fPropAnno,fPropMese,fPropAg,isBroker,myAgentId,searchProposte]);
 
   const cntProp=useMemo(()=>({attesa:propFiltrate.filter(p=>["In attesa","In attesa / Vincolata"].includes(p.stato)).length,vincolo:propFiltrate.filter(p=>p.stato==="Accettata con Vincolo").length,accettate:propFiltrate.filter(p=>p.stato==="Accettata").length,rifiutate:propFiltrate.filter(p=>["Rifiutata","Mancata Chiusura"].includes(p.stato)).length}),[propFiltrate]);
 
@@ -1349,8 +1369,10 @@ export default function App() {
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
     if(fVendAnno!=="Tutti"&&getAnno(dataCompAgenzia(v))!==fVendAnno) return false;
     if(fVendAg!=="Tutti"&&Number(v.agenteListing)!==Number(fVendAg)&&Number(v.agenteAcquirente)!==Number(fVendAg)) return false;
+    // Ricerca testuale (live, multi-parola)
+    if(!matchSearch(searchVenduti, v.comuneImmobile, v.indirizzoImmobile, v.tipologia, v.nominativoVenditore, v.nomeAcquirente, v.note)) return false;
     return true;
-  }),[venduti,subVend,fVendStato,fVendAnno,fVendAg,isBroker,myAgentId]);
+  }),[venduti,subVend,fVendStato,fVendAnno,fVendAg,isBroker,myAgentId,searchVenduti]);
 
   const cntVend=useMemo(()=>({
     daIncassare:vendFiltrati.filter(v=>calcolaStatoIncasso(v)==="Da incassare").length,
@@ -1620,6 +1642,21 @@ export default function App() {
   };
 
   const Sel=({value,onChange,children})=>(<select style={S.sel} value={value} onChange={e=>{e.stopPropagation();onChange(e.target.value);}} onClick={e=>e.stopPropagation()}>{children}</select>);
+  // Barra di ricerca testuale: live, multi-parola, con tasto X per pulire
+  const SearchBar=({value,onChange,placeholder,nResults,nTotal})=>(
+    <div style={{position:"relative",display:"inline-block",minWidth:240}}>
+      <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"#aaa",pointerEvents:"none"}}>🔍</span>
+      <input
+        type="text"
+        value={value}
+        onChange={e=>onChange(e.target.value)}
+        placeholder={placeholder||"Cerca..."}
+        style={{...S.sel,paddingLeft:30,paddingRight:value?30:12,width:"100%",fontSize:13}}
+      />
+      {value&&<button onClick={()=>onChange("")} title="Pulisci ricerca" style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"transparent",border:"none",cursor:"pointer",fontSize:14,color:"#888",padding:"2px 6px",lineHeight:1}}>×</button>}
+      {value&&typeof nResults==="number"&&<div style={{position:"absolute",left:0,top:"100%",marginTop:2,fontSize:10,color:"#888",whiteSpace:"nowrap"}}>{nResults} risultat{nResults===1?"o":"i"}{typeof nTotal==="number"?` su ${nTotal}`:""}</div>}
+    </div>
+  );
   const SubTabs=({value,onChange,options})=>(<div style={{display:"flex",gap:8}}>{options.map(o=><button key={o.v} style={S.subTab(value===o.v)} onClick={()=>onChange(o.v)}>{o.l}</button>)}</div>);
   const SettSec=({title,items,setItems,ph})=>{
     const [localVal,setLocalVal]=React.useState("");
@@ -2498,6 +2535,7 @@ export default function App() {
                 ))}
               </div>}
               <FiltriInc/>
+              <SearchBar value={searchIncarichi} onChange={setSearchIncarichi} placeholder="Cerca immobile, cliente, indirizzo..." nResults={incFiltrati.length}/>
             </div>
             <div style={S.cnt}>
               {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
@@ -2682,7 +2720,10 @@ export default function App() {
                 <button style={S.btnP} onClick={()=>{setFormProp(emptyProp(subProp));if(!isReadOnly)setShowProp("new");}}>+ Nuova proposta (collab.)</button>
               </div>
             </div>
-            <FiltriProp/>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+              <FiltriProp/>
+              <SearchBar value={searchProposte} onChange={setSearchProposte} placeholder="Cerca immobile, venditore, acquirente..." nResults={propFiltrate.length}/>
+            </div>
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:0}}>
               <thead><tr>
@@ -2830,7 +2871,10 @@ export default function App() {
           {/* VENDUTI */}
           {tab==="Venduti"&&(<div style={S.sec}>
             <div style={{marginBottom:"1rem"}}><SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/></div>
-            <FiltriVend/>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+              <FiltriVend/>
+              <SearchBar value={searchVenduti} onChange={setSearchVenduti} placeholder="Cerca immobile, venditore, acquirente..." nResults={vendFiltrati.length}/>
+            </div>
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:0}}>
               <thead><tr>
@@ -7075,6 +7119,8 @@ export default function App() {
                 if(gpFiltroFase==="post"&&fi<9)return false;
               }
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
+              // Ricerca testuale (live, multi-parola)
+              if(!matchSearch(searchPratiche, i.comuneImmobile, i.indirizzoImmobile, i.tipologia, i.nominativoVenditore, i.note)) return false;
               return true;
             });
 
@@ -7211,6 +7257,7 @@ export default function App() {
                   <button key={v} onClick={()=>setGpFiltroFase(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase===v?clr:"#ddd"}`,background:gpFiltroFase===v?clr+"18":"#fff",color:gpFiltroFase===v?clr:"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:gpFiltroFase===v?500:400}}>{lbl} ({n})</button>
                 ))}
                 <button onClick={()=>setGpFiltroAlert(!gpFiltroAlert)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroAlert?"#E74C3C":"#ddd"}`,background:gpFiltroAlert?"#FCEBEB":"#fff",color:gpFiltroAlert?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>⚠ Alert ({poolBase.filter(i=>alertsInc(i.id).length>0).length})</button>
+                <div style={{marginLeft:"auto"}}><SearchBar value={searchPratiche} onChange={setSearchPratiche} placeholder="Cerca pratica..." nResults={incFiltrati.length}/></div>
               </div>
 
               {/* VISTA LISTA */}
