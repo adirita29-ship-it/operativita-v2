@@ -1381,7 +1381,7 @@ export default function App() {
     if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese) return false;
     if(fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg)) return false;
     // Ricerca testuale (live, multi-parola)
-    if(!matchSearch(searchIncarichi, i.comuneImmobile, i.indirizzoImmobile, i.tipologia, i.nominativoVenditore, i.note)) return false;
+    if(!matchSearch(searchIncarichi, i.comune, i.indirizzo, i.tipologia, i.nominativo, i.note, i.fonte)) return false;
     return true;
   }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,mostraArchiviati,isBroker,myAgentId,incVistaTutti,searchIncarichi]);
 
@@ -7158,7 +7158,7 @@ export default function App() {
               }
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
               // Ricerca testuale (live, multi-parola)
-              if(!matchSearch(searchPratiche, i.comuneImmobile, i.indirizzoImmobile, i.tipologia, i.nominativoVenditore, i.note)) return false;
+              if(!matchSearch(searchPratiche, i.comune, i.indirizzo, i.tipologia, i.nominativo, i.note)) return false;
               return true;
             });
 
