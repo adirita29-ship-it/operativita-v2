@@ -6350,7 +6350,6 @@ export default function App() {
             if(!ag) return null;
 
             // === ANNI DISPONIBILI ===
-            // Tutti gli anni in cui l'agente ha vendite o incarichi
             const anniMieiSet = new Set();
             venduti.forEach(v=>{
               if(Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId){
@@ -6367,29 +6366,35 @@ export default function App() {
             anniMieiSet.add(String(annoCorrente));
             const anniMieiArr = [...anniMieiSet].sort().reverse();
 
-            // === Helper: calcola le metriche di un anno per l'agente ===
+            // === Helper: calcola le metriche di un anno per l'agente (STESSA LOGICA tabella Produzione Agenti broker) ===
             const calcolaAnno = (anno) => {
+              // Filtro venduti per anno (data competenza agenzia)
               const vendAnno = venduti.filter(v=>{
                 const hasRuolo = Number(v.agenteListing)===myAgentId||Number(v.agenteAcquirente)===myAgentId||Number(v.buyerListing)===myAgentId||Number(v.buyer)===myAgentId;
                 if(!hasRuolo) return false;
                 if(anno!=="Tutti" && getAnno(dataCompAgenzia(v))!==anno) return false;
                 return true;
               });
-              const incAnno = incarichi.filter(i=>i.categoria==="vendita"&&Number(i.agenteListing)===myAgentId&&(anno==="Tutti"||getAnno(i.dataInizio)===anno)).length;
+              // Incarichi: solo agenteListing
+              const incAnno = incarichi.filter(i=>Number(i.agenteListing)===myAgentId&&!i.archiviato&&(anno==="Tutti"||getAnno(i.dataInizio)===anno)).length;
+              // N° transazioni Venditore (listing) e Acquirente (NON conta buyer)
               const nTV = vendAnno.filter(v=>Number(v.agenteListing)===myAgentId&&Number(v.provvVenditore||0)>0&&!v.agenziaEsterna).length;
               const nTA = vendAnno.filter(v=>Number(v.agenteAcquirente)===myAgentId&&Number(v.provvAcquirente||0)>0).length;
-              const produzione = vendAnno.reduce((s,v)=>{
+              // Provv. Agenzia (Versione A: solo ruoli principali, NIENTE buyer)
+              const provvAgenzia = vendAnno.reduce((s,v)=>{
                 let p=0;
                 if(Number(v.agenteListing)===myAgentId) p+=Number(v.provvVenditore||0);
                 if(Number(v.agenteAcquirente)===myAgentId) p+=Number(v.provvAcquirente||0);
                 return s+p;
               },0);
+              // Incassato (Versione A: solo ruoli principali)
               const incassato = vendAnno.reduce((s,v)=>{
                 let p=0;
                 if(Number(v.agenteListing)===myAgentId) p+=calcolaIncassatoV(v);
                 if(Number(v.agenteAcquirente)===myAgentId) p+=calcolaIncassatoA(v);
                 return s+p;
               },0);
+              // Quota Agente (ruoli principali) + Quota Buyer (ruoli buyer) — tutte le quote maturate
               const quotaAg = vendAnno.reduce((s,v)=>{
                 let q=0;
                 if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
@@ -6402,7 +6407,7 @@ export default function App() {
                 if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
                 return s+q;
               },0);
-              return {vendAnno, incAnno, nTV, nTA, produzione, incassato, quotaAg, quotaBuy, quotaTot:quotaAg+quotaBuy};
+              return {vendAnno, incAnno, nTV, nTA, provvAgenzia, incassato, quotaAg, quotaBuy, quotaTot:quotaAg+quotaBuy};
             };
 
             // === DATI ANNO SELEZIONATO ===
@@ -6416,35 +6421,63 @@ export default function App() {
               return true;
             });
 
-            // === DATI MULTI-ANNO per il confronto ===
-            const datiMulti = anniMieiArr.slice(0,5).map(a=>({anno:a, ...calcolaAnno(a)})); // ultimi 5 anni max
+            // === DATI MULTI-ANNO (ultimi 5 anni max) ===
+            const datiMulti = anniMieiArr.slice(0,5).map(a=>({anno:a, ...calcolaAnno(a)}));
 
             // === TOP MOMENTS dell'anno selezionato ===
             const topMoments = (()=>{
-              if(datiSel.vendAnno.length===0) return null;
-              // Pratica con quota più alta
-              const pratiche = datiSel.vendAnno.map(v=>{
+              if(datiSel.vendAnno.length===0 && datiSel.incAnno===0) return null;
+
+              // 🥇 Vendita più alta (prezzo immobile)
+              const vendPrezzo = datiSel.vendAnno.filter(v=>Number(v.prezzoVendita||0)>0);
+              const venditaPiuAlta = vendPrezzo.length>0 ? vendPrezzo.reduce((a,b)=>Number(b.prezzoVendita||0)>Number(a.prezzoVendita||0)?b:a, vendPrezzo[0]) : null;
+
+              // 💰 Quota maggiore incassata (quota MATURATA in qualsiasi ruolo dove la pratica è già stata incassata dal cliente)
+              // Calcolo per ogni pratica: la mia quota totale × % incassato del cliente
+              const pratConQuota = datiSel.vendAnno.map(v=>{
+                // Quota totale che ho maturato su questa pratica (Ag+Buyer)
+                let qTot=0;
+                if(Number(v.agenteListing)===myAgentId) qTot+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) qTot+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                if(Number(v.agenteAcquirente)===myAgentId) qTot+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) qTot+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                // Quota effettivamente entrata in cassa (proporzionale alla % incassata della pratica)
+                const provTotPrat = Number(v.provvVenditore||0)+Number(v.provvAcquirente||0);
+                const incTotPrat = calcolaIncassatoV(v)+calcolaIncassatoA(v);
+                const percIncasso = provTotPrat>0 ? incTotPrat/provTotPrat : 0;
+                const qIncassata = qTot*percIncasso;
+                return {v, qTot, qIncassata};
+              }).filter(x=>x.qIncassata>0);
+              const quotaMaxIncassata = pratConQuota.length>0 ? pratConQuota.reduce((a,b)=>b.qIncassata>a.qIncassata?b:a, pratConQuota[0]) : null;
+
+              // 📈 Mese migliore (per quota Ag+Buyer)
+              const perMese = {};
+              datiSel.vendAnno.forEach(v=>{
                 let q=0;
                 if(Number(v.agenteListing)===myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
                 if(Number(v.agenteAcquirente)===myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
                 if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId) q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
                 if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId) q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-                return {v, quota:q};
-              }).filter(x=>x.quota>0);
-              if(pratiche.length===0) return null;
-              const piuAlta = pratiche.reduce((a,b)=>b.quota>a.quota?b:a, pratiche[0]);
-              // Mese migliore
-              const perMese = {};
-              pratiche.forEach(p=>{
-                const m = getMese(dataCompAgenzia(p.v));
+                if(q<=0) return;
+                const m = getMese(dataCompAgenzia(v));
+                if(!m) return;
                 if(!perMese[m]) perMese[m]={mese:m, totale:0, count:0};
-                perMese[m].totale += p.quota;
+                perMese[m].totale += q;
                 perMese[m].count += 1;
               });
-              const meseMigliore = Object.values(perMese).reduce((a,b)=>b.totale>a.totale?b:a, Object.values(perMese)[0]);
-              // Pratica più rapida (se ci sono dati su data incarico)
-              const numPratiche = pratiche.length;
-              return {piuAlta, meseMigliore, numPratiche};
+              const meseMigliore = Object.values(perMese).length>0 ? Object.values(perMese).reduce((a,b)=>b.totale>a.totale?b:a, Object.values(perMese)[0]) : null;
+
+              // 🏆 Record acquisizioni mensili (mese con più incarichi nuovi)
+              const incPerMese = {};
+              incarichi.filter(i=>Number(i.agenteListing)===myAgentId&&!i.archiviato&&(annoSel==="Tutti"||getAnno(i.dataInizio)===annoSel)).forEach(i=>{
+                const m = getMese(i.dataInizio);
+                if(!m) return;
+                if(!incPerMese[m]) incPerMese[m]={mese:m, count:0};
+                incPerMese[m].count += 1;
+              });
+              const recordAcquisizioni = Object.values(incPerMese).length>0 ? Object.values(incPerMese).reduce((a,b)=>b.count>a.count?b:a, Object.values(incPerMese)[0]) : null;
+
+              return {venditaPiuAlta, quotaMaxIncassata, meseMigliore, recordAcquisizioni};
             })();
 
             const colRuolo={"Listing":"#2980B9","Acquirente":"#8E44AD","Buyer L":"#E67E22","Buyer":"#E74C3C"};
@@ -6464,7 +6497,7 @@ export default function App() {
                     <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
                     <div>
                       <h2 style={{fontSize:18,fontWeight:700,margin:"0 0 2px",color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{ag.nome} {ag.cognome}</h2>
-                      <p style={{fontSize:12,color:"#888",margin:0}}>{ag.profilo} · La tua carriera in Càsa Immobiliare</p>
+                      <p style={{fontSize:12,color:"#888",margin:0}}>{ag.profilo} · La tua produzione in Càsa Immobiliare</p>
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -6476,14 +6509,19 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* KPI ANNO SELEZIONATO */}
+                {/* NOTA: vedi anche Fatture Agente per i pagamenti */}
+                <div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderLeft:"4px solid #2980B9",borderRadius:8,padding:"10px 14px",marginBottom:"1.25rem",fontSize:12,color:"#1B5C8C",lineHeight:1.5}}>
+                  <strong>💡 Cosa vedi qui:</strong> la tua <strong>produzione professionale</strong> — incarichi acquisiti, transazioni chiuse, provvigione generata per l'agenzia, e le tue quote maturate. Per i <strong>pagamenti agenzia → te</strong> (cosa ti è stato versato e cosa devi ancora ricevere), vai in <strong>Fatture Agente</strong>.
+                </div>
+
+                {/* 5 KPI ANNO SELEZIONATO — stesse colonne tabella "Produzione Agenti" broker */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(5,1fr)",gap:10,marginBottom:"1.5rem"}}>
                   {[
-                    {l:"Incarichi",v:datiSel.incAnno,c:"#4A90D9",ic:"📋"},
-                    {l:"N° Transazioni",v:`${datiSel.nTV+datiSel.nTA}`,sub:`${datiSel.nTV}V · ${datiSel.nTA}A`,c:BRAND.oroD,ic:"🤝"},
-                    {l:"Produzione",v:`€ ${fmt(Math.round(datiSel.produzione))}`,sub:"provv. generata",c:"#27AE60",ic:"💰"},
-                    {l:"Incassato",v:`€ ${fmt(Math.round(datiSel.incassato))}`,sub:"clienti hanno pagato",c:"#E67E22",ic:"💵"},
-                    {l:"Quota Ag+Buyer",v:`€ ${fmt(Math.round(datiSel.quotaTot))}`,sub:`Ag €${fmt(Math.round(datiSel.quotaAg))} · B €${fmt(Math.round(datiSel.quotaBuy))}`,c:"#8E44AD",ic:"🎯"},
+                    {l:"Incarichi",v:datiSel.incAnno,c:"#4A90D9",ic:"📋",sub:"acquisiti da te"},
+                    {l:"N° Transazioni",v:`${datiSel.nTV+datiSel.nTA}`,sub:`${datiSel.nTV} V · ${datiSel.nTA} A`,c:BRAND.oroD,ic:"🤝"},
+                    {l:"Provv. Agenzia",v:`€ ${fmt(Math.round(datiSel.provvAgenzia))}`,sub:"da te generata",c:"#27AE60",ic:"💰"},
+                    {l:"Incassato",v:`€ ${fmt(Math.round(datiSel.incassato))}`,sub:"dai clienti",c:"#E67E22",ic:"💵"},
+                    {l:"Tot Ag+Buyer",v:`€ ${fmt(Math.round(datiSel.quotaTot))}`,sub:`Ag €${fmt(Math.round(datiSel.quotaAg))} · B €${fmt(Math.round(datiSel.quotaBuy))}`,c:"#8E44AD",ic:"🎯"},
                   ].map(({l,v,sub,c,ic})=>(
                     <div key={l} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px",borderTop:`3px solid ${c}`,position:"relative"}}>
                       <div style={{fontSize:18,marginBottom:4}}>{ic}</div>
@@ -6494,10 +6532,9 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* CONFRONTO MULTI-ANNO */}
+                {/* CONFRONTO MULTI-ANNO con le stesse 5 metriche */}
                 {datiMulti.length>1&&(()=>{
-                  // Calcola le variazioni
-                  const renderVar = (curr, prev, isMoney=false) => {
+                  const renderVar = (curr, prev) => {
                     if(!prev||prev===0){
                       if(curr>0) return <span style={{fontSize:10,color:"#27AE60",fontWeight:700}}>NUOVO</span>;
                       return <span style={{color:"#ccc",fontSize:10}}>—</span>;
@@ -6519,13 +6556,13 @@ export default function App() {
                         </tr></thead>
                         <tbody>
                           {[
-                            {lbl:"Incarichi", key:"incAnno", format:v=>v||"—", clr:"#4A90D9"},
-                            {lbl:"N° Transazioni", key:"nTot", format:v=>v||"—", clr:BRAND.oroD, calc:(d)=>d.nTV+d.nTA},
-                            {lbl:"Produzione (€)", key:"produzione", format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#27AE60"},
-                            {lbl:"Incassato (€)", key:"incassato", format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#E67E22"},
-                            {lbl:"Quota Ag+Buyer (€)", key:"quotaTot", format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#8E44AD"},
+                            {lbl:"Incarichi", calc:d=>d.incAnno, format:v=>v||"—", clr:"#4A90D9"},
+                            {lbl:"N° Transazioni", calc:d=>d.nTV+d.nTA, format:v=>v||"—", clr:BRAND.oroD},
+                            {lbl:"Provv. Agenzia (€)", calc:d=>d.provvAgenzia, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#27AE60"},
+                            {lbl:"Incassato (€)", calc:d=>d.incassato, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#E67E22"},
+                            {lbl:"Tot Ag+Buyer (€)", calc:d=>d.quotaTot, format:v=>v>0?`€ ${fmt(Math.round(v))}`:"—", clr:"#8E44AD"},
                           ].map(riga=>{
-                            const valori = datiMulti.map(d=>riga.calc?riga.calc(d):d[riga.key]);
+                            const valori = datiMulti.map(d=>riga.calc(d));
                             return(<tr key={riga.lbl} style={{borderBottom:"0.5px solid #f5f5f5"}}>
                               <td style={{padding:"8px 12px",fontSize:13,color:BRAND.grigio,fontWeight:500}}>{riga.lbl}</td>
                               {valori.map((v,idx)=>(<td key={idx} style={{padding:"8px 12px",fontSize:13,fontWeight:idx===0?700:500,color:idx===0?riga.clr:"#666",textAlign:"right"}}>{riga.format(v)}</td>))}
@@ -6535,40 +6572,59 @@ export default function App() {
                         </tbody>
                       </table>
                     </div>
-                    <p style={{margin:"10px 0 0",fontSize:11,color:"#888"}}>La colonna <strong style={{color:BRAND.oroD}}>"Var"</strong> confronta l'anno corrente con l'anno precedente.</p>
+                    <p style={{margin:"10px 0 0",fontSize:11,color:"#888"}}>La colonna <strong style={{color:BRAND.oroD}}>"Var"</strong> confronta l'anno corrente con l'anno precedente. <strong>YTD</strong> = Year-to-Date (da gennaio a oggi).</p>
                   </div>);
                 })()}
 
-                {/* TOP MOMENTS */}
+                {/* TOP MOMENTS - 4 box */}
                 {topMoments&&(<div style={{background:`linear-gradient(135deg, ${BRAND.oro}15 0%, ${BRAND.oro}05 100%)`,border:`1.5px solid ${BRAND.oro}55`,borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.5rem"}}>
                   <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>✨ Top moments {annoSel}</h3>
-                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
-                    {/* Pratica più alta */}
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",gap:12}}>
+
+                    {/* 🥇 Vendita più alta (prezzo immobile) */}
                     <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
                       <div style={{fontSize:24,marginBottom:6}}>🥇</div>
-                      <p style={{fontSize:10,color:"#888",margin:"0 0 4px",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Pratica più alta</p>
-                      <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:BRAND.oroD,fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(topMoments.piuAlta.quota))}</p>
-                      <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{topMoments.piuAlta.v.comuneImmobile} — {topMoments.piuAlta.v.indirizzoImmobile||""}</p>
-                      <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>{fmtD(dataCompAgenzia(topMoments.piuAlta.v))}</p>
+                      <p style={{fontSize:10,color:"#888",margin:"0 0 4px",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Vendita più alta</p>
+                      {topMoments.venditaPiuAlta ? (<>
+                        <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:BRAND.oroD,fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(Number(topMoments.venditaPiuAlta.prezzoVendita||0)))}</p>
+                        <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{topMoments.venditaPiuAlta.comuneImmobile} — {topMoments.venditaPiuAlta.indirizzoImmobile||""}</p>
+                        <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>{fmtD(dataCompAgenzia(topMoments.venditaPiuAlta))}</p>
+                      </>) : (<p style={{fontSize:12,color:"#aaa",margin:0,fontStyle:"italic"}}>Nessuna vendita</p>)}
                     </div>
 
-                    {/* Mese migliore */}
+                    {/* 💰 Quota maggiore incassata */}
+                    <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                      <div style={{fontSize:24,marginBottom:6}}>💰</div>
+                      <p style={{fontSize:10,color:"#888",margin:"0 0 4px",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Quota maggiore incassata</p>
+                      {topMoments.quotaMaxIncassata ? (<>
+                        <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#27AE60",fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(topMoments.quotaMaxIncassata.qIncassata))}</p>
+                        <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{topMoments.quotaMaxIncassata.v.comuneImmobile} — {topMoments.quotaMaxIncassata.v.indirizzoImmobile||""}</p>
+                        <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>su maturato € {fmt(Math.round(topMoments.quotaMaxIncassata.qTot))}</p>
+                      </>) : (<p style={{fontSize:12,color:"#aaa",margin:0,fontStyle:"italic"}}>Nessun incasso</p>)}
+                    </div>
+
+                    {/* 📈 Mese migliore (per quota) */}
                     <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
                       <div style={{fontSize:24,marginBottom:6}}>📈</div>
                       <p style={{fontSize:10,color:"#888",margin:"0 0 4px",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Mese migliore</p>
-                      <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#27AE60",fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(topMoments.meseMigliore.totale))}</p>
-                      <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{fmtMese(topMoments.meseMigliore.mese)}</p>
-                      <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>{topMoments.meseMigliore.count} pratic{topMoments.meseMigliore.count===1?"a":"he"} in quel mese</p>
+                      {topMoments.meseMigliore ? (<>
+                        <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#8E44AD",fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(topMoments.meseMigliore.totale))}</p>
+                        <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{fmtMese(topMoments.meseMigliore.mese)}</p>
+                        <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>{topMoments.meseMigliore.count} pratic{topMoments.meseMigliore.count===1?"a":"he"} (quota Ag+Buyer)</p>
+                      </>) : (<p style={{fontSize:12,color:"#aaa",margin:0,fontStyle:"italic"}}>Nessuna quota</p>)}
                     </div>
 
-                    {/* Pratiche totali */}
+                    {/* 🏆 Record acquisizioni mensili */}
                     <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
-                      <div style={{fontSize:24,marginBottom:6}}>🎯</div>
-                      <p style={{fontSize:10,color:"#888",margin:"0 0 4px",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Pratiche chiuse</p>
-                      <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#8E44AD",fontFamily:"Georgia,serif"}}>{topMoments.numPratiche}</p>
-                      <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>nel {annoSel}</p>
-                      <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>media: € {fmt(Math.round(datiSel.quotaTot/topMoments.numPratiche))} per pratica</p>
+                      <div style={{fontSize:24,marginBottom:6}}>🏆</div>
+                      <p style={{fontSize:10,color:"#888",margin:"0 0 4px",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>Record acquisizioni</p>
+                      {topMoments.recordAcquisizioni ? (<>
+                        <p style={{fontSize:20,fontWeight:700,margin:"0 0 4px",color:"#4A90D9",fontFamily:"Georgia,serif"}}>{topMoments.recordAcquisizioni.count}</p>
+                        <p style={{fontSize:12,color:BRAND.grigio,margin:0,fontWeight:500}}>{fmtMese(topMoments.recordAcquisizioni.mese)}</p>
+                        <p style={{fontSize:10,color:"#888",margin:"4px 0 0"}}>incarichi acquisiti in un mese</p>
+                      </>) : (<p style={{fontSize:12,color:"#aaa",margin:0,fontStyle:"italic"}}>Nessun incarico</p>)}
                     </div>
+
                   </div>
                 </div>)}
 
@@ -6611,7 +6667,7 @@ export default function App() {
                     </tbody>
                     {pratFiltrate.length>0&&<tfoot><tr style={{background:BRAND.beige,fontWeight:600,fontSize:12}}>
                       <td colSpan={5} style={{padding:"10px 12px"}}>TOTALE ({pratFiltrate.length})</td>
-                      <td style={{padding:"10px 12px",textAlign:"right",color:BRAND.oroD}}>€ {fmt(Math.round(pratFiltrate.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===myAgentId)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===myAgentId)p+=Number(v.provvAcquirente||0);return s+p;},0)))}</td>
+                      <td style={{padding:"10px 12px",textAlign:"right",color:BRAND.oroD}}>€ {fmt(Math.round(datiSel.provvAgenzia))}</td>
                       <td style={{padding:"10px 12px",textAlign:"right",color:"#8E44AD"}}>€ {fmt(Math.round(datiSel.quotaAg))}</td>
                       <td style={{padding:"10px 12px",textAlign:"right",color:"#2980B9"}}>€ {fmt(Math.round(datiSel.quotaBuy))}</td>
                       <td style={{padding:"10px 12px"}}/>
@@ -6622,6 +6678,7 @@ export default function App() {
               </div>
             );
           })()}
+
 
 
           {/* ── WAR ROOM ── */}
