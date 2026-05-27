@@ -972,7 +972,7 @@ export default function App() {
   const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
   const [statSubTab,setStatSubTab]=useState("generali");
   const [statAnno,setStatAnno]=useState(annoCorrente);
-  const [statPeriodoMesi,setStatPeriodoMesi]=useState(12); // Trend: 3/6/12/24 mesi
+  const [statPeriodoMesi,setStatPeriodoMesi]=useState("12"); // Trend: 3/6/12/24 mesi oppure "ytd" (anno corrente)
   const [statAgente,setStatAgente]=useState("self"); // Trend+Funnel: self/team/<id>
   const [statFunnelPeriodo,setStatFunnelPeriodo]=useState("mese"); // Funnel: mese/trimestre/anno/tutto
   const [statShowSconti,setStatShowSconti]=useState(false);
@@ -7494,22 +7494,37 @@ export default function App() {
                       ? (brokerVedeSeStesso ? myAgentId : Number(statAgente))
                       : myAgentId;
 
-                  // Periodo: numero di mesi indietro a partire da oggi (incluso)
-                  const nMesi = Number(statPeriodoMesi||12);
+                  // Periodo: "ytd" = da gennaio a oggi, altrimenti N mesi rolling indietro
+                  const isYTD = statPeriodoMesi==="ytd";
                   const oggi = new Date();
                   const oggiMese = oggi.getMonth(); // 0-11
                   const oggiAnno = oggi.getFullYear();
-                  // Genero array di mesi (più recente all'ultimo)
+                  // Genero array di mesi
                   const mesiPeriodo = [];
-                  for(let i=nMesi-1; i>=0; i--){
-                    const d = new Date(oggiAnno, oggiMese-i, 1);
-                    mesiPeriodo.push({
-                      key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,
-                      label: ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][d.getMonth()],
-                      anno: d.getFullYear(),
-                      mese: d.getMonth()+1,
-                    });
+                  if(isYTD){
+                    // Da gennaio dell'anno corrente fino al mese corrente
+                    for(let m=0; m<=oggiMese; m++){
+                      const d = new Date(oggiAnno, m, 1);
+                      mesiPeriodo.push({
+                        key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,
+                        label: ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][d.getMonth()],
+                        anno: d.getFullYear(),
+                        mese: d.getMonth()+1,
+                      });
+                    }
+                  } else {
+                    const nMesi = Number(statPeriodoMesi||12);
+                    for(let i=nMesi-1; i>=0; i--){
+                      const d = new Date(oggiAnno, oggiMese-i, 1);
+                      mesiPeriodo.push({
+                        key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,
+                        label: ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][d.getMonth()],
+                        anno: d.getFullYear(),
+                        mese: d.getMonth()+1,
+                      });
+                    }
                   }
+                  const nMesi = mesiPeriodo.length;
 
                   // === AGGREGAZIONE: per ogni mese, calcolo i dati ===
                   const aggregaMeseAgente = (agId, meseKey) => {
@@ -7614,11 +7629,12 @@ export default function App() {
                   return(<>
                     {/* SELETTORI */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
-                      <select style={S.sel} value={statPeriodoMesi} onChange={e=>setStatPeriodoMesi(Number(e.target.value))}>
-                        <option value={3}>Ultimi 3 mesi</option>
-                        <option value={6}>Ultimi 6 mesi</option>
-                        <option value={12}>Ultimi 12 mesi</option>
-                        <option value={24}>Ultimi 24 mesi</option>
+                      <select style={S.sel} value={String(statPeriodoMesi)} onChange={e=>setStatPeriodoMesi(e.target.value)}>
+                        <option value="ytd">📅 Anno corrente (gen → oggi)</option>
+                        <option value="3">Ultimi 3 mesi</option>
+                        <option value="6">Ultimi 6 mesi</option>
+                        <option value="12">Ultimi 12 mesi</option>
+                        <option value="24">Ultimi 24 mesi</option>
                       </select>
                       {(isBroker||isBackOffice)&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
                         <option value="self">🏠 I miei dati</option>
@@ -7633,7 +7649,7 @@ export default function App() {
                     <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",border:`1.5px solid ${BRAND.oro}55`}}>
                       <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>📈 Trend & Andamento</p>
                       <h2 style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{isAgg?"Vista team aggregata":(agSelT?`${agSelT.nome} ${agSelT.cognome}`:"—")}</h2>
-                      <p style={{fontSize:12,color:"#666",margin:"4px 0 0",fontWeight:500}}>Ultimi {nMesi} mesi · da {mesiPeriodo[0].label} {mesiPeriodo[0].anno} a {mesiPeriodo[mesiPeriodo.length-1].label} {mesiPeriodo[mesiPeriodo.length-1].anno}</p>
+                      <p style={{fontSize:12,color:"#666",margin:"4px 0 0",fontWeight:500}}>{isYTD?`Anno ${oggiAnno}`:`Ultimi ${nMesi} mesi`} · da {mesiPeriodo[0].label} {mesiPeriodo[0].anno} a {mesiPeriodo[mesiPeriodo.length-1].label} {mesiPeriodo[mesiPeriodo.length-1].anno}</p>
                     </div>
 
                     {/* KPI TOTALI */}
