@@ -972,6 +972,9 @@ export default function App() {
   const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
   const [statSubTab,setStatSubTab]=useState("generali");
   const [statAnno,setStatAnno]=useState(annoCorrente);
+  const [statPeriodoMesi,setStatPeriodoMesi]=useState(12); // Trend: 3/6/12/24 mesi
+  const [statAgente,setStatAgente]=useState("self"); // Trend+Funnel: self/team/<id>
+  const [statFunnelPeriodo,setStatFunnelPeriodo]=useState("mese"); // Funnel: mese/trimestre/anno/tutto
   const [statShowSconti,setStatShowSconti]=useState(false);
   const [showSospesi,setShowSospesi]=useState(false);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
@@ -7217,7 +7220,12 @@ export default function App() {
 
                 {/* Sotto-tab */}
                 <div style={{display:"flex",gap:8,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem"}}>
-                  {[{v:"generali",l:"Statistiche generali"},...(isBroker||isBackOffice?[{v:"agenti",l:"Report agenti"}]:[])].map(o=>(
+                  {[
+                    {v:"generali",l:"📊 Generali"},
+                    ...(isBroker||isBackOffice?[{v:"agenti",l:"👥 Report agenti"}]:[]),
+                    {v:"trend",l:"📈 Trend & Andamento"},
+                    {v:"funnel",l:"🔄 Funnel & Conversioni"},
+                  ].map(o=>(
                     <button key={o.v} onClick={()=>setStatSubTab(o.v)} style={{
                       padding:"7px 18px",fontSize:13,cursor:"pointer",border:"none",background:"none",
                       borderBottom:`2px solid ${statSubTab===o.v?BRAND.oro:"transparent"}`,
@@ -7473,6 +7481,621 @@ export default function App() {
                     </div>
                   )}
                 </>)}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* ── TREND & ANDAMENTO ── */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {statSubTab==="trend"&&(()=>{
+                  // === SELETTORI: agente + periodo ===
+                  const brokerVedeSeStesso = (isBroker||isBackOffice) && (statAgente==="Tutti"||statAgente===""||statAgente==="self"||statAgente===String(myAgentId));
+                  const isAgg = (isBroker||isBackOffice) && statAgente==="team";
+                  const agIdT = isAgg ? null :
+                    (isBroker||isBackOffice)
+                      ? (brokerVedeSeStesso ? myAgentId : Number(statAgente))
+                      : myAgentId;
+
+                  // Periodo: numero di mesi indietro a partire da oggi (incluso)
+                  const nMesi = Number(statPeriodoMesi||12);
+                  const oggi = new Date();
+                  const oggiMese = oggi.getMonth(); // 0-11
+                  const oggiAnno = oggi.getFullYear();
+                  // Genero array di mesi (più recente all'ultimo)
+                  const mesiPeriodo = [];
+                  for(let i=nMesi-1; i>=0; i--){
+                    const d = new Date(oggiAnno, oggiMese-i, 1);
+                    mesiPeriodo.push({
+                      key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`,
+                      label: ["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"][d.getMonth()],
+                      anno: d.getFullYear(),
+                      mese: d.getMonth()+1,
+                    });
+                  }
+
+                  // === AGGREGAZIONE: per ogni mese, calcolo i dati ===
+                  const aggregaMeseAgente = (agId, meseKey) => {
+                    const dati = oggiDati[agId]||{};
+                    const aggr = {azioni:0, conseguenze:0, ore:0, perAzione:{}, perConseg:{}};
+                    Object.entries(dati).forEach(([k,g])=>{
+                      if(!k.startsWith(meseKey)) return;
+                      const az=g.azioni||{}, co=g.conseguenze||{}, tp=g.tempo||{};
+                      Object.entries(az).forEach(([azId,v])=>{
+                        const f = Number(v.fatto||0);
+                        aggr.azioni += f;
+                        aggr.perAzione[azId] = (aggr.perAzione[azId]||0)+f;
+                      });
+                      Object.entries(co).forEach(([cId,v])=>{
+                        const n = Number(v||0);
+                        aggr.conseguenze += n;
+                        aggr.perConseg[cId] = (aggr.perConseg[cId]||0)+n;
+                      });
+                      Object.values(tp).forEach(v=>{ aggr.ore += Number(v||0); });
+                    });
+                    return aggr;
+                  };
+
+                  const aggregaMese = (meseKey) => {
+                    if(isAgg){
+                      const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                      const merged = {azioni:0, conseguenze:0, ore:0, perAzione:{}, perConseg:{}, fatturato:0, acquisizioni:0, agentiAttivi:0};
+                      operativi.forEach(ag=>{
+                        const a = aggregaMeseAgente(ag.id, meseKey);
+                        if(a.azioni>0) merged.agentiAttivi++;
+                        merged.azioni += a.azioni;
+                        merged.conseguenze += a.conseguenze;
+                        merged.ore += a.ore;
+                        Object.entries(a.perAzione).forEach(([k,v])=>{ merged.perAzione[k]=(merged.perAzione[k]||0)+v; });
+                        Object.entries(a.perConseg).forEach(([k,v])=>{ merged.perConseg[k]=(merged.perConseg[k]||0)+v; });
+                      });
+                      // Fatturato + acquisizioni team da venduti/incarichi
+                      venduti.filter(v=>{
+                        const dr = dataCompAgenzia(v);
+                        return dr&&dr.startsWith(meseKey);
+                      }).forEach(v=>{
+                        merged.fatturato += Number(v.provvVenditore||0) + Number(v.provvAcquirente||0);
+                      });
+                      merged.acquisizioni = incarichi.filter(i=>i.categoria==="vendita"&&(i.dataInizio||"").startsWith(meseKey)&&!i.archiviato).length;
+                      return merged;
+                    } else {
+                      const a = aggregaMeseAgente(agIdT, meseKey);
+                      // Fatturato dell'agente
+                      a.fatturato = venduti.filter(v=>{
+                        const dr = dataCompAgenzia(v);
+                        if(!dr||!dr.startsWith(meseKey)) return false;
+                        return v.agenteListing===agIdT||v.agenteAcquirente===agIdT||v.buyerListing===agIdT||v.buyer===agIdT;
+                      }).reduce((s,v)=>{
+                        let p=0;
+                        if(v.agenteListing===agIdT) p+=Number(v.provvVenditore||0);
+                        if(v.agenteAcquirente===agIdT) p+=Number(v.provvAcquirente||0);
+                        return s+p;
+                      },0);
+                      a.acquisizioni = incarichi.filter(i=>i.agenteListing===agIdT&&(i.dataInizio||"").startsWith(meseKey)&&!i.archiviato).length;
+                      return a;
+                    }
+                  };
+
+                  const datiPerMese = mesiPeriodo.map(m=>({...m, ...aggregaMese(m.key)}));
+
+                  // === KPI TOTALI PERIODO ===
+                  const totFatt = datiPerMese.reduce((s,m)=>s+m.fatturato,0);
+                  const totAcq = datiPerMese.reduce((s,m)=>s+m.acquisizioni,0);
+                  const totAzioni = datiPerMese.reduce((s,m)=>s+m.azioni,0);
+                  const totOre = datiPerMese.reduce((s,m)=>s+m.ore,0);
+                  const maxFatt = Math.max(...datiPerMese.map(m=>m.fatturato), 0);
+                  const maxAcq = Math.max(...datiPerMese.map(m=>m.acquisizioni), 0);
+                  const maxAzioni = Math.max(...datiPerMese.map(m=>m.azioni), 0);
+
+                  // Calcolo trend: confronto prima metà vs seconda metà periodo
+                  const meta = Math.floor(datiPerMese.length/2);
+                  const fattPrimaMeta = datiPerMese.slice(0,meta).reduce((s,m)=>s+m.fatturato,0);
+                  const fattSecondaMeta = datiPerMese.slice(meta).reduce((s,m)=>s+m.fatturato,0);
+                  const trendFatt = fattPrimaMeta>0 ? Math.round((fattSecondaMeta-fattPrimaMeta)/fattPrimaMeta*100) : null;
+                  const acqPrimaMeta = datiPerMese.slice(0,meta).reduce((s,m)=>s+m.acquisizioni,0);
+                  const acqSecondaMeta = datiPerMese.slice(meta).reduce((s,m)=>s+m.acquisizioni,0);
+                  const trendAcq = acqPrimaMeta>0 ? Math.round((acqSecondaMeta-acqPrimaMeta)/acqPrimaMeta*100) : null;
+
+                  // === Confronto YoY (Year-over-Year) ===
+                  // Confronto mese corrente con stesso mese anno scorso
+                  const meseCorr = `${oggiAnno}-${String(oggiMese+1).padStart(2,"0")}`;
+                  const meseAnnoScorso = `${oggiAnno-1}-${String(oggiMese+1).padStart(2,"0")}`;
+                  const dCorr = aggregaMese(meseCorr);
+                  const dPrec = aggregaMese(meseAnnoScorso);
+                  const yoyFatt = dPrec.fatturato>0 ? Math.round((dCorr.fatturato-dPrec.fatturato)/dPrec.fatturato*100) : null;
+                  const yoyAcq = dPrec.acquisizioni>0 ? Math.round((dCorr.acquisizioni-dPrec.acquisizioni)/dPrec.acquisizioni*100) : null;
+                  const yoyAzioni = dPrec.azioni>0 ? Math.round((dCorr.azioni-dPrec.azioni)/dPrec.azioni*100) : null;
+
+                  const agSelT = !isAgg ? agenti.find(a=>a.id===agIdT) : null;
+                  const renderTrend = (v) => {
+                    if(v===null||v===undefined) return <span style={{color:"#bbb",fontSize:11}}>—</span>;
+                    if(v===0) return <span style={{color:"#888",fontSize:11,fontWeight:600}}>=</span>;
+                    const isUp = v>0;
+                    return <span style={{color:isUp?"#27AE60":"#E74C3C",fontSize:12,fontWeight:700}}>{isUp?"↑":"↓"} {Math.abs(v)}%</span>;
+                  };
+
+                  return(<>
+                    {/* SELETTORI */}
+                    <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                      <select style={S.sel} value={statPeriodoMesi} onChange={e=>setStatPeriodoMesi(Number(e.target.value))}>
+                        <option value={3}>Ultimi 3 mesi</option>
+                        <option value={6}>Ultimi 6 mesi</option>
+                        <option value={12}>Ultimi 12 mesi</option>
+                        <option value={24}>Ultimi 24 mesi</option>
+                      </select>
+                      {(isBroker||isBackOffice)&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
+                        <option value="self">🏠 I miei dati</option>
+                        <option value="team">👥 Vista team aggregata</option>
+                        <optgroup label="Singolo agente">
+                          {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                        </optgroup>
+                      </select>}
+                    </div>
+
+                    {/* HEADER */}
+                    <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",border:`1.5px solid ${BRAND.oro}55`}}>
+                      <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>📈 Trend & Andamento</p>
+                      <h2 style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{isAgg?"Vista team aggregata":(agSelT?`${agSelT.nome} ${agSelT.cognome}`:"—")}</h2>
+                      <p style={{fontSize:12,color:"#666",margin:"4px 0 0",fontWeight:500}}>Ultimi {nMesi} mesi · da {mesiPeriodo[0].label} {mesiPeriodo[0].anno} a {mesiPeriodo[mesiPeriodo.length-1].label} {mesiPeriodo[mesiPeriodo.length-1].anno}</p>
+                    </div>
+
+                    {/* KPI TOTALI */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginBottom:"1.5rem"}}>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid ${BRAND.oro}`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Fatturato periodo</div>
+                        <div style={{fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>€ {fmt(Math.round(totFatt))}</div>
+                        <div style={{fontSize:11,marginTop:4}}>trend: {renderTrend(trendFatt)}</div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #2980B9`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Acquisizioni</div>
+                        <div style={{fontSize:22,fontWeight:700,color:"#2980B9",fontFamily:"Georgia,serif"}}>{totAcq}</div>
+                        <div style={{fontSize:11,marginTop:4}}>trend: {renderTrend(trendAcq)}</div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #8E44AD`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Azioni totali</div>
+                        <div style={{fontSize:22,fontWeight:700,color:"#8E44AD",fontFamily:"Georgia,serif"}}>{totAzioni}</div>
+                        <div style={{fontSize:11,color:"#888",marginTop:4}}>~ {Math.round(totAzioni/nMesi)} / mese</div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #E67E22`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Ore lavorate</div>
+                        <div style={{fontSize:22,fontWeight:700,color:"#E67E22",fontFamily:"Georgia,serif"}}>{totOre.toFixed(0)}<span style={{fontSize:14,marginLeft:2}}>h</span></div>
+                        <div style={{fontSize:11,color:"#888",marginTop:4}}>~ {(totOre/nMesi).toFixed(1)}h / mese</div>
+                      </div>
+                    </div>
+
+                    {/* GRAFICO BARRE FATTURATO MESE PER MESE */}
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:6}}>
+                        <h3 style={{margin:0,fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>💰 Fatturato mese per mese</h3>
+                        <p style={{margin:0,fontSize:11,color:"#888"}}>max: € {fmt(Math.round(maxFatt))}</p>
+                      </div>
+                      {maxFatt===0 ? (
+                        <p style={{fontSize:12,color:"#aaa",fontStyle:"italic",textAlign:"center",padding:"1.5rem 0"}}>Nessun dato di fatturato nel periodo selezionato.</p>
+                      ) : (
+                        <div style={{display:"flex",alignItems:"flex-end",gap:6,height:160,padding:"0 6px"}}>
+                          {datiPerMese.map(m=>{
+                            const h = maxFatt>0 ? (m.fatturato/maxFatt)*140 : 0;
+                            const isVuoto = m.fatturato===0;
+                            return(<div key={m.key} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                              <div style={{fontSize:10,fontWeight:600,color:isVuoto?"#ccc":BRAND.oroD,height:14}}>{m.fatturato>0?`€${fmt(Math.round(m.fatturato/1000))}k`:""}</div>
+                              <div style={{width:"100%",height:h,background:isVuoto?"#f0f0f0":`linear-gradient(180deg, ${BRAND.oro} 0%, ${BRAND.oroD} 100%)`,borderRadius:"4px 4px 0 0",minHeight:isVuoto?2:6,transition:"height .4s"}} title={`${m.label} ${m.anno}: € ${fmt(Math.round(m.fatturato))}`}/>
+                              <div style={{fontSize:10,color:"#888",textTransform:"uppercase",fontWeight:600}}>{m.label}</div>
+                              {m.label==="Gen"&&<div style={{fontSize:9,color:"#bbb"}}>{m.anno}</div>}
+                            </div>);
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* GRAFICO BARRE ACQUISIZIONI E AZIONI */}
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:"1.25rem"}}>
+                      <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem"}}>
+                        <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🏠 Acquisizioni mese per mese</h3>
+                        {maxAcq===0 ? (
+                          <p style={{fontSize:12,color:"#aaa",fontStyle:"italic",textAlign:"center",padding:"1rem 0"}}>Nessuna acquisizione nel periodo.</p>
+                        ) : (
+                          <div style={{display:"flex",alignItems:"flex-end",gap:4,height:120}}>
+                            {datiPerMese.map(m=>{
+                              const h = maxAcq>0 ? (m.acquisizioni/maxAcq)*100 : 0;
+                              const isVuoto = m.acquisizioni===0;
+                              return(<div key={m.key} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                <div style={{fontSize:10,fontWeight:600,color:isVuoto?"#ccc":"#2980B9",height:12}}>{m.acquisizioni||""}</div>
+                                <div style={{width:"100%",height:h,background:isVuoto?"#f0f0f0":"#2980B9",borderRadius:"3px 3px 0 0",minHeight:isVuoto?2:4}}/>
+                                <div style={{fontSize:9,color:"#888",fontWeight:500}}>{m.label.charAt(0)}</div>
+                              </div>);
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem"}}>
+                        <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni mese per mese</h3>
+                        {maxAzioni===0 ? (
+                          <p style={{fontSize:12,color:"#aaa",fontStyle:"italic",textAlign:"center",padding:"1rem 0"}}>Nessuna azione nel periodo.</p>
+                        ) : (
+                          <div style={{display:"flex",alignItems:"flex-end",gap:4,height:120}}>
+                            {datiPerMese.map(m=>{
+                              const h = maxAzioni>0 ? (m.azioni/maxAzioni)*100 : 0;
+                              const isVuoto = m.azioni===0;
+                              return(<div key={m.key} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                <div style={{fontSize:10,fontWeight:600,color:isVuoto?"#ccc":"#8E44AD",height:12}}>{m.azioni||""}</div>
+                                <div style={{width:"100%",height:h,background:isVuoto?"#f0f0f0":"#8E44AD",borderRadius:"3px 3px 0 0",minHeight:isVuoto?2:4}}/>
+                                <div style={{fontSize:9,color:"#888",fontWeight:500}}>{m.label.charAt(0)}</div>
+                              </div>);
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CONFRONTO YoY */}
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                      <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📅 Confronto Year-over-Year</h3>
+                      <p style={{margin:"0 0 12px",fontSize:11,color:"#888"}}>Stesso mese di quest'anno vs anno scorso</p>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:12}}>
+                        {[
+                          {lbl:"Fatturato",valC:`€ ${fmt(Math.round(dCorr.fatturato))}`,valP:`€ ${fmt(Math.round(dPrec.fatturato))}`,yoy:yoyFatt,clr:BRAND.oroD},
+                          {lbl:"Acquisizioni",valC:dCorr.acquisizioni,valP:dPrec.acquisizioni,yoy:yoyAcq,clr:"#2980B9"},
+                          {lbl:"Azioni",valC:dCorr.azioni,valP:dPrec.azioni,yoy:yoyAzioni,clr:"#8E44AD"},
+                        ].map(item=>(<div key={item.lbl} style={{background:"#FDFBF7",borderRadius:8,padding:"12px 14px"}}>
+                          <p style={{margin:"0 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>{item.lbl}</p>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:8}}>
+                            <div>
+                              <p style={{margin:0,fontSize:18,fontWeight:700,color:item.clr,fontFamily:"Georgia,serif"}}>{item.valC}</p>
+                              <p style={{margin:"2px 0 0",fontSize:10,color:"#888"}}>quest'anno · {meseCorr}</p>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <p style={{margin:0,fontSize:14,fontWeight:500,color:"#888"}}>{item.valP}</p>
+                              <p style={{margin:"2px 0 0",fontSize:10,color:"#aaa"}}>anno scorso</p>
+                            </div>
+                          </div>
+                          <div style={{marginTop:10,paddingTop:8,borderTop:"0.5px solid #e8e5e0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                            <span style={{fontSize:11,color:"#888",fontWeight:500}}>variazione</span>
+                            {renderTrend(item.yoy)}
+                          </div>
+                        </div>))}
+                      </div>
+                    </div>
+
+                    {/* HEATMAP SETTIMANALE */}
+                    {(()=>{
+                      const dati = isAgg ? null : (oggiDati[agIdT]||{});
+                      if(isAgg) return null;
+                      // Costruisco una mappa data → intensità (% azioni completate)
+                      const ggSetti = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+                      const mappa = {}; // {YYYY-MM-DD: perc}
+                      Object.entries(dati||{}).forEach(([k,g])=>{
+                        const az = g.azioni||{};
+                        let f=0, t=0;
+                        Object.values(az).forEach(v=>{ f+=Number(v.fatto||0); t+=Number(v.target||0); });
+                        if(t>0) mappa[k] = Math.min(100, Math.round(f/t*100));
+                        else if(f>0) mappa[k] = 50;
+                      });
+                      // Costruisco una griglia dell'ultimo periodo richiesto: settimane (colonne) × giorni (righe)
+                      const giorni = nMesi*30; // approssimato
+                      const inizio = new Date(oggi);
+                      inizio.setDate(inizio.getDate()-giorni);
+                      // Allineo a lunedì
+                      const dayInizio = inizio.getDay();
+                      const shiftToMon = dayInizio===0?-6:(1-dayInizio);
+                      inizio.setDate(inizio.getDate()+shiftToMon);
+                      // Costruisco le settimane
+                      const settimane = [];
+                      let cursore = new Date(inizio);
+                      while(cursore<=oggi){
+                        const settimana = [];
+                        for(let d=0; d<7; d++){
+                          const dd = new Date(cursore);
+                          const k = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,"0")}-${String(dd.getDate()).padStart(2,"0")}`;
+                          settimana.push({k, perc: mappa[k]||0, isFut:dd>oggi, date:dd});
+                          cursore.setDate(cursore.getDate()+1);
+                        }
+                        settimane.push(settimana);
+                      }
+                      const colorPerc = (p) => {
+                        if(p===0) return "#f5f5f5";
+                        if(p>=80) return "#27AE60";
+                        if(p>=50) return BRAND.oro;
+                        if(p>=25) return "#E67E22";
+                        return "#E74C3C";
+                      };
+                      return(<div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:6}}>
+                          <h3 style={{margin:0,fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🗓 Heatmap giornaliera</h3>
+                          <div style={{display:"flex",alignItems:"center",gap:8,fontSize:10,color:"#888"}}>
+                            <span>0%</span>
+                            {[10,30,55,80,100].map(p=><div key={p} style={{width:14,height:14,background:colorPerc(p),borderRadius:2}}/>)}
+                            <span>100%</span>
+                          </div>
+                        </div>
+                        <div style={{overflowX:"auto"}}>
+                          <div style={{display:"flex",gap:2,minWidth:settimane.length*15}}>
+                            <div style={{display:"flex",flexDirection:"column",gap:2,marginRight:4,fontSize:9,color:"#aaa",fontWeight:600}}>
+                              {ggSetti.map(g=><div key={g} style={{height:11,display:"flex",alignItems:"center"}}>{g}</div>)}
+                            </div>
+                            {settimane.map((settim,i)=>(
+                              <div key={i} style={{display:"flex",flexDirection:"column",gap:2}}>
+                                {settim.map(d=>(<div key={d.k} title={`${d.k}: ${d.perc}%`} style={{width:11,height:11,background:d.isFut?"transparent":colorPerc(d.perc),borderRadius:2,border:d.isFut?"1px dashed #e0e0e0":"none"}}/>))}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p style={{margin:"10px 0 0",fontSize:11,color:"#888",lineHeight:1.5}}>Ogni quadratino è un giorno. Più scuro/intenso = più obiettivi raggiunti. Aiuta a vedere se ci sono giorni della settimana in cui produci meno.</p>
+                      </div>);
+                    })()}
+
+                  </>);
+                })()}
+
+                {/* ══════════════════════════════════════════════════════ */}
+                {/* ── FUNNEL & CONVERSIONI ── */}
+                {/* ══════════════════════════════════════════════════════ */}
+                {statSubTab==="funnel"&&(()=>{
+                  // === SELETTORI: agente + periodo ===
+                  const brokerVedeSeStessoF = (isBroker||isBackOffice) && (statAgente==="Tutti"||statAgente===""||statAgente==="self"||statAgente===String(myAgentId));
+                  const isAggF = (isBroker||isBackOffice) && statAgente==="team";
+                  const agIdF = isAggF ? null :
+                    (isBroker||isBackOffice)
+                      ? (brokerVedeSeStessoF ? myAgentId : Number(statAgente))
+                      : myAgentId;
+
+                  // Periodo: "mese" / "trimestre" / "anno" / "tutto"
+                  const oggi = new Date();
+                  const oggiStr = `${oggi.getFullYear()}-${String(oggi.getMonth()+1).padStart(2,"0")}-${String(oggi.getDate()).padStart(2,"0")}`;
+                  const inizioPeriodo = (()=>{
+                    const d = new Date(oggi);
+                    if(statFunnelPeriodo==="mese"){ d.setDate(1); }
+                    else if(statFunnelPeriodo==="trimestre"){ d.setMonth(d.getMonth()-3); d.setDate(1); }
+                    else if(statFunnelPeriodo==="anno"){ d.setFullYear(d.getFullYear(),0,1); }
+                    else { return null; } // tutto
+                    return d;
+                  })();
+                  const inizioStr = inizioPeriodo ? `${inizioPeriodo.getFullYear()}-${String(inizioPeriodo.getMonth()+1).padStart(2,"0")}-${String(inizioPeriodo.getDate()).padStart(2,"0")}` : null;
+
+                  // === AGGREGAZIONE: somma azioni/conseguenze per ogni agente nel periodo ===
+                  const aggregaAgenteFunnel = (agId) => {
+                    const dati = oggiDati[agId]||{};
+                    const aggr = {azioni:{}, conseg:{}};
+                    Object.entries(dati).forEach(([k,g])=>{
+                      if(inizioStr && k<inizioStr) return;
+                      const az=g.azioni||{}, co=g.conseguenze||{};
+                      Object.entries(az).forEach(([azId,v])=>{
+                        aggr.azioni[azId] = (aggr.azioni[azId]||0)+Number(v.fatto||0);
+                      });
+                      Object.entries(co).forEach(([cId,v])=>{
+                        aggr.conseg[cId] = (aggr.conseg[cId]||0)+Number(v||0);
+                      });
+                    });
+                    return aggr;
+                  };
+
+                  const aggregaFunnel = (()=>{
+                    if(isAggF){
+                      const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                      const merged = {azioni:{}, conseg:{}};
+                      operativi.forEach(ag=>{
+                        const a = aggregaAgenteFunnel(ag.id);
+                        Object.entries(a.azioni).forEach(([k,v])=>{ merged.azioni[k]=(merged.azioni[k]||0)+v; });
+                        Object.entries(a.conseg).forEach(([k,v])=>{ merged.conseg[k]=(merged.conseg[k]||0)+v; });
+                      });
+                      return merged;
+                    } else {
+                      return aggregaAgenteFunnel(agIdF);
+                    }
+                  })();
+
+                  // === Conta acquisizioni da incarichi e rogiti da venduti nel periodo ===
+                  let acquisFunnel = 0;
+                  let rogitiFunnel = 0;
+                  let prelimFunnel = 0;
+                  let visiteAcq = 0;
+                  let proposteAccett = 0;
+                  if(isAggF){
+                    const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=>a.id);
+                    acquisFunnel = incarichi.filter(i=>operativi.includes(i.agenteListing)&&i.categoria==="vendita"&&!i.archiviato&&(!inizioStr||(i.dataInizio||"")>=inizioStr)).length;
+                    rogitiFunnel = venduti.filter(v=>{
+                      const dr = dataCompAgenzia(v);
+                      if(inizioStr && (!dr||dr<inizioStr)) return false;
+                      return v.stato==="Rogitata"||v.dataRogito;
+                    }).length;
+                  } else {
+                    acquisFunnel = incarichi.filter(i=>i.agenteListing===agIdF&&i.categoria==="vendita"&&!i.archiviato&&(!inizioStr||(i.dataInizio||"")>=inizioStr)).length;
+                    rogitiFunnel = venduti.filter(v=>{
+                      const dr = dataCompAgenzia(v);
+                      if(inizioStr && (!dr||dr<inizioStr)) return false;
+                      return (v.agenteListing===agIdF||v.agenteAcquirente===agIdF) && (v.stato==="Rogitata"||v.dataRogito);
+                    }).length;
+                  }
+
+                  // ====== FUNNEL ACQUISIZIONE (lato venditore) ======
+                  // Catena: Chiamate proprietari → Appt acq fissati → Immobili visti → Presentazioni → Follow-up → Acquisizioni firmate
+                  const fAcq = [
+                    {id:"chiam_prop", lbl:"Chiamate proprietari", val:Number(aggregaFunnel.azioni.chiam_prop||0), icon:"📞", clr:"#2980B9", source:"azione"},
+                    {id:"appt_acq_fissati", lbl:"Appt. acquisizione fissati", val:Number(aggregaFunnel.conseg.appt_acq_fissati||0), icon:"📅", clr:"#A8863A", source:"conseguenza"},
+                    {id:"immobili_visti", lbl:"Immobili visti", val:Number(aggregaFunnel.conseg.immobili_visti||0), icon:"🏠", clr:"#A8863A", source:"conseguenza"},
+                    {id:"presentazioni", lbl:"Presentazioni Val + PM", val:Number(aggregaFunnel.conseg.presentazioni||0), icon:"📊", clr:"#A8863A", source:"conseguenza"},
+                    {id:"follow_val", lbl:"Follow-up post-valutazione", val:Number(aggregaFunnel.conseg.follow_val||0), icon:"🔄", clr:"#A8863A", source:"conseguenza"},
+                    {id:"acquisizioni", lbl:"Acquisizioni firmate", val:acquisFunnel, icon:"✅", clr:"#27AE60", source:"sistema"},
+                  ];
+
+                  // ====== FUNNEL VENDITA (lato acquirente) ======
+                  const fVend = [
+                    {id:"incarichi_attivi", lbl:"Incarichi attivi nel periodo", val:acquisFunnel, icon:"📋", clr:"#2980B9", source:"sistema"},
+                    {id:"appt_acq_clienti", lbl:"Appt. con acquirenti", val:Number(aggregaFunnel.conseg.appt_acq_clienti||0), icon:"🤝", clr:"#8E44AD", source:"conseguenza"},
+                    {id:"oh_effettuati", lbl:"Visite Open House", val:Number(aggregaFunnel.conseg.oh_effettuati||0), icon:"🏠", clr:"#E74C3C", source:"conseguenza"},
+                    {id:"proposte_pres", lbl:"Proposte presentate", val:Number(aggregaFunnel.conseg.proposte_pres||0), icon:"📄", clr:"#27AE60", source:"conseguenza"},
+                    {id:"proposte_acc", lbl:"Proposte accettate", val:Number(aggregaFunnel.conseg.proposte_acc||0), icon:"✅", clr:"#27AE60", source:"conseguenza"},
+                    {id:"preliminari", lbl:"Preliminari firmati", val:Number(aggregaFunnel.conseg.preliminari||0), icon:"✍️", clr:"#27AE60", source:"conseguenza"},
+                    {id:"rogiti", lbl:"Rogiti", val:rogitiFunnel, icon:"🎉", clr:"#27AE60", source:"sistema"},
+                  ];
+
+                  // Helper: calcolo conversione
+                  const calcConv = (curr, prev) => {
+                    if(!prev||prev===0) return null;
+                    return Math.round(curr/prev*100);
+                  };
+                  const clrConv = (p) => {
+                    if(p===null) return "#bbb";
+                    if(p>=70) return "#27AE60";
+                    if(p>=40) return BRAND.oroD;
+                    if(p>=20) return "#E67E22";
+                    return "#E74C3C";
+                  };
+
+                  // ====== RENDER FUNNEL ======
+                  const renderFunnel = (funnel, titolo, color) => {
+                    const max = Math.max(...funnel.map(f=>f.val), 1);
+                    return(<div style={{background:"#fff",border:"1px solid #e8e5e0",borderLeft:`4px solid ${color}`,borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                      <h3 style={{margin:"0 0 14px",fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{titolo}</h3>
+                      {funnel.map((f,i)=>{
+                        const width = max>0 ? Math.max(15, (f.val/max)*100) : 15;
+                        const conv = i>0 ? calcConv(f.val, funnel[i-1].val) : null;
+                        const clr = clrConv(conv);
+                        return(<div key={f.id} style={{marginBottom:10}}>
+                          {i>0 && (
+                            <div style={{display:"flex",justifyContent:"center",margin:"4px 0"}}>
+                              <div style={{fontSize:10,color:"#aaa",padding:"2px 8px",background:"#FDFBF7",borderRadius:10,border:`0.5px solid ${clr}33`,display:"flex",alignItems:"center",gap:4}}>
+                                ↓ conversione: <strong style={{color:clr,fontSize:11}}>{conv!==null?`${conv}%`:"—"}</strong>
+                              </div>
+                            </div>
+                          )}
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <div style={{minWidth:200,display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontSize:18}}>{f.icon}</span>
+                              <span style={{fontSize:13,color:BRAND.grigio,fontWeight:600}}>{f.lbl}</span>
+                            </div>
+                            <div style={{flex:1,position:"relative",height:28,background:"#f5f5f5",borderRadius:6,overflow:"hidden"}}>
+                              <div style={{position:"absolute",top:0,left:0,height:"100%",width:`${width}%`,background:`linear-gradient(90deg, ${f.clr}, ${f.clr}DD)`,borderRadius:6,transition:"width .4s",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:10}}>
+                                <span style={{fontSize:13,fontWeight:700,color:"#fff"}}>{f.val}</span>
+                              </div>
+                            </div>
+                            {f.source==="azione" && <span style={{fontSize:9,color:"#888",padding:"2px 6px",background:"#EAF4FB",borderRadius:3,fontWeight:600}}>AZIONE</span>}
+                            {f.source==="conseguenza" && <span style={{fontSize:9,color:"#888",padding:"2px 6px",background:"#FDFBF7",borderRadius:3,fontWeight:600}}>CONSEG.</span>}
+                            {f.source==="sistema" && <span style={{fontSize:9,color:"#888",padding:"2px 6px",background:"#E1F5EE",borderRadius:3,fontWeight:600}}>DATI</span>}
+                          </div>
+                        </div>);
+                      })}
+
+                      {/* Conversione complessiva top→bottom */}
+                      {funnel[0].val>0 && (()=>{
+                        const top = funnel[0].val;
+                        const bottom = funnel[funnel.length-1].val;
+                        const convTot = calcConv(bottom, top);
+                        return(<div style={{marginTop:14,paddingTop:12,borderTop:`1.5px solid ${color}33`,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                          <span style={{fontSize:12,color:"#888",fontWeight:600}}>Conversione complessiva ({funnel[0].lbl.toLowerCase()} → {funnel[funnel.length-1].lbl.toLowerCase()}):</span>
+                          <strong style={{fontSize:16,color:clrConv(convTot),fontWeight:700,fontFamily:"Georgia,serif"}}>{convTot!==null?`${convTot}%`:"—"}</strong>
+                        </div>);
+                      })()}
+                    </div>);
+                  };
+
+                  // === TASSI CHIAVE per box riassuntivo ===
+                  const tassiChiave = [];
+                  if(fAcq[0].val>0 && fAcq[1].val>0){
+                    tassiChiave.push({lbl:"Chiamate → Appt", val:Math.round(fAcq[1].val/fAcq[0].val*100), clr:"#2980B9"});
+                  }
+                  if(fAcq[3].val>0 && fAcq[5].val>0){
+                    tassiChiave.push({lbl:"Presentazioni → Acquisizioni", val:Math.round(fAcq[5].val/fAcq[3].val*100), clr:"#A8863A"});
+                  }
+                  if(fVend[3].val>0 && fVend[4].val>0){
+                    tassiChiave.push({lbl:"Proposte → Accettate", val:Math.round(fVend[4].val/fVend[3].val*100), clr:"#27AE60"});
+                  }
+                  if(fVend[5].val>0 && fVend[6].val>0){
+                    tassiChiave.push({lbl:"Preliminari → Rogiti", val:Math.round(fVend[6].val/fVend[5].val*100), clr:"#27AE60"});
+                  }
+
+                  // Costo per acquisizione
+                  const totAzionLista = ["chiam_prop","chiam_pass","chiam_infl","chiam_priv","chiam_freddo","chiam_zona","follow_notizie","follow_mirino","lettere"];
+                  const totAzioniInvestite = totAzionLista.reduce((s,k)=>s+Number(aggregaFunnel.azioni[k]||0),0);
+                  const costoPerAcq = acquisFunnel>0 ? Math.round(totAzioniInvestite/acquisFunnel) : null;
+
+                  const agSelF = !isAggF ? agenti.find(a=>a.id===agIdF) : null;
+
+                  return(<>
+                    {/* SELETTORI */}
+                    <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                      <select style={S.sel} value={statFunnelPeriodo} onChange={e=>setStatFunnelPeriodo(e.target.value)}>
+                        <option value="mese">📅 Mese corrente</option>
+                        <option value="trimestre">📅 Ultimo trimestre</option>
+                        <option value="anno">📅 Anno corrente</option>
+                        <option value="tutto">📅 Tutto</option>
+                      </select>
+                      {(isBroker||isBackOffice)&&<select style={S.sel} value={isAggF?"team":(brokerVedeSeStessoF?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
+                        <option value="self">🏠 I miei dati</option>
+                        <option value="team">👥 Vista team aggregata</option>
+                        <optgroup label="Singolo agente">
+                          {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                        </optgroup>
+                      </select>}
+                    </div>
+
+                    {/* HEADER */}
+                    <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",border:`1.5px solid ${BRAND.oro}55`}}>
+                      <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>🔄 Funnel & Conversioni</p>
+                      <h2 style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{isAggF?"Vista team aggregata":(agSelF?`${agSelF.nome} ${agSelF.cognome}`:"—")}</h2>
+                      <p style={{fontSize:12,color:"#666",margin:"4px 0 0",fontWeight:500}}>Periodo: {statFunnelPeriodo==="mese"?"mese corrente":statFunnelPeriodo==="trimestre"?"ultimo trimestre":statFunnelPeriodo==="anno"?"anno corrente":"dati totali"}{inizioStr?` · dal ${inizioStr.split("-").reverse().join("/")}`:""}</p>
+                    </div>
+
+                    {/* TASSI CHIAVE */}
+                    {tassiChiave.length>0&&<div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                      <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Tassi di conversione chiave</h3>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+                        {tassiChiave.map(t=>(<div key={t.lbl} style={{background:"#FDFBF7",borderRadius:8,padding:"12px 14px",borderLeft:`3px solid ${t.clr}`}}>
+                          <p style={{margin:"0 0 4px",fontSize:11,color:"#888",fontWeight:600}}>{t.lbl}</p>
+                          <p style={{margin:0,fontSize:24,fontWeight:800,color:t.clr,fontFamily:"Georgia,serif"}}>{t.val}%</p>
+                        </div>))}
+                        {costoPerAcq!==null&&<div style={{background:"#FDFBF7",borderRadius:8,padding:"12px 14px",borderLeft:`3px solid #E67E22`}}>
+                          <p style={{margin:"0 0 4px",fontSize:11,color:"#888",fontWeight:600}}>Costo per acquisizione</p>
+                          <p style={{margin:0,fontSize:24,fontWeight:800,color:"#E67E22",fontFamily:"Georgia,serif"}}>{costoPerAcq}</p>
+                          <p style={{margin:"3px 0 0",fontSize:10,color:"#aaa"}}>azioni / acquisizione</p>
+                        </div>}
+                      </div>
+                    </div>}
+
+                    {/* FUNNEL ACQUISIZIONE */}
+                    {renderFunnel(fAcq, "🎯 Funnel Acquisizione (lato venditore)", BRAND.oro)}
+
+                    {/* FUNNEL VENDITA */}
+                    {renderFunnel(fVend, "💼 Funnel Vendita (lato acquirente)", "#27AE60")}
+
+                    {/* TABELLA CONVERSIONI PER AGENTE - solo broker, solo vista team */}
+                    {(isBroker||isBackOffice)&&isAggF&&(()=>{
+                      const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                      const righeAg = operativi.map(ag=>{
+                        const a = aggregaAgenteFunnel(ag.id);
+                        const chiam = Number(a.azioni.chiam_prop||0);
+                        const appt = Number(a.conseg.appt_acq_fissati||0);
+                        const pres = Number(a.conseg.presentazioni||0);
+                        const acq = incarichi.filter(i=>i.agenteListing===ag.id&&i.categoria==="vendita"&&!i.archiviato&&(!inizioStr||(i.dataInizio||"")>=inizioStr)).length;
+                        return {ag, chiam, appt, pres, acq, c1:calcConv(appt,chiam), c2:calcConv(pres,appt), c3:calcConv(acq,pres), cTot:calcConv(acq,chiam)};
+                      });
+                      return(<div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                        <h3 style={{margin:"0 0 12px",fontSize:14,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>👥 Conversioni per agente</h3>
+                        <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:600}}>
+                            <thead><tr style={{background:"#FDFBF7"}}>
+                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textTransform:"uppercase",letterSpacing:"0.06em",textAlign:"left",borderBottom:"1px solid #e8e5e0"}}>Agente</th>
+                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textAlign:"right",borderBottom:"1px solid #e8e5e0"}}>📞 Chiam</th>
+                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textAlign:"right",borderBottom:"1px solid #e8e5e0"}}>→ Appt</th>
+                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textAlign:"right",borderBottom:"1px solid #e8e5e0"}}>→ Pres</th>
+                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textAlign:"right",borderBottom:"1px solid #e8e5e0"}}>→ Acq</th>
+                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#666",textAlign:"right",borderBottom:"1px solid #e8e5e0"}}>Conv tot</th>
+                            </tr></thead>
+                            <tbody>
+                              {righeAg.map(r=>(<tr key={r.ag.id}>
+                                <td style={{padding:"8px 10px",fontSize:13,color:BRAND.grigio,fontWeight:500,borderBottom:"0.5px solid #f5f5f5"}}>{r.ag.nome} {r.ag.cognome}</td>
+                                <td style={{padding:"8px 10px",fontSize:13,textAlign:"right",color:BRAND.grigio,borderBottom:"0.5px solid #f5f5f5"}}>{r.chiam||"—"}</td>
+                                <td style={{padding:"8px 10px",fontSize:12,textAlign:"right",borderBottom:"0.5px solid #f5f5f5"}}>{r.appt||"—"} {r.c1!==null&&<small style={{color:clrConv(r.c1),fontWeight:600}}>({r.c1}%)</small>}</td>
+                                <td style={{padding:"8px 10px",fontSize:12,textAlign:"right",borderBottom:"0.5px solid #f5f5f5"}}>{r.pres||"—"} {r.c2!==null&&<small style={{color:clrConv(r.c2),fontWeight:600}}>({r.c2}%)</small>}</td>
+                                <td style={{padding:"8px 10px",fontSize:12,textAlign:"right",borderBottom:"0.5px solid #f5f5f5"}}>{r.acq||"—"} {r.c3!==null&&<small style={{color:clrConv(r.c3),fontWeight:600}}>({r.c3}%)</small>}</td>
+                                <td style={{padding:"8px 10px",fontSize:13,textAlign:"right",fontWeight:700,color:clrConv(r.cTot),borderBottom:"0.5px solid #f5f5f5"}}>{r.cTot!==null?`${r.cTot}%`:"—"}</td>
+                              </tr>))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p style={{margin:"10px 0 0",fontSize:11,color:"#888",lineHeight:1.5}}>Confronta i tassi di conversione tra agenti per identificare punti di forza e aree di coaching nei one-to-one.</p>
+                      </div>);
+                    })()}
+
+                  </>);
+                })()}
+
               </div>
             );
           })()}
