@@ -421,7 +421,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
     if(isBroker) return t.id !== "Il mio report" && t.id !== "Fatture Agente";
-    if(isBackOffice) return !["Operatività","Il mio report","Report Agenti","Fatture Agente","War Room","One-to-One"].includes(t.id);
+    if(isBackOffice) return !["Operatività","Il mio report","Report Agenti","Break Even","Statistiche","War Room","Fatture Agente"].includes(t.id);
     if(isCoach) return TAB_COACH.includes(t.id);
     if(isCollab&&t.id==="Operatività") return false;
     return TAB_AGENTE.includes(t.id);
@@ -2697,22 +2697,46 @@ export default function App() {
               const nuoviIncBO=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)!=="Venduto"&&nessunaAzioneFatta(i.id))
                 .sort((a,b)=>(b.dataInizio||"").localeCompare(a.dataInizio||""));
 
-              // === LE MIE ATTIVITÀ SULLE PRATICHE (azioni ruolo erica/entrambi non completate) ===
+              // === LE MIE ATTIVITÀ SULLE PRATICHE ===
+              // Logica: mostro solo le azioni della FASE CORRENTE di ogni pratica + arretrati a scadenza LEGALE
+              // (Regold, antiriciclaggio) di fasi precedenti non completate (hanno conseguenze fiscali).
+              // Fase corrente = ultima fase con almeno un'azione completata (o la prima se nulla è stato fatto).
+              const faseCorrenteBO=(incId)=>{
+                const pr=getPrBO(incId);
+                let lastIdx=0;
+                fasiBO.forEach((f,idx)=>{
+                  if(Object.values(pr.fasi?.[f.k]||{}).some(a=>a.fatto)) lastIdx=idx;
+                });
+                return lastIdx;
+              };
+              // Keyword che identificano azioni a scadenza legale/fiscale (arretrati da non perdere mai)
+              const isScadenzaLegale=(lbl)=>{
+                const l=(lbl||"").toLowerCase();
+                return l.includes("regold")||l.includes("registrazione")||l.includes("antiriciclaggio")||l.includes("antiricic");
+              };
               const attivitaErica=[];
               incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)!=="Venduto").forEach(inc=>{
                 const pr=getPrBO(inc.id);
-                fasiBO.forEach(fase=>{
+                const fcIdx=faseCorrenteBO(inc.id);
+                fasiBO.forEach((fase,fIdx)=>{
                   (fase.azioni||[]).forEach(az=>{
                     if(az.ruolo!=="erica"&&az.ruolo!=="entrambi") return;
                     const fatto=pr.fasi?.[fase.k]?.[az.k]?.fatto;
                     if(fatto) return;
-                    attivitaErica.push({inc, fase, az, alert:!!az.alert});
+                    const inFaseCorrente = fIdx===fcIdx;
+                    const arretratoLegale = fIdx<fcIdx && isScadenzaLegale(az.lbl);
+                    // Mostro solo: azioni della fase corrente OPPURE arretrati a scadenza legale di fasi superate
+                    if(!inFaseCorrente && !arretratoLegale) return;
+                    attivitaErica.push({inc, fase, az, alert:!!az.alert, arretrato:arretratoLegale});
                   });
                 });
               });
-              // Ordino: prima le alert, poi il resto
-              attivitaErica.sort((a,b)=>(b.alert?1:0)-(a.alert?1:0));
-              const attivitaUrgenti=attivitaErica.filter(a=>a.alert);
+              // Ordino: prima gli arretrati legali (più gravi), poi le alert, poi il resto
+              attivitaErica.sort((a,b)=>{
+                if(a.arretrato!==b.arretrato) return a.arretrato?-1:1;
+                return (b.alert?1:0)-(a.alert?1:0);
+              });
+              const attivitaUrgenti=attivitaErica.filter(a=>a.alert||a.arretrato);
 
               // === ROGITI IN ARRIVO 30gg ===
               const prossimiRBO=venduti.filter(v=>{if(!v.dataAtto)return false;const d=toDBO(v.dataAtto);return d>=oggiBO&&d<=tra30BO;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
@@ -2784,22 +2808,22 @@ export default function App() {
 
                 {/* LE MIE ATTIVITÀ SULLE PRATICHE */}
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
-                  <div style={{background:"#EEEDFE",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                  <div style={{background:"#EEEDFE",padding:"9px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
                     <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>✅ Le mie attività sulle pratiche</span>
-                    <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Automatiche dall'iter pratiche · urgenti in cima · spunti in Gestione Pratiche</p>
+                    <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Solo la fase attuale di ogni pratica · scadenze legali arretrate in cima · spunti in Gestione Pratiche</p>
                   </div>
                   {attivitaErica.length===0?<div style={{padding:"1.5rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna attività in sospeso. Ottimo lavoro! ✨</div>:
-                  attivitaErica.slice(0,10).map((a,i)=>(
-                    <div key={`${a.inc.id}_${a.fase.k}_${a.az.k}`} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer",background:a.alert?"#FCEBEB":"#fff"}}>
-                      <span style={{fontSize:14,flexShrink:0}}>{a.alert?"⚠️":"○"}</span>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:a.alert?600:400}}>{a.az.lbl}</div>
+                  attivitaErica.slice(0,12).map((a,i)=>(
+                    <div key={`${a.inc.id}_${a.fase.k}_${a.az.k}`} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer",background:a.arretrato?"#FBEAEA":a.alert?"#FCF4E6":"#fff"}}>
+                      <span style={{fontSize:13,flexShrink:0}}>{a.arretrato?"🔴":a.alert?"⚠️":"○"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12.5,fontWeight:a.arretrato||a.alert?600:400}}>{a.az.lbl}{a.arretrato&&<span style={{marginLeft:6,fontSize:9,padding:"1px 6px",borderRadius:3,background:"#A32D2D",color:"#fff",fontWeight:700,textTransform:"uppercase",letterSpacing:".03em"}}>Scadenza legale</span>}</div>
                         <div style={{fontSize:11,color:"#888"}}>{a.inc.comune} — {a.inc.indirizzo} · {a.fase.timing}</div>
                       </div>
                       <span style={{fontSize:11,color:"#3C3489",whiteSpace:"nowrap"}}>Apri →</span>
                     </div>
                   ))}
-                  {attivitaErica.length>10&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altre {attivitaErica.length-10} attività in Gestione Pratiche</div>}
+                  {attivitaErica.length>12&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altre {attivitaErica.length-12} attività in Gestione Pratiche</div>}
                 </div>
 
                 {/* TO-DO LIBERA */}
