@@ -1093,6 +1093,7 @@ export default function App() {
   // To-do list libera di Erica (Back Office): array di {id, testo, fatto, data}
   const [ericaTodo,setEricaTodo]=useState(_ls?.ericaTodo||[]);
   const [ericaTodoInput,setEricaTodoInput]=useState("");
+  const [showNuoviIncBO,setShowNuoviIncBO]=useState(false);
   const [showAttesa,setShowAttesa]=useState(true);
   const [showVincolate,setShowVincolate]=useState(true);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
@@ -2777,34 +2778,20 @@ export default function App() {
                   {fraseOggi&&fraseOggi.t&&<div style={{background:"#FAEEDA",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#633806",fontStyle:"italic"}}>💬 "{fraseOggi.t}"{fraseOggi.a&&<span style={{fontStyle:"normal",opacity:0.7}}> — {fraseOggi.a}</span>}</div>}
                 </div>
 
-                {/* 4 CONTATORI */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.25rem"}}>
+                {/* 4 CONTATORI (compatti) */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:8,marginBottom:"1rem"}}>
                   {[
                     {n:nuoviIncBO.length,l:"Nuovi incarichi",c:"#185FA5"},
                     {n:attivitaUrgenti.length,l:"Attività urgenti",c:"#A32D2D"},
                     {n:prossimiRBO.length,l:"Rogiti 30gg",c:"#BA7517"},
                     {n:incassiDaSeguire.length+prospettiDaGestire.length,l:"Pagamenti",c:"#0F6E56"},
                   ].map(({n,l,c})=>(
-                    <div key={l} style={{background:"#fafaf8",borderRadius:10,padding:"1rem",textAlign:"center"}}>
-                      <p style={{margin:"0 0 4px",fontSize:24,fontWeight:700,color:c,fontFamily:"Georgia,serif"}}>{n}</p>
-                      <p style={{margin:0,fontSize:12,color:"#888"}}>{l}</p>
+                    <div key={l} style={{background:"#fafaf8",borderRadius:8,padding:"8px 12px",display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{fontSize:22,fontWeight:700,color:c,fontFamily:"Georgia,serif",lineHeight:1}}>{n}</span>
+                      <span style={{fontSize:11.5,color:"#888",lineHeight:1.2}}>{l}</span>
                     </div>
                   ))}
                 </div>
-
-                {/* NUOVI INCARICHI DA IMPOSTARE */}
-                {nuoviIncBO.length>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
-                  <div style={{background:"#E6F1FB",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
-                    <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>🗂 Nuovi incarichi da impostare</span>
-                    <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Inseriti a sistema ma ancora senza pratica avviata</p>
-                  </div>
-                  {nuoviIncBO.slice(0,6).map(inc=>(
-                    <div key={inc.id} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer"}}>
-                      <div><strong style={{fontSize:13}}>{inc.comune} — {inc.indirizzo}</strong><div style={{fontSize:11,color:"#888"}}>{inc.nominativo||"—"} · acquisito {fmtD(inc.dataInizio)}</div></div>
-                      <span style={{fontSize:11,color:"#0C447C",whiteSpace:"nowrap"}}>Apri pratica →</span>
-                    </div>
-                  ))}
-                </div>}
 
                 {/* LE MIE ATTIVITÀ SULLE PRATICHE */}
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
@@ -2847,6 +2834,25 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* NUOVI INCARICHI DA IMPOSTARE (collassabile, chiuso di default) */}
+                {nuoviIncBO.length>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
+                  <div onClick={()=>setShowNuoviIncBO(v=>!v)} style={{background:"#E6F1FB",padding:"10px 16px",borderBottom:showNuoviIncBO?"0.5px solid #e8e5e0":"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                    <div>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>🗂 Nuovi incarichi da impostare</span>
+                      <span style={{marginLeft:8,fontSize:11,padding:"1px 8px",borderRadius:10,background:"#0C447C",color:"#fff",fontWeight:700}}>{nuoviIncBO.length}</span>
+                      <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Inseriti a sistema ma ancora senza pratica avviata</p>
+                    </div>
+                    <button style={{background:"none",border:"0.5px solid #0C447C44",borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#0C447C",whiteSpace:"nowrap"}}>{showNuoviIncBO?"▲ Chiudi":"▼ Vedi"}</button>
+                  </div>
+                  {showNuoviIncBO&&nuoviIncBO.slice(0,10).map(inc=>(
+                    <div key={inc.id} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer"}}>
+                      <div><strong style={{fontSize:13}}>{inc.comune} — {inc.indirizzo}</strong><div style={{fontSize:11,color:"#888"}}>{inc.nominativo||"—"} · acquisito {fmtD(inc.dataInizio)}</div></div>
+                      <span style={{fontSize:11,color:"#0C447C",whiteSpace:"nowrap"}}>Apri pratica →</span>
+                    </div>
+                  ))}
+                  {showNuoviIncBO&&nuoviIncBO.length>10&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altri {nuoviIncBO.length-10} in Gestione Pratiche</div>}
+                </div>}
 
                 {/* ROGITI + PAGAMENTI */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
