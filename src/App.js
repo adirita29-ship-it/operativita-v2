@@ -1058,6 +1058,12 @@ export default function App() {
   const [showFormSfida,setShowFormSfida]=useState(false);
   const [warSubTab,setWarSubTab]=useState("performance");
   const [warOscura,setWarOscura]=useState(false);
+  // War Room — Eventi (corsi, cene, conferenze ecc.)
+  const [eventi,setEventi]=useState(_ls?.eventi||[]);
+  const [tipiEvento,setTipiEvento]=useState(_ls?.tipiEvento||["Corso","Evento","Cena","Conferenza","Aperitivo","Altro"]);
+  const [showEvento,setShowEvento]=useState(null); // null | "new" | oggetto evento
+  const [formEvento,setFormEvento]=useState({data:todayStr(),titolo:"",tipo:"Corso",luogo:"",partecipanti:[],costo:"",includiCosti:false,note:"",link:""});
+  const [fEventoTipo,setFEventoTipo]=useState("Tutti");
   const [oneToOne,setOneToOne]=useState(_ls?.oneToOne||{});
   const [otoAgSel,setOtoAgSel]=useState(null);
   const [otoForm,setOtoForm]=useState({data:todayStr(),noteIncontro:"",obiettivi:"",criticita:"",azioni:"",notePrivate:""});
@@ -1377,6 +1383,8 @@ export default function App() {
         if(d.operativita) setOperativita(d.operativita);
         if(d.agenti) setAgenti(d.agenti.map(a=>({...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)?(a.inReport!==false):false})));
         if(d.sfide) setSfide(d.sfide);
+        if(d.eventi) setEventi(d.eventi);
+        if(d.tipiEvento) setTipiEvento(d.tipiEvento);
         if(d.archiviati) setArchiviati(d.archiviati);
         if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
@@ -1414,7 +1422,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,eventi,tipiEvento};
     salvaLS(payload); // salva anche in locale come backup
     // Popola la ref per il salvataggio manuale immediato (bypass debounce)
     salvaOraManualeRef.current = () => {
@@ -1437,7 +1445,7 @@ export default function App() {
       });
     },800); // debounce 800ms (era 2000ms, ridotto per minimizzare rischio perdita dati)
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,eventi,tipiEvento,dbLoaded]);
 
 
 
@@ -8624,7 +8632,7 @@ export default function App() {
               {/* Header con sub-tab e periodo */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:10}}>
                 <div style={{display:"flex",gap:0,borderBottom:"2px solid #e8e5e0"}}>
-                  {[["performance","📊 Performance"],["traguardo","🏆 Traguardo Volante"]].map(([v,l])=>(
+                  {[["performance","📊 Performance"],["traguardo","🏆 Traguardo Volante"],["eventi","📅 Eventi"]].map(([v,l])=>(
                     <button key={v} onClick={()=>setWarSubTab(v)} style={{padding:"8px 18px",fontSize:13,border:"none",background:"none",borderBottom:`2px solid ${warSubTab===v?"#A8863A":"transparent"}`,color:warSubTab===v?"#A8863A":"#888",fontWeight:warSubTab===v?600:400,cursor:"pointer",fontFamily:"inherit",marginBottom:-2}}>{l}</button>
                   ))}
                 </div>
@@ -8853,6 +8861,88 @@ export default function App() {
 
               {!showFormSfida&&isBroker&&!sfidaAtt2&&<button onClick={()=>setShowFormSfida(true)} style={{...S.btnP,fontSize:12,padding:"8px 18px"}}>+ Crea nuovo traguardo</button>}
               </div>}
+
+              {/* SOTTO-TAB EVENTI — corsi, conferenze, cene, eventi di networking */}
+              {warSubTab==="eventi"&&(()=>{
+                const annoAtt=String(annoCorrente);
+                const evtAnno=eventi.filter(e=>(e.data||"").startsWith(annoAtt));
+                const totEvt=evtAnno.length;
+                const totPart=evtAnno.reduce((s,e)=>s+((e.partecipanti||[]).length),0);
+                const totCosti=evtAnno.filter(e=>e.includiCosti).reduce((s,e)=>s+Number(e.costo||0),0);
+                const evtFiltrati=eventi
+                  .filter(e=>fEventoTipo==="Tutti"||e.tipo===fEventoTipo)
+                  .sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+                const tipoColore={"Corso":"#2980B9","Evento":"#E67E22","Cena":"#D85A30","Conferenza":"#8E44AD","Aperitivo":"#16A085","Altro":"#888"};
+                const tipoBg={"Corso":"#E8F1FB","Evento":"#FEF0E0","Cena":"#FAECE7","Conferenza":"#F5EEF8","Aperitivo":"#E1F5EE","Altro":"#f0f0f0"};
+                const tipoIcona={"Corso":"📚","Evento":"🌐","Cena":"🍽","Conferenza":"🎤","Aperitivo":"🥂","Altro":"📌"};
+                const MESI_ABBR=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
+                return(<div>
+                  {/* KPI strip */}
+                  <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+                    <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",minWidth:120,borderTop:"3px solid #2980B9"}}>
+                      <div style={{fontSize:22,fontWeight:600,color:"#2980B9",lineHeight:1,marginBottom:4}}>{totEvt}</div>
+                      <div style={{fontSize:11,color:"#888"}}>Eventi {annoAtt}</div>
+                    </div>
+                    <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",minWidth:140,borderTop:"3px solid #27AE60"}}>
+                      <div style={{fontSize:22,fontWeight:600,color:"#27AE60",lineHeight:1,marginBottom:4}}>{totPart}</div>
+                      <div style={{fontSize:11,color:"#888"}}>Partecipazioni totali</div>
+                    </div>
+                    <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",minWidth:160,borderTop:"3px solid #C9A96E"}}>
+                      <div style={{fontSize:22,fontWeight:600,color:"#A8863A",lineHeight:1,marginBottom:4}}>€ {fmtN(totCosti)}</div>
+                      <div style={{fontSize:11,color:"#888"}}>Investiti in formazione/eventi</div>
+                    </div>
+                  </div>
+                  {/* Filtri + bottone Nuovo */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:8,flexWrap:"wrap"}}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {["Tutti",...tipiEvento].map(t=>(
+                        <button key={t} onClick={()=>setFEventoTipo(t)} style={{padding:"5px 10px",fontSize:11.5,borderRadius:5,border:`0.5px solid ${fEventoTipo===t?"#C9A96E":"#ddd"}`,background:fEventoTipo===t?"#fafaf8":"#fff",color:fEventoTipo===t?"#A8863A":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:fEventoTipo===t?600:400}}>{t}</button>
+                      ))}
+                    </div>
+                    {(isBroker||isBackOffice)&&<button onClick={()=>{setFormEvento({data:todayStr(),titolo:"",tipo:tipiEvento[0]||"Corso",luogo:"",partecipanti:[],costo:"",includiCosti:false,note:"",link:""});setShowEvento("new");}} style={{background:"#27AE60",color:"#fff",border:"none",padding:"7px 14px",borderRadius:7,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Nuovo evento</button>}
+                  </div>
+                  {/* Lista eventi */}
+                  {evtFiltrati.length===0?(
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px dashed #ddd",padding:"2rem",textAlign:"center",color:"#aaa",fontSize:13}}>
+                      Nessun evento ancora{fEventoTipo!=="Tutti"?` per il filtro "${fEventoTipo}"`:""}. {(isBroker||isBackOffice)&&"Clicca \"+ Nuovo evento\" per aggiungere il primo."}
+                    </div>
+                  ):(<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {evtFiltrati.map(e=>{
+                      const clr=tipoColore[e.tipo]||"#888";
+                      const bg=tipoBg[e.tipo]||"#f0f0f0";
+                      const ico=tipoIcona[e.tipo]||"📌";
+                      const dd=e.data?new Date(e.data):null;
+                      const dGiorno=dd?String(dd.getDate()).padStart(2,"0"):"--";
+                      const dMese=dd?MESI_ABBR[dd.getMonth()]:"---";
+                      const part=(e.partecipanti||[]).map(pid=>agenti.find(a=>a.id===Number(pid))).filter(Boolean);
+                      const canEdit=(isBroker||isBackOffice);
+                      return(<div key={e.id} onClick={()=>{if(canEdit){setFormEvento({...e,partecipanti:e.partecipanti||[]});setShowEvento(e);}}} style={{background:"#fff",border:"0.5px solid #e8e5e0",borderLeft:`4px solid ${clr}`,borderRadius:8,padding:"12px 14px",display:"grid",gridTemplateColumns:"60px 1fr auto",gap:14,alignItems:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.04)",cursor:canEdit?"pointer":"default",transition:"box-shadow .15s"}}>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontSize:22,fontWeight:500,color:"#2C2C2C",lineHeight:1}}>{dGiorno}</div>
+                          <div style={{fontSize:10.5,color:"#888",textTransform:"uppercase",letterSpacing:".04em",marginTop:2}}>{dMese}</div>
+                        </div>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontSize:14,fontWeight:500,color:"#2C2C2C",marginBottom:3}}>{e.titolo||"(senza titolo)"}</div>
+                          <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:11.5,color:"#888"}}>
+                            <span style={{display:"inline-block",fontSize:10,padding:"2px 7px",borderRadius:4,fontWeight:500,background:bg,color:clr}}>{ico} {e.tipo}</span>
+                            {e.luogo&&<span>📍 {e.luogo}</span>}
+                            {e.link&&<a href={e.link} target="_blank" rel="noreferrer" onClick={ev=>ev.stopPropagation()} style={{color:"#2980B9",textDecoration:"none"}}>🔗 link</a>}
+                          </div>
+                          {e.note&&<div style={{fontSize:11,color:"#aaa",marginTop:4,fontStyle:"italic"}}>{e.note.length>120?e.note.slice(0,120)+"…":e.note}</div>}
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontSize:11,color:"#888",marginBottom:4}}>{part.length} {part.length===1?"partecipante":"partecipanti"}</div>
+                          <div style={{display:"flex",gap:3,justifyContent:"flex-end",flexWrap:"wrap"}}>
+                            {part.slice(0,5).map((ag,i)=>(<span key={i} title={`${ag.nome} ${ag.cognome}`} style={{width:22,height:22,borderRadius:"50%",background:["#2980B9","#27AE60","#E67E22","#8E44AD","#C9A96E"][i%5],color:"#fff",fontSize:10,fontWeight:600,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{ag.nome[0]}{ag.cognome[0]}</span>))}
+                            {part.length>5&&<span style={{fontSize:10,color:"#888",alignSelf:"center"}}>+{part.length-5}</span>}
+                          </div>
+                          {Number(e.costo||0)>0?<div style={{fontSize:11,color:e.includiCosti?"#A8863A":"#aaa",fontWeight:500,marginTop:4}}>€ {fmtN(e.costo)}{e.includiCosti&&<span title="Incluso nei costi agenzia" style={{marginLeft:4}}>✓</span>}</div>:<div style={{fontSize:11,color:"#27AE60",fontWeight:500,marginTop:4}}>Gratuito</div>}
+                        </div>
+                      </div>);
+                    })}
+                  </div>)}
+                </div>);
+              })()}
 
             </div>);
           })()}
@@ -10810,6 +10900,64 @@ export default function App() {
       </div>)}
 
       {showIncassoLato&&(<ModalIncassoLato vend={showIncassoLato.vend} lato={showIncassoLato.lato} onSave={upd=>{setVenduti(venduti.map(v=>v.id===upd.id?upd:v));setShowIncassoLato(null);}} onClose={()=>setShowIncassoLato(null)}/>)}
+
+      {/* MODAL EVENTO (War Room → Eventi) */}
+      {showEvento&&(<div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setShowEvento(null);}}>
+        <div style={{...S.modal,width:"min(96vw,640px)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem"}}>
+            <h2 style={{fontSize:17,fontWeight:500,margin:0}}>{showEvento==="new"?"📅 Nuovo evento":"📅 Modifica evento"}</h2>
+            <button onClick={()=>setShowEvento(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#ccc",padding:0}}>x</button>
+          </div>
+          <div style={S.g2}>
+            <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formEvento.data||""} onChange={e=>setFormEvento({...formEvento,data:e.target.value})}/></div>
+            <div>
+              <label style={S.lbl}>Tipo</label>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <select style={{...S.inp,flex:1}} value={formEvento.tipo||""} onChange={e=>setFormEvento({...formEvento,tipo:e.target.value})}>
+                  {tipiEvento.map(t=><option key={t}>{t}</option>)}
+                </select>
+                <button title="Aggiungi nuova tipologia" onClick={()=>{const nuovo=prompt("Nome nuova tipologia di evento:");if(nuovo&&nuovo.trim()&&!tipiEvento.includes(nuovo.trim())){const t=nuovo.trim();setTipiEvento([...tipiEvento,t]);setFormEvento({...formEvento,tipo:t});}}} style={{...S.btn,fontSize:13,padding:"4px 10px",borderColor:BRAND.oro,color:BRAND.oroD}}>+</button>
+              </div>
+            </div>
+          </div>
+          <div><label style={S.lbl}>Titolo *</label><input style={S.inp} placeholder="es. Corso BNI — Gestire le obiezioni" value={formEvento.titolo||""} onChange={e=>setFormEvento({...formEvento,titolo:e.target.value})}/></div>
+          <div><label style={S.lbl}>Luogo</label><input style={S.inp} placeholder="es. Varese — Hotel Palace" value={formEvento.luogo||""} onChange={e=>setFormEvento({...formEvento,luogo:e.target.value})}/></div>
+          <div>
+            <label style={S.lbl}>Partecipanti dell'agenzia</label>
+            <div style={{background:"#fafaf8",border:"0.5px solid #e8e5e0",borderRadius:6,padding:"8px 10px",display:"flex",flexWrap:"wrap",gap:6}}>
+              {agenti.filter(a=>["Broker","Consulente","Collaboratore","Back Office"].includes(a.profilo)&&a.attivo!==false).map(a=>{
+                const sel=(formEvento.partecipanti||[]).includes(a.id);
+                return(<button key={a.id} type="button" onClick={()=>{const lst=formEvento.partecipanti||[];const next=sel?lst.filter(x=>x!==a.id):[...lst,a.id];setFormEvento({...formEvento,partecipanti:next});}} style={{padding:"4px 10px",fontSize:12,borderRadius:6,border:`0.5px solid ${sel?"#27AE60":"#ddd"}`,background:sel?"#E9F7EF":"#fff",color:sel?"#27AE60":"#666",cursor:"pointer",fontFamily:"inherit",fontWeight:sel?600:400}}>{sel?"✓ ":""}{a.nome} {a.cognome}</button>);
+              })}
+            </div>
+          </div>
+          <div style={S.g2}>
+            <div><label style={S.lbl}>Costo (€)</label><input type="number" min="0" step="0.01" style={S.inp} placeholder="0 = gratuito" value={formEvento.costo||""} onChange={e=>setFormEvento({...formEvento,costo:e.target.value})}/></div>
+            <div><label style={S.lbl}>Link (opzionale)</label><input style={S.inp} placeholder="https://…" value={formEvento.link||""} onChange={e=>setFormEvento({...formEvento,link:e.target.value})}/></div>
+          </div>
+          {Number(formEvento.costo||0)>0&&<label style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:12,color:BRAND.grigio,cursor:"pointer",padding:"8px 10px",background:"#FAEEDA66",borderRadius:6,marginTop:6}}>
+            <input type="checkbox" checked={!!formEvento.includiCosti} onChange={e=>setFormEvento({...formEvento,includiCosti:e.target.checked})} style={{marginTop:2}}/>
+            <span><strong>Includi nei costi agenzia</strong> — il costo verrà conteggiato come spesa di formazione/networking. Compare nel KPI "Investiti in formazione/eventi". <span style={{color:"#999",fontSize:11}}>(integrazione automatica con Break Even in arrivo)</span></span>
+          </label>}
+          <div><label style={S.lbl}>Note</label><textarea style={{...S.inp,resize:"vertical",minHeight:80}} placeholder="Temi affrontati, contatti utili, idee portate a casa…" value={formEvento.note||""} onChange={e=>setFormEvento({...formEvento,note:e.target.value})}/></div>
+          <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem"}}>
+            <div>
+              {showEvento!=="new"&&<button onClick={()=>{if(window.confirm("Eliminare questo evento?")){setEventi(eventi.filter(x=>x.id!==showEvento.id));setShowEvento(null);}}} style={{...S.btnD,fontSize:13}}>🗑 Elimina</button>}
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setShowEvento(null)} style={S.btn}>Annulla</button>
+              <button onClick={()=>{
+                if(!formEvento.titolo||!formEvento.titolo.trim()){alert("Il titolo è obbligatorio");return;}
+                if(!formEvento.data){alert("La data è obbligatoria");return;}
+                const ev={...formEvento,id:showEvento==="new"?Date.now():showEvento.id,costo:Number(formEvento.costo||0),partecipanti:formEvento.partecipanti||[]};
+                if(showEvento==="new") setEventi([...eventi,ev]);
+                else setEventi(eventi.map(x=>x.id===showEvento.id?ev:x));
+                setShowEvento(null);
+              }} style={S.btnP}>{showEvento==="new"?"Crea":"Salva"}</button>
+            </div>
+          </div>
+        </div>
+      </div>)}
 
       {/* MODAL AGENTE */}
       {showAgente&&(<div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setShowAgente(null);}}>
