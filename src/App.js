@@ -1472,7 +1472,12 @@ export default function App() {
     // Agente: se vuole vede tutti, altrimenti solo i suoi
     if(!canViewAll&&myAgentId&&!incVistaTutti&&i.agenteListing!==myAgentId) return false;
     const s=statoInc(i);
-    if(fIncStato!=="Tutti"&&s!==fIncStato) return false;
+    if(fIncStato!=="Tutti"){
+      // "Attivo" è un macro-filtro: include Attivo, In trattativa, Accettata con Vincolo (tutti incarichi vivi)
+      if(fIncStato==="Attivo"){
+        if(!["Attivo","In trattativa","Accettata con Vincolo"].includes(s)) return false;
+      } else if(s!==fIncStato) return false;
+    }
     if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno) return false;
     if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese) return false;
     if(fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg)) return false;
@@ -1492,7 +1497,7 @@ export default function App() {
       if((isBroker||isBackOffice)&&fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg))return false;
       return true;
     });
-    return{attivi:b.filter(i=>statoInc(i)==="Attivo").length,scaduti:b.filter(i=>statoInc(i)==="Scaduto").length,venduti:b.filter(i=>statoInc(i)==="Venduto"||statoInc(i)==="Locato").length};
+    return{attivi:b.filter(i=>["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i))).length,scaduti:b.filter(i=>statoInc(i)==="Scaduto").length,venduti:b.filter(i=>statoInc(i)==="Venduto"||statoInc(i)==="Locato").length};
   },[incarichi,subInc,fIncAnno,fIncMese,fIncAg,isBroker,myAgentId]);
 
   const propFiltrate=useMemo(()=>proposte.filter(p=>{
@@ -1834,7 +1839,7 @@ export default function App() {
   const FiltriInc=()=>(<div style={S.fRow}>
     <Sel value={fIncAnno} onChange={v=>{setFIncAnno(v);setFIncMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniInc.map(a=><option key={a}>{a}</option>)}</Sel>
     <Sel value={fIncMese} onChange={setFIncMese}><option value="Tutti">Tutti i mesi</option>{mesiInc.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
-    <Sel value={fIncStato} onChange={setFIncStato}><option value="Tutti">Tutti gli stati</option>{["Attivo","Scaduto",subInc==="affitto"?"Locato":"Venduto"].map(s=><option key={s}>{s}</option>)}</Sel>
+    <Sel value={fIncStato} onChange={setFIncStato}><option value="Tutti">Tutti gli stati</option>{["Attivo","In trattativa","Accettata con Vincolo","Scaduto",subInc==="affitto"?"Locato":"Venduto"].map(s=><option key={s}>{s}</option>)}</Sel>
     {(isBroker||isBackOffice)&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
   </div>);
   const FiltriProp=()=>(<div style={S.fRow}>
@@ -2081,7 +2086,7 @@ export default function App() {
                 <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
                   <div style={S.card(STATI_INC.Attivo.clr)}>
                     <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p>
-                    <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{myInc.filter(i=>statoInc(i)==="Attivo").length}</p>
+                    <p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{myInc.filter(i=>["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i))).length}</p>
                     <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>{myIncAnno.length} acquisiti{dashAnno!=="Tutti"?` ${dashAnno}`:""}</p>
                   </div>
                   <div style={S.card(STATI_INC.Scaduto.clr)}>
@@ -2505,7 +2510,7 @@ export default function App() {
             })()}
 
             <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
-              <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
+              <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i))).length}</p></div>
               <div style={S.card(STATI_INC.Scaduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi scaduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Scaduto.clr}}>{dashInc.filter(i=>statoInc(i)==="Scaduto").length}</p></div>
               <div style={S.card(STATI_INC.Venduto.clr)}>
                 <p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Transazioni totali</p>
@@ -3122,8 +3127,8 @@ export default function App() {
                 <span style={{fontSize:10,color:"#aaa"}}>{(isBroker||isBackOffice)?"totali agenzia":"tuoi anno corrente"}</span>
               </div>
             </div>
-            <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"auto",maxHeight:"70vh"}}>
-            <table style={{width:"100%",borderCollapse:"separate",borderSpacing:0,fontSize:13}}>
+            <div style={{background:"transparent",borderRadius:10,overflow:"auto",maxHeight:"70vh"}}>
+            <table style={{width:"100%",borderCollapse:"separate",borderSpacing:"0 8px",fontSize:13}}>
               <thead>
                 <tr style={{background:"#fafaf8",borderBottom:"1px solid #e8e5e0"}}>
                   <th style={{...S.th,minWidth:100,paddingLeft:12,position:"sticky",top:0,zIndex:2}}>Stato</th>
@@ -3147,10 +3152,10 @@ export default function App() {
                 const scadClr=ggScad===null?"#aaa":ggScad<0?"#E74C3C":ggScad<30?"#E67E22":"#27AE60";
                 const isOpenInc=rowOpen===`inc_${inc.id}`;
                 return(<React.Fragment key={inc.id}>
-                <tr style={{background:isOpenInc?"#FDFBF7":rowBg,opacity:inc.archiviato?0.7:1,borderLeft:`4px solid ${cfg.clr}`,borderBottom:isOpenInc?"none":"0.5px solid #f5f5f5",cursor:"pointer",transition:"background .15s"}}
+                <tr style={{background:isOpenInc?"#FDFBF7":(rowBg==="white"?"#fff":rowBg),opacity:inc.archiviato?0.7:1,cursor:"pointer",transition:"background .15s,box-shadow .15s",boxShadow:isOpenInc?"0 2px 8px rgba(168,134,58,0.15)":"0 1px 3px rgba(0,0,0,0.06)",outline:`0.5px solid ${isOpenInc?cfg.clr+"55":"#e8e5e0"}`,outlineOffset:"-0.5px"}}
                   onClick={()=>setRowOpen(isOpenInc?null:`inc_${inc.id}`)}>
                   {/* Stato */}
-                  <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
+                  <td style={{padding:"12px 12px",verticalAlign:"middle",borderLeft:`4px solid ${cfg.clr}`,borderTopLeftRadius:8,borderBottomLeftRadius:isOpenInc?0:8}}>
                     <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:12,padding:"4px 10px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>
                       {cfg.s} {s}
                     </span>
@@ -3210,7 +3215,7 @@ export default function App() {
                       })}</div>;
                     })()}
                   </td>
-                  <td style={S.td} onClick={e=>e.stopPropagation()}>
+                  <td style={{...S.td,borderTopRightRadius:8,borderBottomRightRadius:isOpenInc?0:8}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
                       {(()=>{const canEdit=(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId);const btnStyle=(extra={})=>({display:"inline-flex",alignItems:"center",justifyContent:"center",width:30,height:30,padding:0,fontSize:14,borderRadius:7,border:"0.5px solid #e0ddd5",background:"#fff",cursor:"pointer",transition:"all .12s",...extra});return(<>
                       {!isVenduto&&!inc.archiviato&&canEdit&&<button title="Modifica incarico" style={btnStyle()} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
@@ -3224,8 +3229,8 @@ export default function App() {
                   </td>
                 </tr>
                 {/* ACCORDION INCARICHI */}
-                {isOpenInc&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
-                  <td colSpan={7} style={{padding:"0 14px 14px"}}>
+                {isOpenInc&&<tr style={{background:"#FAFAF8",boxShadow:"0 2px 8px rgba(168,134,58,0.10)",outline:`0.5px solid ${cfg.clr}55`,outlineOffset:"-0.5px"}}>
+                  <td colSpan={7} style={{padding:"0 14px 14px",borderLeft:`4px solid ${cfg.clr}`,borderRadius:"0 0 8px 8px"}}>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio incarico</p>
@@ -7712,7 +7717,7 @@ export default function App() {
             // Categorie — usa statoInc che è già calcolato correttamente
             const tuttiVendita=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&canSee2(i));
             const poolBase=gpCategoria==="attive"
-              ? tuttiVendita.filter(i=>statoInc(i)==="Attivo")
+              ? tuttiVendita.filter(i=>["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i)))
               : gpCategoria==="venduti"
               ? tuttiVendita.filter(i=>statoInc(i)==="Venduto")
               : tuttiVendita.filter(i=>statoInc(i)==="Scaduto");
