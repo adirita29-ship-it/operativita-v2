@@ -1100,6 +1100,7 @@ export default function App() {
   // Dashboard agente: sezioni collassabili (chiuse di default, coerenza col broker)
   const [showAttesaAg,setShowAttesaAg]=useState(false);
   const [showVincolateAg,setShowVincolateAg]=useState(false);
+  const [showAttivitaAg,setShowAttivitaAg]=useState(false);
   const [showAttesa,setShowAttesa]=useState(false);
   const [showVincolate,setShowVincolate]=useState(false);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
@@ -2026,12 +2027,16 @@ export default function App() {
                   });
                   attAg.sort((a,b)=>(b.alert?1:0)-(a.alert?1:0));
                   return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
-                    <div style={{background:"#EEEDFE",padding:"9px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>✅ Le mie attività sulle pratiche</span>
-                      <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Le tue azioni nella fase attuale di ogni pratica · apri per vedere l'avanzamento completo</p>
+                    <div onClick={()=>setShowAttivitaAg(v=>!v)} style={{background:"#EEEDFE",padding:"9px 16px",borderBottom:showAttivitaAg?"0.5px solid #e8e5e0":"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                      <div>
+                        <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>✅ Le mie attività sulle pratiche</span>
+                        {attAg.length>0&&<span style={{marginLeft:8,fontSize:11,padding:"1px 8px",borderRadius:10,background:"#3C3489",color:"#fff",fontWeight:700}}>{attAg.length}</span>}
+                        <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Le tue azioni nella fase attuale di ogni pratica · apri per vedere l'avanzamento completo</p>
+                      </div>
+                      <button style={{background:"none",border:"0.5px solid #3C348944",borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#3C3489",whiteSpace:"nowrap"}}>{showAttivitaAg?"▲ Chiudi":"▼ Vedi"}</button>
                     </div>
-                    {attAg.length===0?<div style={{padding:"1.25rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna attività in sospeso nelle tue pratiche ✨</div>:
-                    attAg.slice(0,10).map(a=>(
+                    {showAttivitaAg&&(attAg.length===0?<div style={{padding:"1.25rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna attività in sospeso nelle tue pratiche ✨</div>:
+                    <>{attAg.slice(0,10).map(a=>(
                       <div key={`${a.inc.id}_${a.fase.k}_${a.az.k}`} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer",background:a.alert?"#FCF4E6":"#fff"}}>
                         <span style={{fontSize:13,flexShrink:0}}>{a.alert?"⚠️":"○"}</span>
                         <div style={{flex:1,minWidth:0}}>
@@ -2041,7 +2046,40 @@ export default function App() {
                         <span style={{fontSize:11,color:"#3C3489",whiteSpace:"nowrap"}}>Apri →</span>
                       </div>
                     ))}
-                    {attAg.length>10&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altre {attAg.length-10} attività in Gestione Pratiche</div>}
+                    {attAg.length>10&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altre {attAg.length-10} attività in Gestione Pratiche</div>}</>)}
+                  </div>);
+                })()}
+
+                {/* TO-DO LIBERA AGENTE (come Erica, subito dopo le attività) */}
+                {(()=>{
+                  const mieTodo=agenteTodo[myAgentId]||[];
+                  const aggTodoAg=()=>{
+                    if(!agenteTodoInput.trim())return;
+                    const nuovo={id:Date.now(),testo:agenteTodoInput.trim(),fatto:false,data:todayStr()};
+                    setAgenteTodo({...agenteTodo,[myAgentId]:[...mieTodo,nuovo]});
+                    setAgenteTodoInput("");
+                  };
+                  const toggleTodoAg=id=>setAgenteTodo({...agenteTodo,[myAgentId]:mieTodo.map(t=>t.id===id?{...t,fatto:!t.fatto}:t)});
+                  const delTodoAg=id=>setAgenteTodo({...agenteTodo,[myAgentId]:mieTodo.filter(t=>t.id!==id)});
+                  return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+                    <div style={{background:"#E1F5EE",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>📝 Le mie cose da fare</span>
+                      <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Promemoria personali (chiamate da fare, materiali, idee...)</p>
+                    </div>
+                    <div style={{padding:"10px 16px"}}>
+                      {mieTodo.length===0&&<p style={{fontSize:12,color:"#bbb",textAlign:"center",margin:"8px 0"}}>Nessuna attività. Aggiungine una qui sotto.</p>}
+                      {mieTodo.map(t=>(
+                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid #f0f0f0"}}>
+                          <span onClick={()=>toggleTodoAg(t.id)} style={{fontSize:16,cursor:"pointer",color:t.fatto?"#0F6E56":"#B4B2A9",flexShrink:0}}>{t.fatto?"☑":"☐"}</span>
+                          <span style={{flex:1,fontSize:13,color:t.fatto?"#bbb":BRAND.grigio,textDecoration:t.fatto?"line-through":"none"}}>{t.testo}</span>
+                          <button onClick={()=>delTodoAg(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:14,padding:"2px 6px"}} title="Elimina">×</button>
+                        </div>
+                      ))}
+                      <div style={{display:"flex",gap:8,paddingTop:10}}>
+                        <input type="text" value={agenteTodoInput} onChange={e=>setAgenteTodoInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")aggTodoAg();}} placeholder="Aggiungi un'attività..." style={{...S.inp,flex:1,fontSize:13}}/>
+                        <button onClick={aggTodoAg} style={{...S.btnP,fontSize:13,padding:"7px 14px"}}>+ Aggiungi</button>
+                      </div>
+                    </div>
                   </div>);
                 })()}
 
@@ -2296,39 +2334,6 @@ export default function App() {
                     </div>
                   )}
                 </div>
-
-                {/* TO-DO LIBERA AGENTE (come Erica) */}
-                {(()=>{
-                  const mieTodo=agenteTodo[myAgentId]||[];
-                  const aggTodoAg=()=>{
-                    if(!agenteTodoInput.trim())return;
-                    const nuovo={id:Date.now(),testo:agenteTodoInput.trim(),fatto:false,data:todayStr()};
-                    setAgenteTodo({...agenteTodo,[myAgentId]:[...mieTodo,nuovo]});
-                    setAgenteTodoInput("");
-                  };
-                  const toggleTodoAg=id=>setAgenteTodo({...agenteTodo,[myAgentId]:mieTodo.map(t=>t.id===id?{...t,fatto:!t.fatto}:t)});
-                  const delTodoAg=id=>setAgenteTodo({...agenteTodo,[myAgentId]:mieTodo.filter(t=>t.id!==id)});
-                  return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:10}}>
-                    <div style={{background:"#E1F5EE",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
-                      <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>📝 Le mie cose da fare</span>
-                      <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Promemoria personali (chiamate da fare, materiali, idee...)</p>
-                    </div>
-                    <div style={{padding:"10px 16px"}}>
-                      {mieTodo.length===0&&<p style={{fontSize:12,color:"#bbb",textAlign:"center",margin:"8px 0"}}>Nessuna attività. Aggiungine una qui sotto.</p>}
-                      {mieTodo.map(t=>(
-                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid #f0f0f0"}}>
-                          <span onClick={()=>toggleTodoAg(t.id)} style={{fontSize:16,cursor:"pointer",color:t.fatto?"#0F6E56":"#B4B2A9",flexShrink:0}}>{t.fatto?"☑":"☐"}</span>
-                          <span style={{flex:1,fontSize:13,color:t.fatto?"#bbb":BRAND.grigio,textDecoration:t.fatto?"line-through":"none"}}>{t.testo}</span>
-                          <button onClick={()=>delTodoAg(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:14,padding:"2px 6px"}} title="Elimina">×</button>
-                        </div>
-                      ))}
-                      <div style={{display:"flex",gap:8,paddingTop:10}}>
-                        <input type="text" value={agenteTodoInput} onChange={e=>setAgenteTodoInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")aggTodoAg();}} placeholder="Aggiungi un'attività..." style={{...S.inp,flex:1,fontSize:13}}/>
-                        <button onClick={aggTodoAg} style={{...S.btnP,fontSize:13,padding:"7px 14px"}}>+ Aggiungi</button>
-                      </div>
-                    </div>
-                  </div>);
-                })()}
                 </div>);
             })()}
             {/* ── DASHBOARD BROKER ── */}
