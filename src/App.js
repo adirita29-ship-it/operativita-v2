@@ -1090,6 +1090,9 @@ export default function App() {
   const [statFunnelPeriodo,setStatFunnelPeriodo]=useState("mese"); // Funnel: mese/trimestre/anno/tutto
   const [statShowSconti,setStatShowSconti]=useState(false);
   const [showSospesi,setShowSospesi]=useState(false);
+  // To-do list libera di Erica (Back Office): array di {id, testo, fatto, data}
+  const [ericaTodo,setEricaTodo]=useState(_ls?.ericaTodo||[]);
+  const [ericaTodoInput,setEricaTodoInput]=useState("");
   const [showAttesa,setShowAttesa]=useState(true);
   const [showVincolate,setShowVincolate]=useState(true);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
@@ -1159,6 +1162,7 @@ export default function App() {
         if(data.pratiche) if(data.pratiche) setPratiche(Array.isArray(data.pratiche)?data.pratiche:Object.values(data.pratiche||{}));
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.prospetti) setProspetti(Array.isArray(data.prospetti)?data.prospetti:[]);
+        if(data.ericaTodo) setEricaTodo(Array.isArray(data.ericaTodo)?data.ericaTodo:[]);
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
         if(data.obiettivoQuotaAgenzia!==undefined) setObiettivoQuotaAgenzia(data.obiettivoQuotaAgenzia);
@@ -1331,7 +1335,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
     salvaLS(payload); // salva anche in locale come backup
     // Popola la ref per il salvataggio manuale immediato (bypass debounce)
     salvaOraManualeRef.current = () => {
@@ -1354,7 +1358,7 @@ export default function App() {
       });
     },800); // debounce 800ms (era 2000ms, ridotto per minimizzare rischio perdita dati)
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
 
 
 
@@ -2246,7 +2250,7 @@ export default function App() {
               </div></div>);
             })()}
             {/* ── DASHBOARD BROKER ── */}
-            {(isBroker||isBackOffice)&&(<>
+            {isBroker&&(<>
             {/* HEADER BROKER */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:"1.25rem",padding:"1rem 1.25rem",background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
               <div style={{display:"flex",alignItems:"center",gap:14}}>
@@ -2669,6 +2673,202 @@ export default function App() {
               </div>}</div>);
             })()}
             </>)}
+
+            {/* ── DASHBOARD BACK OFFICE (ERICA) ── */}
+            {isBackOffice&&(()=>{
+              const oggiBO=new Date();oggiBO.setHours(0,0,0,0);
+              const tra30BO=new Date(oggiBO);tra30BO.setDate(tra30BO.getDate()+30);
+              const toDBO=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
+              const fasiBO=fasiConfig||FASI;
+
+              // === Frase del giorno (stessa funzione usata in Oggi, coerente per tutti) ===
+              const fraseOggi=getFraseDelGiorno();
+
+              // === NUOVI INCARICHI da impostare (inseriti ma senza nessuna azione completata) ===
+              const getPrBO=incId=>{
+                const pr=Array.isArray(pratiche)?pratiche.find(p=>p.incaricoId===incId):pratiche[incId];
+                return pr||{fasi:{}};
+              };
+              const nessunaAzioneFatta=incId=>{
+                const pr=getPrBO(incId);
+                if(!pr.fasi) return true;
+                return !Object.values(pr.fasi).some(faseObj=>Object.values(faseObj||{}).some(a=>a.fatto));
+              };
+              const nuoviIncBO=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)!=="Venduto"&&nessunaAzioneFatta(i.id))
+                .sort((a,b)=>(b.dataInizio||"").localeCompare(a.dataInizio||""));
+
+              // === LE MIE ATTIVITÀ SULLE PRATICHE (azioni ruolo erica/entrambi non completate) ===
+              const attivitaErica=[];
+              incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)!=="Venduto").forEach(inc=>{
+                const pr=getPrBO(inc.id);
+                fasiBO.forEach(fase=>{
+                  (fase.azioni||[]).forEach(az=>{
+                    if(az.ruolo!=="erica"&&az.ruolo!=="entrambi") return;
+                    const fatto=pr.fasi?.[fase.k]?.[az.k]?.fatto;
+                    if(fatto) return;
+                    attivitaErica.push({inc, fase, az, alert:!!az.alert});
+                  });
+                });
+              });
+              // Ordino: prima le alert, poi il resto
+              attivitaErica.sort((a,b)=>(b.alert?1:0)-(a.alert?1:0));
+              const attivitaUrgenti=attivitaErica.filter(a=>a.alert);
+
+              // === ROGITI IN ARRIVO 30gg ===
+              const prossimiRBO=venduti.filter(v=>{if(!v.dataAtto)return false;const d=toDBO(v.dataAtto);return d>=oggiBO&&d<=tra30BO;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
+
+              // === PAGAMENTI: clienti→agenzia da incassare ===
+              const incassiDaSeguire=venduti.filter(v=>{
+                if(v.categoria!=="vendita") return false;
+                return (Number(v.provvVenditore||0)-calcolaIncassatoV(v))>0||(Number(v.provvAcquirente||0)-calcolaIncassatoA(v))>0;
+              });
+              // === PROSPETTI agenti da gestire (non pagati) ===
+              const prospettiDaGestire=prospetti.filter(p=>p.statoFlow!=="pagato"&&p.statoFlow!=="annullato");
+
+              // === TO-DO LIBERA ===
+              const todoAttivi=ericaTodo.filter(t=>!t.fatto);
+              const aggTodo=()=>{
+                if(!ericaTodoInput.trim())return;
+                setEricaTodo([...ericaTodo,{id:Date.now(),testo:ericaTodoInput.trim(),fatto:false,data:todayStr()}]);
+                setEricaTodoInput("");
+              };
+              const toggleTodo=id=>setEricaTodo(ericaTodo.map(t=>t.id===id?{...t,fatto:!t.fatto}:t));
+              const delTodo=id=>setEricaTodo(ericaTodo.filter(t=>t.id!==id));
+
+              const cfgStatoPBO={
+                "inviato":{lbl:"Da inviare",clr:"#0C447C",bg:"#E6F1FB"},
+                "fatturato":{lbl:"Attesa fattura",clr:"#633806",bg:"#FAEEDA"},
+              };
+
+              return(<>
+                {/* HEADER ERICA */}
+                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderLeft:`4px solid ${BRAND.oro}`,borderRadius:"0 12px 12px 0",padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:fraseOggi?10:0}}>
+                    <div style={{width:52,height:52,borderRadius:"50%",background:"#FAEEDA",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:700,color:"#633806",flexShrink:0}}>E</div>
+                    <div>
+                      <h2 style={{margin:0,fontSize:18,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>Buongiorno {(agenti.find(a=>a.id===5)?.nome)||"Erica"}! ☀️</h2>
+                      <p style={{margin:"2px 0 0",fontSize:13,color:"#888"}}>{new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · Il tuo lavoro tiene in ordine tutta l'agenzia</p>
+                    </div>
+                  </div>
+                  {fraseOggi&&<div style={{background:"#FAEEDA",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#633806",fontStyle:"italic"}}>💬 "{fraseOggi}"</div>}
+                </div>
+
+                {/* 4 CONTATORI */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.25rem"}}>
+                  {[
+                    {n:nuoviIncBO.length,l:"Nuovi incarichi",c:"#185FA5"},
+                    {n:attivitaUrgenti.length,l:"Attività urgenti",c:"#A32D2D"},
+                    {n:prossimiRBO.length,l:"Rogiti 30gg",c:"#BA7517"},
+                    {n:incassiDaSeguire.length+prospettiDaGestire.length,l:"Pagamenti",c:"#0F6E56"},
+                  ].map(({n,l,c})=>(
+                    <div key={l} style={{background:"#fafaf8",borderRadius:10,padding:"1rem",textAlign:"center"}}>
+                      <p style={{margin:"0 0 4px",fontSize:24,fontWeight:700,color:c,fontFamily:"Georgia,serif"}}>{n}</p>
+                      <p style={{margin:0,fontSize:12,color:"#888"}}>{l}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* NUOVI INCARICHI DA IMPOSTARE */}
+                {nuoviIncBO.length>0&&<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
+                  <div style={{background:"#E6F1FB",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                    <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>🗂 Nuovi incarichi da impostare</span>
+                    <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Inseriti a sistema ma ancora senza pratica avviata</p>
+                  </div>
+                  {nuoviIncBO.slice(0,6).map(inc=>(
+                    <div key={inc.id} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer"}}>
+                      <div><strong style={{fontSize:13}}>{inc.comune} — {inc.indirizzo}</strong><div style={{fontSize:11,color:"#888"}}>{inc.nominativo||"—"} · acquisito {fmtD(inc.dataInizio)}</div></div>
+                      <span style={{fontSize:11,color:"#0C447C",whiteSpace:"nowrap"}}>Apri pratica →</span>
+                    </div>
+                  ))}
+                </div>}
+
+                {/* LE MIE ATTIVITÀ SULLE PRATICHE */}
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
+                  <div style={{background:"#EEEDFE",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                    <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>✅ Le mie attività sulle pratiche</span>
+                    <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Automatiche dall'iter pratiche · urgenti in cima · spunti in Gestione Pratiche</p>
+                  </div>
+                  {attivitaErica.length===0?<div style={{padding:"1.5rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna attività in sospeso. Ottimo lavoro! ✨</div>:
+                  attivitaErica.slice(0,10).map((a,i)=>(
+                    <div key={`${a.inc.id}_${a.fase.k}_${a.az.k}`} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer",background:a.alert?"#FCEBEB":"#fff"}}>
+                      <span style={{fontSize:14,flexShrink:0}}>{a.alert?"⚠️":"○"}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:a.alert?600:400}}>{a.az.lbl}</div>
+                        <div style={{fontSize:11,color:"#888"}}>{a.inc.comune} — {a.inc.indirizzo} · {a.fase.timing}</div>
+                      </div>
+                      <span style={{fontSize:11,color:"#3C3489",whiteSpace:"nowrap"}}>Apri →</span>
+                    </div>
+                  ))}
+                  {attivitaErica.length>10&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altre {attivitaErica.length-10} attività in Gestione Pratiche</div>}
+                </div>
+
+                {/* TO-DO LIBERA */}
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1rem"}}>
+                  <div style={{background:"#E1F5EE",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                    <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>📝 Le mie cose da fare</span>
+                    <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Attività generiche che gestisci tu (newsletter, ordini, ecc.)</p>
+                  </div>
+                  <div style={{padding:"10px 16px"}}>
+                    {ericaTodo.length===0&&<p style={{fontSize:12,color:"#bbb",textAlign:"center",margin:"8px 0"}}>Nessuna attività. Aggiungine una qui sotto.</p>}
+                    {ericaTodo.map(t=>(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid #f0f0f0"}}>
+                        <span onClick={()=>toggleTodo(t.id)} style={{fontSize:16,cursor:"pointer",color:t.fatto?"#0F6E56":"#B4B2A9",flexShrink:0}}>{t.fatto?"☑":"☐"}</span>
+                        <span style={{flex:1,fontSize:13,color:t.fatto?"#bbb":BRAND.grigio,textDecoration:t.fatto?"line-through":"none"}}>{t.testo}</span>
+                        <button onClick={()=>delTodo(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:14,padding:"2px 6px"}} title="Elimina">×</button>
+                      </div>
+                    ))}
+                    <div style={{display:"flex",gap:8,paddingTop:10}}>
+                      <input type="text" value={ericaTodoInput} onChange={e=>setEricaTodoInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")aggTodo();}} placeholder="Aggiungi un'attività..." style={{...S.inp,flex:1,fontSize:13}}/>
+                      <button onClick={aggTodo} style={{...S.btnP,fontSize:13,padding:"7px 14px"}}>+ Aggiungi</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ROGITI + PAGAMENTI */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+                  {/* Rogiti */}
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                    <p style={{margin:"0 0 10px",fontSize:12,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em"}}>📅 Rogiti in arrivo — 30gg</p>
+                    {prossimiRBO.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>:
+                    prossimiRBO.map(v=>{const gg=Math.round((toDBO(v.dataAtto)-oggiBO)/86400000);return(
+                      <div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5",gap:4}}>
+                        <div><div style={{fontSize:12,fontWeight:500}}>{v.comuneImmobile} — {v.indirizzoImmobile}</div><div style={{fontSize:11,color:"#888"}}>{v.nominativoVenditore||"—"}</div></div>
+                        <div style={{textAlign:"right",flexShrink:0}}><div style={{fontSize:12,fontWeight:600,color:gg<=7?"#A32D2D":gg<=15?"#BA7517":"#0F6E56"}}>{gg===0?"Oggi!":gg===1?"Domani":gg+" gg"}</div><div style={{fontSize:10,color:"#aaa"}}>{fmtD(v.dataAtto)}</div></div>
+                      </div>
+                    );})}
+                  </div>
+                  {/* Pagamenti / prospetti */}
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                    <p style={{margin:"0 0 10px",fontSize:12,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em"}}>💰 Pagamenti / prospetti</p>
+                    {/* Prospetti da gestire */}
+                    {prospettiDaGestire.length>0&&<div style={{marginBottom:incassiDaSeguire.length>0?10:0}}>
+                      <p style={{margin:"0 0 4px",fontSize:10,color:"#aaa",textTransform:"uppercase"}}>Prospetti agenti</p>
+                      {prospettiDaGestire.slice(0,4).map(p=>{
+                        const ag=agenti.find(a=>a.id===p.agenteId);const cfg=cfgStatoPBO[p.statoFlow]||cfgStatoPBO["inviato"];
+                        return(<div key={p.id} onClick={()=>{setFatAgente(String(p.agenteId));setTab("Fatture Agenti");}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"0.5px solid #f5f5f5",cursor:"pointer",gap:4}}>
+                          <span style={{fontSize:12}}>{p.numero} · {ag?.nome||"—"}</span>
+                          <span style={{fontSize:10,padding:"1px 7px",borderRadius:4,background:cfg.bg,color:cfg.clr,fontWeight:600,whiteSpace:"nowrap"}}>{cfg.lbl}</span>
+                        </div>);
+                      })}
+                    </div>}
+                    {/* Incassi clienti */}
+                    {incassiDaSeguire.length>0&&<div>
+                      <p style={{margin:"0 0 4px",fontSize:10,color:"#aaa",textTransform:"uppercase"}}>Incassi clienti da seguire</p>
+                      {incassiDaSeguire.slice(0,4).map(v=>{
+                        const resV=Number(v.provvVenditore||0)-calcolaIncassatoV(v);
+                        const resA=Number(v.provvAcquirente||0)-calcolaIncassatoA(v);
+                        const res=Math.max(0,resV)+Math.max(0,resA);
+                        return(<div key={v.id} onClick={()=>setTab("Venduti")} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"0.5px solid #f5f5f5",cursor:"pointer",gap:4}}>
+                          <span style={{fontSize:12}}>{v.comuneImmobile} — {v.indirizzoImmobile}</span>
+                          <span style={{fontSize:11,fontWeight:600,color:"#BA7517",whiteSpace:"nowrap"}}>€ {fmt(Math.round(res))}</span>
+                        </div>);
+                      })}
+                    </div>}
+                    {prospettiDaGestire.length===0&&incassiDaSeguire.length===0&&<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Tutto in regola ✓</p>}
+                  </div>
+                </div>
+              </>);
+            })()}
           </div>)}
 
           {/* INCARICHI */}
