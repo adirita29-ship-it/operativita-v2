@@ -1075,7 +1075,7 @@ export default function App() {
   const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
-  const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti");
+  const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti"); const [fIncMirino,setFIncMirino]=useState(false);
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
   const [dashAnno,setDashAnno]=useState(annoCorrente);
@@ -1484,10 +1484,11 @@ export default function App() {
     if(fIncAnno!=="Tutti"&&getAnno(i.dataInizio)!==fIncAnno) return false;
     if(fIncMese!=="Tutti"&&getMese(i.dataInizio)!==fIncMese) return false;
     if(fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg)) return false;
+    if(fIncMirino&&!mirino[String(i.id)]) return false;
     // Ricerca testuale (live, multi-parola)
     if(!matchSearch(searchIncarichi, i.comune, i.indirizzo, i.tipologia, i.nominativo, i.note, i.fonte)) return false;
     return true;
-  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,mostraArchiviati,isBroker,myAgentId,incVistaTutti,searchIncarichi]);
+  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,fIncMirino,mirino,mostraArchiviati,isBroker,myAgentId,incVistaTutti,searchIncarichi]);
 
   const cntInc=useMemo(()=>{
     const b=incarichi.filter(i=>{
@@ -1844,6 +1845,7 @@ export default function App() {
     <Sel value={fIncMese} onChange={setFIncMese}><option value="Tutti">Tutti i mesi</option>{mesiInc.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}</Sel>
     <Sel value={fIncStato} onChange={setFIncStato}><option value="Tutti">Tutti gli stati</option>{["Attivo","In trattativa","Accettata con Vincolo","Scaduto",subInc==="affitto"?"Locato":"Venduto"].map(s=><option key={s}>{s}</option>)}</Sel>
     {(isBroker||isBackOffice)&&<Sel value={fIncAg} onChange={setFIncAg}><option value="Tutti">Tutti gli agenti</option>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}</Sel>}
+    <button onClick={()=>setFIncMirino(!fIncMirino)} title={fIncMirino?"Mostra tutti":"Mostra solo nel mirino"} style={{padding:"5px 12px",fontSize:12,borderRadius:6,border:`0.5px solid ${fIncMirino?"#E74C3C":"#ddd"}`,background:fIncMirino?"#FDECEC":"#fff",color:fIncMirino?"#E74C3C":"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:fIncMirino?600:400}}>🎯 {fIncMirino?"Solo mirino":"Solo mirino"}</button>
   </div>);
   const FiltriProp=()=>(<div style={S.fRow}>
     <Sel value={fPropAnno} onChange={v=>{setFPropAnno(v);setFPropMese("Tutti");}}><option value="Tutti">Tutti gli anni</option>{anniProp.map(a=><option key={a}>{a}</option>)}</Sel>
@@ -3129,6 +3131,21 @@ export default function App() {
             </div>
             <div style={S.cnt}>
               {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
+              {/* KPI Portafoglio attivo: somma provv. previste degli incarichi attivi visibili */}
+              {(()=>{
+                const portafoglio=incarichi.filter(i=>{
+                  if(i.archiviato)return false;
+                  if(i.categoria!==subInc)return false;
+                  if(!canViewAll&&myAgentId&&i.agenteListing!==myAgentId)return false;
+                  return ["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i));
+                }).reduce((s,i)=>s+Number(i.provvPrevista||0),0);
+                if(portafoglio<=0) return null;
+                return(<div style={{...S.cntBox(BRAND.oroD),background:"#FAEEDA",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:150}}>
+                  <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>€ {fmtN(portafoglio)}</span>
+                  <span style={{fontSize:11,color:"#854F0B",fontWeight:500}}>💰 Portafoglio attivo</span>
+                  <span style={{fontSize:9.5,color:"#aaa"}}>provv. prevista totale</span>
+                </div>);
+              })()}
               <div style={{...S.cntBox(BRAND.oroD),marginLeft:"auto",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:110}}>
                 <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente&&(isBroker||isBackOffice||!myAgentId||i.agenteListing===myAgentId)).length}</span>
                 <span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>Acquisiti {annoCorrente}</span>
@@ -3144,7 +3161,6 @@ export default function App() {
                   <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Agenti</th>
                   <th style={{...S.th,minWidth:110,textAlign:"right",position:"sticky",top:0,zIndex:2}}>Prezzo</th>
                   <th style={{...S.th,minWidth:110,position:"sticky",top:0,zIndex:2}}>Scadenza</th>
-                  <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Proposta</th>
                   <th style={{...S.th,minWidth:100,position:"sticky",top:0,zIndex:2}}>Azioni</th>
                 </tr>
               </thead>
@@ -3199,7 +3215,16 @@ export default function App() {
                       ?<><span style={{color:"#bbb",textDecoration:"line-through",fontSize:11,display:"block"}}>€ {fmtN(inc.prezzoRichiesto)}</span><span style={{fontWeight:600,color:BRAND.oroD,fontSize:13}}>€ {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span></>
                       :<span style={{fontWeight:500,color:BRAND.oroD,fontSize:13}}>€ {fmtN(inc.prezzoRichiesto)}</span>
                     }
-                    <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{inc.provvPrevista?`€ ${fmtN(inc.provvPrevista)} provv.`:""}</div>
+                    <div style={{fontSize:11,marginTop:3,fontWeight:500,color:inc.provvPrevista?BRAND.oroD:"#aaa"}}>{inc.provvPrevista?`💰 € ${fmtN(inc.provvPrevista)}`:""}</div>
+                    {(()=>{
+                      // Mini-indicatore se c'è proposta attiva (riassume invece di colonna dedicata)
+                      const propInc=proposte.filter(p=>p.incaricoId===inc.id&&!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato));
+                      if(propInc.length===0) return null;
+                      const priorita=["Accettata con Vincolo","In attesa / Vincolata","Controproposta","In attesa"];
+                      const pTop=[...propInc].sort((a,b)=>priorita.indexOf(a.stato)-priorita.indexOf(b.stato))[0];
+                      const cfgP=STATI_PROP[pTop.stato]||STATI_PROP["In attesa"];
+                      return <div style={{fontSize:10,marginTop:2,color:cfgP.clr,fontWeight:500}}>{cfgP.s} {cfgP.label}</div>;
+                    })()}
                   </td>
                   {/* Scadenza */}
                   <td style={{padding:"10px 12px",verticalAlign:"middle"}}>
@@ -3210,18 +3235,6 @@ export default function App() {
                         <div style={{height:"100%",width:`${Math.min(100,Math.max(0,(ggScad/90)*100))}%`,background:scadClr,borderRadius:2}}/>
                       </div>
                     </>):<span style={{fontSize:11,color:"#aaa"}}>—</span>}
-                  </td>
-                  <td style={S.tdC}>
-                    {(()=>{
-                      const propInc=proposte.filter(p=>p.incaricoId===inc.id&&!["Rifiutata","Mancata Chiusura"].includes(p.stato));
-                      if(propInc.length===0) return null;
-                      const priorita=["Accettata","Accettata con Vincolo","In attesa / Vincolata","Controproposta","In attesa"];
-                      const propOrd=[...propInc].sort((a,b)=>priorita.indexOf(a.stato)-priorita.indexOf(b.stato));
-                      return <div style={{display:"flex",flexDirection:"column",gap:3,alignItems:"center"}}>{propOrd.map((p,i)=>{
-                        const cfg=STATI_PROP[p.stato]||STATI_PROP["In attesa"];
-                        return <span key={i} style={bdg(cfg)}>{cfg.s} {cfg.label}</span>;
-                      })}</div>;
-                    })()}
                   </td>
                   <td style={{...S.td,borderTopRightRadius:8,borderBottomRightRadius:isOpenInc?0:8}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
@@ -3238,7 +3251,7 @@ export default function App() {
                 </tr>
                 {/* ACCORDION INCARICHI */}
                 {isOpenInc&&<tr style={{background:"#FAFAF8",boxShadow:"0 2px 8px rgba(168,134,58,0.10)",outline:`0.5px solid ${cfg.clr}55`,outlineOffset:"-0.5px"}}>
-                  <td colSpan={7} style={{padding:"0 14px 14px",borderLeft:`4px solid ${cfg.clr}`,borderRadius:"0 0 8px 8px"}}>
+                  <td colSpan={6} style={{padding:"0 14px 14px",borderLeft:`4px solid ${cfg.clr}`,borderRadius:"0 0 8px 8px"}}>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio incarico</p>
