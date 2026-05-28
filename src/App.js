@@ -456,7 +456,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
   const TAB_AGENTE = ["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
   const TAB_COACH=coachIsAgenzia
-    ?TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente")
+    ?TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente"&&id!=="Agenti")
     :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
@@ -3875,6 +3875,7 @@ export default function App() {
 
             // Crea prospetto dai righe selezionate
             const creaProspetto = () => {
+              if(isReadOnly) return;
               if(prospettoSel.length===0||!agSel){alert("Seleziona almeno una riga.");return;}
               const righeOk = righeDisponibili.filter(r=>prospettoSel.includes(r.key));
               const totale = righeOk.reduce((s,r)=>s+r.importo,0);
@@ -3899,11 +3900,13 @@ export default function App() {
 
             // Aggiorna prospetto
             const aggProspetto = (id, patch) => {
+              if(isReadOnly) return;
               setProspetti(prev=>prev.map(p=>p.id===id?{...p,...patch}:p));
             };
 
             // Annulla prospetto
             const annullaProspetto = (id) => {
+              if(isReadOnly) return;
               if(!window.confirm("Annullare questo prospetto? Le pratiche torneranno disponibili per un nuovo prospetto.")) return;
               aggProspetto(id, {statoFlow:"annullato"});
               setShowProspetto(null);
@@ -3911,6 +3914,7 @@ export default function App() {
 
             // Elimina prospetto definitivo
             const eliminaProspetto = (id) => {
+              if(isReadOnly) return;
               if(!window.confirm("Eliminare DEFINITIVAMENTE questo prospetto? Operazione irreversibile.")) return;
               setProspetti(prev=>prev.filter(p=>p.id!==id));
               setShowProspetto(null);
@@ -3920,6 +3924,9 @@ export default function App() {
             const prAttivo = showProspetto ? prospetti.find(p=>p.id===showProspetto) : null;
 
             return(<div style={S.sec}>
+              {isReadOnly&&<div style={{background:"#EAF4FB",border:"0.5px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#0C447C"}}>
+                👁 <strong>Sola lettura</strong> — puoi vedere i dati ma non modificarli
+              </div>}
               {/* HEADER */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:"1rem"}}>
                 <div>
@@ -4012,7 +4019,7 @@ export default function App() {
                     </div>
                   )}
                   {/* Footer azione */}
-                  {prospettoSel.length>0&&<div style={{padding:"12px 14px",background:`${BRAND.oro}11`,borderTop:`1px solid ${BRAND.oro}55`,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                  {prospettoSel.length>0&&!isReadOnly&&<div style={{padding:"12px 14px",background:`${BRAND.oro}11`,borderTop:`1px solid ${BRAND.oro}55`,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
                     <span style={{fontSize:13,color:BRAND.grigio,fontWeight:500}}>{prospettoSel.length} riga{prospettoSel.length>1?"e":""} selezionate · <strong>€ {fmt(Math.round(righeDisponibili.filter(r=>prospettoSel.includes(r.key)).reduce((s,r)=>s+r.importo,0)))}</strong></span>
                     <div style={{display:"flex",gap:8}}>
                       <button onClick={()=>setProspettoSel([])} style={{...S.btn,fontSize:12,padding:"6px 12px"}}>Annulla</button>
@@ -4255,13 +4262,13 @@ export default function App() {
                         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                           <div>
                             <label style={{fontSize:11,color:"#888",fontWeight:500,display:"block",marginBottom:4}}>N° fattura agente</label>
-                            <input type="text" value={prAttivo.numFatturaAg||""} placeholder="es. 18/2026"
+                            <input type="text" value={prAttivo.numFatturaAg||""} placeholder="es. 18/2026" disabled={isReadOnly}
                               onChange={e=>aggProspetto(prAttivo.id,{numFatturaAg:e.target.value, statoFlow:e.target.value&&prAttivo.statoFlow==="inviato"?"fatturato":prAttivo.statoFlow})}
                               style={{...S.inp,width:"100%"}}/>
                           </div>
                           <div>
                             <label style={{fontSize:11,color:"#888",fontWeight:500,display:"block",marginBottom:4}}>Data emissione fattura</label>
-                            <input type="date" value={prAttivo.dataFatturaAg||""}
+                            <input type="date" value={prAttivo.dataFatturaAg||""} disabled={isReadOnly}
                               onChange={e=>aggProspetto(prAttivo.id,{dataFatturaAg:e.target.value})}
                               style={{...S.inp,width:"100%"}}/>
                           </div>
@@ -4274,7 +4281,7 @@ export default function App() {
                         <div style={{display:"grid",gridTemplateColumns:"1fr",gap:10}}>
                           <div>
                             <label style={{fontSize:11,color:"#888",fontWeight:500,display:"block",marginBottom:4}}>Data bonifico</label>
-                            <input type="date" value={prAttivo.dataPagamento||""}
+                            <input type="date" value={prAttivo.dataPagamento||""} disabled={isReadOnly}
                               onChange={e=>{
                                 const nuovaData = e.target.value;
                                 const nuovoStato = nuovaData ? "pagato" : (prAttivo.numFatturaAg?"fatturato":"inviato");
@@ -4288,7 +4295,7 @@ export default function App() {
 
                       {/* Note */}
                       <p style={{margin:"1rem 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Note (opzionale)</p>
-                      <textarea value={prAttivo.note||""} onChange={e=>aggProspetto(prAttivo.id,{note:e.target.value})} placeholder="es. eventuali appunti..." style={{...S.inp,width:"100%",minHeight:60,resize:"vertical",fontFamily:"inherit",marginBottom:"1rem"}}/>
+                      <textarea value={prAttivo.note||""} disabled={isReadOnly} onChange={e=>aggProspetto(prAttivo.id,{note:e.target.value})} placeholder="es. eventuali appunti..." style={{...S.inp,width:"100%",minHeight:60,resize:"vertical",fontFamily:"inherit",marginBottom:"1rem"}}/>
                     </>}
 
                     {prAttivo.statoFlow==="annullato"&&<div style={{background:"#FCEBEB",border:"1px solid #E24B4A33",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:12,color:"#791F1F"}}>
@@ -4301,8 +4308,8 @@ export default function App() {
                         <button onClick={()=>setStampaProspetto(prAttivo)} style={{...S.btn,fontSize:12,padding:"6px 14px",fontWeight:600}}>🖨 Stampa / PDF</button>
                       </div>
                       <div style={{display:"flex",gap:8}}>
-                        {prAttivo.statoFlow!=="pagato"&&prAttivo.statoFlow!=="annullato"&&<button onClick={()=>annullaProspetto(prAttivo.id)} style={{...S.btn,fontSize:12,padding:"6px 14px",color:"#A32D2D",border:"0.5px solid #E24B4A66"}}>Annulla prospetto</button>}
-                        {prAttivo.statoFlow==="annullato"&&<button onClick={()=>eliminaProspetto(prAttivo.id)} style={{...S.btn,fontSize:12,padding:"6px 14px",color:"#fff",background:"#A32D2D",border:"none"}}>🗑 Elimina definitivamente</button>}
+                        {!isReadOnly&&prAttivo.statoFlow!=="pagato"&&prAttivo.statoFlow!=="annullato"&&<button onClick={()=>annullaProspetto(prAttivo.id)} style={{...S.btn,fontSize:12,padding:"6px 14px",color:"#A32D2D",border:"0.5px solid #E24B4A66"}}>Annulla prospetto</button>}
+                        {!isReadOnly&&prAttivo.statoFlow==="annullato"&&<button onClick={()=>eliminaProspetto(prAttivo.id)} style={{...S.btn,fontSize:12,padding:"6px 14px",color:"#fff",background:"#A32D2D",border:"none"}}>🗑 Elimina definitivamente</button>}
                         <button onClick={()=>setShowProspetto(null)} style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>Chiudi</button>
                       </div>
                     </div>
@@ -4951,15 +4958,19 @@ export default function App() {
             const totSpeso=speseAnnoC.reduce((s,x)=>s+Number(x.importo||0),0);
             const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):null;
             const addSpesa=(sp)=>{
+              if(isReadOnly) return;
               const id="sp_"+Date.now();
               setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,...sp}]}));
               setFormSpesa(null);
             };
-            const delSpesa=(id)=>setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)}));
+            const delSpesa=(id)=>{ if(isReadOnly) return; setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)})); };
             const speseByCat=(catId)=>speseAnnoC.filter(s=>s.catId===catId);
             const ANNI_C=[...new Set([...catCosti.map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
             const sC2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
             return(<div style={S.sec}>
+              {isReadOnly&&<div style={{background:"#EAF4FB",border:"0.5px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#0C447C"}}>
+                👁 <strong>Sola lettura</strong> — puoi vedere i dati ma non modificarli
+              </div>}
               {/* Header */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.5rem",flexWrap:"wrap",gap:10}}>
                 <div>
@@ -4971,7 +4982,7 @@ export default function App() {
                   <select style={S.sel} value={annoC} onChange={e=>setCostiAnno(e.target.value)}>
                     {ANNI_C.map(a=><option key={a}>{a}</option>)}
                   </select>
-                  <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:"",note:""})} style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>+ Aggiungi spesa</button>
+                  {!isReadOnly&&<button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:"",note:""})} style={{...S.btnP,fontSize:12,padding:"6px 14px"}}>+ Aggiungi spesa</button>}
                 </div>
               </div>
 
@@ -5083,15 +5094,15 @@ export default function App() {
                                 {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
                               </div>
                               <div style={{fontSize:14,fontWeight:700,color:"#E74C3C",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                              <button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
+                              {!isReadOnly&&<button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>}
                             </div>
                           ))}
-                          <div style={{padding:"8px 16px 8px 40px"}}>
+                          {!isReadOnly&&<div style={{padding:"8px 16px 8px 40px"}}>
                             <button onClick={()=>setFormSpesa({data:oggi6,descrizione:"",importo:"",catId:cat.id,note:""})}
                               style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px dashed #A8863A",background:"#FDF6EC",color:"#A8863A",cursor:"pointer",fontFamily:"inherit"}}>
                               + Aggiungi spesa qui
                             </button>
-                          </div>
+                          </div>}
                         </div>}
                       </div>);
                     })}
