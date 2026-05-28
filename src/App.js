@@ -10179,109 +10179,362 @@ export default function App() {
 
               {/* SEZIONI */}
               {[
+                {id:"benvenuto",icon:"👋",bg:"#FAEEDA",titolo:"Benvenuto",sub:"Come ragiona il gestionale Càsa",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:"1rem"}}>Questo gestionale è stato pensato come uno strumento <strong>"Top Agent"</strong>: aiuta tutta la squadra a focalizzarsi sulle <strong>azioni che generano risultati</strong>, mantenendo la visione completa di trattative, provvigioni, costi e obiettivi.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #27AE60"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#27AE60"}}>🎯 Cosa fa</div>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.6}}>
+                        <li>Traccia il ciclo <strong>Incarico → Proposta → Venduto → Rogito</strong></li>
+                        <li>Misura performance e attività operative degli agenti</li>
+                        <li>Calcola provvigioni, sconti, quote agenzia automaticamente</li>
+                        <li>Monitora costi e Punto di Break Even</li>
+                        <li>Gestisce iter pratiche con check-list e ruoli</li>
+                      </ul>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #2980B9"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#2980B9"}}>💡 Principi guida</div>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.6}}>
+                        <li><strong>Responsabilità separata, visibilità condivisa</strong>: ogni profilo vede ciò che gli serve</li>
+                        <li><strong>Operatività snella</strong>, analisi profonda in Statistiche</li>
+                        <li>Dati salvati in cloud (Supabase) e sincronizzati in tempo reale</li>
+                        <li>Coerenza grafica e logica tra tutte le sezioni</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Suggerimento:</strong> ogni tab è cliccabile dal menu di sinistra. Le sezioni più importanti per chi inizia sono <strong>Dashboard</strong> (panoramica) e <strong>Operatività</strong> (registrazione attività).
+                  </div>
+                </>)},
                 {id:"profili",icon:"👥",bg:"#FDF6EC",titolo:"Profili utente",sub:"Cosa può vedere e fare ogni profilo",contenuto:(<>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    {[["🏅 Broker","#A8863A","Accesso completo a tutte le sezioni. Vede i dati di tutti gli agenti. Gestisce fatture, impostazioni, traguardi volanti e report.","Antonello Di Rita"],
-                      ["🏠 Agente","#27AE60","Vede solo i propri dati. Inserisce operatività, incarichi, proposte. Ha accesso a War Room e Piano Produzione personale.","Luca · Riccardo · Fabio"],
-                      ["📋 Back Office","#185FA5","Accesso simile al Broker. Si occupa principalmente della Gestione Pratiche RT. Non appare in report e classifiche.","Erica"],
-                      ["👁 Coach","#533AB7","Modalità sola lettura. Vede tutti i dati ma non può modificare nulla. Banner blu visibile in ogni pagina.","Solo lettura"],
+                    {[["🏅 Broker","#A8863A","Accesso completo: vede tutto e modifica tutto. Imposta obiettivi, fatture, costi, fasi pratiche, traguardi volanti. Antonello.","Anto"],
+                      ["🏠 Agente","#27AE60","Vede solo i propri dati. Inserisce operatività, incarichi, proposte. Accesso a War Room (ludica) e Piano Produzione personale.","Luca · Riccardo · Fabio · Luca N."],
+                      ["📋 Back Office","#185FA5","Accesso ampio simile al Broker per gestire pratiche e prospetti. NON vede Operatività team, Report Agenti, Break Even, Statistiche, War Room, Fatture Agente, One-to-One degli altri.","Erica"],
+                      ["👁 Coach","#533AB7","Sola lettura. Vede tutti i dati ma non può modificare nulla. Banner blu visibile in ogni pagina.","Sola lettura"],
                     ].map(([titolo,clr,desc,chi])=>(
                       <div key={titolo} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:`3px solid ${clr}`}}>
                         <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>{titolo}</div>
-                        <p style={{fontSize:12,color:"#555",marginBottom:6}}>{desc}</p>
+                        <p style={{fontSize:12,color:"#555",marginBottom:6,lineHeight:1.6}}>{desc}</p>
                         <span style={{fontSize:10,background:clr+"15",color:clr,padding:"2px 8px",borderRadius:10,fontWeight:600}}>{chi}</span>
                       </div>
                     ))}
                   </div>
-                </>)},
-                {id:"operativita",icon:"📅",bg:"#E6F1FB",titolo:"Operatività",sub:"Registrazione attività quotidiane e piano di produzione",contenuto:(<>
-                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Sezione centrale per l'agente. Si divide in <strong>Attività</strong> e <strong>Piano Produzione</strong>.</p>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
-                    {[["📆 Settimana","Vista settimanale con box per ogni giorno. Mostra le attività inserite con icone colorate. Sotto i box appare l'Obiettivo del giorno con 8 card (Chiamate, Appuntamenti, Acquisizioni, Visitati, Ore ricerca, Social, Notizie, Volantini)."],
-                      ["✏️ Inserimento","Inserisci le attività del giorno o della settimana (inserimento massivo Lun-Ven). Compila chiamate per tipo, attività immobili, sviluppo/social."],
-                      ["📊 Report mensile","Riepilogo del mese: totale chiamate, appuntamenti, immobili visitati, OH. Tabella giorno per giorno."],
-                      ["🎯 Obiettivi","Imposta obiettivi mensili e monitora il progresso con barre colorate."],
-                    ].map(([t,d])=>(
-                      <div key={t} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                        <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>{t}</div>
-                        <p style={{fontSize:12,color:"#555",margin:0}}>{d}</p>
-                      </div>
-                    ))}
+                  <div style={{marginTop:"1rem",background:"#fafaf8",borderRadius:8,padding:"10px 14px",fontSize:12,color:"#555"}}>
+                    <strong>Nota:</strong> il login si fa con email e password personali. Le credenziali sono gestite dal Broker dalla pagina Agenti.
                   </div>
-                  <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
-                    <strong>🎯 Piano Produzione</strong><br/>Inserisci l'obiettivo fatturato annuale → il sistema calcola automaticamente transazioni necessarie, immobili da vendere, acquisizioni/mese, appuntamenti/settimana. Ratio: conv. acquisizioni 65%, conv. appuntamenti 40%, ogni immobile = 2 transazioni.
+                </>)},
+                {id:"dashboard",icon:"📊",bg:"#E6F1FB",titolo:"Dashboard",sub:"La pagina di benvenuto — varia per ogni profilo",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",lineHeight:1.7,marginBottom:"1rem"}}>La Dashboard mostra le informazioni più rilevanti per chi sta accedendo. Cambia molto tra Broker e Agente.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:8,color:"#A8863A"}}>🏅 Dashboard Broker</div>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.7}}>
+                        <li><strong>Barra Break Even</strong> con incassato + da incassare e "Mancano al netto"</li>
+                        <li><strong>KPI generali</strong> agenzia (fatturato, incarichi attivi, venduti)</li>
+                        <li><strong>Box "Proposte in attesa"</strong> e <strong>"Vincolate"</strong> (collassabili)</li>
+                        <li><strong>Mirino</strong> — immobili da seguire con interessati</li>
+                        <li><strong>Rogiti imminenti</strong> (30 giorni)</li>
+                        <li><strong>Pagamenti / prospetti</strong> da gestire</li>
+                      </ul>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:8,color:"#27AE60"}}>🏠 Dashboard Agente</div>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.7}}>
+                        <li><strong>KPI incarichi</strong> personali (attivi, in trattativa, venduti)</li>
+                        <li><strong>KPI economici</strong> (provvigioni maturate, da incassare)</li>
+                        <li><strong>Attività sulle pratiche</strong> (collassabile)</li>
+                        <li><strong>Cose da fare</strong> (to-do personale)</li>
+                        <li><strong>Sospesi</strong>, <strong>In attesa</strong>, <strong>Vincolate</strong></li>
+                        <li><strong>Mirino</strong>, nuovi incarichi della settimana, traguardo</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div style={{marginTop:"1rem",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:8,color:"#185FA5"}}>📋 Dashboard Erica (Back Office)</div>
+                    <p style={{fontSize:12,color:"#555",margin:"0 0 6px",lineHeight:1.6}}>Vista focalizzata sulla gestione delle pratiche post-vendita: attività sulle pratiche (fase corrente + scadenze legali), to-do, nuovi incarichi da impostare, rogiti imminenti, pagamenti/prospetti.</p>
+                  </div>
+                </>)},
+                {id:"operativita",icon:"📅",bg:"#E6F1FB",titolo:"Operatività",sub:"Registrazione attività quotidiane e Piano di Produzione",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>È la sezione centrale per l'agente. Si divide in tre viste: <strong>Settimana</strong>, <strong>Tabellone</strong>, <strong>Piano produzione</strong>.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📆 Vista Settimana</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>7 box per ogni giorno. Click su un giorno per inserire l'attività: chiamate (per tipo), appuntamenti, open house, visite, volantini, ore al telefono, post social. Mostra l'<strong>obiettivo del giorno</strong> sotto i box con 8 card.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📊 Tabellone</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Riepilogo settimanale/mensile/annuale con totali e medie. Confronto con obiettivi. Filtri per periodo.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🎯 Piano produzione</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>L'agente fissa il suo obiettivo annuale di fatturato. Il sistema calcola quanti incarichi/proposte servono per arrivarci, mostra l'andamento e la proiezione.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📞 Tipi di chiamata</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}><strong>C. Influenza</strong> (rete, conoscenti) · <strong>Clienti passati</strong> · <strong>Freddo</strong> (nuovi contatti). Distinguono il tipo di prospezione.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Best practice:</strong> registrare le attività ogni sera (5 minuti). I dati alimentano Statistiche, War Room, Funnel di conversione, Report agenti.
                   </div>
                 </>)},
                 {id:"incarichi",icon:"📋",bg:"#E1F5EE",titolo:"Incarichi",sub:"Gestione degli incarichi di vendita e affitto",contenuto:(<>
-                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Mostra di default tutti gli incarichi <strong>Attivi</strong> di tutti gli anni. Usa i filtri per anno, mese, stato o agente.</p>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>L'incarico è l'inizio della pratica: il mandato dato dal venditore all'agenzia. Ogni incarico ha un <strong>codice pratica univoco</strong> (es. 2026-022) generato automaticamente.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📁 Codice pratica</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Formato <code style={{background:"#fafaf8",padding:"1px 5px",borderRadius:3,fontSize:11}}>ANNO-NNN</code> (es. 2026-001, 2026-002...). Riparte da 001 ogni anno. Identifica univocamente la pratica in Proposte e Venduti.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🟢 Stati automatici</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}><strong>Attivo</strong> · <strong>In trattativa</strong> (ha proposta in attesa) · <strong>Accettata con Vincolo</strong> (subordinata accettata) · <strong>Scaduto</strong> · <strong>Venduto/Locato</strong>. Calcolati dal sistema in base alle proposte collegate.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🎯 Mirino</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Marcatore per immobili "caldi" con interessati. Click sull'icona 🎯 nella riga → inserisci data interesse, follow-up, note. Filtro dedicato "Solo mirino" nei filtri.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📉 Ribassi prezzo</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Quando il venditore accetta di abbassare il prezzo: click su 📉, inserisci data e nuovo prezzo. Lo storico ribassi è mantenuto, il prezzo originale viene mostrato barrato.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>💰 Provvigione prevista</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Importo atteso lato venditore. Calcolato dal prezzo × % oppure inserito a mano. Visibile sotto il prezzo nella card. La somma di tutti gli incarichi attivi forma il <strong>Portafoglio attivo</strong>.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📥 Proposte ricevute</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Campo statistico: quante proposte hai ricevuto totali, anche se ne lavori una sola (utile per Open House). Visibile in card.</p>
+                    </div>
+                  </div>
                   <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
-                    <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>➕ Creare un incarico</div>
-                    {["Premi + Nuovo incarico in alto a destra","Compila: indirizzo, tipologia, prezzo, agente listing, data inizio/scadenza, fonte","Premi Salva"].map((s,i)=>(
-                      <div key={i} style={{display:"flex",gap:10,marginBottom:6,alignItems:"flex-start"}}>
-                        <div style={{width:20,height:20,borderRadius:"50%",background:"#A8863A",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</div>
-                        <span style={{fontSize:12,color:"#555"}}>{s}</span>
-                      </div>
-                    ))}
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>👤 Vista "I miei" / "Tutti"</div>
+                    <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Gli agenti vedono di default i propri incarichi. Possono passare a "🏢 Tutti" per vedere tutti gli incarichi dell'agenzia (sola lettura su quelli che non gli appartengono).</p>
                   </div>
-                  <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
-                    <strong>📋 Pratica RT</strong> — Da ogni incarico puoi aprire la pratica RT collegata con il bottone "📋 Apri pratica RT" nell'accordion.
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Tasti azione:</strong> ✏️ modifica · 🎯 mirino · 📉 ribasso · ➕ proposta · 🗑 archivia. Tutti con tooltip al passaggio del mouse.
                   </div>
                 </>)},
-                {id:"proposte",icon:"📝",bg:"#FEF3E2",titolo:"Proposte",sub:"Gestione delle proposte di acquisto",contenuto:(<>
-                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Ogni proposta è collegata a un incarico. Lo stato evolve da "In attesa" fino ad "Accettata" o "Rifiutata".</p>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                    {[["🔵 In attesa","#4A90D9"],["🟡 Vincolata","#D4AC0D"],["🟠 Controproposta","#E67E22"],["🟢 Accettata","#27AE60"],["🔴 Rifiutata","#E74C3C"],["❌ Mancata chiusura","#922B21"]].map(([s,c])=>(
-                      <div key={s} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"8px 10px",borderTop:`2px solid ${c}`}}>
-                        <div style={{fontSize:11,fontWeight:500,color:c}}>{s}</div>
-                      </div>
-                    ))}
+                {id:"proposte",icon:"📝",bg:"#FEF3E2",titolo:"Proposte",sub:"Stati, subordinate, sostituzione",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>La proposta è l'offerta scritta dell'acquirente. Una proposta è sempre collegata a un incarico. Può essere semplice o <strong>subordinata</strong> (con clausola: mutuo, vendita di altro, successione, ecc.).</p>
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>🔄 Ciclo di vita di una proposta</div>
+                    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",fontSize:11}}>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#E8F1FB",color:"#2980B9",fontWeight:500,border:"0.5px solid #2980B944"}}>🔵 In attesa</span>
+                      <span style={{color:"#aaa"}}>→</span>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#FEF0E0",color:"#E67E22",fontWeight:500,border:"0.5px solid #E67E2244"}}>🟡 Controproposta</span>
+                      <span style={{color:"#aaa"}}>→</span>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#FEF9E7",color:"#D4AC0D",fontWeight:500,border:"0.5px solid #D4AC0D44"}}>🟡 Acc. con Vincolo</span>
+                      <span style={{color:"#aaa"}}>→</span>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#E9F7EF",color:"#27AE60",fontWeight:500,border:"0.5px solid #27AE6044"}}>🟢 Accettata</span>
+                    </div>
+                    <p style={{fontSize:11,color:"#aaa",margin:"10px 0 0",fontStyle:"italic"}}>Esiti negativi: <strong>Rifiutata</strong> o <strong>Mancata Chiusura</strong></p>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #D4AC0D44",padding:"1rem",borderLeft:"3px solid #D4AC0D"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#A8863A"}}>⚡ Subordinata (Vincolata)</div>
+                      <p style={{fontSize:12,color:"#555",margin:"0 0 6px",lineHeight:1.6}}>Proposta accettata ma <strong>condizionata</strong> a un evento futuro (es. delibera mutuo).</p>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.6}}>
+                        <li><strong>Esito positivo</strong> → diventa "Accettata" e si crea il Venduto</li>
+                        <li><strong>Esito negativo</strong> → diventa "Mancata Chiusura" e l'incarico torna Attivo</li>
+                      </ul>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#A8863A"}}>🔄 Sostituzione</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Se arriva una proposta migliore mentre la subordinata è in piedi: click su <strong>"Sostituisci con nuova proposta"</strong>. La vecchia diventa "Mancata Chiusura" con nota "sostituita", e si apre il form per la nuova.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Una sola proposta per incarico:</strong> il sistema gestisce una proposta valida per volta. Le proposte multiple ricevute (es. su Open House) si registrano nel campo "Proposte ricevute" sull'incarico come dato statistico.
                   </div>
                 </>)},
-                {id:"venduti",icon:"🏠",bg:"#E1F5EE",titolo:"Venduti",sub:"Rogiti conclusi e provvigioni",contenuto:(<>
-                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Quando una proposta viene accettata, si crea un Venduto. Gestisci provvigioni e pagamenti.</p>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    {[["Provv. Venditore","Provvigione incassata lato venditore"],["Provv. Acquirente","Provvigione incassata lato acquirente"],["Data atto","Data rogito notarile"],["Stato pagamento","Da pagare / Parziale / Pagato"],["Competenza agenzia","Data contabile diversa (opzionale)"],["Agente acquirente","Se diverso dall'agente listing"]].map(([k,v])=>(
-                      <div key={k} style={{background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",padding:"8px 12px"}}>
-                        <div style={{fontSize:11,fontWeight:600,color:"#2c2c2c"}}>{k}</div>
-                        <div style={{fontSize:11,color:"#888"}}>{v}</div>
-                      </div>
-                    ))}
+                {id:"venduti",icon:"🏠",bg:"#E1F5EE",titolo:"Venduti",sub:"Affari conclusi commercialmente",contenuto:(<>
+                  <div style={{background:"#FAEEDA",border:"0.5px solid #D9A954",borderRadius:10,padding:"12px 16px",marginBottom:"1rem",display:"flex",alignItems:"flex-start",gap:10}}>
+                    <span style={{fontSize:18,flexShrink:0}}>💡</span>
+                    <div style={{flex:1,fontSize:12.5,color:"#633806",lineHeight:1.6}}>
+                      <strong>"Venduto" ≠ "Rogitato".</strong> Un Venduto è un affare <strong>concluso commercialmente</strong>: proposta accettata, proposta subordinata con clausola avverata, oppure preliminare firmato. È il momento in cui la <strong>provvigione viene maturata</strong>, anche se l'incasso e il rogito possono avvenire mesi dopo.
+                    </div>
                   </div>
-                </>)},
-                {id:"pratiche",icon:"📁",bg:"#EEEDFE",titolo:"Gestione Pratiche RT",sub:"Iter rogito per ogni vendita",contenuto:(<>
-                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Traccia l'avanzamento burocratico dall'accettazione proposta al rogito. Principalmente gestita dal Back Office.</p>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>Vista Lista</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>Tabella con barra avanzamento %, fase attuale, prossima azione, alert colorati a sinistra.</p>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🔵 Lato Venditore (V)</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Provvigione attesa dal venditore. Si registra l'incasso in <strong>3 fasi</strong>: Acc.1 (acconto preliminare), Acc.2 (acconto intermedio), Saldo (al rogito).</p>
                     </div>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>Vista Kanban</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>4 colonne per macro-fase: Apertura → Istruttoria → Chiusura → Rogito.</p>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🟣 Lato Acquirente (A)</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Provvigione attesa dall'acquirente. Stesse 3 fasi separate. La distinzione V/A è importante perché pagano in tempi diversi.</p>
                     </div>
                   </div>
-                  <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
-                    <strong>⚙ Personalizzazione</strong> — In Impostazioni → "Fasi & Azioni" puoi aggiungere, modificare e riordinare le azioni di ogni fase.
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>📊 Stato incasso (automatico)</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#FEF0E0",color:"#E67E22",fontSize:11,fontWeight:500,border:"0.5px solid #E67E2244"}}>🟠 Da incassare</span>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#FEF9E7",color:"#D4AC0D",fontSize:11,fontWeight:500,border:"0.5px solid #D4AC0D44"}}>🟡 Parziale</span>
+                      <span style={{padding:"4px 10px",borderRadius:5,background:"#E9F7EF",color:"#27AE60",fontSize:11,fontWeight:500,border:"0.5px solid #27AE6044"}}>🟢 Incassato</span>
+                    </div>
+                    <p style={{fontSize:11,color:"#888",margin:"8px 0 0",lineHeight:1.6}}>Sotto le icone V/A nella tabella appare una <strong>mini-barra di progresso</strong> con percentuale e importi.</p>
+                  </div>
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🔒 Lucchetto</div>
+                    <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Si attiva <strong>automaticamente</strong> quando lo stato diventa "Incassato": protegge il venduto da modifiche accidentali. Si può sbloccare/bloccare manualmente con un click.</p>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Sconto applicato:</strong> se la provvigione reale è inferiore alla teorica (% standard o minimo agenzia), il sistema calcola lo sconto e lo mostra in Statistiche → Dettaglio sconti.
                   </div>
                 </>)},
-                {id:"warroom",icon:"🏆",bg:"#FDF6EC",titolo:"War Room",sub:"Centro di comando — performance team",contenuto:(<>
-                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem"}}>Si divide in <strong>📊 Performance</strong> e <strong>🏆 Traguardo Volante</strong>.</p>
+                {id:"pratiche",icon:"📁",bg:"#EEEDFE",titolo:"Gestione Pratiche RT",sub:"Iter rogito con check-list per fase",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>Dopo la proposta accettata, ogni pratica segue un <strong>iter di rogito</strong> con fasi e azioni da completare. La vista è organizzata per fase (Kanban) o lista.</p>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📊 Performance</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>KPI team, tabella attività di processo per agente, risultati finali, fonti incarichi.</p>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📋 Fasi standard</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Proposta accettata → Preliminare → Documentazione → Mutuo → Atto. Personalizzabili in Impostazioni → Fasi & Azioni.</p>
                     </div>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🏆 Traguardo Volante</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>Sfide a tempo con classifica e podio. Crea sfide con nome, metrica, periodo e premio.</p>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>👥 Ruoli azioni</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Ogni azione è marcata con un ruolo: <strong>agente</strong>, <strong>erica</strong> (back office), <strong>entrambi</strong>, <strong>broker</strong>. Determina chi vede l'azione nella propria dashboard.</p>
                     </div>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📺 Modalità Riunione</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>Vista fullscreen su sfondo scuro — ideale per proiettare in riunione di team.</p>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>⚠️ Alert scadenze legali</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Azioni come Registrazione, Regold, Antiriciclaggio sono critiche per legge. Erica le vede sempre nella dashboard, anche se relative a fasi superate.</p>
                     </div>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🔒 Oscura €</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>Nasconde tutti i valori monetari — utile quando lo schermo è visibile a clienti.</p>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>💡 Note pratica</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Ogni pratica ha un campo note condiviso visibile a tutti i ruoli coinvolti. Utile per appunti, contatti notaio, peculiarità.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Dalla dashboard:</strong> ogni profilo vede direttamente le proprie azioni della fase corrente. Per accedere alla vista completa cliccare "📋 Apri pratica RT" da un incarico o dal tab Gestione Pratiche.
+                  </div>
+                </>)},
+                {id:"report",icon:"📈",bg:"#FAEEDA",titolo:"Il mio report / Report agenti",sub:"Analisi performance",contenuto:(<>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:"3px solid #27AE60"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#27AE60"}}>🏠 Il mio report (agente)</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Dashboard personale: fatturato vs obiettivo, andamento mensile, conversione (chiamate → appuntamenti → proposte → vendite), media commissioni, classifica personale.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:"3px solid #A8863A"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#A8863A"}}>🏅 Report agenti (broker)</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Vista comparativa di tutto il team: ranking, contributi al fatturato, sconti applicati, conversioni. Permette il <strong>one-on-one</strong> guidato sui dati.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Settimanale automatica:</strong> ogni lunedì il sistema invia un report email al Broker con la sintesi della settimana precedente.
+                  </div>
+                </>)},
+                {id:"statistiche",icon:"📊",bg:"#E6F1FB",titolo:"Statistiche",sub:"Analisi profonda dell'agenzia",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>4 sotto-tab per analizzare l'agenzia da angolazioni diverse.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📊 Generali</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>KPI agenzia: fatturato, vendite, prezzo medio immobile, distribuzione vendite/affitti.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>👥 Report agenti</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Performance per agente: transazioni, quota agente, sconto applicato. Il <strong>Dettaglio sconti</strong> mostra per ogni vendita teorica vs reale.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📈 Trend & Andamento</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Grafici mensili/annuali con confronto YoY. Andamenti per categoria.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🎯 Funnel & Conversioni</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Imbuto chiamate → appuntamenti → incarichi → proposte → venduti. Tassi di conversione per agente.</p>
+                    </div>
+                  </div>
+                </>)},
+                {id:"costi",icon:"💰",bg:"#FEF3E2",titolo:"Costi e Break Even",sub:"Spese agenzia e punto di pareggio",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>Due tab dedicati: <strong>Costi</strong> (gestione spese) e <strong>Break Even</strong> (obiettivo da raggiungere per coprire i costi).</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>💸 Costi</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Categorie spese (Locazione, Stipendi, Pubblicità, Formazione...) divise in <strong>fissi</strong> e <strong>variabili</strong>. Si registrano spese consuntive con data e categoria.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>🎯 Break Even</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Quota agenzia (al netto delle quote agenti) necessaria per coprire i costi. Si può impostare <strong>manualmente</strong> oppure calcolato sui costi consuntivi/preventivi.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>📊 La barra Break Even (dashboard Broker)</div>
+                    <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.7}}>
+                      <li><strong>Incassato</strong>: quota agenzia entrata davvero in cassa</li>
+                      <li><strong>Con da incassare</strong>: + provvigioni maturate ma ancora da incassare</li>
+                      <li><strong>Mancano</strong> (alto destra): quanto manca rispetto a oggi</li>
+                      <li><strong>Mancano al netto</strong> (basso destra): quanto manca se incasso tutto il maturato — utile per programmare</li>
+                    </ul>
+                  </div>
+                </>)},
+                {id:"warroom",icon:"🏆",bg:"#FDF6EC",titolo:"War Room",sub:"Performance, Traguardi, Eventi",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>Il "centro di comando" della squadra. Cambia molto tra Broker e Agente.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:"3px solid #A8863A"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#A8863A"}}>🏅 Vista Broker</div>
+                      <p style={{fontSize:12,color:"#555",margin:"0 0 6px",lineHeight:1.6}}>3 sotto-tab:</p>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.6}}>
+                        <li><strong>📊 Performance</strong>: classifica team su metriche scelte</li>
+                        <li><strong>🏆 Traguardo Volante</strong>: crea sfide con premio (es. "chi fa più chiamate questa settimana vince...")</li>
+                        <li><strong>📅 Eventi</strong>: registra corsi, cene, conferenze</li>
+                      </ul>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderTop:"3px solid #27AE60"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#27AE60"}}>🏠 Vista Agente</div>
+                      <p style={{fontSize:12,color:"#555",margin:"0 0 6px",lineHeight:1.6}}>Spazio <strong>ludico/motivazionale</strong>. 2 sotto-tab:</p>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.6}}>
+                        <li><strong>🏆 Traguardo Volante</strong>: la sfida attiva, posizione in classifica, premio</li>
+                        <li><strong>📅 Eventi</strong>: vede tutti gli eventi della squadra (badge "✓ Tu c'eri")</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",marginBottom:"1rem"}}>
+                    <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📅 Eventi — Tipologie</div>
+                    <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Corso · Evento · Cena · Conferenza · Aperitivo · Altro (modificabili). Per ogni evento: data, titolo, luogo, partecipanti (multi-select agenti), costo, link, note. Se hai un costo puoi spuntare "Includi nei costi agenzia".</p>
+                  </div>
+                </>)},
+                {id:"oneonone",icon:"🤝",bg:"#FAEEDA",titolo:"One-to-One",sub:"Incontri broker-agente con note",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>Strumento per gli incontri individuali tra Broker e ogni membro del team. Le note dell'incontro sono divise in <strong>pubbliche</strong> (visibili all'agente) e <strong>private</strong> (solo broker).</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1rem"}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📝 Campi note</div>
+                      <ul style={{fontSize:12,color:"#555",margin:0,paddingLeft:18,lineHeight:1.6}}>
+                        <li><strong>Note incontro</strong> (pubbliche)</li>
+                        <li><strong>Obiettivi</strong> per il prossimo incontro</li>
+                        <li><strong>Criticità</strong> emerse</li>
+                        <li><strong>Azioni</strong> da intraprendere</li>
+                        <li><strong>Note private</strong> (solo broker)</li>
+                      </ul>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>💬 Replica dell'agente</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>L'agente può aggiungere le sue note di risposta a ogni incontro. Sono visibili sia a lui che al Broker, ma non agli altri agenti.</p>
+                    </div>
+                  </div>
+                  <div style={{background:"#FDF6EC",borderRadius:10,padding:"12px 16px",fontSize:12,color:"#633806",borderLeft:"3px solid #A8863A"}}>
+                    <strong>Privacy:</strong> ogni agente vede solo i propri One-to-One. Anche Erica (Back Office) vede solo gli incontri tra lei e il Broker, non quelli degli altri.
+                  </div>
+                </>)},
+                {id:"fatture",icon:"💼",bg:"#FAEEDA",titolo:"Fatture Agente / Pagamenti",sub:"Gestione fatture e prospetti",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>Solo Broker e Back Office. Gestisce le fatture degli agenti collaboratori (quote da pagare loro) e i prospetti riepilogativi.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📋 Fatture agente</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Per ogni vendita: traccia se la fattura dell'agente è stata pagata, parzialmente o no. Stato automatico in base agli importi.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📄 Prospetti</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Riepiloghi mensili per agente con totali, fatture emesse, importi pagati, da pagare. Erica li compila e li invia.</p>
+                    </div>
+                  </div>
+                </>)},
+                {id:"agenti",icon:"👤",bg:"#E6F1FB",titolo:"Agenti",sub:"Anagrafica team",contenuto:(<>
+                  <p style={{fontSize:13,color:"#555",marginBottom:"1rem",lineHeight:1.7}}>Solo Broker. Gestione dei membri del team: dati anagrafici, percentuali provvigione standard, email/password di accesso, attivo/disattivo, includi in report.</p>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📊 % Provv. Listing e Acquirente</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Sono i <strong>default</strong> usati alla creazione di una nuova pratica. Possono essere sovrascritti caso per caso. Modifiche al profilo NON cambiano retroattivamente vendite passate.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📈 Includi in report</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Checkbox: se attivo, l'agente compare nelle classifiche e report. Se disattivo (es. Erica, Collaborazione Agenzia), i suoi dati esistono ma non entrano nei ranking.</p>
                     </div>
                   </div>
                 </>)},
@@ -10289,12 +10542,90 @@ export default function App() {
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>⚙ Generali</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>Obiettivo fatturato annuale team, quota agenzia (%) trattenuta sulle provvigioni.</p>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Obiettivo fatturato annuale, quota agenzia (%) trattenuta, <strong>% provvigione standard</strong> e <strong>minimo</strong> agenzia (per il calcolo automatico degli sconti).</p>
                     </div>
                     <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                       <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📋 Fasi & Azioni</div>
-                      <p style={{fontSize:12,color:"#555",margin:0}}>Personalizza le fasi Gestione Pratiche: aggiungi, modifica, riordina azioni. Bottone ↺ Default per ripristinare.</p>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Personalizza le fasi della Gestione Pratiche: aggiungi/modifica/riordina azioni. Bottone "↺ Default" per ripristinare.</p>
                     </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>💰 Categorie costi</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Gestione delle categorie di spesa (fisse/variabili) usate in Costi e Break Even. Inseribili per anno.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5}}>📎 Elenchi a tendina</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Fonti incarico, Tipologie immobile, Tipi di vincolo (mutuo, sanatoria, ecc.), Tipi negazione, Tipi volantino. Modificabili dal Broker.</p>
+                    </div>
+                  </div>
+                </>)},
+                {id:"concetti",icon:"💡",bg:"#FAEEDA",titolo:"Concetti chiave",sub:"Come funziona dietro le quinte",contenuto:(<>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #2980B9"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#2980B9"}}>📁 Codice pratica</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Formato <code style={{background:"#fafaf8",padding:"1px 5px",borderRadius:3,fontSize:11}}>ANNO-NNN</code>. Generato dall'incarico, segue la pratica in Proposta e Venduto. Riparte da 001 ogni anno.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #D4AC0D"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#A8863A"}}>💸 Sconti automatici</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}><strong>Sotto soglia</strong> (es. 120K): si applica MAX tra la % e il minimo. <strong>Sopra soglia</strong>: si applica solo la %. Calcolato per entrambi i lati (V e A).</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #D4AC0D"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#A8863A"}}>⚡ Subordinate</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Proposta accettata con clausola. Esito positivo → diventa Accettata, crea Venduto. Esito negativo → Mancata Chiusura, incarico Attivo. Sostituibile con proposta migliore.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #E74C3C"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#E74C3C"}}>🎯 Mirino</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Watchlist personale per incarichi "caldi". Visibile in dashboard. Permette filtro "Solo mirino" in tab Incarichi.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #27AE60"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#27AE60"}}>💰 Quota agenzia</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>Parte della provvigione che resta all'agenzia dopo aver pagato le quote agenti (listing, acquirente, buyer). È quella che alimenta il Break Even.</p>
+                    </div>
+                    <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",borderLeft:"3px solid #8E44AD"}}>
+                      <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#8E44AD"}}>📡 Sincronizzazione</div>
+                      <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>I dati sono salvati su Supabase (cloud) e sincronizzati tra dispositivi in tempo reale. Indicatore "✓ Sincronizzato" in alto a destra.</p>
+                    </div>
+                  </div>
+                </>)},
+                {id:"workflow",icon:"🔄",bg:"#E6F1FB",titolo:"Workflow tipico",sub:"Dal contatto al rogito — passo passo",contenuto:(<>
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {[
+                      ["1","🎯 Prospezione","Registri chiamate, appuntamenti, attività in Operatività. Quando un cliente ti dà un incarico:","Vai in Incarichi → + Nuovo"],
+                      ["2","📋 Apertura incarico","Inserisci venditore, immobile, prezzo, % provvigione, scadenza. Il sistema assegna automaticamente un codice pratica (es. 2026-022).","L'incarico appare nella tua dashboard"],
+                      ["3","📥 Trattativa","Pubblichi l'immobile, gestisci visite (registrale in Operatività). Se ricevi più proposte, segna il numero in 'Proposte ricevute' sull'incarico.","Quando arriva una proposta seria:"],
+                      ["4","📝 Inserimento proposta","Click su + Proposta dall'incarico. Inserisci prezzo offerto, acquirente, % provvigioni, eventuale vincolo (es. mutuo).","Stato iniziale: In attesa"],
+                      ["5","🟡 Trattativa proposta","Se il venditore controproposta, vincola, o accetta: usa 'Gestisci proposta'. Se vincolata, attendi esito vincolo.","Il codice pratica passa allo stato successivo"],
+                      ["6","🟢 Proposta accettata","Stato 'Accettata' (o 'Acc. con Vincolo' + esito positivo). Il sistema crea automaticamente un Venduto.","Si avvia l'iter pratica RT"],
+                      ["7","📁 Gestione Pratica RT","Erica e l'agente vedono ognuno le proprie azioni nelle fasi (Preliminare, Documenti, Mutuo, Atto). Stati a tendina.","Quando arrivano incassi:"],
+                      ["8","🔵 Registrazione incassi","Click su V (Venditore) o A (Acquirente) nel Venduto. Registri Acc.1, Acc.2, Saldo con date. Lo stato passa da Da incassare a Parziale a Incassato (automatico).","Al raggiungimento di Incassato:"],
+                      ["9","🔒 Pratica conclusa","Si attiva il lucchetto automatico. La provvigione è chiusa. Erica completa antiriciclaggio, regold, archiviazione.","Pratica chiusa, contributo al Break Even completato"],
+                    ].map(([n,t,d,r])=>(
+                      <div key={n} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",display:"flex",gap:14,alignItems:"flex-start"}}>
+                        <div style={{width:36,height:36,borderRadius:"50%",background:"#A8863A",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:600,flexShrink:0}}>{n}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:600,marginBottom:3}}>{t}</div>
+                          <p style={{fontSize:12,color:"#555",margin:"0 0 4px",lineHeight:1.6}}>{d}</p>
+                          <span style={{fontSize:11,color:"#A8863A",fontStyle:"italic"}}>→ {r}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>)},
+                {id:"faq",icon:"❓",bg:"#fafaf8",titolo:"Domande frequenti",sub:"FAQ e situazioni comuni",contenuto:(<>
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {[
+                      ["Ho dimenticato la password","Solo il Broker può cambiarla. Vai in Agenti, click sull'icona modifica accanto al tuo profilo."],
+                      ["Posso modificare un venduto Incassato?","No, è bloccato dal lucchetto automatico. Se serve una correzione, sblocca temporaneamente con un click sull'icona 🔒, modifica, poi blocca di nuovo. Solo Broker e BackOffice possono farlo."],
+                      ["Una proposta è sbagliata, come la cancello?","Le proposte non si cancellano (per coerenza dati). Usa lo stato 'Rifiutata' o 'Mancata Chiusura' con nota esplicativa."],
+                      ["Il mio fatturato non torna in Statistiche","Verifica che i venduti che ti aspetti abbiano la tua % salvata correttamente (sezione Agenti coinvolti dell'accordion). La data di competenza usata è la data accettazione proposta, non la data rogito."],
+                      ["Vedo 'In trattativa' su un incarico ma è chiuso","Lo stato è automatico in base alle proposte collegate. Se una proposta è in 'In attesa', l'incarico mostra 'In trattativa'. Sposta la proposta a Accettata o Mancata Chiusura per cambiare stato."],
+                      ["Come si calcola il portafoglio attivo?","Somma delle provvigioni previste (lato venditore) di tutti gli incarichi attivi visibili. Per gli agenti, solo i propri."],
+                      ["Cosa succede se Netlify si ferma?","Il sito potrebbe essere temporaneamente offline. I dati sono al sicuro su Supabase. Contattare il Broker."],
+                    ].map(([q,a],i)=>(
+                      <div key={i} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
+                        <div style={{fontSize:13,fontWeight:600,marginBottom:5,color:"#2980B9"}}>❓ {q}</div>
+                        <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6}}>{a}</p>
+                      </div>
+                    ))}
                   </div>
                 </>)},
               ].map(({id,icon,bg,titolo,sub,contenuto})=>(
