@@ -3157,6 +3157,7 @@ export default function App() {
                   {/* Immobile + Proprietario */}
                   <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
                     <div style={{fontWeight:600,fontSize:14,marginBottom:3,color:"#2C2C2C"}}>
+                      {inc.codicePratica&&<span style={{fontSize:10,color:"#aaa",fontWeight:500,fontFamily:"monospace",marginRight:6}}>{inc.codicePratica}</span>}
                       {inc.comune} — {inc.indirizzo}
                       <span style={{fontSize:12,color:"#bbb",fontWeight:400,marginLeft:6}}>{isOpenInc?"▲":"▼"}</span>
                     </div>
@@ -3164,6 +3165,7 @@ export default function App() {
                       <span>{inc.nominativo}</span>
                       {inc.fonte&&<span style={{padding:"1px 5px",borderRadius:3,background:"#f0f0f0",color:"#666"}}>{inc.fonte}</span>}
                       {inc.tipologia&&<span style={{color:"#aaa"}}>{inc.tipologia}</span>}
+                      {Number(inc.proposteRicevute)>0&&<span style={{color:"#2980B9"}} title="Proposte ricevute (statistico)">📥 {inc.proposteRicevute} ric.</span>}
                     </div>
                   </td>
                   {/* Agenti */}
@@ -3253,6 +3255,32 @@ export default function App() {
                         <button style={{...S.btn,width:"100%",marginTop:6,fontSize:12,color:"#533AB7",borderColor:"#533AB7"}} onClick={e=>{e.stopPropagation();setGpPraticaSel(inc.id);setTab("Gestione Pratiche");}}>📋 Apri pratica RT</button>
                       </div>
                     </div>
+                    {/* MINI-TIMELINE della pratica (Incarico → Proposta → Accettata → Rogito) */}
+                    {(()=>{
+                      const propPratica=proposte.filter(p=>p.incaricoId===inc.id).sort((a,b)=>(a.dataStato||"").localeCompare(b.dataStato||""));
+                      const propAcc=propPratica.find(p=>["Accettata","Accettata con Vincolo"].includes(p.stato))||propPratica[propPratica.length-1];
+                      const tappe=[];
+                      tappe.push({lbl:"Incarico",data:inc.dataInizio,clr:"#27AE60"});
+                      if(propAcc){
+                        tappe.push({lbl:"Proposta",data:propAcc.dataStato,clr:"#2980B9"});
+                        if(propAcc.dataAccettazione) tappe.push({lbl:"Accettata",data:propAcc.dataAccettazione,clr:"#D4AC0D"});
+                      }
+                      if(vendCorr){
+                        if(vendCorr.dataVendita) tappe.push({lbl:"Venduto",data:vendCorr.dataVendita,clr:"#C9A96E"});
+                        if(vendCorr.dataAtto) tappe.push({lbl:"Rogito",data:vendCorr.dataAtto,clr:"#8E44AD"});
+                      }
+                      if(tappe.length<2) return null;
+                      return(<div style={{marginTop:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>🏁 Percorso</span>
+                        {tappe.map((t,i)=>(<React.Fragment key={i}>
+                          {i>0&&<span style={{color:"#ccc",fontSize:12}}>→</span>}
+                          <span style={{display:"inline-flex",flexDirection:"column",alignItems:"center"}}>
+                            <span style={{fontSize:11,fontWeight:600,color:t.clr}}>{t.lbl}</span>
+                            <span style={{fontSize:10,color:"#aaa"}}>{t.data?fmtD(t.data):"—"}</span>
+                          </span>
+                        </React.Fragment>))}
+                      </div>);
+                    })()}
                   </td>
                 </tr>}
                 </React.Fragment>);
@@ -10443,6 +10471,10 @@ export default function App() {
             <div><label style={S.lbl}>{formInc.categoria==="affitto"?"Canone reale (EUR)":"Prezzo reale stimato (EUR)"}</label><input style={S.inp} type="number" value={formInc.prezzoReale||""} onChange={e=>setFormInc({...formInc,prezzoReale:e.target.value})}/></div>
             <div><label style={S.lbl}>% Provvigione</label><input style={S.inp} type="number" step="0.1" placeholder="es. 3" value={formInc.percProvv||""} onChange={e=>{const perc=Number(e.target.value);const prezzo=Number(formInc.prezzoRichiesto||0);setFormInc({...formInc,percProvv:e.target.value,provvPrevista:prezzo>0?Math.round(prezzo*perc/100):formInc.provvPrevista});}}/></div>
             <div><label style={S.lbl}>Provvigione prevista (EUR) — calcolata o manuale</label><div style={{position:"relative"}}><input style={S.inp} type="number" value={formInc.provvPrevista||""} onChange={e=>setFormInc({...formInc,provvPrevista:e.target.value,percProvv:""})} placeholder="Calcolata automaticamente dalla %"/>{formInc.provvPrevista>0&&<span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",fontSize:11,color:BRAND.oroD,pointerEvents:"none",background:"#fff",paddingLeft:4}}>= € {fmtN(formInc.provvPrevista)}</span>}</div></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={S.lbl}>Proposte ricevute (statistico)</label><input style={S.inp} type="number" min="0" placeholder="es. 4" value={formInc.proposteRicevute||""} onChange={e=>setFormInc({...formInc,proposteRicevute:e.target.value})}/><span style={{fontSize:10,color:"#aaa"}}>Quante proposte hai ricevuto in totale (anche se ne lavori una sola)</span></div>
+            <div>{formInc.codicePratica&&<><label style={S.lbl}>Codice pratica</label><input style={{...S.inp,background:"#f5f5f5",fontFamily:"monospace"}} value={formInc.codicePratica} disabled/></>}</div>
           </div>
           <div><label style={S.lbl}>Note</label><textarea style={{...S.inp,resize:"vertical",minHeight:60}} value={formInc.note||""} onChange={e=>setFormInc({...formInc,note:e.target.value})}/></div>
           <div style={{display:"flex",gap:8,justifyContent:"space-between",marginTop:"1rem"}}>
