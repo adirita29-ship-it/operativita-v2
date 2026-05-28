@@ -3420,6 +3420,8 @@ export default function App() {
                 {/* ACCORDION PROPOSTE */}
                 {isOpenProp&&<tr style={{background:"#FAFAF8",boxShadow:"0 2px 8px rgba(168,134,58,0.10)",outline:`0.5px solid ${cfg.clr}55`,outlineOffset:"-0.5px"}}>
                   <td colSpan={8} style={{padding:"0 14px 14px",borderLeft:`4px solid ${cfg.clr}`,borderRadius:"0 0 8px 8px"}}>
+                    {/* Codice pratica + link all'incarico */}
+                    {(()=>{const incColl=incarichi.find(i=>i.id===p.incaricoId);if(!incColl?.codicePratica)return null;return(<div style={{marginTop:10,padding:"6px 12px",background:"#fff",borderRadius:6,border:"0.5px solid #e8e5e0",fontSize:11,color:"#888"}}>📂 Pratica <strong style={{fontFamily:"monospace",color:"#A8863A"}}>{incColl.codicePratica}</strong> — collegata all'incarico di {incColl.nominativo}</div>);})()}
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio proposta</p>
@@ -3448,6 +3450,30 @@ export default function App() {
                         </div>
                       </div>
                     </div>
+                    {/* MINI-TIMELINE della pratica */}
+                    {(()=>{
+                      const incColl=incarichi.find(i=>i.id===p.incaricoId);
+                      const vendColl=venduti.find(v=>v.propostaId===p.id);
+                      const tappe=[];
+                      if(incColl) tappe.push({lbl:"Incarico",data:incColl.dataInizio,clr:"#27AE60"});
+                      tappe.push({lbl:"Proposta",data:p.dataStato,clr:"#2980B9"});
+                      if(p.dataAccettazione) tappe.push({lbl:"Accettata",data:p.dataAccettazione,clr:"#D4AC0D"});
+                      if(vendColl){
+                        if(vendColl.dataVendita) tappe.push({lbl:"Venduto",data:vendColl.dataVendita,clr:"#C9A96E"});
+                        if(vendColl.dataAtto) tappe.push({lbl:"Rogito",data:vendColl.dataAtto,clr:"#8E44AD"});
+                      }
+                      if(tappe.length<2) return null;
+                      return(<div style={{marginTop:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>🏁 Percorso</span>
+                        {tappe.map((t,i)=>(<React.Fragment key={i}>
+                          {i>0&&<span style={{color:"#ccc",fontSize:12}}>→</span>}
+                          <span style={{display:"inline-flex",flexDirection:"column",alignItems:"center"}}>
+                            <span style={{fontSize:11,fontWeight:600,color:t.clr}}>{t.lbl}</span>
+                            <span style={{fontSize:10,color:"#aaa"}}>{t.data?fmtD(t.data):"—"}</span>
+                          </span>
+                        </React.Fragment>))}
+                      </div>);
+                    })()}
                   </td>
                 </tr>}
                 </React.Fragment>);
@@ -3489,7 +3515,7 @@ export default function App() {
               <SearchBar value={searchVenduti} onChange={setSearchVenduti} placeholder="Cerca immobile, venditore, acquirente..." nResults={vendFiltrati.length}/>
             </div>
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
-            <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:0}}>
+            <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh",background:"transparent",border:"none"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:"0 8px"}}>
               <thead><tr>
                 <th style={{...S.th,minWidth:100,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Stato</th>
                 <th style={{...S.th,minWidth:220,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Immobile / Parti</th>
@@ -3506,9 +3532,9 @@ export default function App() {
                 const totInc=incV+incA; const totProvv=(v.provvVenditore||0)+(v.provvAcquirente||0);
                 const isOpen=rowOpen===v.id;
                 return(<React.Fragment key={v.id}>
-                  <tr style={{opacity:v.bloccato?0.85:1,borderLeft:`4px solid ${cfg.clr}`,borderBottom:isOpen?"none":"0.5px solid #f5f5f5",cursor:"pointer",background:isOpen?"#FDFBF7":"#fff"}}
+                  <tr style={{opacity:v.bloccato?0.85:1,cursor:"pointer",background:isOpen?"#FDFBF7":"#fff",transition:"background .15s,box-shadow .15s",boxShadow:isOpen?"0 2px 8px rgba(168,134,58,0.15)":"0 1px 3px rgba(0,0,0,0.06)",outline:`0.5px solid ${isOpen?cfg.clr+"55":"#e8e5e0"}`,outlineOffset:"-0.5px"}}
                     onClick={()=>setRowOpen(isOpen?null:v.id)}>
-                  <td style={{padding:"10px 12px",verticalAlign:"top"}}>
+                  <td style={{padding:"10px 12px",verticalAlign:"top",borderLeft:`4px solid ${cfg.clr}`,borderTopLeftRadius:8,borderBottomLeftRadius:isOpen?0:8}}>
                     <span style={{display:"inline-flex",fontSize:11,padding:"3px 8px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap"}}>{cfg.s} {statoI}</span>
                     {v.bloccato&&<div style={{fontSize:10,color:"#E74C3C",marginTop:3}}>🔒</div>}
                   </td>
@@ -3546,7 +3572,7 @@ export default function App() {
                     {totProvv>0&&<div style={{height:3,background:"#f0f0f0",borderRadius:2,marginTop:3,overflow:"hidden",width:50}}><div style={{height:"100%",width:`${Math.min(100,Math.round(totInc/totProvv*100))}%`,background:totInc>=totProvv?"#27AE60":"#E67E22",borderRadius:2}}/></div>}
                     {v.scadenzaIncasso&&<div style={{fontSize:10,color:"#E67E22",marginTop:2}}>Scad: {fmtD(v.scadenzaIncasso)}</div>}
                   </td>
-                  <td style={{padding:"10px 12px",verticalAlign:"top"}} onClick={e=>e.stopPropagation()}>
+                  <td style={{padding:"10px 12px",verticalAlign:"top",borderTopRightRadius:8,borderBottomRightRadius:isOpen?0:8}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                       {(v.statoIncasso!=="Incassato"&&!v.bloccato)&&<><button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
                       <button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
@@ -3560,8 +3586,10 @@ export default function App() {
                     </div>
                   </td>
                 </tr>
-                {isOpen&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
-                  <td colSpan={7} style={{padding:"0 14px 14px 14px"}}>
+                {isOpen&&<tr style={{background:"#FAFAF8",boxShadow:"0 2px 8px rgba(168,134,58,0.10)",outline:`0.5px solid ${cfg.clr}55`,outlineOffset:"-0.5px"}}>
+                  <td colSpan={7} style={{padding:"0 14px 14px 14px",borderLeft:`4px solid ${cfg.clr}`,borderRadius:"0 0 8px 8px"}}>
+                    {/* Codice pratica + link */}
+                    {(()=>{const incColl=incarichi.find(i=>i.id===v.incaricoId);if(!incColl?.codicePratica)return null;return(<div style={{marginTop:10,padding:"6px 12px",background:"#fff",borderRadius:6,border:"0.5px solid #e8e5e0",fontSize:11,color:"#888"}}>📂 Pratica <strong style={{fontFamily:"monospace",color:"#A8863A"}}>{incColl.codicePratica}</strong> — collegata all'incarico di {incColl.nominativo}</div>);})()}
                     {/* Riepilogo incasso stato */}
                     <div style={{display:"flex",gap:10,marginTop:10,marginBottom:10,flexWrap:"wrap"}}>
                       <div style={{flex:1,minWidth:120,background:totInc>=totProvv&&totProvv>0?"#E9F7EF":"#FEF0E0",borderRadius:8,padding:"10px 14px",border:`0.5px solid ${totInc>=totProvv&&totProvv>0?"#C0DD97":"#FAC775"}`}}>
@@ -3588,6 +3616,30 @@ export default function App() {
                         {[["Prezzo vendita",`€ ${fmtN(v.prezzoVendita)}`],["Tipo atto",v.tipoAtto||"—"],["Data atto",v.dataAtto?fmtD(v.dataAtto):"—"],["Scad. incasso",v.scadenzaIncasso?fmtD(v.scadenzaIncasso):"—"],["Note",v.note||"—"]].map(([k,val])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span style={{fontWeight:500}}>{val}</span></div>))}
                       </div>
                     </div>
+                    {/* MINI-TIMELINE percorso */}
+                    {(()=>{
+                      const incColl=incarichi.find(i=>i.id===v.incaricoId);
+                      const propColl=proposte.find(pp=>pp.id===v.propostaId)||[...proposte,...(typeof archiviatiProp!=="undefined"?archiviatiProp:[])].find(pp=>pp.id===v.propostaId);
+                      const tappe=[];
+                      if(incColl) tappe.push({lbl:"Incarico",data:incColl.dataInizio,clr:"#27AE60"});
+                      if(propColl){
+                        tappe.push({lbl:"Proposta",data:propColl.dataStato,clr:"#2980B9"});
+                        if(propColl.dataAccettazione) tappe.push({lbl:"Accettata",data:propColl.dataAccettazione,clr:"#D4AC0D"});
+                      }
+                      if(v.dataVendita) tappe.push({lbl:"Venduto",data:v.dataVendita,clr:"#C9A96E"});
+                      if(v.dataAtto) tappe.push({lbl:"Rogito",data:v.dataAtto,clr:"#8E44AD"});
+                      if(tappe.length<2) return null;
+                      return(<div style={{marginTop:10,padding:"8px 12px",background:"#fff",borderRadius:8,border:"0.5px solid #e8e5e0",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".05em",marginRight:4}}>🏁 Percorso</span>
+                        {tappe.map((t,i)=>(<React.Fragment key={i}>
+                          {i>0&&<span style={{color:"#ccc",fontSize:12}}>→</span>}
+                          <span style={{display:"inline-flex",flexDirection:"column",alignItems:"center"}}>
+                            <span style={{fontSize:11,fontWeight:600,color:t.clr}}>{t.lbl}</span>
+                            <span style={{fontSize:10,color:"#aaa"}}>{t.data?fmtD(t.data):"—"}</span>
+                          </span>
+                        </React.Fragment>))}
+                      </div>);
+                    })()}
                   </td>
                 </tr>}
                 </React.Fragment>);
