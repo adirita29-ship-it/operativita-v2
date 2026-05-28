@@ -1141,6 +1141,9 @@ export default function App() {
   const [showAttesaAg,setShowAttesaAg]=useState(false);
   const [showVincolateAg,setShowVincolateAg]=useState(false);
   const [showAttivitaAg,setShowAttivitaAg]=useState(false);
+  // Banner spiegazione "Venduti ≠ Rogitati" — dismissibile (memorizzato in localStorage)
+  const [showBannerVend,setShowBannerVend]=useState(()=>{try{return localStorage.getItem("casa_bannerVend_chiuso")!=="1";}catch{return true;}});
+  const chiudiBannerVend=()=>{try{localStorage.setItem("casa_bannerVend_chiuso","1");}catch{}setShowBannerVend(false);};
   const [showAttesa,setShowAttesa]=useState(false);
   const [showVincolate,setShowVincolate]=useState(false);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
@@ -3509,6 +3512,13 @@ export default function App() {
 
           {/* VENDUTI */}
           {tab==="Venduti"&&(<div style={S.sec}>
+            {showBannerVend&&<div style={{background:"#FAEEDA",border:"0.5px solid #D9A954",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",display:"flex",alignItems:"flex-start",gap:10}}>
+              <span style={{fontSize:18,flexShrink:0}}>💡</span>
+              <div style={{flex:1,fontSize:12.5,color:"#633806",lineHeight:1.5}}>
+                <strong>Cosa significa "Venduti"</strong> — Sono gli affari <strong>conclusi commercialmente</strong> (proposta accettata e/o preliminare firmato), <strong>non necessariamente rogitati</strong>. È in questo momento che la <strong>provvigione viene maturata</strong> ed entra nella tua produzione, anche se l'incasso e il rogito possono avvenire mesi dopo.
+              </div>
+              <button onClick={chiudiBannerVend} title="Chiudi (rileggi in Guida)" style={{background:"none",border:"none",cursor:"pointer",color:"#A8863A",fontSize:18,padding:"0 4px",lineHeight:1,fontWeight:600}}>×</button>
+            </div>}
             <div style={{marginBottom:"1rem"}}><SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/></div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
               <FiltriVend/>
@@ -3574,16 +3584,25 @@ export default function App() {
                   </td>
                   <td style={{padding:"10px 12px",verticalAlign:"top",borderTopRightRadius:8,borderBottomRightRadius:isOpen?0:8}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {(v.statoIncasso!=="Incassato"&&!v.bloccato)&&<><button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
-                      <button style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
-                      <button style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});if(!isReadOnly)setShowGestVend(v);}}>✏️</button></>}
+                      {(v.statoIncasso!=="Incassato"&&!v.bloccato)&&<><button title="Registra incasso lato Venditore" style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
+                      <button title="Registra incasso lato Acquirente" style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
+                      <button title="Modifica venduto" style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});if(!isReadOnly)setShowGestVend(v);}}>✏️</button></>}
                       <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:v.statoIncasso==="Incassato"?"#27AE60":v.bloccato?"#E67E22":"#aaa"}} 
                         title={v.statoIncasso==="Incassato"?"Incassato — bloccato automaticamente":v.bloccato?"Sbloccato manualmente — clicca per bloccare":"Clicca per bloccare"}
                         onClick={()=>{if(v.statoIncasso==="Incassato")return;setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x));}}>
                         {v.statoIncasso==="Incassato"?"🔒":v.bloccato?"🔒":"🔓"}
                       </button>
-                      <button style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>{if(window.confirm("Archiviare?"))archiviaVend(v.id);}}>📦</button>
+                      <button title="Archivia venduto" style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>{if(window.confirm("Archiviare?"))archiviaVend(v.id);}}>📦</button>
                     </div>
+                    {/* Mini barra progresso incasso */}
+                    {totProvv>0&&(()=>{
+                      const pct=Math.min(100,Math.round(totInc/totProvv*100));
+                      const barClr=pct>=100?"#27AE60":pct>0?"#E67E22":"#ccc";
+                      return(<div style={{marginTop:6,minWidth:120}}>
+                        <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:barClr,borderRadius:2,transition:"width .3s"}}/></div>
+                        <div style={{fontSize:9.5,color:"#999",marginTop:2,whiteSpace:"nowrap"}}>{pct}% · € {fmt(totInc)} / {fmt(totProvv)}</div>
+                      </div>);
+                    })()}
                   </td>
                 </tr>
                 {isOpen&&<tr style={{background:"#FAFAF8",boxShadow:"0 2px 8px rgba(168,134,58,0.10)",outline:`0.5px solid ${cfg.clr}55`,outlineOffset:"-0.5px"}}>
