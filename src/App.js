@@ -284,7 +284,7 @@ const SearchBar = React.memo(function SearchBar({value, onChange, placeholder, n
   );
 });
 
-const STATI_INC = { Attivo:{clr:"#27AE60",bg:"#E9F7EF"}, Scaduto:{clr:"#E74C3C",bg:"#FDECEA"}, Venduto:{clr:"#C9A96E",bg:"#FDF6EC"}, Locato:{clr:"#8E44AD",bg:"#F5EEF8"} };
+const STATI_INC = { Attivo:{clr:"#27AE60",bg:"#E9F7EF"}, "In trattativa":{clr:"#2980B9",bg:"#E8F1FB"}, "Accettata con Vincolo":{clr:"#D4AC0D",bg:"#FEF9E7"}, Scaduto:{clr:"#E74C3C",bg:"#FDECEA"}, Venduto:{clr:"#C9A96E",bg:"#FDF6EC"}, Locato:{clr:"#8E44AD",bg:"#F5EEF8"} };
 const STATI_PROP = {
   "In attesa":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa"},
   "In attesa / Vincolata":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa (vincolata)"},
@@ -337,6 +337,30 @@ const calcolaIncassatoV = v => Number(v.acc1V||0)+Number(v.acc2V||0)+Number(v.sa
 const calcolaIncassatoA = v => Number(v.acc1A||0)+Number(v.acc2A||0)+Number(v.saldoA||0);
 const calcolaStatoIncasso = v => { const t=Number(v.provvVenditore||0)+Number(v.provvAcquirente||0); const i=calcolaIncassatoV(v)+calcolaIncassatoA(v); if(i===0)return"Da incassare"; if(i>=t)return"Incassato"; return"Parziale"; };
 const calcolaQuotaAgente = (v,agId) => { let q=0; if(v.agenteListing===agId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100; if(v.agenteAcquirente===agId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100; if(v.buyerListing===agId&&v.agenteListing!==agId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100; if(v.buyer===agId&&v.agenteAcquirente!==agId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100; return q; };
+
+// === SCONTI: provvigione teorica vs reale ===
+// Calcola la provvigione TEORICA per un lato (venditore o acquirente) secondo la regola:
+//   - prezzo <= soglia: MAX(% standard * prezzo, minimo garantito)
+//   - prezzo > soglia: solo % standard * prezzo (minimo non si applica)
+// lato: "vend" | "acq"
+const calcProvvTeorica = (prezzo, lato, provvStandard) => {
+  const ps = provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000};
+  const p = Number(prezzo||0);
+  if(p<=0) return 0;
+  const perc = lato==="vend" ? Number(ps.percVend||0) : Number(ps.percAcq||0);
+  const minimo = lato==="vend" ? Number(ps.minVend||0) : Number(ps.minAcq||0);
+  const soglia = Number(ps.soglia||120000);
+  const teoricaPerc = p * perc / 100;
+  if(p<=soglia) return Math.max(teoricaPerc, minimo);
+  return teoricaPerc;
+};
+// Calcola lo sconto su un lato: teorica - reale (mai negativo per i conteggi sconto)
+const calcScontoLato = (prezzo, provvReale, lato, provvStandard) => {
+  const teorica = calcProvvTeorica(prezzo, lato, provvStandard);
+  const reale = Number(provvReale||0);
+  const sconto = teorica - reale;
+  return { teorica, reale, sconto, percSconto: teorica>0 ? sconto/teorica*100 : 0 };
+};
 
 const VOCI_COSTO = [
   {voce:"Locazione Ufficio",tipo:"fisso"},{voce:"Spese Condominiali",tipo:"fisso"},{voce:"Utenza Elettricita",tipo:"fisso"},
@@ -1415,7 +1439,18 @@ export default function App() {
 
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
-  const statoInc=i=>i.stato==="Venduto"?"Venduto":i.stato==="Locato"?"Locato":isScad(i.scadenza)?"Scaduto":"Attivo";
+  const statoInc=i=>{
+    if(i.stato==="Venduto") return "Venduto";
+    if(i.stato==="Locato") return "Locato";
+    // Stato automatico in base alle proposte collegate non concluse
+    const propColl=proposte.filter(p=>p.incaricoId===i.id&&!p.archiviato);
+    const haVincolo=propColl.some(p=>p.stato==="Accettata con Vincolo");
+    const haAttesa=propColl.some(p=>["In attesa","In attesa / Vincolata","Controproposta"].includes(p.stato));
+    if(haVincolo) return "Accettata con Vincolo";
+    if(haAttesa) return "In trattativa";
+    if(isScad(i.scadenza)) return "Scaduto";
+    return "Attivo";
+  };
 
   // Verifica se un incarico ha proposte bloccanti attive
   const hasPropBloccante = incId => proposte.some(p=>p.incaricoId===incId&&STATI_BLOCCANTI.includes(p.stato));
@@ -1665,8 +1700,30 @@ export default function App() {
       setVenduti([...venduti,nv]);
       if(p.incaricoId)setIncarichi(incarichi.map(i=>i.id===p.incaricoId?{...i,stato:p.categoria==="affitto"?"Locato":"Venduto"}:i));
     }
-    // Vincolo negativo: NON cambia stato, rimane in attesa/vincolata (gestione manuale)
+    // Vincolo NEGATIVO: la proposta decade (Mancata Chiusura), l'incarico torna Attivo libero
+    if(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Negativo"){
+      const updNeg={...upd,stato:"Mancata Chiusura",noteStato:(formStatoProp.noteStato||"")+" [Vincolo non avverato]",storico:[...(p.storico||[]),{stato:"Mancata Chiusura",data:nowISO(),note:"Vincolo "+(p.tipoVincolo||"")+" non avverato"}]};
+      setProposte(proposte.map(x=>x.id===p.id?updNeg:x));
+      // L'incarico torna Attivo (lo stato è comunque calcolato automaticamente da statoInc, ma resetto il flag esplicito)
+      if(p.incaricoId)setIncarichi(incarichi.map(i=>i.id===p.incaricoId&&(i.stato==="Venduto"||i.stato==="Locato")?{...i,stato:"Attivo"}:i));
+      setShowGestProp(null);
+      return;
+    }
     setShowGestProp(null);
+  };
+
+  // Sostituzione di una proposta subordinata (Accettata con Vincolo) con una nuova proposta migliore.
+  // La vecchia subordinata viene marcata "Mancata Chiusura" con nota; si apre il form per la nuova proposta.
+  const sostituisciSubordinata=(propVecchia)=>{
+    if(isReadOnly){alert("Modalità sola lettura");return;}
+    if(!confirm(`Vuoi sostituire la proposta subordinata di ${propVecchia.nomeAcquirente||"questo acquirente"}?\n\nLa proposta attuale verrà archiviata come "Mancata Chiusura" e potrai inserire la nuova proposta.`)) return;
+    // Archivio la vecchia come Mancata Chiusura
+    const updVecchia={...propVecchia,stato:"Mancata Chiusura",noteStato:(propVecchia.noteStato||"")+" [Sostituita da proposta migliore]",storico:[...(propVecchia.storico||[]),{stato:"Mancata Chiusura",data:nowISO(),note:"Sostituita da nuova proposta"}]};
+    setProposte(proposte.map(x=>x.id===propVecchia.id?updVecchia:x));
+    // Apro il form nuova proposta, ereditando i dati dall'incarico
+    const inc=incarichi.find(i=>i.id===propVecchia.incaricoId);
+    setFormProp(emptyProp(propVecchia.categoria, inc));
+    setShowProp("new");
   };
 
   const salvaVend=()=>{ if(isReadOnly){alert("Sola lettura");return;}if(!showGestVend)return;const u={...showGestVend,...formVend};u.statoIncasso=calcolaStatoIncasso(u);setVenduti(venduti.map(v=>v.id===showGestVend.id?u:v));setShowGestVend(null);};
@@ -3347,6 +3404,7 @@ export default function App() {
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Azioni</p>
                         <div style={{display:"flex",flexDirection:"column",gap:6}} onClick={e=>e.stopPropagation()}>
                           {puoGestire&&<button style={{...S.btnP,fontSize:12,padding:"6px"}} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);}}>Gestisci proposta</button>}
+                          {p.stato==="Accettata con Vincolo"&&<button style={{...S.btn,fontSize:12,padding:"6px",borderColor:"#D4AC0D",color:"#A8863A"}} onClick={()=>sostituisciSubordinata(p)}>🔄 Sostituisci con nuova proposta</button>}
                           {p.stato==="Accettata"&&!venduti.find(v=>v.propostaId===p.id)&&<button style={{...S.btnG,fontSize:12,padding:"6px"}} onClick={()=>{const nv=creaVendutoDaProposta(p);setVenduti([...venduti,nv]);setProposte(proposte.map(x=>x.id===p.id?{...x,archiviato:true}:x));}}>✓ Conclusa</button>}
                           {p.note&&<div style={{fontSize:11,color:"#aaa",fontStyle:"italic",marginTop:4}}>{p.note}</div>}
                         </div>
