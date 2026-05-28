@@ -1093,6 +1093,9 @@ export default function App() {
   // To-do list libera di Erica (Back Office): array di {id, testo, fatto, data}
   const [ericaTodo,setEricaTodo]=useState(_ls?.ericaTodo||[]);
   const [ericaTodoInput,setEricaTodoInput]=useState("");
+  // To-do list libera degli agenti: oggetto {agentId: [{id,testo,fatto,data}]}
+  const [agenteTodo,setAgenteTodo]=useState(_ls?.agenteTodo||{});
+  const [agenteTodoInput,setAgenteTodoInput]=useState("");
   const [showNuoviIncBO,setShowNuoviIncBO]=useState(false);
   // Dashboard agente: sezioni collassabili (chiuse di default, coerenza col broker)
   const [showAttesaAg,setShowAttesaAg]=useState(false);
@@ -1167,6 +1170,7 @@ export default function App() {
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.prospetti) setProspetti(Array.isArray(data.prospetti)?data.prospetti:[]);
         if(data.ericaTodo) setEricaTodo(Array.isArray(data.ericaTodo)?data.ericaTodo:[]);
+        if(data.agenteTodo) setAgenteTodo(typeof data.agenteTodo==="object"&&data.agenteTodo?data.agenteTodo:{});
         if(data.costi) setCosti(data.costi);
         if(data.obiettivoFatturato!==undefined) setObiettivoFatturato(data.obiettivoFatturato);
         if(data.obiettivoQuotaAgenzia!==undefined) setObiettivoQuotaAgenzia(data.obiettivoQuotaAgenzia);
@@ -1339,7 +1343,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi};
     salvaLS(payload); // salva anche in locale come backup
     // Popola la ref per il salvataggio manuale immediato (bypass debounce)
     salvaOraManualeRef.current = () => {
@@ -1362,7 +1366,7 @@ export default function App() {
       });
     },800); // debounce 800ms (era 2000ms, ridotto per minimizzare rischio perdita dati)
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,dbLoaded]);
 
 
 
@@ -2292,18 +2296,40 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":sfidaAtt?"1fr 1fr":"1fr 1fr",gap:10}}>
-                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
-                  <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>📅 Prossimi rogiti</p>
-                  {myRog.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
-                  :myRog.map(v=>{const gg=Math.round((toD(v.dataAtto)-oggiD)/86400000);return(<div key={v.id} style={{padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}><div style={{fontSize:12,fontWeight:500}}>{v.comuneImmobile} — {v.indirizzoImmobile}</div><div style={{display:"flex",justifyContent:"space-between",marginTop:2}}><span style={{fontSize:11,color:"#888"}}>{v.nominativoVenditore}</span><span style={{fontSize:11,fontWeight:600,color:gg<=7?"#E74C3C":gg<=15?"#E67E22":"#27AE60"}}>{gg===0?"Oggi!":gg===1?"Domani":gg+" gg"}</span></div></div>);})}
-                </div>
-                <div style={{background:"#fff",borderRadius:10,border:`0.5px solid ${myAl.length>0?"#E74C3C44":"#e8e5e0"}`,padding:"1rem"}}>
-                  <p style={{fontSize:11,fontWeight:600,color:myAl.length>0?"#E74C3C":"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 8px"}}>{myAl.length>0?"⚠ Alert pratiche":"✅ Pratiche"}{myAl.length>0&&<span style={{marginLeft:6,fontSize:10,padding:"1px 6px",borderRadius:3,background:"#FDECEA"}}>{myAl.length}</span>}</p>
-                  {myAl.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Tutto in regola!</p>
-                  :myAl.slice(0,3).map(({inc,al})=>(<div key={inc.id} style={{padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}><div style={{fontSize:12,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#E74C3C",marginTop:2}}>{al[0].lbl}{al.length>1?` +${al.length-1}`:""}</div></div>))}
-                </div>
-              </div></div>);
+
+                {/* TO-DO LIBERA AGENTE (come Erica) */}
+                {(()=>{
+                  const mieTodo=agenteTodo[myAgentId]||[];
+                  const aggTodoAg=()=>{
+                    if(!agenteTodoInput.trim())return;
+                    const nuovo={id:Date.now(),testo:agenteTodoInput.trim(),fatto:false,data:todayStr()};
+                    setAgenteTodo({...agenteTodo,[myAgentId]:[...mieTodo,nuovo]});
+                    setAgenteTodoInput("");
+                  };
+                  const toggleTodoAg=id=>setAgenteTodo({...agenteTodo,[myAgentId]:mieTodo.map(t=>t.id===id?{...t,fatto:!t.fatto}:t)});
+                  const delTodoAg=id=>setAgenteTodo({...agenteTodo,[myAgentId]:mieTodo.filter(t=>t.id!==id)});
+                  return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:10}}>
+                    <div style={{background:"#E1F5EE",padding:"10px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>📝 Le mie cose da fare</span>
+                      <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Promemoria personali (chiamate da fare, materiali, idee...)</p>
+                    </div>
+                    <div style={{padding:"10px 16px"}}>
+                      {mieTodo.length===0&&<p style={{fontSize:12,color:"#bbb",textAlign:"center",margin:"8px 0"}}>Nessuna attività. Aggiungine una qui sotto.</p>}
+                      {mieTodo.map(t=>(
+                        <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"0.5px solid #f0f0f0"}}>
+                          <span onClick={()=>toggleTodoAg(t.id)} style={{fontSize:16,cursor:"pointer",color:t.fatto?"#0F6E56":"#B4B2A9",flexShrink:0}}>{t.fatto?"☑":"☐"}</span>
+                          <span style={{flex:1,fontSize:13,color:t.fatto?"#bbb":BRAND.grigio,textDecoration:t.fatto?"line-through":"none"}}>{t.testo}</span>
+                          <button onClick={()=>delTodoAg(t.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ccc",fontSize:14,padding:"2px 6px"}} title="Elimina">×</button>
+                        </div>
+                      ))}
+                      <div style={{display:"flex",gap:8,paddingTop:10}}>
+                        <input type="text" value={agenteTodoInput} onChange={e=>setAgenteTodoInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")aggTodoAg();}} placeholder="Aggiungi un'attività..." style={{...S.inp,flex:1,fontSize:13}}/>
+                        <button onClick={aggTodoAg} style={{...S.btnP,fontSize:13,padding:"7px 14px"}}>+ Aggiungi</button>
+                      </div>
+                    </div>
+                  </div>);
+                })()}
+                </div>);
             })()}
             {/* ── DASHBOARD BROKER ── */}
             {isBroker&&(<>
