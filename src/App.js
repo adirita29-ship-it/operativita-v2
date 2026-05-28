@@ -1094,6 +1094,9 @@ export default function App() {
   const [ericaTodo,setEricaTodo]=useState(_ls?.ericaTodo||[]);
   const [ericaTodoInput,setEricaTodoInput]=useState("");
   const [showNuoviIncBO,setShowNuoviIncBO]=useState(false);
+  // Dashboard agente: sezioni collassabili (chiuse di default, coerenza col broker)
+  const [showAttesaAg,setShowAttesaAg]=useState(false);
+  const [showVincolateAg,setShowVincolateAg]=useState(false);
   const [showAttesa,setShowAttesa]=useState(false);
   const [showVincolate,setShowVincolate]=useState(false);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
@@ -1992,6 +1995,52 @@ export default function App() {
                   <BF titolo="Totale Maturato" colore={BRAND.oroD} emoji="💰" totale={totMaturato} sub1L="Quota Agente" sub1V={quotaAgente} sub2L="Quota Buyer" sub2V={quotaBuyer} sub3L={annoPrecCalc&&quotaAnnoPrecMaturata>0?`di cui da ${annoPrecCalc}`:undefined} sub3V={quotaAnnoPrecMaturata}/>
                 </div>
 
+                {/* LE MIE ATTIVITÀ SULLE PRATICHE (azioni ruolo agente/entrambi, fase corrente) */}
+                {(()=>{
+                  const fasiAg=fasiConfig||FASI;
+                  const getPrAg=incId=>{const pr=Array.isArray(pratiche)?pratiche.find(p=>p.incaricoId===incId):pratiche[incId];return pr||{fasi:{}};};
+                  const faseCorrenteAg=(incId)=>{const pr=getPrAg(incId);let lastIdx=0;fasiAg.forEach((f,idx)=>{if(Object.values(pr.fasi?.[f.k]||{}).some(a=>a.fatto))lastIdx=idx;});return lastIdx;};
+                  // Pratiche dove l'agente è coinvolto in QUALSIASI ruolo (opzione B)
+                  const mieInc=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&statoInc(i)!=="Venduto"&&(
+                    Number(i.agenteListing)===myAgentId||Number(i.buyerListing)===myAgentId
+                  ));
+                  // Includo anche pratiche dove è acquirente/buyer (dai venduti non ancora rogitati? no: incarichi)
+                  // Per acquirente/buyer guardo le proposte→incarichi collegati. Semplifico: uso incarichi dove è listing o buyerListing.
+                  const attAg=[];
+                  mieInc.forEach(inc=>{
+                    const pr=getPrAg(inc.id);
+                    const fcIdx=faseCorrenteAg(inc.id);
+                    fasiAg.forEach((fase,fIdx)=>{
+                      (fase.azioni||[]).forEach(az=>{
+                        if(az.ruolo!=="agente"&&az.ruolo!=="entrambi") return;
+                        const fatto=pr.fasi?.[fase.k]?.[az.k]?.fatto;
+                        if(fatto) return;
+                        if(fIdx!==fcIdx) return; // solo fase corrente
+                        attAg.push({inc, fase, az, alert:!!az.alert});
+                      });
+                    });
+                  });
+                  attAg.sort((a,b)=>(b.alert?1:0)-(a.alert?1:0));
+                  return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
+                    <div style={{background:"#EEEDFE",padding:"9px 16px",borderBottom:"0.5px solid #e8e5e0"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#3C3489"}}>✅ Le mie attività sulle pratiche</span>
+                      <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>Le tue azioni nella fase attuale di ogni pratica · apri per vedere l'avanzamento completo</p>
+                    </div>
+                    {attAg.length===0?<div style={{padding:"1.25rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna attività in sospeso nelle tue pratiche ✨</div>:
+                    attAg.slice(0,10).map(a=>(
+                      <div key={`${a.inc.id}_${a.fase.k}_${a.az.k}`} onClick={()=>{setTab("Gestione Pratiche");}} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 16px",borderBottom:"0.5px solid #f0f0f0",cursor:"pointer",background:a.alert?"#FCF4E6":"#fff"}}>
+                        <span style={{fontSize:13,flexShrink:0}}>{a.alert?"⚠️":"○"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:12.5,fontWeight:a.alert?600:400}}>{a.az.lbl}</div>
+                          <div style={{fontSize:11,color:"#888"}}>{a.inc.comune} — {a.inc.indirizzo} · {a.fase.timing}</div>
+                        </div>
+                        <span style={{fontSize:11,color:"#3C3489",whiteSpace:"nowrap"}}>Apri →</span>
+                      </div>
+                    ))}
+                    {attAg.length>10&&<div style={{padding:"8px 16px",fontSize:11,color:"#888",textAlign:"center"}}>+ altre {attAg.length-10} attività in Gestione Pratiche</div>}
+                  </div>);
+                })()}
+
                 {/* SOSPESI collassabile */}
                 <div style={{background:"#fff",borderRadius:10,border:"1px solid #E67E2244",overflow:"hidden",marginBottom:"1.25rem"}}>
                   <div style={{background:"#FEF0E0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showSospesiAg?"0.5px solid #E67E2233":"none",cursor:"pointer"}} onClick={()=>setShowSospesiAg(v=>!v)}>
@@ -2022,16 +2071,19 @@ export default function App() {
                   ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna provvigione in sospeso</div>)}
                 </div>
 
-                {/* IN ATTESA / CONTROPROPOSTA — sempre visibile */}
+                {/* IN ATTESA / CONTROPROPOSTA — collassabile */}
                 <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
-                  <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #4A90D933"}}>
+                  <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showAttesaAg?"0.5px solid #4A90D933":"none",cursor:"pointer"}} onClick={()=>setShowAttesaAg(v=>!v)}>
                     <div>
                       <span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Proposte attive in corso di trattativa</span>
                       <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni potenziali su proposte ancora aperte</p>
                     </div>
-                    <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16,whiteSpace:"nowrap"}}>{myPropAttive.length>0?`€ ${fmt(myPropAttive.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontSize:18,fontWeight:700,color:"#2980B9",whiteSpace:"nowrap"}}>{myPropAttive.length>0?`€ ${fmt(myPropAttive.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                      <button style={{background:"none",border:`0.5px solid #4A90D966`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#2980B9",whiteSpace:"nowrap"}}>{showAttesaAg?"▲ Chiudi":`▼ Vedi (${myPropAttive.length})`}</button>
+                    </div>
                   </div>
-                  {myPropAttive.length>0?(
+                  {showAttesaAg&&(myPropAttive.length>0?(
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
                       <thead><tr>{["Ruolo","Stato","Venditore","Acquirente","Immobile","Prezzo","Provv. prevista"].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{myPropAttive.map(p=>{
@@ -2048,19 +2100,22 @@ export default function App() {
                         </tr>);
                       })}</tbody>
                     </table></div>
-                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta in attesa</div>}
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta in attesa</div>)}
                 </div>
 
-                {/* VINCOLATE — sempre visibile */}
+                {/* VINCOLATE — collassabile */}
                 <div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
-                  <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
+                  <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showVincolateAg?"0.5px solid #D4AC0D44":"none",cursor:"pointer"}} onClick={()=>setShowVincolateAg(v=>!v)}>
                     <div>
                       <span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Proposte accettate con vincolo in attesa di esito</span>
                       <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni previste ma non certe: dipendono dall'esito del vincolo</p>
                     </div>
-                    <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",marginLeft:16,whiteSpace:"nowrap"}}>{myPropVincolo.length>0?`€ ${fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",whiteSpace:"nowrap"}}>{myPropVincolo.length>0?`€ ${fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                      <button style={{background:"none",border:`0.5px solid #D4AC0D66`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#A8863A",whiteSpace:"nowrap"}}>{showVincolateAg?"▲ Chiudi":`▼ Vedi (${myPropVincolo.length})`}</button>
+                    </div>
                   </div>
-                  {myPropVincolo.length>0?(
+                  {showVincolateAg&&(myPropVincolo.length>0?(
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:500}}>
                       <thead><tr>{["Ruolo","Venditore","Acquirente","Immobile","Vincolo","Scadenza vincolo","Provv. prevista"].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{myPropVincolo.map(p=>{
@@ -2081,7 +2136,7 @@ export default function App() {
                         <td style={{...S.tdRS,color:"#D4AC0D"}}>€ {fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}</td>
                       </tr></tfoot>
                     </table></div>
-                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>)}
                 </div>
               </>);
             })()}
