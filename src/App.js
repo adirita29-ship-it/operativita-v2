@@ -2483,6 +2483,7 @@ export default function App() {
               const percTot = Math.min(100, Math.round(progressoTot/obiettivoBE*100));
               const raggiunto = progressoInc>=obiettivoBE;
               const mancano = Math.max(0, obiettivoBE-progressoInc);
+              const mancanoNetto = Math.max(0, obiettivoBE-progressoTot);
               return(
                 <div style={{background:"#fff",border:`1.5px solid ${raggiunto?"#27AE60":BRAND.oro}`,borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:8}}>
@@ -2504,9 +2505,13 @@ export default function App() {
                       {percInc>=15&&<span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{percInc}%</span>}
                     </div>
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginTop:8,flexWrap:"wrap",gap:8}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:8,flexWrap:"wrap",gap:8,alignItems:"flex-start"}}>
                     <span style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:raggiunto?"#27AE60":BRAND.oro,marginRight:4,verticalAlign:"middle"}}/>Incassato: <strong>€ {fmt(progressoInc)}</strong> ({percInc}%)</span>
-                    <span style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:`${BRAND.oro}44`,marginRight:4,verticalAlign:"middle"}}/>Con da incassare: <strong>€ {fmt(progressoTot)}</strong> ({percTot}%)</span>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:`${BRAND.oro}44`,marginRight:4,verticalAlign:"middle"}}/>Con da incassare: <strong>€ {fmt(progressoTot)}</strong> ({percTot}%)</div>
+                      {!raggiunto&&mancanoNetto>0&&<div style={{fontSize:11,color:"#E67E22",marginTop:3,fontWeight:500}}>Mancano: <strong>€ {fmt(mancanoNetto)}</strong></div>}
+                      {!raggiunto&&mancanoNetto===0&&progressoTot>0&&<div style={{fontSize:11,color:"#27AE60",marginTop:3,fontWeight:500}}>✓ Break Even raggiunto col maturato!</div>}
+                    </div>
                   </div>
                 </div>
               );
@@ -3519,7 +3524,10 @@ export default function App() {
               </div>
               <button onClick={chiudiBannerVend} title="Chiudi (rileggi in Guida)" style={{background:"none",border:"none",cursor:"pointer",color:"#A8863A",fontSize:18,padding:"0 4px",lineHeight:1,fontWeight:600}}>×</button>
             </div>}
-            <div style={{marginBottom:"1rem"}}><SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/></div>
+            <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:10}}>
+              <SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/>
+              {!showBannerVend&&<button onClick={()=>setShowBannerVend(true)} title="Cosa significa Venduti?" style={{background:"#FAEEDA",border:"0.5px solid #D9A954",borderRadius:"50%",width:22,height:22,display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#A8863A",fontSize:12,fontWeight:700,padding:0}}>ⓘ</button>}
+            </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
               <FiltriVend/>
               <SearchBar value={searchVenduti} onChange={setSearchVenduti} placeholder="Cerca immobile, venditore, acquirente..." nResults={vendFiltrati.length}/>
