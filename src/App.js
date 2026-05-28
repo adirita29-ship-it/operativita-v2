@@ -1245,6 +1245,8 @@ export default function App() {
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
+        if(data.eventi) setEventi(Array.isArray(data.eventi)?data.eventi:[]);
+        if(data.tipiEvento) setTipiEvento(Array.isArray(data.tipiEvento)?data.tipiEvento:["Corso","Evento","Cena","Conferenza","Aperitivo","Altro"]);
       }
       setDbLoaded(true);
     });
@@ -8959,7 +8961,7 @@ export default function App() {
           })()}
 
           {/* ── ONE-TO-ONE ── */}
-          {tab==="One-to-One"&&(isBroker||isBackOffice)&&(<div style={S.sec}>
+          {tab==="One-to-One"&&isBroker&&(<div style={S.sec}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1.25rem",flexWrap:"wrap",gap:8}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🤝 One-to-One — Incontri con gli agenti</h2>
             </div>
