@@ -3211,13 +3211,15 @@ export default function App() {
                     })()}
                   </td>
                   <td style={S.td} onClick={e=>e.stopPropagation()}>
-                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px"}} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
-                      {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button title={mirino[String(inc.id)]?"Nel mirino — clicca per modificare":"Metti nel mirino"} style={{...S.btn,fontSize:12,padding:"4px 8px",borderColor:mirino[String(inc.id)]?"#E74C3C":"#ddd",color:mirino[String(inc.id)]?"#E74C3C":"#aaa",background:mirino[String(inc.id)]?"#FDECEC":"#fff"}} onClick={()=>{setFormMirino({...(mirino[String(inc.id)]||{dataInteresse:todayStr(),followUp:"",note:""})});setShowMirino(inc);}}>🎯</button>}
-                      {!isVenduto&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:BRAND.oroD,borderColor:BRAND.oro}} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>↘</button>}
-                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&<button style={S.btnG} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+ Prop.</button>}
-                      {(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId)&&(!inc.archiviato?<button style={S.btnD} onClick={()=>{if(window.confirm(`Archiviare?`))archiviaInc(inc.id);}}>📦</button>
-                      :<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:"#27AE60"}} onClick={()=>ripristinaInc(inc.id)}>↩</button>)}
+                    <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                      {(()=>{const canEdit=(isBroker||isBackOffice||Number(inc.agenteListing)===myAgentId);const btnStyle=(extra={})=>({display:"inline-flex",alignItems:"center",justifyContent:"center",width:30,height:30,padding:0,fontSize:14,borderRadius:7,border:"0.5px solid #e0ddd5",background:"#fff",cursor:"pointer",transition:"all .12s",...extra});return(<>
+                      {!isVenduto&&!inc.archiviato&&canEdit&&<button title="Modifica incarico" style={btnStyle()} onClick={()=>{setFormInc({...inc,agenteListing:inc.agenteListing||"",buyerListing:inc.buyerListing||""});setShowInc(inc);}}>✏️</button>}
+                      {canEdit&&<button title={mirino[String(inc.id)]?"Nel mirino — modifica":"Metti nel mirino"} style={btnStyle(mirino[String(inc.id)]?{borderColor:"#E74C3C",background:"#FDECEC"}:{})} onClick={()=>{setFormMirino({...(mirino[String(inc.id)]||{dataInteresse:todayStr(),followUp:"",note:""})});setShowMirino(inc);}}>🎯</button>}
+                      {!isVenduto&&!inc.archiviato&&canEdit&&<button title="Registra ribasso di prezzo" style={btnStyle({color:BRAND.oroD,borderColor:BRAND.oro})} onClick={()=>{setShowRibasso(inc);setFormRibasso({data:todayStr(),prezzo:"",note:""});}}>📉</button>}
+                      {!isVenduto&&!hasPropAttiva&&!inc.archiviato&&canEdit&&<button title="Aggiungi proposta" style={btnStyle({color:"#fff",background:"#27AE60",borderColor:"#27AE60",fontSize:18,fontWeight:600})} onClick={()=>{setFormProp(emptyProp(inc.categoria,inc));if(!isReadOnly)setShowProp("new");}}>+</button>}
+                      {canEdit&&(!inc.archiviato?<button title="Archivia incarico" style={btnStyle({color:"#C0392B"})} onClick={()=>{if(window.confirm(`Archiviare l'incarico "${inc.comune} — ${inc.indirizzo}"?`))archiviaInc(inc.id);}}>🗑</button>
+                      :<button title="Ripristina dall'archivio" style={btnStyle({color:"#27AE60"})} onClick={()=>ripristinaInc(inc.id)}>↩</button>)}
+                      </>);})()}
                     </div>
                   </td>
                 </tr>
