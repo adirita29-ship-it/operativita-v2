@@ -2750,7 +2750,7 @@ export default function App() {
                       <p style={{margin:"2px 0 0",fontSize:13,color:"#888"}}>{new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · Il tuo lavoro tiene in ordine tutta l'agenzia</p>
                     </div>
                   </div>
-                  {fraseOggi&&<div style={{background:"#FAEEDA",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#633806",fontStyle:"italic"}}>💬 "{fraseOggi}"</div>}
+                  {fraseOggi&&fraseOggi.t&&<div style={{background:"#FAEEDA",borderRadius:8,padding:"10px 14px",fontSize:13,color:"#633806",fontStyle:"italic"}}>💬 "{fraseOggi.t}"{fraseOggi.a&&<span style={{fontStyle:"normal",opacity:0.7}}> — {fraseOggi.a}</span>}</div>}
                 </div>
 
                 {/* 4 CONTATORI */}
