@@ -4531,7 +4531,7 @@ export default function App() {
 
           {/* ── TAB COSTI ── */}
           {/* ── TAB BREAK EVEN ── */}
-          {tab==="Break Even"&&(isBroker||isBackOffice)&&(<div style={S.sec}>
+          {tab==="Break Even"&&canViewAll&&!isBackOffice&&(<div style={S.sec}>
             <div style={{display:"flex",gap:12,marginBottom:"1.5rem",flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
               <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📉 Break Even — {costiAnno}</h2>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -4837,7 +4837,7 @@ export default function App() {
           </div>)}
 
           {/* ── TAB COSTI — Gestione voci ── */}
-          {tab==="Costi"&&isReadOnly&&(()=>{
+          {tab==="Costi"&&isReadOnly&&!coachIsAgenzia&&(()=>{
             // Vista costi sola lettura per Coach
             const agId=coachIsAgenzia?null:myAgentId;
             const annoSel=annoCorrente;
@@ -4919,7 +4919,7 @@ export default function App() {
               })()}
             </div>);
           })()}
-          {tab==="Costi"&&(isBroker||isBackOffice)&&!isReadOnly&&(()=>{
+          {tab==="Costi"&&canViewAll&&(()=>{
             const annoC=costiAnno||annoCorrente;
             // === LOGICA PREVISIONALE INTELLIGENTE ===
             // 1. Cerco categorie nell'anno selezionato CON ALMENO UNA con totaleAnno > 0
