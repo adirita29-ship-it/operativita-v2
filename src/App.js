@@ -1057,6 +1057,7 @@ export default function App() {
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [showFormSfida,setShowFormSfida]=useState(false);
   const [warSubTab,setWarSubTab]=useState("performance");
+  const [agSubWar,setAgSubWar]=useState("traguardo"); // sotto-tab per la vista agente in War Room: "traguardo" | "eventi"
   const [warOscura,setWarOscura]=useState(false);
   // War Room — Eventi (corsi, cene, conferenze ecc.)
   const [eventi,setEventi]=useState(_ls?.eventi||[]);
@@ -8464,44 +8465,21 @@ export default function App() {
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.25rem",flexWrap:"wrap",gap:8}}>
                   <div>
                     <h2 style={{fontSize:16,fontWeight:600,margin:0}}>🏆 War Room</h2>
-                    <div style={{fontSize:12,color:"#888",marginTop:3}}>{ag.nome} {ag.cognome} · {fmtD(dal2)} → {fmtD(al2)}</div>
+                    <div style={{fontSize:12,color:"#888",marginTop:3}}>Spazio ludico della squadra — traguardi e momenti condivisi</div>
                   </div>
-                  <div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
+                  {agSubWar==="traguardo"&&<div style={{display:"flex",background:"#f0f0f0",borderRadius:7,padding:3,gap:2}}>
                     {[["settimana","Settimana"],["mese","Mese"],["anno","Anno"]].map(([v,l])=>(
                       <button key={v} onClick={()=>setWarPeriodo(v)} style={{padding:"4px 10px",fontSize:11,borderRadius:5,border:"none",background:warPeriodo===v?"#fff":"transparent",color:warPeriodo===v?"#A8863A":"#888",fontWeight:warPeriodo===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:warPeriodo===v?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{l}</button>
                     ))}
-                  </div>
+                  </div>}
                 </div>
-
-                {/* KPI risultati agente — stile bozza */}
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
-                  <div style={MSEC}>
-                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>💰 Fatturato</div>
-                    <div style={{fontSize:22,fontWeight:600,color:"#085041"}}>€ {fmt(mieFatt)}</div>
-                    {percFatt!==null&&<>
-                      <div style={{height:4,background:"#e0e0e0",borderRadius:2,overflow:"hidden",margin:"6px 0 3px"}}>
-                        <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":percFatt>=70?"#E67E22":"#0F6E56",borderRadius:2}}/>
-                      </div>
-                      <div style={{fontSize:10,color:"#3B6D11"}}>{percFatt}% — obj € {fmt(obFatt)}</div>
-                    </>}
-                  </div>
-                  <div style={MSEC}>
-                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>🏠 Acquisizioni</div>
-                    <div style={{fontSize:22,fontWeight:600,color:"#185FA5"}}>{mieAcq}</div>
-                    <div style={{fontSize:10,color:"#888",marginTop:6}}>nel periodo</div>
-                  </div>
-                  <div style={MSEC}>
-                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>📞 Chiamate</div>
-                    <div style={{fontSize:22,fontWeight:600,color:"#533AB7"}}>{mieCh}</div>
-                    <div style={{fontSize:10,color:"#888",marginTop:6}}>di cui {mieCi} CI</div>
-                  </div>
-                  <div style={MSEC}>
-                    <div style={{fontSize:11,color:"#888",marginBottom:6}}>🤝 Appuntamenti</div>
-                    <div style={{fontSize:22,fontWeight:600,color:"#854F0B"}}>{mieAppt}</div>
-                    <div style={{fontSize:10,color:"#888",marginTop:6}}>acquisizione</div>
-                  </div>
+                {/* Sotto-tab navigator vista agente */}
+                <div style={{display:"flex",gap:0,borderBottom:"2px solid #e8e5e0",marginBottom:"1.25rem"}}>
+                  {[["traguardo","🏆 Traguardo Volante"],["eventi","📅 Eventi"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setAgSubWar(v)} style={{padding:"8px 18px",fontSize:13,border:"none",background:"none",borderBottom:`2px solid ${agSubWar===v?"#A8863A":"transparent"}`,color:agSubWar===v?"#A8863A":"#888",fontWeight:agSubWar===v?600:400,cursor:"pointer",fontFamily:"inherit",marginBottom:-2}}>{l}</button>
+                  ))}
                 </div>
-
+                {agSubWar==="traguardo"&&<>
                 {/* Traguardo volante agente */}
                 {sfidaAtt2&&<div style={{background:"linear-gradient(135deg,#FAEEDA,#FDF6EC)",border:"0.5px solid #D4AC0D44",borderRadius:10,padding:"1rem",marginBottom:"1rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10,flexWrap:"wrap",gap:6}}>
@@ -8539,44 +8517,77 @@ export default function App() {
                   </div>
                 </div>}
 
-                {/* Attività di processo agente */}
-                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
-                  <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                    <div style={{width:4,height:14,borderRadius:2,background:"#533AB7"}}/>Attività di processo
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
-                    {[["📞 Chiamate tot.",mieCh,"#533AB7"],["👥 C.Influenza",mieCi,"#185FA5"],["📄 Volantini",mieVol,"#854F0B"],["📱 Social",mieSocial,"#3C3489"],["⏱ Ore tel.",`${mieOreT}h`,"#888"],["🏠 Visitati",mieVisit,"#0F6E56"],["🚪 OH",mieOH,"#D85A30"],["🤝 Appt.",mieAppt,"#A8863A"]].map(([lbl,val,clr])=>(
-                      <div key={lbl} style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px",textAlign:"center"}}>
-                        <div style={{fontSize:10,color:"#888",marginBottom:5}}>{lbl}</div>
-                        <div style={{fontSize:18,fontWeight:600,color:clr}}>{val}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {!sfidaAtt2&&<div style={{background:"#fff",border:"0.5px dashed #ddd",borderRadius:10,padding:"2rem",textAlign:"center",color:"#aaa",fontSize:13}}>
+                  Nessun traguardo volante attivo al momento. Il Broker può crearne uno per dare un obiettivo alla squadra! 🎯
+                </div>}
+                </>}
 
-                {/* Fonti incarichi agente */}
-                {(()=>{
-                  const mieInc=incarichi.filter(i=>i.agenteListing===myAgentId&&i.dataInizio>=dal2&&i.dataInizio<=al2);
-                  const byFonte=mieInc.reduce((acc,i)=>{const f=i.fonte||"Altro";acc[f]=(acc[f]||0)+1;return acc;},{});
-                  const sorted=Object.entries(byFonte).sort((a,b)=>b[1]-a[1]);
-                  if(sorted.length===0)return null;
-                  const totF=mieInc.length;
-                  return(<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
-                    <div style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
-                      <div style={{width:4,height:14,borderRadius:2,background:"#185FA5"}}/>Fonti incarichi nel periodo
-                    </div>
-                    {sorted.map(([f,n])=>(
-                      <div key={f} style={{marginBottom:10}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                          <span style={{fontSize:12,fontWeight:500}}>{f}</span>
-                          <span style={{fontSize:12,fontWeight:600,color:"#185FA5"}}>{n} <span style={{color:"#aaa",fontWeight:400}}>({Math.round(n/totF*100)}%)</span></span>
-                        </div>
-                        <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
-                          <div style={{height:"100%",width:`${Math.round(n/totF*100)}%`,background:"#185FA5",borderRadius:3}}/>
-                        </div>
+                {agSubWar==="eventi"&&(()=>{
+                  // Vista eventi per agente: storia condivisa della squadra in sola lettura
+                  const annoAtt=String(annoCorrente);
+                  const evtAnno=eventi.filter(e=>(e.data||"").startsWith(annoAtt));
+                  const totEvt=evtAnno.length;
+                  const totPart=evtAnno.reduce((s,e)=>s+((e.partecipanti||[]).length),0);
+                  const miePart=evtAnno.filter(e=>(e.partecipanti||[]).includes(myAgentId)).length;
+                  const evtOrd=[...eventi].sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+                  const tipoColore={"Corso":"#2980B9","Evento":"#E67E22","Cena":"#D85A30","Conferenza":"#8E44AD","Aperitivo":"#16A085","Altro":"#888"};
+                  const tipoBg={"Corso":"#E8F1FB","Evento":"#FEF0E0","Cena":"#FAECE7","Conferenza":"#F5EEF8","Aperitivo":"#E1F5EE","Altro":"#f0f0f0"};
+                  const tipoIcona={"Corso":"📚","Evento":"🌐","Cena":"🍽","Conferenza":"🎤","Aperitivo":"🥂","Altro":"📌"};
+                  const MESI_ABBR=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
+                  return(<>
+                    <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+                      <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",minWidth:120,borderTop:"3px solid #2980B9"}}>
+                        <div style={{fontSize:22,fontWeight:600,color:"#2980B9",lineHeight:1,marginBottom:4}}>{totEvt}</div>
+                        <div style={{fontSize:11,color:"#888"}}>Eventi della squadra {annoAtt}</div>
                       </div>
-                    ))}
-                  </div>);
+                      <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",minWidth:140,borderTop:"3px solid #27AE60"}}>
+                        <div style={{fontSize:22,fontWeight:600,color:"#27AE60",lineHeight:1,marginBottom:4}}>{miePart}</div>
+                        <div style={{fontSize:11,color:"#888"}}>A cui hai partecipato</div>
+                      </div>
+                      <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",minWidth:140,borderTop:"3px solid #C9A96E"}}>
+                        <div style={{fontSize:22,fontWeight:600,color:"#A8863A",lineHeight:1,marginBottom:4}}>{totPart}</div>
+                        <div style={{fontSize:11,color:"#888"}}>Partecipazioni totali team</div>
+                      </div>
+                    </div>
+                    {evtOrd.length===0?(
+                      <div style={{background:"#fff",borderRadius:10,border:"0.5px dashed #ddd",padding:"2rem",textAlign:"center",color:"#aaa",fontSize:13}}>
+                        Nessun evento ancora registrato. Il Broker o il Back Office aggiungono qui i corsi, eventi e momenti della squadra.
+                      </div>
+                    ):(<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {evtOrd.map(e=>{
+                        const clr=tipoColore[e.tipo]||"#888";
+                        const bg=tipoBg[e.tipo]||"#f0f0f0";
+                        const ico=tipoIcona[e.tipo]||"📌";
+                        const dd=e.data?new Date(e.data):null;
+                        const dGiorno=dd?String(dd.getDate()).padStart(2,"0"):"--";
+                        const dMese=dd?MESI_ABBR[dd.getMonth()]:"---";
+                        const part=(e.partecipanti||[]).map(pid=>agenti.find(a=>a.id===Number(pid))).filter(Boolean);
+                        const cero=(e.partecipanti||[]).includes(myAgentId);
+                        return(<div key={e.id} style={{background:cero?"#FDF6EC":"#fff",border:"0.5px solid #e8e5e0",borderLeft:`4px solid ${clr}`,borderRadius:8,padding:"12px 14px",display:"grid",gridTemplateColumns:"60px 1fr auto",gap:14,alignItems:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                          <div style={{textAlign:"center"}}>
+                            <div style={{fontSize:22,fontWeight:500,color:"#2C2C2C",lineHeight:1}}>{dGiorno}</div>
+                            <div style={{fontSize:10.5,color:"#888",textTransform:"uppercase",letterSpacing:".04em",marginTop:2}}>{dMese}</div>
+                          </div>
+                          <div style={{minWidth:0}}>
+                            <div style={{fontSize:14,fontWeight:500,color:"#2C2C2C",marginBottom:3}}>{e.titolo||"(senza titolo)"}{cero&&<span style={{fontSize:10,marginLeft:8,padding:"1px 6px",borderRadius:4,background:"#FDF6EC",color:"#A8863A",fontWeight:600,border:"0.5px solid #C9A96E55"}}>✓ Tu c'eri</span>}</div>
+                            <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:11.5,color:"#888"}}>
+                              <span style={{display:"inline-block",fontSize:10,padding:"2px 7px",borderRadius:4,fontWeight:500,background:bg,color:clr}}>{ico} {e.tipo}</span>
+                              {e.luogo&&<span>📍 {e.luogo}</span>}
+                              {e.link&&<a href={e.link} target="_blank" rel="noreferrer" style={{color:"#2980B9",textDecoration:"none"}}>🔗 link</a>}
+                            </div>
+                            {e.note&&<div style={{fontSize:11,color:"#aaa",marginTop:4,fontStyle:"italic"}}>{e.note.length>120?e.note.slice(0,120)+"…":e.note}</div>}
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:11,color:"#888",marginBottom:4}}>{part.length} {part.length===1?"partecipante":"partecipanti"}</div>
+                            <div style={{display:"flex",gap:3,justifyContent:"flex-end",flexWrap:"wrap"}}>
+                              {part.slice(0,5).map((ag,i)=>(<span key={i} title={`${ag.nome} ${ag.cognome}`} style={{width:22,height:22,borderRadius:"50%",background:ag.id===myAgentId?"#A8863A":["#2980B9","#27AE60","#E67E22","#8E44AD","#C9A96E"][i%5],color:"#fff",fontSize:10,fontWeight:600,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{ag.nome[0]}{ag.cognome[0]}</span>))}
+                              {part.length>5&&<span style={{fontSize:10,color:"#888",alignSelf:"center"}}>+{part.length-5}</span>}
+                            </div>
+                          </div>
+                        </div>);
+                      })}
+                    </div>)}
+                  </>);
                 })()}
 
               </div>);
