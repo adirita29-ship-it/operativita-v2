@@ -3520,9 +3520,9 @@ export default function App() {
             {showBannerVend&&<div style={{background:"#FAEEDA",border:"0.5px solid #D9A954",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",display:"flex",alignItems:"flex-start",gap:10}}>
               <span style={{fontSize:18,flexShrink:0}}>💡</span>
               <div style={{flex:1,fontSize:12.5,color:"#633806",lineHeight:1.5}}>
-                <strong>Cosa significa "Venduti"</strong> — Sono gli affari <strong>conclusi commercialmente</strong> (proposta accettata e/o preliminare firmato), <strong>non necessariamente rogitati</strong>. È in questo momento che la <strong>provvigione viene maturata</strong> ed entra nella tua produzione, anche se l'incasso e il rogito possono avvenire mesi dopo.
+                <strong>Cosa significa "Venduti"</strong> — Sono gli affari <strong>conclusi commercialmente</strong>: proposte accettate, proposte subordinate con clausola avverata (mutuo ok, ecc.), e preliminari firmati. <strong>Non significano necessariamente "rogitati"</strong>. È in questi momenti che la <strong>provvigione viene maturata</strong> ed entra nella tua produzione, anche se l'incasso e il rogito possono avvenire mesi dopo.
               </div>
-              <button onClick={chiudiBannerVend} title="Chiudi (rileggi in Guida)" style={{background:"none",border:"none",cursor:"pointer",color:"#A8863A",fontSize:18,padding:"0 4px",lineHeight:1,fontWeight:600}}>×</button>
+              <button onClick={chiudiBannerVend} title="Chiudi (puoi riaprirlo con ⓘ)" style={{background:"none",border:"none",cursor:"pointer",color:"#A8863A",fontSize:18,padding:"0 4px",lineHeight:1,fontWeight:600}}>×</button>
             </div>}
             <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:10}}>
               <SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/>
