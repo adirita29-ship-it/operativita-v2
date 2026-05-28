@@ -1090,6 +1090,8 @@ export default function App() {
   const [statFunnelPeriodo,setStatFunnelPeriodo]=useState("mese"); // Funnel: mese/trimestre/anno/tutto
   const [statShowSconti,setStatShowSconti]=useState(false);
   const [showSospesi,setShowSospesi]=useState(false);
+  const [showAttesa,setShowAttesa]=useState(true);
+  const [showVincolate,setShowVincolate]=useState(true);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
   const [mioRepAnno,setMioRepAnno]=useState(annoCorrente);
   const [mioRepMese,setMioRepMese]=useState("Tutti");
@@ -2243,9 +2245,67 @@ export default function App() {
                 </div>
               </div></div>);
             })()}
-            {/* ── DASHBOARD BROKER (invariata) ── */}
+            {/* ── DASHBOARD BROKER ── */}
             {(isBroker||isBackOffice)&&(<>
-            <div style={S.fRow}><Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel></div>
+            {/* HEADER BROKER */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:"1.25rem",padding:"1rem 1.25rem",background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>🏠</div>
+                <div>
+                  <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 2px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>{isBackOffice?"Back Office":"Broker"}</p>
+                  <h2 style={{margin:0,fontSize:18,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>Càsa Immobiliare Varese</h2>
+                  <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>La tua agenzia oggi · {new Date().toLocaleDateString("it-IT",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+                </div>
+              </div>
+              <Sel value={dashAnno} onChange={setDashAnno}><option value="Tutti">Tutti gli anni</option>{[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}</Sel>
+            </div>
+
+            {/* BARRA OBIETTIVO BREAK EVEN */}
+            {(()=>{
+              const annoBE = dashAnno==="Tutti" ? String(annoCorrente) : dashAnno;
+              const obiettivoBE = Number((breakEvenManuale||{})[annoBE]||0);
+              if(obiettivoBE<=0) return(
+                <div style={{background:"#FDFBF7",border:`1px dashed ${BRAND.oro}66`,borderRadius:10,padding:"12px 16px",marginBottom:"1.25rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                  <span style={{fontSize:12,color:"#888"}}>💡 Imposta il tuo <strong>Punto di Break Even {annoBE}</strong> per vedere qui la barra di avanzamento verso la copertura dei costi.</span>
+                  <button onClick={()=>setTab("Break Even")} style={{...S.btn,fontSize:11,padding:"5px 14px",borderColor:BRAND.oro,color:BRAND.oroD}}>Vai a Break Even →</button>
+                </div>
+              );
+              // Progresso = quota agenzia incassata (criterio cassa: i soldi davvero entrati)
+              const progressoInc = qAgenziaInc;
+              const progressoTot = qAgenziaInc + qAgenziaRes;
+              const percInc = Math.min(100, Math.round(progressoInc/obiettivoBE*100));
+              const percTot = Math.min(100, Math.round(progressoTot/obiettivoBE*100));
+              const raggiunto = progressoInc>=obiettivoBE;
+              const mancano = Math.max(0, obiettivoBE-progressoInc);
+              return(
+                <div style={{background:"#fff",border:`1.5px solid ${raggiunto?"#27AE60":BRAND.oro}`,borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                    <div>
+                      <p style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:raggiunto?"#27AE60":BRAND.oroD,margin:"0 0 2px"}}>🎯 Obiettivo Break Even {annoBE}</p>
+                      <p style={{margin:0,fontSize:13,color:"#888"}}>Quota agenzia necessaria per coprire i costi: <strong style={{color:BRAND.grigio}}>€ {fmt(obiettivoBE)}</strong></p>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      {raggiunto?<span style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>✓ Break Even raggiunto!</span>
+                        :<><span style={{fontSize:11,color:"#aaa"}}>Mancano</span><div style={{fontSize:18,fontWeight:700,color:"#E67E22"}}>€ {fmt(mancano)}</div></>}
+                    </div>
+                  </div>
+                  {/* Barra di avanzamento a doppio livello */}
+                  <div style={{position:"relative",height:24,background:"#f0ede6",borderRadius:12,overflow:"hidden"}}>
+                    {/* Totale (incassato + da incassare) - più chiaro */}
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percTot}%`,background:`${BRAND.oro}44`,transition:"width .5s"}}/>
+                    {/* Incassato - pieno */}
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percInc}%`,background:raggiunto?"#27AE60":BRAND.oro,transition:"width .5s",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:8}}>
+                      {percInc>=15&&<span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{percInc}%</span>}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:8,flexWrap:"wrap",gap:8}}>
+                    <span style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:raggiunto?"#27AE60":BRAND.oro,marginRight:4,verticalAlign:"middle"}}/>Incassato: <strong>€ {fmt(progressoInc)}</strong> ({percInc}%)</span>
+                    <span style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:`${BRAND.oro}44`,marginRight:4,verticalAlign:"middle"}}/>Con da incassare: <strong>€ {fmt(progressoTot)}</strong> ({percTot}%)</span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
               <div style={S.card(STATI_INC.Attivo.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi attivi</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Attivo.clr}}>{dashInc.filter(i=>statoInc(i)==="Attivo").length}</p></div>
               <div style={S.card(STATI_INC.Scaduto.clr)}><p style={{fontSize:12,color:"#888",margin:"0 0 4px"}}>Incarichi scaduti</p><p style={{fontSize:28,fontWeight:600,margin:0,color:STATI_INC.Scaduto.clr}}>{dashInc.filter(i=>statoInc(i)==="Scaduto").length}</p></div>
@@ -2270,6 +2330,55 @@ export default function App() {
               <BloccoFin titolo="DA INCASSARE" colore="#E67E22" emoji="⏳" totale={dashDaIncassare} qAgenzia={qAgenziaRes} qAgenti={qAgRes} qBuyer={qBuyRes}/>
               <BloccoFin titolo="TOTALE FATTURATO" colore={BRAND.oroD} emoji="💰" totale={dashIncassato+dashDaIncassare} qAgenzia={qAgenziaInc+qAgenziaRes} qAgenti={qAgInc+qAgRes} qBuyer={qBuyInc+qBuyRes}/>
             </div>
+
+            {/* ANDAMENTO MENSILE FATTURATO */}
+            {dashAnno!=="Tutti"&&(()=>{
+              const MESI_LBL=["Gen","Feb","Mar","Apr","Mag","Giu","Lug","Ago","Set","Ott","Nov","Dic"];
+              // Provvigione agenzia totale (pV+pA) per mese dell'anno selezionato
+              const perMese=Array(12).fill(0);
+              venduti.filter(v=>v.categoria==="vendita"&&getAnno(dataCompAgenzia(v))===dashAnno).forEach(v=>{
+                const m=getMese(dataCompAgenzia(v));
+                if(!m) return;
+                const idx=parseInt(m.split("-")[1],10)-1;
+                if(idx<0||idx>11) return;
+                perMese[idx]+=Number(v.provvVenditore||0)+Number(v.provvAcquirente||0);
+              });
+              const maxVal=Math.max(...perMese,1);
+              const totAnno=perMese.reduce((s,x)=>s+x,0);
+              const meseCorr=Number(dashAnno)===annoCorrente?new Date().getMonth():11;
+              // Trimestri
+              const trim=[0,1,2,3].map(t=>perMese.slice(t*3,t*3+3).reduce((s,x)=>s+x,0));
+              if(totAnno===0) return null;
+              return(
+                <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+                    <p style={{margin:0,fontSize:13,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📈 Andamento provvigione agenzia {dashAnno}</p>
+                    <span style={{fontSize:12,color:"#888"}}>Totale: <strong style={{color:BRAND.oroD}}>€ {fmt(totAnno)}</strong></span>
+                  </div>
+                  {/* Barre mensili */}
+                  <div style={{display:"flex",alignItems:"flex-end",gap:isMobile?2:6,height:120,marginBottom:8}}>
+                    {perMese.map((val,i)=>{
+                      const h=Math.round(val/maxVal*100);
+                      const isFuturo=Number(dashAnno)===annoCorrente&&i>meseCorr;
+                      return(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%"}}>
+                        <div style={{fontSize:9,color:"#aaa",marginBottom:3,whiteSpace:"nowrap",opacity:val>0?1:0}}>{val>=1000?`${Math.round(val/1000)}k`:val>0?Math.round(val):""}</div>
+                        <div title={`${MESI_LBL[i]}: € ${fmt(val)}`} style={{width:"100%",maxWidth:36,height:`${Math.max(h,val>0?4:0)}%`,minHeight:val>0?4:0,background:isFuturo?"#f0ede6":`linear-gradient(180deg,${BRAND.oro},${BRAND.oroD})`,borderRadius:"4px 4px 0 0",transition:"height .4s"}}/>
+                      </div>);
+                    })}
+                  </div>
+                  <div style={{display:"flex",gap:isMobile?2:6}}>
+                    {MESI_LBL.map((m,i)=><div key={i} style={{flex:1,textAlign:"center",fontSize:9,color:Number(dashAnno)===annoCorrente&&i===meseCorr?BRAND.oroD:"#aaa",fontWeight:Number(dashAnno)===annoCorrente&&i===meseCorr?700:400}}>{m}</div>)}
+                  </div>
+                  {/* Riepilogo trimestri */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:14,paddingTop:12,borderTop:"0.5px solid #f0f0f0"}}>
+                    {trim.map((val,i)=>(<div key={i} style={{textAlign:"center"}}>
+                      <p style={{margin:"0 0 2px",fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:".04em"}}>{i+1}° Trim</p>
+                      <p style={{margin:0,fontSize:14,fontWeight:700,color:val>0?BRAND.grigio:"#ccc",fontFamily:"Georgia,serif"}}>{val>0?`€ ${fmt(Math.round(val))}`:"—"}</p>
+                    </div>))}
+                  </div>
+                </div>
+              );
+            })()}
             {/* SOSPESI */}
             {(()=>{
               const sospesi=venduti.filter(v=>{
@@ -2325,11 +2434,14 @@ export default function App() {
               const totAttesa=propAttesa.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
               return(
                 <div style={{background:"#fff",borderRadius:10,border:"1px solid #4A90D955",overflow:"hidden",marginBottom:"1.25rem"}}>
-                  <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #4A90D933"}}>
+                  <div style={{background:"#E8F1FB",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showAttesa?"0.5px solid #4A90D933":"none",cursor:"pointer"}} onClick={()=>setShowAttesa(v=>!v)}>
                     <div><span style={{fontSize:13,fontWeight:600,color:"#2980B9"}}>🔵 IN ATTESA / CONTROPROPOSTA — Proposte attive in corso di trattativa</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni potenziali su proposte ancora aperte</p></div>
-                    <span style={{fontSize:18,fontWeight:700,color:"#2980B9",marginLeft:16,whiteSpace:"nowrap"}}>{propAttesa.length>0?`€ ${fmt(totAttesa)}`:"—"}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <span style={{fontSize:18,fontWeight:700,color:"#2980B9",whiteSpace:"nowrap"}}>{propAttesa.length>0?`€ ${fmt(totAttesa)}`:"—"}</span>
+                      <button style={{background:"none",border:`0.5px solid #4A90D966`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#2980B9",whiteSpace:"nowrap"}}>{showAttesa?"▲ Chiudi":`▼ Vedi (${propAttesa.length})`}</button>
+                    </div>
                   </div>
-                  {propAttesa.length>0?(
+                  {showAttesa&&(propAttesa.length>0?(
                     <table style={{width:"100%",borderCollapse:"collapse"}}>
                       <thead><tr>{["Stato","Venditore","Acquirente","Immobile","Prezzo offerto","Provv. prevista","Agente Acq.",""].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                       <tbody>{propAttesa.map(p=>{
@@ -2351,18 +2463,21 @@ export default function App() {
                         <td colSpan={2} style={S.tdS}/>
                       </tr></tfoot>
                     </table>
-                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta in attesa</div>}
+                  ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta in attesa</div>)}
                 </div>
               );
             })()}
 
             {/* VINCOLATE */}
             <div style={{background:"#fff",borderRadius:10,border:"1px solid #D4AC0D55",overflow:"hidden",marginBottom:"1.25rem"}}>
-              <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid #D4AC0D44"}}>
+              <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showVincolate?"0.5px solid #D4AC0D44":"none",cursor:"pointer"}} onClick={()=>setShowVincolate(v=>!v)}>
                 <div><span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Proposte accettate con vincolo in attesa di esito</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni previste ma non certe: dipendono dall'esito del vincolo</p></div>
-                <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",marginLeft:16,whiteSpace:"nowrap"}}>{propVincolo.length>0?`€ ${fmt(dashSospeso)}`:"—"}</span>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",whiteSpace:"nowrap"}}>{propVincolo.length>0?`€ ${fmt(dashSospeso)}`:"—"}</span>
+                  <button style={{background:"none",border:`0.5px solid #D4AC0D66`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#A8863A",whiteSpace:"nowrap"}}>{showVincolate?"▲ Chiudi":`▼ Vedi (${propVincolo.length})`}</button>
+                </div>
               </div>
-              {propVincolo.length>0?(
+              {showVincolate&&(propVincolo.length>0?(
                 <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr>{["Venditore","Acquirente","Immobile","Vincolo","Scadenza vincolo","Provv. prevista",""].map(h=><th key={h} style={S.thS}>{h}</th>)}</tr></thead>
                   <tbody>{propVincolo.map(p=>(
@@ -2382,7 +2497,7 @@ export default function App() {
                     <td style={{...S.tdRS,color:"#27AE60",fontSize:11}}>Quota ag.: € {fmt(dashSospesoQuotaAg)}</td>
                   </tr></tfoot>
                 </table>
-              ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>}
+              ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>)}
             </div>
             {(isBroker||isBackOffice)&&(()=>{
               const oggiD=new Date();oggiD.setHours(0,0,0,0);
@@ -2533,7 +2648,8 @@ export default function App() {
                   </div>
                 </div>);
               })()}
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+              {/* Prossimi rogiti + Alert pratiche: solo per Back Office (Erica), non per il Broker */}
+              {isBackOffice&&<div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
                 <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem"}}>
                   <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".08em",margin:"0 0 10px"}}>📅 Prossimi rogiti — 30 giorni</p>
                   {prossimiR.length===0?<p style={{fontSize:12,color:"#bbb",textAlign:"center"}}>Nessun rogito nei prossimi 30 giorni</p>
@@ -2550,7 +2666,7 @@ export default function App() {
                     <div style={{fontSize:11,color:"#E74C3C"}}>{al[0].lbl}{al.length>1?` +${al.length-1}`:""}</div>
                   </div>))}
                 </div>
-              </div></div>);
+              </div>}</div>);
             })()}
             </>)}
           </div>)}
