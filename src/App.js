@@ -1094,8 +1094,8 @@ export default function App() {
   const [ericaTodo,setEricaTodo]=useState(_ls?.ericaTodo||[]);
   const [ericaTodoInput,setEricaTodoInput]=useState("");
   const [showNuoviIncBO,setShowNuoviIncBO]=useState(false);
-  const [showAttesa,setShowAttesa]=useState(true);
-  const [showVincolate,setShowVincolate]=useState(true);
+  const [showAttesa,setShowAttesa]=useState(false);
+  const [showVincolate,setShowVincolate]=useState(false);
   const [showSospesiAg,setShowSospesiAg]=useState(false);
   const [mioRepAnno,setMioRepAnno]=useState(annoCorrente);
   const [mioRepMese,setMioRepMese]=useState("Tutti");
