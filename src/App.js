@@ -3337,7 +3337,7 @@ export default function App() {
               <SearchBar value={searchProposte} onChange={setSearchProposte} placeholder="Cerca immobile, venditore, acquirente..." nResults={propFiltrate.length}/>
             </div>
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
-            <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:0}}>
+            <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh",background:"transparent",border:"none"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:"0 8px"}}>
               <thead><tr>
                 <th style={{...S.th,minWidth:110,background:"#fafaf8",position:"sticky",top:0,zIndex:2}}>Stato</th>
                 <th style={{...S.th,minWidth:160,position:"sticky",top:0,zIndex:2}}>Immobile / Parti</th>
@@ -3353,10 +3353,10 @@ export default function App() {
                 const puoGestire=!["Rifiutata","Mancata Chiusura","Accettata"].includes(p.stato);
                 const isOpenProp=rowOpen===`prop_${p.id}`;
                 return(<React.Fragment key={p.id}>
-                <tr style={{borderLeft:`4px solid ${cfg.clr}`,borderBottom:isOpenProp?"none":"0.5px solid #f5f5f5",cursor:"pointer",background:isOpenProp?"#FDFBF7":"#fff",transition:"background .15s"}}
+                <tr style={{cursor:"pointer",background:isOpenProp?"#FDFBF7":"#fff",transition:"background .15s,box-shadow .15s",boxShadow:isOpenProp?"0 2px 8px rgba(168,134,58,0.15)":"0 1px 3px rgba(0,0,0,0.06)",outline:`0.5px solid ${isOpenProp?cfg.clr+"55":"#e8e5e0"}`,outlineOffset:"-0.5px"}}
                   onClick={()=>setRowOpen(isOpenProp?null:`prop_${p.id}`)}>
                   {/* Stato */}
-                  <td style={{padding:"12px 12px",verticalAlign:"middle"}}>
+                  <td style={{padding:"12px 12px",verticalAlign:"middle",borderLeft:`4px solid ${cfg.clr}`,borderTopLeftRadius:8,borderBottomLeftRadius:isOpenProp?0:8}}>
                     <span style={{display:"inline-flex",fontSize:12,padding:"4px 10px",borderRadius:5,background:`${cfg.clr}18`,color:cfg.clr,fontWeight:600,border:`0.5px solid ${cfg.clr}44`,whiteSpace:"nowrap",marginBottom:3}}>{cfg.s} {p.stato}</span>
                     <div><span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:p.tipo==="da_incarico"?"#EAF4FB":"#FEF0E0",color:p.tipo==="da_incarico"?"#2980B9":"#E67E22"}}>{p.tipo==="da_incarico"?"Incarico":"Collab."}</span></div>
                   </td>
@@ -3407,7 +3407,7 @@ export default function App() {
                     <div style={{fontSize:12}}>{fmtD(p.dataStato)}</div>
                     {p.dataAccettazione&&<div style={{fontSize:10,color:"#27AE60",marginTop:2}}>Acc: {fmtD(p.dataAccettazione)}</div>}
                   </td>
-                  <td style={S.td}>
+                  <td style={{...S.td,borderTopRightRadius:8,borderBottomRightRadius:isOpenProp?0:8}}>
                     <div style={{display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
                       {puoGestire&&<button style={S.btnP} onClick={()=>{setFormStatoProp({stato:p.stato,noteStato:"",contropropostaPrezzo:"",esitoVincolo:"",tipoNegazione:"",rispostaAcquirente:"",dataAccettazione:p.dataAccettazione||"",dataEsitoVincolo:""});setShowGestProp(p);}}>Gestisci</button>}
                       {!puoGestire&&["Accettata","Accettata con Vincolo"].includes(p.stato)&&<span style={{fontSize:12,padding:"3px 10px",borderRadius:6,background:"#E9F7EF",color:"#27AE60",fontWeight:600,border:"0.5px solid #27AE6044"}}>✓ Conclusa</span>}
@@ -3418,8 +3418,8 @@ export default function App() {
                   </td>
                 </tr>
                 {/* ACCORDION PROPOSTE */}
-                {isOpenProp&&<tr style={{background:"#FAFAF8",borderBottom:"1px solid #e8e5e0",borderLeft:`4px solid ${cfg.clr}`}}>
-                  <td colSpan={8} style={{padding:"0 14px 14px"}}>
+                {isOpenProp&&<tr style={{background:"#FAFAF8",boxShadow:"0 2px 8px rgba(168,134,58,0.10)",outline:`0.5px solid ${cfg.clr}55`,outlineOffset:"-0.5px"}}>
+                  <td colSpan={8} style={{padding:"0 14px 14px",borderLeft:`4px solid ${cfg.clr}`,borderRadius:"0 0 8px 8px"}}>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio proposta</p>
