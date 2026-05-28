@@ -1518,7 +1518,7 @@ export default function App() {
   const propFiltrate=useMemo(()=>proposte.filter(p=>{
     if(p.categoria!==subProp) return false;
     // Agente vede solo le proprie proposte
-    if(!isBroker&&!isBackOffice&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId) return false;
+    if(!canViewAll&&!isBackOffice&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId) return false;
     if(fPropStato!=="Tutti"&&p.stato!==fPropStato) return false;
     if(fPropAnno!=="Tutti"&&getAnno(p.dataStato)!==fPropAnno) return false;
     if(fPropMese!=="Tutti"&&getMese(p.dataStato)!==fPropMese) return false;
@@ -1533,7 +1533,7 @@ export default function App() {
   const vendFiltrati=useMemo(()=>venduti.filter(v=>{
     if(v.categoria!==subVend) return false;
     // Agente vede solo i propri venduti
-    if(!isBroker&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
+    if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
     const stato=calcolaStatoIncasso(v);
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
     if(fVendAnno!=="Tutti"&&getAnno(dataCompAgenzia(v))!==fVendAnno) return false;
@@ -1913,8 +1913,8 @@ export default function App() {
           {/* DASHBOARD */}
           {tab==="Dashboard"&&(<div style={S.sec}>
 
-            {/* ── DASHBOARD AGENTE ── */}
-            {!isBroker&&!isBackOffice&&myAgentId&&(()=>{
+            {/* ── DASHBOARD AGENTE ── (non per chi vede tutto: Broker, BackOffice, Coach Agenzia) */}
+            {!canViewAll&&!isBackOffice&&myAgentId&&(()=>{
               const ag = agenti.find(a=>a.id===myAgentId);
 
               // Tutte le pratiche dove l'agente appare in qualsiasi ruolo
@@ -2464,8 +2464,8 @@ export default function App() {
                 </div>
                 </div>);
             })()}
-            {/* ── DASHBOARD BROKER ── */}
-            {isBroker&&(<>
+            {/* ── DASHBOARD BROKER (anche Coach Agenzia) ── */}
+            {canViewAll&&!isBackOffice&&(<>
             {/* HEADER BROKER */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:"1.25rem",padding:"1rem 1.25rem",background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
               <div style={{display:"flex",alignItems:"center",gap:14}}>
@@ -2723,7 +2723,7 @@ export default function App() {
                 </table>
               ):<div style={{padding:"1rem",textAlign:"center",fontSize:13,color:"#bbb"}}>Nessuna proposta vincolata</div>)}
             </div>
-            {(isBroker||isBackOffice)&&(()=>{
+            {(canViewAll)&&(()=>{
               const oggiD=new Date();oggiD.setHours(0,0,0,0);
               const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
               const toD=s=>{const d=new Date(s);d.setHours(0,0,0,0);return d;};
@@ -5545,7 +5545,7 @@ export default function App() {
           })()}
 
           {/* ── BREAK EVEN AGENTE ── */}
-          {tab==="Break Even"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
+          {tab==="Break Even"&&!canViewAll&&!isBackOffice&&myAgentId&&(()=>{
             const ag=agenti.find(a=>a.id===myAgentId);
             // Usa nuovo sistema catCosti per agente
             const costiAnnoBE=String(costiAgenteAnno||annoCorrente);
@@ -5669,7 +5669,7 @@ export default function App() {
           })()}
 
 
-          {tab==="Fatture Agente"&&!isBroker&&!isBackOffice&&myAgentId&&(()=>{
+          {tab==="Fatture Agente"&&!canViewAll&&!isBackOffice&&myAgentId&&(()=>{
             const agMio = agenti.find(a=>a.id===myAgentId);
             if(!agMio) return null;
 
@@ -8443,7 +8443,7 @@ export default function App() {
             const ggR=sfidaAtt2?Math.max(0,Math.round((new Date(sfidaAtt2.al)-new Date())/86400000)):0;
 
             // ── VISTA AGENTE ──
-            if(!isBroker&&!isBackOffice&&myAgentId){
+            if(!canViewAll&&!isBackOffice&&myAgentId){
               const ag=agenti.find(a=>a.id===myAgentId)||{};
               const obAg=obiettivoAgente[myAgentId]||{};
               const obFatt=Number(obAg.fatturato||0);
@@ -9170,7 +9170,7 @@ export default function App() {
               const pA=Number(v.provvAcquirente||0);
               if(pV===0&&pA===0) return false; // escludi provv €0
               // Agente vede solo le proprie pratiche
-              if(!isBroker&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
+              if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
               if(statAnno!=="Tutti"&&getAnno(dataRifVend(v))!==statAnno) return false;
               return true;
             });
