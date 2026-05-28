@@ -456,7 +456,7 @@ function Sidebar({tab,setTab,utente,onEsporta,onImporta,importRef}) {
   const canEditPratiche = isBroker||isBackOffice||(utente?.agentId===5);
   const TAB_AGENTE = ["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
   const TAB_COACH=coachIsAgenzia
-    ?["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Statistiche","War Room","Report Agenti","One-to-One","Agenti"]
+    ?TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Il mio report"&&id!=="Fatture Agente")
     :["Dashboard","Operatività","Gestione Pratiche","Incarichi","Proposte","Venduti","Il mio report","Statistiche","Costi","Break Even","War Room","One-to-One","Fatture Agente","Guida"];
   const TAB_BACKOFFICE=TAB_CONFIG.map(t=>t.id).filter(id=>id!=="Operatività");
   const tabsVisibili = TAB_CONFIG.filter(t=>{
@@ -5990,9 +5990,9 @@ export default function App() {
 
           {/* OPERATIVITÀ */}
           {tab==="Operatività"&&(()=>{
-            // Agente corrente (broker vede tutti, agente vede solo sé)
-            const agentiVisibili = (isBroker||isBackOffice) ? agenti : agenti.filter(a=>a.id===myAgentId);
-            const agIdSel = (isBroker||isBackOffice) ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel)) : myAgentId;
+            // Chi vede tutto (Broker, BackOffice, Coach Agenzia) seleziona da menu; gli altri vedono solo sé
+            const agentiVisibili = canViewAll ? agenti : agenti.filter(a=>a.id===myAgentId);
+            const agIdSel = canViewAll ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel)) : myAgentId;
 
             // Helper: ottieni/salva giornata
             const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
@@ -6390,8 +6390,8 @@ export default function App() {
                   // ── LOGICA AGENTE/BROKER ──
                   // Il broker ha il SUO Oggi personale (default) E può guardare gli altri agenti dal selettore.
                   // Per il broker: opAgenteSel === "" o "self" = se stesso; numero = altro agente
-                  const brokerVedeSeStesso = (isBroker||isBackOffice) && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
-                  const agIdSel = (isBroker||isBackOffice)
+                  const brokerVedeSeStesso = canViewAll && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
+                  const agIdSel = canViewAll
                     ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
                     : myAgentId;
                   const dataSel = opDataSel||todayStr();
@@ -6518,7 +6518,7 @@ export default function App() {
                     return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
                       <p style={{fontSize:18,marginBottom:8,color:BRAND.grigio,fontWeight:600}}>👤 Seleziona un agente</p>
                       <p style={{fontSize:13,color:"#aaa",marginBottom:20}}>Per visualizzare la giornata operativa serve un agente di riferimento.</p>
-                      {(isBroker||isBackOffice)&&<select style={{...S.sel,fontSize:14,padding:"8px 14px",minWidth:220}} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {canViewAll&&<select style={{...S.sel,fontSize:14,padding:"8px 14px",minWidth:220}} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                         <option value="">— Seleziona —</option>
                         {myAgentId&&<option value="self">🏠 I miei dati</option>}
                         {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
@@ -6531,7 +6531,7 @@ export default function App() {
                     {/* Selettore data e agente (broker può scegliere se stesso o altri) */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                       <input type="date" style={{...S.sel}} value={dataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                      {(isBroker||isBackOffice)&&<select style={S.sel} value={brokerVedeSeStesso?"self":opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {canViewAll&&<select style={S.sel} value={brokerVedeSeStesso?"self":opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                         <option value="self">🏠 I miei dati</option>
                         <optgroup label="Vista di un agente">
                           {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
@@ -6876,10 +6876,10 @@ export default function App() {
                 {/* ── VISTA SETTIMANA ── */}
                 {opSubTab==="settimana"&&(()=>{
                   // === LOGICA AGENTE/BROKER ===
-                  const brokerVedeSeStesso = (isBroker||isBackOffice) && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
-                  const isAgg = (isBroker||isBackOffice) && opAgenteSel==="team";
+                  const brokerVedeSeStesso = canViewAll && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
+                  const isAgg = canViewAll && opAgenteSel==="team";
                   const agIdSelW = isAgg ? null :
-                    (isBroker||isBackOffice)
+                    canViewAll
                       ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
                       : myAgentId;
 
@@ -7006,7 +7006,7 @@ export default function App() {
                     {/* Selettori */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                       <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
-                      {(isBroker||isBackOffice)&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":opAgenteSel)} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {canViewAll&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":opAgenteSel)} onChange={e=>setOpAgenteSel(e.target.value)}>
                         <option value="self">🏠 I miei dati</option>
                         <option value="team">👥 Vista team aggregata</option>
                         <optgroup label="Singolo agente">
@@ -7151,10 +7151,10 @@ export default function App() {
                 {/* ── REPORT MENSILE ── */}
                 {opSubTab==="report"&&(()=>{
                   // === LOGICA AGENTE/BROKER ===
-                  const brokerVedeSeStesso = (isBroker||isBackOffice) && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
-                  const isAgg = (isBroker||isBackOffice) && opAgenteSel==="team";
+                  const brokerVedeSeStesso = canViewAll && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
+                  const isAgg = canViewAll && opAgenteSel==="team";
                   const agIdSelM = isAgg ? null :
-                    (isBroker||isBackOffice)
+                    canViewAll
                       ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
                       : myAgentId;
 
@@ -7230,7 +7230,7 @@ export default function App() {
                     {/* Selettori */}
                     <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
                       <input type="month" style={S.sel} value={meseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
-                      {(isBroker||isBackOffice)&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":opAgenteSel)} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      {canViewAll&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":opAgenteSel)} onChange={e=>setOpAgenteSel(e.target.value)}>
                         <option value="self">🏠 I miei dati</option>
                         <option value="team">👥 Vista team aggregata</option>
                         <optgroup label="Singolo agente">
@@ -7380,7 +7380,7 @@ export default function App() {
                 {opSubTab==="obiettivi"&&(<>
                   <div style={{display:"flex",gap:8,marginBottom:"1.25rem",alignItems:"center",flexWrap:"wrap"}}>
                     <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
-                    {(isBroker||isBackOffice)&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                    {canViewAll&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">Tutti gli agenti</option>
                       {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
                     </select>}
@@ -7421,7 +7421,7 @@ export default function App() {
                         <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
                         <div>
                           <h3 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</h3>
-                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {(isBroker||isBackOffice)?"imposta obiettivi per l'agente":"modifica i tuoi obiettivi"}</p>
+                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {canViewAll?"imposta obiettivi per l'agente":"modifica i tuoi obiettivi"}</p>
                         </div>
                       </div>
 
@@ -7505,7 +7505,7 @@ export default function App() {
                       </div>)}
 
                       {/* Vista team broker */}
-                      {(isBroker||isBackOffice)&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem"}}>
+                      {canViewAll&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem"}}>
                         <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Obiettivi team — {opMeseSel}</p>
                         <div style={{overflowX:"auto"}}>
                           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
@@ -7589,7 +7589,7 @@ export default function App() {
 
                 return(<div>
                   {/* Selettore broker */}
-                  {(isBroker||isBackOffice)&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",padding:"10px 14px",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
+                  {canViewAll&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",padding:"10px 14px",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
                     <span style={{fontSize:12,color:"#888",flexShrink:0}}>Piano di:</span>
                     <select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
                       <option value="Tutti">🏢 Tutta l'agenzia</option>
@@ -9176,7 +9176,7 @@ export default function App() {
             });
 
             // Incarichi acquisiti nell'anno (filtrati per agente se non broker)
-            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno)&&(isBroker||isBackOffice||!myAgentId||i.agenteListing===myAgentId));
+            const incStat = incarichi.filter(i=>i.categoria==="vendita"&&(statAnno==="Tutti"||getAnno(i.dataInizio)===statAnno)&&(canViewAll||!myAgentId||i.agenteListing===myAgentId));
 
             // Transazioni: venditore = provvVenditore>0 + NON collaborazione esterna; acquirente = provvAcquirente>0
             const transV = vendStat.filter(v=>Number(v.provvVenditore||0)>0&&!v.agenziaEsterna);
@@ -9268,7 +9268,7 @@ export default function App() {
                 <div style={{display:"flex",gap:8,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem"}}>
                   {[
                     {v:"generali",l:"📊 Generali"},
-                    ...(isBroker||isBackOffice?[{v:"agenti",l:"👥 Report agenti"}]:[]),
+                    ...(canViewAll?[{v:"agenti",l:"👥 Report agenti"}]:[]),
                     {v:"trend",l:"📈 Trend & Andamento"},
                     {v:"funnel",l:"🔄 Funnel & Conversioni"},
                   ].map(o=>(
@@ -9533,10 +9533,10 @@ export default function App() {
                 {/* ══════════════════════════════════════════════════════ */}
                 {statSubTab==="trend"&&(()=>{
                   // === SELETTORI: agente + periodo ===
-                  const brokerVedeSeStesso = (isBroker||isBackOffice) && (statAgente==="Tutti"||statAgente===""||statAgente==="self"||statAgente===String(myAgentId));
-                  const isAgg = (isBroker||isBackOffice) && statAgente==="team";
+                  const brokerVedeSeStesso = canViewAll && (statAgente==="Tutti"||statAgente===""||statAgente==="self"||statAgente===String(myAgentId));
+                  const isAgg = canViewAll && statAgente==="team";
                   const agIdT = isAgg ? null :
-                    (isBroker||isBackOffice)
+                    canViewAll
                       ? (brokerVedeSeStesso ? myAgentId : Number(statAgente))
                       : myAgentId;
 
@@ -9682,7 +9682,7 @@ export default function App() {
                         <option value="12">Ultimi 12 mesi</option>
                         <option value="24">Ultimi 24 mesi</option>
                       </select>
-                      {(isBroker||isBackOffice)&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
+                      {canViewAll&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
                         <option value="self">🏠 I miei dati</option>
                         <option value="team">👥 Vista team aggregata</option>
                         <optgroup label="Singolo agente">
@@ -9890,10 +9890,10 @@ export default function App() {
                 {/* ══════════════════════════════════════════════════════ */}
                 {statSubTab==="funnel"&&(()=>{
                   // === SELETTORI: agente + periodo ===
-                  const brokerVedeSeStessoF = (isBroker||isBackOffice) && (statAgente==="Tutti"||statAgente===""||statAgente==="self"||statAgente===String(myAgentId));
-                  const isAggF = (isBroker||isBackOffice) && statAgente==="team";
+                  const brokerVedeSeStessoF = canViewAll && (statAgente==="Tutti"||statAgente===""||statAgente==="self"||statAgente===String(myAgentId));
+                  const isAggF = canViewAll && statAgente==="team";
                   const agIdF = isAggF ? null :
-                    (isBroker||isBackOffice)
+                    canViewAll
                       ? (brokerVedeSeStessoF ? myAgentId : Number(statAgente))
                       : myAgentId;
 
@@ -10078,7 +10078,7 @@ export default function App() {
                         <option value="anno">📅 Anno corrente</option>
                         <option value="tutto">📅 Tutto</option>
                       </select>
-                      {(isBroker||isBackOffice)&&<select style={S.sel} value={isAggF?"team":(brokerVedeSeStessoF?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
+                      {canViewAll&&<select style={S.sel} value={isAggF?"team":(brokerVedeSeStessoF?"self":statAgente)} onChange={e=>setStatAgente(e.target.value)}>
                         <option value="self">🏠 I miei dati</option>
                         <option value="team">👥 Vista team aggregata</option>
                         <optgroup label="Singolo agente">
@@ -10117,7 +10117,7 @@ export default function App() {
                     {renderFunnel(fVend, "💼 Funnel Vendita (lato acquirente)", "#27AE60")}
 
                     {/* TABELLA CONVERSIONI PER AGENTE - solo broker, solo vista team */}
-                    {(isBroker||isBackOffice)&&isAggF&&(()=>{
+                    {canViewAll&&isAggF&&(()=>{
                       const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
                       const righeAg = operativi.map(ag=>{
                         const a = aggregaAgenteFunnel(ag.id);
