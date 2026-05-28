@@ -1439,6 +1439,9 @@ export default function App() {
 
 
   const nomAg=id=>{const a=agenti.find(a=>a.id===Number(id));return a?`${a.nome} ${a.cognome}`:"—";};
+  // % dell'agente dal SUO PROFILO (Impostazioni) — fonte di verità. lato: "listing" | "acquirente"
+  // Nota: uso ?? e controllo esplicito per non trasformare lo 0 del Broker in un default.
+  const pctAg=(id,lato)=>{const a=agenti.find(a=>a.id===Number(id));if(!a)return null;return lato==="listing"?Number(a.percListing||0):Number(a.percAcquirente||0);};
   const statoInc=i=>{
     if(i.stato==="Venduto") return "Venduto";
     if(i.stato==="Locato") return "Locato";
@@ -3183,7 +3186,7 @@ export default function App() {
                       ?<><span style={{color:"#bbb",textDecoration:"line-through",fontSize:11,display:"block"}}>€ {fmtN(inc.prezzoRichiesto)}</span><span style={{fontWeight:600,color:BRAND.oroD,fontSize:13}}>€ {fmtN(inc.storicoRibassi[inc.storicoRibassi.length-1].prezzo)}</span></>
                       :<span style={{fontWeight:500,color:BRAND.oroD,fontSize:13}}>€ {fmtN(inc.prezzoRichiesto)}</span>
                     }
-                    <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{inc.provvPrevista?`${inc.provvPrevista}% provv.`:""}</div>
+                    <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{inc.provvPrevista?`€ ${fmtN(inc.provvPrevista)} provv.`:""}</div>
                   </td>
                   {/* Scadenza */}
                   <td style={{padding:"10px 12px",verticalAlign:"middle"}}>
@@ -3224,15 +3227,15 @@ export default function App() {
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Dettaglio incarico</p>
-                        {[["Data inizio",fmtD(inc.dataInizio)],["Scadenza",inc.scadenza?fmtD(inc.scadenza):"—"],["Tipologia",inc.tipologia||"—"],["Fonte",inc.fonte||"—"],["Provv. prevista",`${inc.provvPrevista||3}%`],["Provv. acquirente",`${inc.provvAcquirente||3}%`]].map(([k,v])=>(
+                        {[["Data inizio",fmtD(inc.dataInizio)],["Scadenza",inc.scadenza?fmtD(inc.scadenza):"—"],["Tipologia",inc.tipologia||"—"],["Fonte",inc.fonte||"—"],["Provv. prevista",inc.provvPrevista?`€ ${fmtN(inc.provvPrevista)}`:"—"],["Proposte ricevute",Number(inc.proposteRicevute)>0?`${inc.proposteRicevute}`:"—"]].map(([k,v])=>(
                           <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><strong>{v}</strong></div>
                         ))}
                         {inc.note&&<div style={{fontSize:11,color:"#aaa",fontStyle:"italic",marginTop:6}}>{inc.note}</div>}
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
                         <p style={{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",margin:"0 0 8px"}}>Agenti coinvolti</p>
-                        {[["Listing",inc.agenteListing,(isBroker||isBackOffice)?`${inc.percListing||50}%`:null],["Buyer L.",inc.buyerListing,(isBroker||isBackOffice)?`${inc.percBuyerListing||0}%`:null],["Acquirente",vendCorr?.agenteAcquirente,(isBroker||isBackOffice)?`${vendCorr?.percAcquirente||0}%`:null],["Buyer",vendCorr?.buyer,(isBroker||isBackOffice)?`${vendCorr?.percBuyer||0}%`:null]].filter(([,id])=>id).map(([k,id,p])=>(
-                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong> <span style={{color:"#aaa"}}>{p}</span></span></div>
+                        {[["Listing",inc.agenteListing,inc.percListing],["Buyer L.",inc.buyerListing,inc.percBuyerListing],["Acquirente",vendCorr?.agenteAcquirente,vendCorr?.percAcquirente],["Buyer",vendCorr?.buyer,vendCorr?.percBuyer]].filter(([,id])=>id).map(([k,id,p])=>(
+                          <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"0.5px solid #f5f5f5"}}><span style={{color:"#888"}}>{k}</span><span><strong>{nomAg(id)}</strong> {(isBroker||isBackOffice)&&<span style={{color:"#aaa"}}>{Number(p||0)}%</span>}</span></div>
                         ))}
                       </div>
                       <div style={{background:"#fff",borderRadius:8,padding:"10px 14px",border:"0.5px solid #e8e5e0"}}>
