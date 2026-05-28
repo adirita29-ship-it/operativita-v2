@@ -194,6 +194,22 @@ const fmtN = n => Number(n||0).toLocaleString("it-IT",{minimumFractionDigits:0,m
 const fmtD = iso => iso ? new Date(iso).toLocaleDateString("it-IT") : "—";
 const nowISO = () => new Date().toISOString();
 const todayStr = () => new Date().toISOString().slice(0,10);
+
+// Genera il prossimo codice pratica nel formato ANNO-NNN (progressivo che riparte ogni anno).
+// Si basa sull'anno di dataInizio dell'incarico. Es: 2026-001, 2026-002...
+const generaCodicePratica = (incarichiEsistenti, dataInizio) => {
+  const anno = (dataInizio||todayStr()).slice(0,4);
+  // Trovo il progressivo più alto già usato per quell'anno
+  let maxN = 0;
+  (incarichiEsistenti||[]).forEach(i=>{
+    if(i.codicePratica && i.codicePratica.startsWith(anno+"-")){
+      const n = parseInt(i.codicePratica.split("-")[1],10);
+      if(!isNaN(n) && n>maxN) maxN = n;
+    }
+  });
+  const prossimo = String(maxN+1).padStart(3,"0");
+  return `${anno}-${prossimo}`;
+};
 const getAnno = d => d ? String(d).substring(0,4) : "";
 const getMese = d => d ? String(d).substring(0,7) : "";
 // Data di competenza per fatturato AGENZIA
@@ -1200,6 +1216,33 @@ export default function App() {
     });
   },[]);
 
+  // ── MIGRAZIONE: assegna codice pratica agli incarichi storici che non ce l'hanno ──
+  // Ordina per data e assegna progressivi per anno. Gira una sola volta quando serve.
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    const senzaCodice = incarichi.filter(i=>!i.codicePratica);
+    if(senzaCodice.length===0) return;
+    // Ordino tutti gli incarichi per dataInizio (i più vecchi prima) per assegnare progressivi coerenti
+    const ordinati = [...incarichi].sort((a,b)=>(a.dataInizio||"").localeCompare(b.dataInizio||""));
+    const contatoriAnno = {};
+    // Prima registro i progressivi già esistenti per non creare duplicati
+    incarichi.forEach(i=>{
+      if(i.codicePratica){
+        const [anno,num] = i.codicePratica.split("-");
+        const n = parseInt(num,10);
+        if(!isNaN(n)) contatoriAnno[anno] = Math.max(contatoriAnno[anno]||0, n);
+      }
+    });
+    const codiciAssegnati = {};
+    ordinati.forEach(i=>{
+      if(i.codicePratica) return;
+      const anno = (i.dataInizio||todayStr()).slice(0,4);
+      contatoriAnno[anno] = (contatoriAnno[anno]||0)+1;
+      codiciAssegnati[i.id] = `${anno}-${String(contatoriAnno[anno]).padStart(3,"0")}`;
+    });
+    setIncarichi(incarichi.map(i=>codiciAssegnati[i.id]?{...i,codicePratica:codiciAssegnati[i.id]}:i));
+  },[dbLoaded]);
+
   // ── EMAIL AUTOMATICHE ──
   // Alert pratiche RT - controlla ogni ora
   useEffect(()=>{
@@ -1563,10 +1606,14 @@ export default function App() {
   const totImponibile=fatturaDati.reduce((s,x)=>s+x.totPratica,0);
   const totPagato=fatturaDati.reduce((s,x)=>s+Number(x.pag.importoPagato||0),0);
 
-  const emptyInc=(cat="vendita")=>({categoria:cat,agenteListing:"",percListing:0,buyerListing:"",percBuyerListing:0,fonte:"",nominativo:"",comune:"",indirizzo:"",tipologia:"",dataInizio:todayStr(),scadenza:"",prezzoRichiesto:"",prezzoReale:"",provvPrevista:"",note:"",stato:"Attivo",archiviato:false,storicoRibassi:[]});
+  const emptyInc=(cat="vendita")=>({categoria:cat,codicePratica:"",agenteListing:"",percListing:0,buyerListing:"",percBuyerListing:0,fonte:"",nominativo:"",comune:"",indirizzo:"",tipologia:"",dataInizio:todayStr(),scadenza:"",prezzoRichiesto:"",prezzoReale:"",provvPrevista:"",proposteRicevute:0,origine:"manuale",riferimentoModulo:"",note:"",stato:"Attivo",archiviato:false,storicoRibassi:[]});
   const salvaInc=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}
     if(!formInc.nominativo||!formInc.comune)return;
-    const inc={...formInc,id:showInc==="new"?Date.now():showInc.id,prezzoRichiesto:Number(formInc.prezzoRichiesto),prezzoReale:Number(formInc.prezzoReale),provvPrevista:Number(formInc.provvPrevista),agenteListing:Number(formInc.agenteListing)||null,buyerListing:formInc.buyerListing?Number(formInc.buyerListing):null,percListing:Number(formInc.percListing||0),percBuyerListing:Number(formInc.percBuyerListing||0)};
+    const inc={...formInc,id:showInc==="new"?Date.now():showInc.id,prezzoRichiesto:Number(formInc.prezzoRichiesto),prezzoReale:Number(formInc.prezzoReale),provvPrevista:Number(formInc.provvPrevista),proposteRicevute:Number(formInc.proposteRicevute||0),agenteListing:Number(formInc.agenteListing)||null,buyerListing:formInc.buyerListing?Number(formInc.buyerListing):null,percListing:Number(formInc.percListing||0),percBuyerListing:Number(formInc.percBuyerListing||0)};
+    // Genero codice pratica se è un nuovo incarico e non ne ha già uno
+    if(showInc==="new" && !inc.codicePratica){
+      inc.codicePratica = generaCodicePratica(incarichi, inc.dataInizio);
+    }
     showInc==="new"?setIncarichi([...incarichi,inc]):setIncarichi(incarichi.map(i=>i.id===showInc.id?inc:i));
     setShowInc(null);
   };
