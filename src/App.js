@@ -3616,13 +3616,29 @@ export default function App() {
                   </td>
                   <td style={{padding:"10px 12px",verticalAlign:"top",borderTopRightRadius:8,borderBottomRightRadius:isOpen?0:8}} onClick={e=>e.stopPropagation()}>
                     <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-                      {(v.statoIncasso!=="Incassato"&&!v.bloccato)&&<><button title="Registra incasso lato Venditore" style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
+                      {!v.bloccato&&<><button title="Registra incasso lato Venditore" style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#2980B9",borderColor:"#2980B9"}} onClick={()=>setShowIncassoLato({vend:v,lato:"V"})}>V</button>
                       <button title="Registra incasso lato Acquirente" style={{...S.btnP,fontSize:11,padding:"3px 7px",background:"#8E44AD",borderColor:"#8E44AD"}} onClick={()=>setShowIncassoLato({vend:v,lato:"A"})}>A</button>
                       <button title="Modifica venduto" style={{...S.btn,fontSize:11,padding:"3px 7px"}} onClick={()=>{setFormVend({...v});if(!isReadOnly)setShowGestVend(v);}}>✏️</button></>}
-                      <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:v.statoIncasso==="Incassato"?"#27AE60":v.bloccato?"#E67E22":"#aaa"}} 
-                        title={v.statoIncasso==="Incassato"?"Incassato — bloccato automaticamente":v.bloccato?"Sbloccato manualmente — clicca per bloccare":"Clicca per bloccare"}
-                        onClick={()=>{if(v.statoIncasso==="Incassato")return;setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x));}}>
-                        {v.statoIncasso==="Incassato"?"🔒":v.bloccato?"🔒":"🔓"}
+                      <button style={{...S.btn,fontSize:11,padding:"3px 7px",color:(v.statoIncasso==="Incassato"&&!v.bloccato)?"#E67E22":v.statoIncasso==="Incassato"?"#27AE60":v.bloccato?"#E67E22":"#aaa"}}
+                        title={v.statoIncasso==="Incassato"&&!v.bloccato?"Sbloccato per correzione — clicca per ribloccare":v.statoIncasso==="Incassato"?"Incassato — clicca per sbloccare e correggere":v.bloccato?"Sbloccato manualmente — clicca per bloccare":"Clicca per bloccare"}
+                        onClick={()=>{
+                          if(!canEditPratiche){alert("Non hai i permessi per modificare il blocco");return;}
+                          if(v.statoIncasso==="Incassato"&&!v.bloccato){
+                            // Già sbloccato manualmente: riblocca
+                            setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:true}:x));
+                            return;
+                          }
+                          if(v.statoIncasso==="Incassato"){
+                            // Bloccato auto perché Incassato: chiedi conferma per sbloccare
+                            if(window.confirm("⚠️ Questo venduto è registrato come INCASSATO.\n\nVuoi sbloccarlo per correggere gli importi?\n\n→ Dopo lo sblocco potrai modificare gli incassi V e A.\n→ Se metti importi minori, lo stato tornerà a Parziale o Da incassare automaticamente.")){
+                              setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:false}:x));
+                            }
+                            return;
+                          }
+                          // Stato non Incassato: toggle normale bloccato/sbloccato
+                          setVenduti(venduti.map(x=>x.id===v.id?{...x,bloccato:!x.bloccato}:x));
+                        }}>
+                        {(v.statoIncasso==="Incassato"&&!v.bloccato)?"🔓":v.statoIncasso==="Incassato"?"🔒":v.bloccato?"🔒":"🔓"}
                       </button>
                       <button title="Archivia venduto" style={{...S.btnD,fontSize:11,padding:"3px 7px"}} onClick={()=>{if(window.confirm("Archiviare?"))archiviaVend(v.id);}}>📦</button>
                     </div>
