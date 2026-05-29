@@ -42,8 +42,17 @@ const caricaDB = async () => {
 
 const salvaDB = async (data) => {
   try {
+    console.log("[salvaDB] Invio dati Supabase, prospetti:", data?.prospetti?.length||0);
     await supaFetch("PATCH", {data, updated_at: new Date().toISOString()});
-  } catch(e){ console.error("Errore salvataggio Supabase:", e); }
+    console.log("[salvaDB] ✅ Salvataggio completato");
+  } catch(e){
+    console.error("❌ Errore salvataggio Supabase:", e);
+    // Salvataggio fallito: avvisa l'utente in modo visibile
+    if(typeof window!=="undefined"){
+      window.__ultimoErroreSalvataggio = {timestamp:Date.now(),errore:String(e?.message||e)};
+    }
+    alert("⚠ Errore di salvataggio!\nI tuoi dati potrebbero non essere stati salvati.\nDettaglio: "+(e?.message||e));
+  }
 };
 
 // Salva solo catCosti e speseCosti con merge
@@ -1409,9 +1418,15 @@ export default function App() {
 
     const ricaricaDati=async()=>{
       // Non ricaricare se abbiamo salvato noi stessi negli ultimi 3 secondi
-      if(Date.now()-ultimoSalvataggioLocale<8000) return;
+      if(Date.now()-ultimoSalvataggioLocale<8000){
+        console.log("[ricaricaDati] SKIP (guard: appena salvato)");
+        return;
+      }
       // Non ricaricare se c'è un modal aperto
-      if(document.querySelector('[data-modal="true"]')) return;
+      if(document.querySelector('[data-modal="true"]')){
+        console.log("[ricaricaDati] SKIP (modal aperto)");
+        return;
+      }
       try{
         const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
           {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
@@ -1419,6 +1434,7 @@ export default function App() {
         const rows=await res.json();
         const d=rows?.[0]?.data;
         if(!d) return;
+        console.log("[ricaricaDati] Sync da Supabase, prospetti remoti:", d?.prospetti?.length||0);
         if(d.venduti) setVenduti(d.venduti);
         if(d.incarichi) setIncarichi(d.incarichi);
         if(d.proposte) setProposte(d.proposte);
@@ -4006,7 +4022,11 @@ export default function App() {
                 dataPagamento:"",
                 note:""
               };
-              setProspetti(prev=>[nuovo, ...prev]);
+              setProspetti(prev=>{
+                const next = [nuovo, ...prev];
+                console.log("[creaProspetto] Creato prospetto", nuovo.numero, "Tot prospetti ora:", next.length);
+                return next;
+              });
               setProspettoSel([]);
               alert(`✓ Prospetto ${nuovo.numero} creato\\nTotale: € ${fmt(Math.round(totale))}\\n${righeOk.length} righe\\n\\nOra puoi inviarlo a ${agSel.nome} ${agSel.cognome} e attendere la sua fattura.`);
               setShowProspetto(nuovo.id);
