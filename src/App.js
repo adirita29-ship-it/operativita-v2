@@ -42,12 +42,9 @@ const caricaDB = async () => {
 
 const salvaDB = async (data) => {
   try {
-    console.log("[salvaDB] Invio dati Supabase, prospetti:", data?.prospetti?.length||0);
     await supaFetch("PATCH", {data, updated_at: new Date().toISOString()});
-    console.log("[salvaDB] ✅ Salvataggio completato");
   } catch(e){
-    console.error("❌ Errore salvataggio Supabase:", e);
-    // Salvataggio fallito: avvisa l'utente in modo visibile
+    console.error("Errore salvataggio Supabase:", e);
     if(typeof window!=="undefined"){
       window.__ultimoErroreSalvataggio = {timestamp:Date.now(),errore:String(e?.message||e)};
     }
@@ -1417,16 +1414,10 @@ export default function App() {
     let ultimoSalvataggioLocale=Date.now();
 
     const ricaricaDati=async()=>{
-      // Non ricaricare se abbiamo salvato noi stessi negli ultimi 3 secondi
-      if(Date.now()-ultimoSalvataggioLocale<8000){
-        console.log("[ricaricaDati] SKIP (guard: appena salvato)");
-        return;
-      }
+      // Non ricaricare se abbiamo salvato noi stessi negli ultimi 8 secondi
+      if(Date.now()-ultimoSalvataggioLocale<8000) return;
       // Non ricaricare se c'è un modal aperto
-      if(document.querySelector('[data-modal="true"]')){
-        console.log("[ricaricaDati] SKIP (modal aperto)");
-        return;
-      }
+      if(document.querySelector('[data-modal="true"]')) return;
       try{
         const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
           {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
@@ -1434,7 +1425,6 @@ export default function App() {
         const rows=await res.json();
         const d=rows?.[0]?.data;
         if(!d) return;
-        console.log("[ricaricaDati] Sync da Supabase, prospetti remoti:", d?.prospetti?.length||0);
         if(d.venduti) setVenduti(d.venduti);
         if(d.incarichi) setIncarichi(d.incarichi);
         if(d.proposte) setProposte(d.proposte);
@@ -4004,14 +3994,29 @@ export default function App() {
             };
 
             // Crea prospetto dai righe selezionate
-            const creaProspetto = () => {
+            const creaProspetto = async () => {
               if(isReadOnly) return;
               if(prospettoSel.length===0||!agSel){alert("Seleziona almeno una riga.");return;}
+              // ANTI-RACE: leggo i prospetti freschi dal DB per evitare collisioni di numerazione
+              let prospettiFreschi = prospetti;
+              try{
+                const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
+                  {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+                if(res.ok){
+                  const rows = await res.json();
+                  const dbProspetti = rows?.[0]?.data?.prospetti;
+                  if(Array.isArray(dbProspetti)) prospettiFreschi = dbProspetti;
+                }
+              }catch(e){ /* fallback al locale */ }
+              // Numero progressivo basato sui prospetti freschi dal DB
+              const numeri = prospettiFreschi.map(p=>{const m=(p.numero||"").match(/P-(\d+)/);return m?parseInt(m[1],10):0;});
+              const max = numeri.length>0?Math.max(...numeri):0;
+              const numero = `P-${String(max+1).padStart(3,"0")}`;
               const righeOk = righeDisponibili.filter(r=>prospettoSel.includes(r.key));
               const totale = righeOk.reduce((s,r)=>s+r.importo,0);
               const nuovo = {
-                id:Date.now(),
-                numero:prossimoNumeroP(),
+                id:Date.now()+Math.floor(Math.random()*1000),
+                numero,
                 agenteId:agSel.id,
                 dataCreazione:todayStr(),
                 righe:righeOk.map(r=>({venditoId:r.venditoId, ruolo:r.ruolo, importo:r.importo})),
@@ -4022,13 +4027,15 @@ export default function App() {
                 dataPagamento:"",
                 note:""
               };
+              // MERGE col DB fresh per non perdere prospetti creati da altri utenti nel frattempo
               setProspetti(prev=>{
-                const next = [nuovo, ...prev];
-                console.log("[creaProspetto] Creato prospetto", nuovo.numero, "Tot prospetti ora:", next.length);
+                const allIds = new Set(prev.map(p=>p.id));
+                const fromDb = prospettiFreschi.filter(p=>!allIds.has(p.id));
+                const next = [nuovo, ...fromDb, ...prev];
                 return next;
               });
               setProspettoSel([]);
-              alert(`✓ Prospetto ${nuovo.numero} creato\\nTotale: € ${fmt(Math.round(totale))}\\n${righeOk.length} righe\\n\\nOra puoi inviarlo a ${agSel.nome} ${agSel.cognome} e attendere la sua fattura.`);
+              alert(`✓ Prospetto ${numero} creato per ${agSel.nome} ${agSel.cognome}\nTotale: € ${fmt(Math.round(totale))}\n${righeOk.length} righe`);
               setShowProspetto(nuovo.id);
             };
 
