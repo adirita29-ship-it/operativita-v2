@@ -1422,23 +1422,45 @@ export default function App() {
         if(d.venduti) setVenduti(d.venduti);
         if(d.incarichi) setIncarichi(d.incarichi);
         if(d.proposte) setProposte(d.proposte);
-        if(d.pratiche) if(d.pratiche) setPratiche(Array.isArray(d.pratiche)?d.pratiche:Object.values(d.pratiche||{}));
+        if(d.pratiche) setPratiche(Array.isArray(d.pratiche)?d.pratiche:Object.values(d.pratiche||{}));
         if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
+        if(d.prospetti) setProspetti(Array.isArray(d.prospetti)?d.prospetti:[]);
         if(d.operativita) setOperativita(d.operativita);
         if(d.agenti) setAgenti(d.agenti.map(a=>({...a,inReport:["Broker","Consulente","Collaboratore"].includes(a.profilo)?(a.inReport!==false):false})));
         if(d.sfide) setSfide(d.sfide);
         if(d.eventi) setEventi(d.eventi);
         if(d.tipiEvento) setTipiEvento(d.tipiEvento);
         if(d.tracciamento) setTracciamento(d.tracciamento);
+        if(d.catCosti) setCatCosti(Array.isArray(d.catCosti)?d.catCosti:Object.values(d.catCosti));
+        if(d.speseCosti) setSpeseCosti(typeof d.speseCosti==="object"&&!Array.isArray(d.speseCosti)?d.speseCosti:{});
+        if(d.breakEvenManuale) setBreakEvenManuale(d.breakEvenManuale);
         if(d.archiviati) setArchiviati(d.archiviati);
         if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
         if(d.oneToOne) setOneToOne(d.oneToOne);
         if(d.fasiConfig) setFasiConfig(d.fasiConfig);
-        if(d.mirino) setMirino(prev=>({...d.mirino,...prev})); // merge, local wins
-        if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
         if(d.mirino) setMirino(d.mirino);
-        if(d.sfide) setSfide(d.sfide);
+        if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
+        // Campi aggiuntivi sincronizzati per evitare perdita dati su modifiche concorrenti
+        if(d.ericaTodo) setEricaTodo(d.ericaTodo);
+        if(d.agenteTodo) setAgenteTodo(d.agenteTodo);
+        if(d.obiettivoFatturato) setObiettivoFatturato(d.obiettivoFatturato);
+        if(d.obiettivoQuotaAgenzia) setObiettivoQuotaAgenzia(d.obiettivoQuotaAgenzia);
+        if(d.obiettiviOp) setObiettiviOp(d.obiettiviOp);
+        if(d.provvStandard) setProvvStandard(d.provvStandard);
+        if(d.costi) setCosti(d.costi);
+        if(d.costiAgente) setCostiAgente(d.costiAgente);
+        if(d.catalogoAzioni) setCatalogoAzioni(d.catalogoAzioni);
+        if(d.routineProf) setRoutineProf(d.routineProf);
+        if(d.oggiDati) setOggiDati(d.oggiDati);
+        if(d.volantinaggi) setVolantinaggi(d.volantinaggi);
+        if(d.emailLog) setEmailLog(d.emailLog);
+        if(d.fonti) setFonti(d.fonti);
+        if(d.tipologie) setTipologie(d.tipologie);
+        if(d.vincoli) setVincoli(d.vincoli);
+        if(d.tipiNeg) setTipiNeg(d.tipiNeg);
+        if(d.tipiVolantino) setTipiVolantino(d.tipiVolantino);
+        if(d.tipiSviluppo) setTipiSviluppo(d.tipiSviluppo);
       }catch(e){}
     };
 
@@ -5453,8 +5475,8 @@ export default function App() {
             </div>);
           })()}
 
-          {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker) */}
-          {tab==="Costi"&&!isBroker&&!isReadOnly&&myAgentId&&(()=>{
+          {/* COSTI & BREAK EVEN AGENTE (solo per agenti non-Broker, non-BackOffice, non-Coach) */}
+          {tab==="Costi"&&!isBroker&&!isBackOffice&&!isReadOnly&&myAgentId&&(()=>{
             const agId6=utente?.agentId||myAgentId;
             const annoC=costiAnnoAg||annoCorrente;
             const CAT_AG_DEFAULT=[
