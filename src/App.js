@@ -6471,13 +6471,13 @@ export default function App() {
                   </div>
                 </div>}
 
-                <button style={{width:"100%",padding:11,background:opSaved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background .3s"}} onClick={()=>{
+                <button disabled={isReadOnly} style={{width:"100%",padding:11,background:isReadOnly?"#ccc":opSaved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer",transition:"background .3s"}} onClick={()=>{
                   if(isReadOnly)return;
                   const cached=opFormCache[cacheKey]||{};
                   salvaGiornata(agId,data,cached);
                   setOpSaved(true);
                   setTimeout(()=>setOpSaved(false),2000);
-                }} disabled={isReadOnly} style={{width:"100%",padding:11,background:isReadOnly?"#ccc":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer",transition:"background .3s"}}>{isReadOnly?"👁 Solo lettura":isReadOnly?"👁 Solo lettura":opSaved?"✓ Salvato!":"Salva giornata"}</button>
+                }}>{isReadOnly?"👁 Solo lettura":opSaved?"✓ Salvato!":"Salva giornata"}</button>
               </div>);
             };
 
