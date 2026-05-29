@@ -1342,7 +1342,6 @@ export default function App() {
       const accessiPuliti = [...accessi30gg.filter(t=>new Date(t)>=cutoff), now];
       return {...prev, [myId]: {...cur, ultimoAccesso:now, accessi30gg:accessiPuliti}};
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[dbLoaded, utente?.agentId, isCoach]);
 
   // TRACCIAMENTO MODIFICHE — quando i dati di lavoro cambiano, registra ultimaModifica
@@ -1360,8 +1359,7 @@ export default function App() {
       const cur = prev[myId] || {};
       return {...prev, [myId]: {...cur, ultimaModifica:nowISO()}};
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[incarichi, proposte, venduti, operativita, pratiche, mirino]);
+  },[incarichi, proposte, venduti, operativita, pratiche, mirino, dbLoaded, isCoach, utente?.agentId]);
 
   // Report settimanale - ogni lunedì
   useEffect(()=>{
