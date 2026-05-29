@@ -1127,6 +1127,8 @@ export default function App() {
   const [showPagamento,setShowPagamento]=useState(null); const [formPagamento,setFormPagamento]=useState({});
   const [mirino,setMirino]=useState(_ls?.mirino||{});
   const [emailLog,setEmailLog]=useState(_ls?.emailLog||{});
+  // Tracciamento accessi e modifiche del team
+  const [tracciamento,setTracciamento]=useState(_ls?.tracciamento||{});
   const [showMirino,setShowMirino]=useState(null);
   const [formMirino,setFormMirino]=useState({});
   const [provvStandard,setProvvStandard]=useState(_ls?.provvStandard||{percVend:3,percAcq:4,soglia:120000,minVend:3500,minAcq:4000});
@@ -1247,6 +1249,7 @@ export default function App() {
         if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
         if(data.eventi) setEventi(Array.isArray(data.eventi)?data.eventi:[]);
         if(data.tipiEvento) setTipiEvento(Array.isArray(data.tipiEvento)?data.tipiEvento:["Corso","Evento","Cena","Conferenza","Aperitivo","Altro"]);
+        if(data.tracciamento) setTracciamento(data.tracciamento);
       }
       setDbLoaded(true);
     });
@@ -1320,6 +1323,46 @@ export default function App() {
     return()=>clearInterval(interval);
   },[dbLoaded]);
 
+  // TRACCIAMENTO ACCESSI — registra accesso utente corrente (tutti tranne Sorrentino/Coach)
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    if(!utente?.agentId) return;
+    if(isCoach) return; // Coach (Sorrentino) escluso dal tracciamento
+    const myId = String(utente.agentId);
+    const now = nowISO();
+    setTracciamento(prev=>{
+      const cur = prev[myId] || {};
+      const accessi30gg = Array.isArray(cur.accessi30gg) ? cur.accessi30gg : [];
+      // Aggiungo solo se l'ultimo accesso è > 30 minuti fa (evito spam su ricarica pagina)
+      const ultimo = accessi30gg[accessi30gg.length-1];
+      const trentaMinuti = 30*60*1000;
+      if(ultimo && (new Date(now)-new Date(ultimo)) < trentaMinuti) return prev;
+      // Pulisco gli accessi > 30 giorni
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
+      const accessiPuliti = [...accessi30gg.filter(t=>new Date(t)>=cutoff), now];
+      return {...prev, [myId]: {...cur, ultimoAccesso:now, accessi30gg:accessiPuliti}};
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[dbLoaded, utente?.agentId, isCoach]);
+
+  // TRACCIAMENTO MODIFICHE — quando i dati di lavoro cambiano, registra ultimaModifica
+  const modificheTrackRef = useRef({last:null});
+  useEffect(()=>{
+    if(!dbLoaded) return;
+    if(!utente?.agentId) return;
+    if(isCoach) return; // Coach escluso
+    // Debounce: aggiorno una volta al minuto al massimo
+    const myId = String(utente.agentId);
+    const now = Date.now();
+    if(modificheTrackRef.current.last && (now - modificheTrackRef.current.last) < 60000) return;
+    modificheTrackRef.current.last = now;
+    setTracciamento(prev=>{
+      const cur = prev[myId] || {};
+      return {...prev, [myId]: {...cur, ultimaModifica:nowISO()}};
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[incarichi, proposte, venduti, operativita, pratiche, mirino]);
+
   // Report settimanale - ogni lunedì
   useEffect(()=>{
     if(!dbLoaded) return;
@@ -1388,6 +1431,7 @@ export default function App() {
         if(d.sfide) setSfide(d.sfide);
         if(d.eventi) setEventi(d.eventi);
         if(d.tipiEvento) setTipiEvento(d.tipiEvento);
+        if(d.tracciamento) setTracciamento(d.tracciamento);
         if(d.archiviati) setArchiviati(d.archiviati);
         if(d.archiviatiProp) setArchiviatiProp(d.archiviatiProp);
         if(d.archiviatiVend) setArchiviatiVend(d.archiviatiVend);
@@ -1425,7 +1469,7 @@ export default function App() {
   // Auto-salvataggio su Supabase + localStorage ad ogni modifica
   useEffect(()=>{
     if(!dbLoaded) return; // non salvare prima di aver caricato
-    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,eventi,tipiEvento};
+    const payload = {agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,sfide,oneToOne,fasiConfig,mirino,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,eventi,tipiEvento,tracciamento};
     salvaLS(payload); // salva anche in locale come backup
     // Popola la ref per il salvataggio manuale immediato (bypass debounce)
     salvaOraManualeRef.current = () => {
@@ -1448,7 +1492,7 @@ export default function App() {
       });
     },800); // debounce 800ms (era 2000ms, ridotto per minimizzare rischio perdita dati)
     return ()=>clearTimeout(t);
-  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,eventi,tipiEvento,dbLoaded]);
+  },[agenti,incarichi,proposte,venduti,archiviati,archiviatiProp,archiviatiVend,fonti,tipologie,vincoli,tipiNeg,tipiVolantino,tipiSviluppo,operativita,obiettiviOp,pratiche,pagamentiFatture,prospetti,ericaTodo,agenteTodo,costi,obiettivoFatturato,obiettivoQuotaAgenzia,obiettivoAgente,provvStandard,costiAgente,mirino,sfide,oneToOne,fasiConfig,emailLog,catCosti,speseCosti,breakEvenManuale,catalogoAzioni,routineProf,oggiDati,volantinaggi,eventi,tipiEvento,tracciamento,dbLoaded]);
 
 
 
@@ -2891,6 +2935,40 @@ export default function App() {
                   </div>))}
                 </div>
               </div>}</div>);
+            })()}
+
+            {/* ── ATTIVITÀ TEAM (solo Broker e Coach Agenzia) ── */}
+            {(()=>{
+              // Calcolo agenti inattivi: hanno credenziali, sono attivi, non sono Coach, non sono il Broker stesso, non si collegano da >7 giorni
+              const agentiDaMonitorare = agenti.filter(a=>a.attivo!==false&&a.email&&a.profilo!=="Coach"&&a.profilo!=="Broker");
+              const inattivi = agentiDaMonitorare.map(a=>{
+                const t = tracciamento[String(a.id)] || {};
+                if(!t.ultimoAccesso) return {ag:a, giorni:null, mai:true};
+                const giorni = Math.floor((Date.now()-new Date(t.ultimoAccesso))/(1000*60*60*24));
+                return {ag:a, giorni, mai:false};
+              }).filter(x=>x.mai||x.giorni>7).sort((a,b)=>(b.giorni||999)-(a.giorni||999));
+              if(inattivi.length===0) return null;
+              return(<div style={{background:"#fff",borderRadius:10,border:"0.5px solid #E74C3C44",borderLeft:"3px solid #E74C3C",padding:"1rem 1.25rem",marginTop:"1.25rem"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{fontSize:11,fontWeight:600,color:"#E74C3C",textTransform:"uppercase",letterSpacing:".08em"}}>⚠ Attività team</span>
+                  <span style={{padding:"1px 7px",borderRadius:3,background:"#FDECEA",color:"#E74C3C",fontSize:10,fontWeight:600}}>{inattivi.length}</span>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {inattivi.map(({ag,giorni,mai})=>(
+                    <div key={ag.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{width:8,height:8,borderRadius:"50%",background:"#E74C3C"}}/>
+                        <span style={{fontSize:12,fontWeight:500,color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</span>
+                        <span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:"#F0F0F0",color:"#888"}}>{ag.profilo}</span>
+                      </div>
+                      <span style={{fontSize:11,color:"#E74C3C",fontWeight:500}}>
+                        {mai?"Mai entrato":`Non si collega da ${giorni} giorni`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p style={{fontSize:10,color:"#aaa",margin:"8px 0 0",fontStyle:"italic"}}>Vai in Agenti per vedere il dettaglio completo dell'attività</p>
+              </div>);
             })()}
             </>)}
 
@@ -4526,9 +4604,43 @@ export default function App() {
           {/* AGENTI */}
           {tab==="Agenti"&&(<div style={S.sec}>
             <div style={{display:"flex",justifyContent:"flex-end",marginBottom:"1rem"}}><button style={S.btnP} onClick={()=>{setFormAgente({nome:"",cognome:"",profilo:"Consulente",tipo:"Interno",percListing:0,percAcquirente:0,email:"",password:"",attivo:true});setShowAgente("new");}}>+ Nuovo agente</button></div>
+            {(()=>{
+              // === Helpers tracciamento ===
+              const calcStatoAttivita = (agId) => {
+                const t = tracciamento[String(agId)] || {};
+                if(!t.ultimoAccesso) return {colore:"#ccc",label:"Mai entrato",giorni:null};
+                const giorniDaAcc = Math.floor((Date.now()-new Date(t.ultimoAccesso))/(1000*60*60*24));
+                const giorniDaMod = t.ultimaModifica ? Math.floor((Date.now()-new Date(t.ultimaModifica))/(1000*60*60*24)) : 999;
+                // Verde: entrato <2 giorni E modifiche <3 giorni
+                if(giorniDaAcc<=1 && giorniDaMod<=2) return {colore:"#27AE60",label:"Attivo",giorni:giorniDaAcc};
+                // Giallo: entrato questa settimana ma non lavora dentro
+                if(giorniDaAcc<=7) return {colore:"#E67E22",label:"Apre ma non lavora",giorni:giorniDaAcc};
+                // Rosso: nessun accesso da >7 giorni
+                return {colore:"#E74C3C",label:"Inattivo",giorni:giorniDaAcc};
+              };
+              const fmtRelativo = (iso) => {
+                if(!iso) return "—";
+                const d = new Date(iso);
+                const diffMs = Date.now()-d;
+                const diffMin = Math.floor(diffMs/(1000*60));
+                const diffH = Math.floor(diffMs/(1000*60*60));
+                const diffG = Math.floor(diffMs/(1000*60*60*24));
+                if(diffMin<5) return "ora";
+                if(diffMin<60) return `${diffMin} min fa`;
+                if(diffH<24) return `${diffH} ore fa`;
+                if(diffG===1) return "ieri";
+                if(diffG<7) return `${diffG} giorni fa`;
+                if(diffG<30) return `${Math.floor(diffG/7)} sett fa`;
+                return d.toLocaleDateString("it-IT");
+              };
+              return(<>
             <div style={S.tblWrap}><table style={{...S.tbl,minWidth:500}}>
-              <thead><tr>{["Nome","Profilo","Email accesso","Password","Stato","% L","% A","Azioni"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
-              <tbody>{agenti.map(a=>(<tr key={a.id} style={{opacity:a.attivo===false?0.6:1}}>
+              <thead><tr>{["Nome","Profilo","Email accesso","Password","Stato","Ultima attività","% L","% A","Azioni"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
+              <tbody>{agenti.map(a=>{
+                const tracking = tracciamento[String(a.id)] || {};
+                const escluso = a.profilo==="Coach"; // Sorrentino esclusa dal tracciamento
+                const stato = escluso?null:calcStatoAttivita(a.id);
+                return(<tr key={a.id} style={{opacity:a.attivo===false?0.6:1}}>
                 <td style={S.td}><strong>{a.nome} {a.cognome}</strong></td>
                 <td style={S.td}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,fontWeight:500,background:a.profilo==="Broker"?`${BRAND.oro}22`:a.profilo==="Consulente"?"#EAF4FB":"#F0F0F0",color:a.profilo==="Broker"?BRAND.oroD:a.profilo==="Consulente"?"#2980B9":"#666"}}>{a.profilo}</span></td>
                 <td style={S.td}><span style={{fontSize:12,color:a.email?"#555":"#ccc"}}>{a.email||"—"}</span></td>
@@ -4539,6 +4651,17 @@ export default function App() {
                     : <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,fontWeight:500,background:a.attivo!==false?"#E9F7EF":"#FDECEA",color:a.attivo!==false?"#27AE60":"#E74C3C",border:`0.5px solid ${a.attivo!==false?"#27AE60":"#E74C3C"}`}}>{a.attivo!==false?"Attivo":"Bloccato"}</span>
                   }
                 </td>
+                <td style={S.td}>
+                  {escluso?<span style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>non tracciato</span>:!tracking.ultimoAccesso?<span style={{fontSize:11,color:"#aaa"}}>Mai entrato</span>:(
+                    <div title={`Stato: ${stato.label}`} style={{display:"flex",alignItems:"center",gap:6,fontSize:11}}>
+                      <span style={{width:9,height:9,borderRadius:"50%",background:stato.colore,flexShrink:0,boxShadow:`0 0 0 2px ${stato.colore}22`}}/>
+                      <div style={{lineHeight:1.35}}>
+                        <div style={{color:"#555",fontWeight:500}}>Accesso: {fmtRelativo(tracking.ultimoAccesso)}</div>
+                        <div style={{color:"#888",fontSize:10}}>Modifica: {fmtRelativo(tracking.ultimaModifica)} · {Array.isArray(tracking.accessi30gg)?tracking.accessi30gg.length:0} accessi/30gg</div>
+                      </div>
+                    </div>
+                  )}
+                </td>
                 <td style={S.tdC}>{a.profilo==="Broker"?"—":`${a.percListing}%`}</td>
                 <td style={S.tdC}>{a.profilo==="Broker"?"—":`${a.percAcquirente}%`}</td>
                 <td style={S.td} onClick={e=>e.stopPropagation()}><div style={{display:"flex",gap:4}}>
@@ -4546,9 +4669,17 @@ export default function App() {
                   {a.profilo!=="Broker"&&<button style={{...S.btn,fontSize:12,padding:"4px 8px",color:a.attivo!==false?"#E74C3C":"#27AE60",borderColor:a.attivo!==false?"#E74C3C":"#27AE60"}} onClick={()=>setAgenti(agenti.map(x=>x.id===a.id?{...x,attivo:a.attivo===false}:x))}>{a.attivo!==false?"🔒 Blocca":"🔓 Attiva"}</button>}
                   {a.profilo!=="Broker"&&<button style={S.btnD} onClick={()=>{if(window.confirm(`Eliminare ${a.nome} ${a.cognome}?`))setAgenti(agenti.filter(x=>x.id!==a.id));}}>Elimina</button>}
                 </div></td>
-              </tr>))}</tbody>
+              </tr>);})}</tbody>
             </table></div>
             <p style={{fontSize:11,color:"#aaa",marginTop:8}}>💡 La password è visibile solo in modifica. Gli agenti bloccati non possono accedere ma i loro dati restano invariati.</p>
+            <div style={{marginTop:14,padding:"10px 14px",background:"#fafaf8",borderRadius:8,fontSize:11,color:"#666",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
+              <strong style={{color:"#555"}}>Legenda attività:</strong>
+              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:9,height:9,borderRadius:"50%",background:"#27AE60"}}/> Attivo (entra e lavora)</span>
+              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:9,height:9,borderRadius:"50%",background:"#E67E22"}}/> Apre ma non lavora</span>
+              <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:9,height:9,borderRadius:"50%",background:"#E74C3C"}}/> Inattivo da &gt;7 giorni</span>
+            </div>
+              </>);
+            })()}
           </div>)}
 
 
