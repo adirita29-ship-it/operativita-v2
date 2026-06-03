@@ -5280,7 +5280,7 @@ export default function App() {
                         </div>
                         {expanded&&<div style={{background:"#fafaf8",borderBottom:"0.5px solid #f0f0f0"}}>
                           {spese.length===0&&<div style={{padding:"12px 16px",fontSize:12,color:"#bbb",fontStyle:"italic",paddingLeft:40}}>Nessuna spesa inserita</div>}
-                          {spese.map(sp=>(
+                          {spese.map((sp,idx)=>(
                             <div key={sp.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px 8px 40px",borderBottom:"0.5px solid #f0f0f0"}}>
                               <div style={{width:34,height:34,borderRadius:8,background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#888",flexShrink:0,fontWeight:500}}>{sp.data?fmtD(sp.data).slice(0,5):"—"}</div>
                               <div style={{flex:1}}>
@@ -5288,6 +5288,23 @@ export default function App() {
                                 {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
                               </div>
                               <div style={{fontSize:14,fontWeight:700,color:"#E74C3C",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
+                              {!isReadOnly&&idx===0&&<button onClick={()=>{
+                                // Duplica: calcolo data = stesso giorno del mese successivo
+                                let dataNuova=oggi6;
+                                if(sp.data){
+                                  const d=new Date(sp.data);
+                                  if(!isNaN(d)){
+                                    const giorno=d.getDate();
+                                    d.setDate(1); // evita problemi con mesi di lunghezza diversa
+                                    d.setMonth(d.getMonth()+1);
+                                    // riprovo a impostare il giorno; se il mese ha meno giorni, JS lo limita
+                                    const ultimoGiorno=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+                                    d.setDate(Math.min(giorno,ultimoGiorno));
+                                    dataNuova=d.toISOString().slice(0,10);
+                                  }
+                                }
+                                setFormSpesa({data:dataNuova,descrizione:sp.descrizione||"",importo:String(sp.importo||""),catId:cat.id,note:sp.note||""});
+                              }} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#A8863A",padding:"0 4px"}} title={`Duplica per il mese successivo (${sp.data?fmtD(sp.data).slice(0,5):""})`}>📋</button>}
                               {!isReadOnly&&<button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>}
                             </div>
                           ))}
