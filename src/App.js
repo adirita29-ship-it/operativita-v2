@@ -2136,6 +2136,22 @@ export default function App() {
                 Number(p.agenteAcquirente)===myAgentId||Number(p.agenteListing)===myAgentId||
                 Number(p.buyerListing)===myAgentId||Number(p.buyer)===myAgentId
               )&&p.stato==="Accettata con Vincolo");
+              // Vincolate filtrate per anno (per coerenza con la dashboard broker)
+              const myPropVincoloAnno = myPropVincolo.filter(p=>dashAnno==="Tutti"||getAnno(p.dataStato)===dashAnno);
+              // Totale provvigione vincolata (V+A)
+              const myVincolatoTot = myPropVincoloAnno.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
+              // Quota agente (sua parte personale) sulle vincolate
+              const myVincolatoQuotaAg = myPropVincoloAnno.reduce((s,p)=>{
+                let q=0;
+                const pV=Number(p.provvVenditore||0); const pA=Number(p.provvAcquirente||0);
+                if(Number(p.agenteListing)===myAgentId) q+=pV*Number(p.percListing||0)/100;
+                if(Number(p.agenteAcquirente)===myAgentId) q+=pA*Number(p.percAcquirente||0)/100;
+                if(Number(p.buyerListing)===myAgentId&&Number(p.agenteListing)!==myAgentId) q+=pV*Number(p.percBuyerListing||0)/100;
+                if(Number(p.buyer)===myAgentId&&Number(p.agenteAcquirente)!==myAgentId) q+=pA*Number(p.percBuyer||0)/100;
+                return s+q;
+              },0);
+              // Obiettivo personale fatturato anno
+              const obFattAg = Number((obiettivoAgente[myAgentId]||{}).fatturato||0);
               // Ruolo agente in ogni proposta
               const ruoloProp=p=>{
                 if(Number(p.agenteListing)===myAgentId) return "Listing";
@@ -2168,6 +2184,114 @@ export default function App() {
                     {[...new Set([annoCorrente,...anniVend])].sort().reverse().map(a=><option key={a}>{a}</option>)}
                   </Sel>
                 </div>
+                {/* BARRA OBIETTIVO PERSONALE — 3 strisce (Incassata + Maturata + Probabile) */}
+                {(()=>{
+                  const colorePrf = ag?.profilo==="Consulente"?"#2980B9":"#5F5E5A";
+                  const coloreBg = ag?.profilo==="Consulente"?"#EAF1F8":"#f0ede6";
+                  const colorePrfLight = ag?.profilo==="Consulente"?"#7CB0DE":"#B4B2A9";
+                  const colorePrfPallido = ag?.profilo==="Consulente"?"#B8D5EE":"#D3D1C7";
+                  const colorePrfDark = ag?.profilo==="Consulente"?"#185FA5":"#444441";
+                  // 3 livelli: Incassata + Maturata (Inc + da incassare) + Probabile (Maturata + vincolate)
+                  const livInc = totIncassato;
+                  const livMat = totMaturato;
+                  const livProb = totMaturato + myVincolatoQuotaAg;
+                  // CASO 1 — nessun obiettivo impostato: mostro i 3 numeri senza barra
+                  if(obFattAg<=0) return(
+                    <div style={{background:"#fff",border:`0.5px solid #e8e5e0`,borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,gap:8,flexWrap:"wrap"}}>
+                        <div>
+                          <p style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:colorePrf,margin:"0 0 2px"}}>🎯 Le tue quote {dashAnno!=="Tutti"?dashAnno:annoCorrente}</p>
+                          <p style={{margin:0,fontSize:12,color:"#aaa"}}>Nessun obiettivo personale impostato</p>
+                        </div>
+                        <button onClick={()=>setTab("Il mio report")} style={{...S.btn,fontSize:11,padding:"5px 12px",borderColor:colorePrf,color:colorePrf}}>Imposta obiettivo →</button>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:myVincolatoQuotaAg>0?"1fr 1fr 1fr":"1fr 1fr",gap:12}}>
+                        <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",borderTop:`3px solid ${colorePrf}`}}>
+                          <div style={{fontSize:10,color:"#888",marginBottom:3}}>Incassata</div>
+                          <div style={{fontSize:18,fontWeight:600,color:colorePrf}}>€ {fmt(livInc)}</div>
+                        </div>
+                        <div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",borderTop:`3px solid ${colorePrfLight}`}}>
+                          <div style={{fontSize:10,color:"#888",marginBottom:3}}>+ Maturata</div>
+                          <div style={{fontSize:18,fontWeight:600,color:colorePrfDark}}>€ {fmt(livMat)}</div>
+                        </div>
+                        {myVincolatoQuotaAg>0&&<div style={{background:"#fafaf8",borderRadius:8,padding:"10px 14px",borderTop:`3px solid ${colorePrfPallido}`}}>
+                          <div style={{fontSize:10,color:"#888",marginBottom:3}}>+ Probabile <span style={{fontStyle:"italic"}}>(vincolate)</span></div>
+                          <div style={{fontSize:18,fontWeight:600,color:colorePrfDark}}>€ {fmt(livProb)}</div>
+                        </div>}
+                      </div>
+                    </div>
+                  );
+                  // CASO 2 — obiettivo impostato: barra a 3 strisce
+                  const percInc = Math.min(100, Math.round(livInc/obFattAg*100));
+                  const percMat = Math.min(100, Math.round(livMat/obFattAg*100));
+                  const percProb = Math.min(100, Math.round(livProb/obFattAg*100));
+                  const raggiunto = livInc>=obFattAg;
+                  const mancanoOggi = Math.max(0, obFattAg-livInc);
+                  const mancanoMat = Math.max(0, obFattAg-livMat);
+                  const mancanoProb = Math.max(0, obFattAg-livProb);
+                  return(
+                    <div style={{background:"#fff",border:`1.5px solid ${raggiunto?"#27AE60":colorePrf}`,borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                        <div>
+                          <p style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:raggiunto?"#27AE60":colorePrf,margin:"0 0 2px"}}>🎯 Obiettivo fatturato {dashAnno!=="Tutti"?dashAnno:annoCorrente}</p>
+                          <p style={{margin:0,fontSize:13,color:"#888"}}>La tua quota annuale: <strong style={{color:BRAND.grigio}}>€ {fmt(obFattAg)}</strong></p>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          {raggiunto?<span style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>✓ Obiettivo raggiunto!</span>
+                            :myVincolatoQuotaAg>0?<><span style={{fontSize:11,color:"#aaa"}}>Mancano (col Probabile)</span><div style={{fontSize:18,fontWeight:700,color:mancanoProb===0?"#27AE60":"#E67E22"}}>€ {fmt(mancanoProb)}</div></>
+                            :<><span style={{fontSize:11,color:"#aaa"}}>Mancano</span><div style={{fontSize:18,fontWeight:700,color:"#E67E22"}}>€ {fmt(mancanoOggi)}</div></>}
+                        </div>
+                      </div>
+                      {/* Barra a 3 strisce */}
+                      <div style={{position:"relative",height:24,background:coloreBg,borderRadius:12,overflow:"hidden"}}>
+                        {myVincolatoQuotaAg>0&&<div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percProb}%`,background:`repeating-linear-gradient(45deg, ${colorePrfPallido}, ${colorePrfPallido} 6px, ${colorePrfLight} 6px, ${colorePrfLight} 12px)`,opacity:0.55,transition:"width .5s"}}/>}
+                        <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percMat}%`,background:colorePrfLight,transition:"width .5s"}}/>
+                        <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percInc}%`,background:raggiunto?"#27AE60":colorePrf,transition:"width .5s",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:8}}>
+                          {percInc>=15&&<span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{percInc}%</span>}
+                        </div>
+                      </div>
+                      {/* Legenda 3 strisce */}
+                      <div style={{display:"grid",gridTemplateColumns:myVincolatoQuotaAg>0?"1fr 1fr 1fr":"1fr 1fr",gap:12,marginTop:12}}>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{width:10,height:10,background:raggiunto?"#27AE60":colorePrf,borderRadius:2,flexShrink:0}}/>
+                          <div>
+                            <div style={{color:"#888",fontSize:10}}>Incassata</div>
+                            <div style={{fontWeight:500,color:colorePrfDark,fontSize:12}}>€ {fmt(livInc)} <span style={{color:"#aaa",fontWeight:400}}>({percInc}%)</span></div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{width:10,height:10,background:colorePrfLight,borderRadius:2,flexShrink:0}}/>
+                          <div>
+                            <div style={{color:"#888",fontSize:10}}>+ Maturata</div>
+                            <div style={{fontWeight:500,color:colorePrfDark,fontSize:12}}>€ {fmt(livMat)} <span style={{color:"#aaa",fontWeight:400}}>({percMat}%)</span></div>
+                          </div>
+                        </div>
+                        {myVincolatoQuotaAg>0&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <span style={{width:10,height:10,background:`repeating-linear-gradient(45deg, ${colorePrfPallido}, ${colorePrfPallido} 3px, ${colorePrfLight} 3px, ${colorePrfLight} 6px)`,border:`0.5px solid ${colorePrfLight}`,borderRadius:2,flexShrink:0}}/>
+                          <div>
+                            <div style={{color:"#888",fontSize:10}}>+ Probabile <span style={{fontStyle:"italic"}}>(vincolate)</span></div>
+                            <div style={{fontWeight:500,color:colorePrfDark,fontSize:12}}>€ {fmt(livProb)} <span style={{color:"#aaa",fontWeight:400}}>({percProb}%)</span></div>
+                          </div>
+                        </div>}
+                      </div>
+                      {/* Mancano i 3 scenari */}
+                      {!raggiunto&&<div style={{marginTop:10,paddingTop:8,borderTop:`0.5px solid ${coloreBg}`,display:"grid",gridTemplateColumns:myVincolatoQuotaAg>0?"1fr 1fr 1fr":"1fr 1fr",gap:12,fontSize:11}}>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{color:"#aaa",marginBottom:2}}>Mancano oggi (cash)</div>
+                          <div style={{fontWeight:500,color:"#E74C3C"}}>€ {fmt(mancanoOggi)}</div>
+                        </div>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{color:"#aaa",marginBottom:2}}>Col Maturato</div>
+                          <div style={{fontWeight:500,color:mancanoMat===0?"#27AE60":"#E67E22"}}>€ {fmt(mancanoMat)}</div>
+                        </div>
+                        {myVincolatoQuotaAg>0&&<div style={{textAlign:"center"}}>
+                          <div style={{color:"#aaa",marginBottom:2}}>Col Probabile</div>
+                          <div style={{fontWeight:500,color:mancanoProb===0?"#27AE60":"#E67E22"}}>€ {fmt(mancanoProb)}</div>
+                        </div>}
+                      </div>}
+                    </div>
+                  );
+                })()}
                 {/* KPI 4 box */}
                 <div style={isMobile?{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:"1rem"}:S.g4}>
                   <div style={S.card(STATI_INC.Attivo.clr)}>
@@ -2351,7 +2475,10 @@ export default function App() {
                       <p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni previste ma non certe: dipendono dall'esito del vincolo</p>
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",whiteSpace:"nowrap"}}>{myPropVincolo.length>0?`€ ${fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</span>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:18,fontWeight:700,color:"#D4AC0D",whiteSpace:"nowrap"}}>{myPropVincolo.length>0?`€ ${fmt(myPropVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0))}`:"—"}</div>
+                        {myPropVincolo.length>0&&myVincolatoQuotaAg>0&&<div style={{fontSize:11,color:"#888",whiteSpace:"nowrap",marginTop:1}}>di cui quota agente: <span style={{color:"#1D9E75",fontWeight:600}}>€ {fmt(myVincolatoQuotaAg)}</span></div>}
+                      </div>
                       <button style={{background:"none",border:`0.5px solid #D4AC0D66`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#A8863A",whiteSpace:"nowrap"}}>{showVincolateAg?"▲ Chiudi":`▼ Vedi (${myPropVincolo.length})`}</button>
                     </div>
                   </div>
@@ -2562,11 +2689,14 @@ export default function App() {
               // Progresso = quota agenzia incassata (criterio cassa: i soldi davvero entrati)
               const progressoInc = qAgenziaInc;
               const progressoTot = qAgenziaInc + qAgenziaRes;
+              const progressoProb = qAgenziaInc + qAgenziaRes + dashSospesoQuotaAg;
               const percInc = Math.min(100, Math.round(progressoInc/obiettivoBE*100));
               const percTot = Math.min(100, Math.round(progressoTot/obiettivoBE*100));
+              const percProb = Math.min(100, Math.round(progressoProb/obiettivoBE*100));
               const raggiunto = progressoInc>=obiettivoBE;
               const mancano = Math.max(0, obiettivoBE-progressoInc);
               const mancanoNetto = Math.max(0, obiettivoBE-progressoTot);
+              const mancanoProb = Math.max(0, obiettivoBE-progressoProb);
               return(
                 <div style={{background:"#fff",border:`1.5px solid ${raggiunto?"#27AE60":BRAND.oro}`,borderRadius:12,padding:"1.25rem 1.5rem",marginBottom:"1.25rem"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12,flexWrap:"wrap",gap:8}}>
@@ -2576,26 +2706,60 @@ export default function App() {
                     </div>
                     <div style={{textAlign:"right"}}>
                       {raggiunto?<span style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>✓ Break Even raggiunto!</span>
+                        :dashSospesoQuotaAg>0?<><span style={{fontSize:11,color:"#aaa"}}>Mancano (col Probabile)</span><div style={{fontSize:18,fontWeight:700,color:mancanoProb===0?"#27AE60":"#E67E22"}}>€ {fmt(mancanoProb)}</div></>
                         :<><span style={{fontSize:11,color:"#aaa"}}>Mancano</span><div style={{fontSize:18,fontWeight:700,color:"#E67E22"}}>€ {fmt(mancano)}</div></>}
                     </div>
                   </div>
-                  {/* Barra di avanzamento a doppio livello */}
+                  {/* Barra di avanzamento a 3 strisce */}
                   <div style={{position:"relative",height:24,background:"#f0ede6",borderRadius:12,overflow:"hidden"}}>
-                    {/* Totale (incassato + da incassare) - più chiaro */}
-                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percTot}%`,background:`${BRAND.oro}44`,transition:"width .5s"}}/>
-                    {/* Incassato - pieno */}
+                    {/* Striscia 3: Probabile (sotto, tratteggiata) */}
+                    {dashSospesoQuotaAg>0&&<div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percProb}%`,background:`repeating-linear-gradient(45deg, ${BRAND.oro}22, ${BRAND.oro}22 6px, ${BRAND.oro}44 6px, ${BRAND.oro}44 12px)`,transition:"width .5s"}}/>}
+                    {/* Striscia 2: Maturato (Tot) */}
+                    <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percTot}%`,background:`${BRAND.oro}66`,transition:"width .5s"}}/>
+                    {/* Striscia 1: Incassato - pieno */}
                     <div style={{position:"absolute",left:0,top:0,height:"100%",width:`${percInc}%`,background:raggiunto?"#27AE60":BRAND.oro,transition:"width .5s",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:8}}>
                       {percInc>=15&&<span style={{fontSize:11,fontWeight:700,color:"#fff"}}>{percInc}%</span>}
                     </div>
                   </div>
-                  <div style={{display:"flex",justifyContent:"space-between",marginTop:8,flexWrap:"wrap",gap:8,alignItems:"flex-start"}}>
-                    <span style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:raggiunto?"#27AE60":BRAND.oro,marginRight:4,verticalAlign:"middle"}}/>Incassato: <strong>€ {fmt(progressoInc)}</strong> ({percInc}%)</span>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:11,color:"#888"}}><span style={{display:"inline-block",width:10,height:10,borderRadius:2,background:`${BRAND.oro}44`,marginRight:4,verticalAlign:"middle"}}/>Con da incassare: <strong>€ {fmt(progressoTot)}</strong> ({percTot}%)</div>
-                      {!raggiunto&&mancanoNetto>0&&<div style={{fontSize:11,color:"#E67E22",marginTop:3,fontWeight:500}}>Mancano: <strong>€ {fmt(mancanoNetto)}</strong></div>}
-                      {!raggiunto&&mancanoNetto===0&&progressoTot>0&&<div style={{fontSize:11,color:"#27AE60",marginTop:3,fontWeight:500}}>✓ Break Even raggiunto col maturato!</div>}
+                  {/* Legenda 3 strisce */}
+                  <div style={{display:"grid",gridTemplateColumns:dashSospesoQuotaAg>0?"1fr 1fr 1fr":"1fr 1fr",gap:12,marginTop:12}}>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{width:10,height:10,background:raggiunto?"#27AE60":BRAND.oro,borderRadius:2,flexShrink:0}}/>
+                      <div>
+                        <div style={{color:"#888",fontSize:10}}>Incassato</div>
+                        <div style={{fontWeight:500,color:BRAND.oroD,fontSize:12}}>€ {fmt(progressoInc)} <span style={{color:"#aaa",fontWeight:400}}>({percInc}%)</span></div>
+                      </div>
                     </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{width:10,height:10,background:`${BRAND.oro}66`,borderRadius:2,flexShrink:0}}/>
+                      <div>
+                        <div style={{color:"#888",fontSize:10}}>+ Maturato</div>
+                        <div style={{fontWeight:500,color:BRAND.oroD,fontSize:12}}>€ {fmt(progressoTot)} <span style={{color:"#aaa",fontWeight:400}}>({percTot}%)</span></div>
+                      </div>
+                    </div>
+                    {dashSospesoQuotaAg>0&&<div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <span style={{width:10,height:10,background:`repeating-linear-gradient(45deg, ${BRAND.oro}22, ${BRAND.oro}22 3px, ${BRAND.oro}44 3px, ${BRAND.oro}44 6px)`,border:`0.5px solid ${BRAND.oro}66`,borderRadius:2,flexShrink:0}}/>
+                      <div>
+                        <div style={{color:"#888",fontSize:10}}>+ Probabile <span style={{fontStyle:"italic"}}>(vincolate)</span></div>
+                        <div style={{fontWeight:500,color:BRAND.oroD,fontSize:12}}>€ {fmt(progressoProb)} <span style={{color:"#aaa",fontWeight:400}}>({percProb}%)</span></div>
+                      </div>
+                    </div>}
                   </div>
+                  {/* Mancano i 3 scenari */}
+                  {!raggiunto&&<div style={{marginTop:10,paddingTop:8,borderTop:"0.5px solid #f0ede6",display:"grid",gridTemplateColumns:dashSospesoQuotaAg>0?"1fr 1fr 1fr":"1fr 1fr",gap:12,fontSize:11}}>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{color:"#aaa",marginBottom:2}}>Mancano oggi (cash)</div>
+                      <div style={{fontWeight:500,color:"#E74C3C"}}>€ {fmt(mancano)}</div>
+                    </div>
+                    <div style={{textAlign:"center"}}>
+                      <div style={{color:"#aaa",marginBottom:2}}>Col Maturato</div>
+                      <div style={{fontWeight:500,color:mancanoNetto===0?"#27AE60":"#E67E22"}}>€ {fmt(mancanoNetto)}</div>
+                    </div>
+                    {dashSospesoQuotaAg>0&&<div style={{textAlign:"center"}}>
+                      <div style={{color:"#aaa",marginBottom:2}}>Col Probabile</div>
+                      <div style={{fontWeight:500,color:mancanoProb===0?"#27AE60":"#E67E22"}}>€ {fmt(mancanoProb)}</div>
+                    </div>}
+                  </div>}
                 </div>
               );
             })()}
@@ -2692,7 +2856,10 @@ export default function App() {
                   <div style={{background:"#FEF0E0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showSospesi?"0.5px solid #E67E2233":"none",cursor:"pointer"}} onClick={()=>setShowSospesi(v=>!v)}>
                     <div><span style={{fontSize:13,fontWeight:600,color:"#E67E22"}}>🕐 SOSPESI DA INCASSARE — Provvigioni maturate, da riscuotere</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Pratiche concluse con provvigioni ancora da incassare totalmente o parzialmente</p></div>
                     <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <span style={{fontSize:18,fontWeight:700,color:"#E67E22",whiteSpace:"nowrap"}}>{righe.length>0?`€ ${fmt(totSospesi)}`:"—"}</span>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:18,fontWeight:700,color:"#E67E22",whiteSpace:"nowrap"}}>{righe.length>0?`€ ${fmt(totSospesi)}`:"—"}</div>
+                        {righe.length>0&&qAgenziaRes>0&&<div style={{fontSize:11,color:"#888",whiteSpace:"nowrap",marginTop:1}}>di cui quota agenzia: <span style={{color:"#1D9E75",fontWeight:600}}>€ {fmt(qAgenziaRes)}</span></div>}
+                      </div>
                       <button style={{background:"none",border:`0.5px solid #E67E2266`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#E67E22",whiteSpace:"nowrap"}}>{showSospesi?"▲ Chiudi":"▼ Vedi"}</button>
                     </div>
                   </div>
@@ -2767,7 +2934,10 @@ export default function App() {
               <div style={{background:"#FEF9E7",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:showVincolate?"0.5px solid #D4AC0D44":"none",cursor:"pointer"}} onClick={()=>setShowVincolate(v=>!v)}>
                 <div><span style={{fontSize:13,fontWeight:600,color:"#D4AC0D"}}>Vincolate — Proposte accettate con vincolo in attesa di esito</span><p style={{fontSize:11,color:"#aaa",margin:"2px 0 0"}}>Provvigioni previste ma non certe: dipendono dall'esito del vincolo</p></div>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
-                  <span style={{fontSize:18,fontWeight:700,color:"#D4AC0D",whiteSpace:"nowrap"}}>{propVincolo.length>0?`€ ${fmt(dashSospeso)}`:"—"}</span>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:18,fontWeight:700,color:"#D4AC0D",whiteSpace:"nowrap"}}>{propVincolo.length>0?`€ ${fmt(dashSospeso)}`:"—"}</div>
+                    {propVincolo.length>0&&dashSospesoQuotaAg>0&&<div style={{fontSize:11,color:"#888",whiteSpace:"nowrap",marginTop:1}}>di cui quota agenzia: <span style={{color:"#1D9E75",fontWeight:600}}>€ {fmt(dashSospesoQuotaAg)}</span></div>}
+                  </div>
                   <button style={{background:"none",border:`0.5px solid #D4AC0D66`,borderRadius:6,padding:"3px 10px",fontSize:12,cursor:"pointer",color:"#A8863A",whiteSpace:"nowrap"}}>{showVincolate?"▲ Chiudi":`▼ Vedi (${propVincolo.length})`}</button>
                 </div>
               </div>
