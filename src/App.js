@@ -344,6 +344,47 @@ const calcolaIncassatoA = v => Number(v.acc1A||0)+Number(v.acc2A||0)+Number(v.sa
 const calcolaStatoIncasso = v => { const t=Number(v.provvVenditore||0)+Number(v.provvAcquirente||0); const i=calcolaIncassatoV(v)+calcolaIncassatoA(v); if(i===0)return"Da incassare"; if(i>=t)return"Incassato"; return"Parziale"; };
 const calcolaQuotaAgente = (v,agId) => { let q=0; if(v.agenteListing===agId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100; if(v.agenteAcquirente===agId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100; if(v.buyerListing===agId&&v.agenteListing!==agId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100; if(v.buyer===agId&&v.agenteAcquirente!==agId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100; return q; };
 
+// Estrae TUTTI i pagamenti dai venduti (acc1V, acc2V, saldoV, acc1A, acc2A, saldoA) come array di righe ordinabile per data
+const estraiPagamenti = (vendutiArr) => {
+  const out = [];
+  vendutiArr.forEach(v => {
+    ["V","A"].forEach(lato => {
+      ["acc1","acc2","saldo"].forEach(k => {
+        const importo = Number(v[`${k}${lato}`]||0);
+        const data = v[`data${k.charAt(0).toUpperCase()+k.slice(1)}${lato}`] || v[`data${k[0].toUpperCase()+k.slice(1)}${lato}`];
+        // Le date sono "dataAcc1V", "dataAcc2V", "dataSaldoV", "dataAcc1A", "dataAcc2A", "dataSaldoA"
+        const dataField = `data${k.charAt(0).toUpperCase()+k.slice(1)}${lato}`;
+        const dataReal = v[dataField] || "";
+        const noteField = `note${k.charAt(0).toUpperCase()+k.slice(1)}${lato}`;
+        const noteReal = v[noteField] || "";
+        if(importo>0 && dataReal){
+          // Quota agenzia su questa rata: importo × (1 - somma delle % degli agenti su quel lato)
+          const provLato = lato==="V" ? Number(v.provvVenditore||0) : Number(v.provvAcquirente||0);
+          let percAgenti = 0;
+          if(lato==="V"){
+            if(v.agenteListing) percAgenti += Number(v.percListing||0);
+            if(v.buyerListing && v.buyerListing!==v.agenteListing) percAgenti += Number(v.percBuyerListing||0);
+          } else {
+            if(v.agenteAcquirente) percAgenti += Number(v.percAcquirente||0);
+            if(v.buyer && v.buyer!==v.agenteAcquirente) percAgenti += Number(v.percBuyer||0);
+          }
+          const quotaAg = importo * (1 - percAgenti/100);
+          out.push({
+            venduto: v,
+            data: dataReal,
+            lato,
+            tipo: k, // acc1, acc2, saldo
+            importo,
+            quotaAg: Math.max(0, quotaAg),
+            note: noteReal
+          });
+        }
+      });
+    });
+  });
+  return out.sort((a,b)=>(b.data||"").localeCompare(a.data||""));
+};
+
 // === SCONTI: provvigione teorica vs reale ===
 // Calcola la provvigione TEORICA per un lato (venditore o acquirente) secondo la regola:
 //   - prezzo <= soglia: MAX(% standard * prezzo, minimo garantito)
@@ -1088,6 +1129,10 @@ export default function App() {
   const [opModoInserimento,setOpModoInserimento]=useState("giorno");
   // nF,nT,nV,nN removed - SettSec manages its own local state to fix cursor bug
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
+  const [vendViewMode,setVendViewMode]=useState("pratiche"); // 'pratiche' o 'incassi'
+  const [incassiPeriodo,setIncassiPeriodo]=useState("settimana"); // 'oggi','settimana','mese','mese_scorso','custom'
+  const [incassiDal,setIncassiDal]=useState(""); const [incassiAl,setIncassiAl]=useState("");
+  const [dashIncassiPeriodo,setDashIncassiPeriodo]=useState("settimana"); // per mini-box Dashboard
   const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti"); const [fIncMirino,setFIncMirino]=useState(false);
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
@@ -2507,6 +2552,60 @@ export default function App() {
                 </div>
               </>);
             })()}
+            {/* MINI-BOX INCASSI RECENTI — Broker, Erica e Coach Agenzia */}
+            {(canViewAll||isBackOffice)&&(()=>{
+              const periodo = dashIncassiPeriodo;
+              const setPeriodo = setDashIncassiPeriodo;
+              const oggiD = new Date(); oggiD.setHours(0,0,0,0);
+              let dal;
+              if(periodo==="oggi"){
+                dal = todayStr();
+              } else if(periodo==="settimana"){
+                const d = new Date(oggiD); d.setDate(d.getDate()-6);
+                dal = d.toISOString().slice(0,10);
+              } else {
+                const d = new Date(oggiD); d.setDate(1);
+                dal = d.toISOString().slice(0,10);
+              }
+              const al = todayStr();
+              const vendCat = venduti.filter(v=>v.categoria==="vendita");
+              const tuttiPag = estraiPagamenti(vendCat);
+              const pagPeriodo = tuttiPag.filter(p=>p.data>=dal&&p.data<=al);
+              const totIncasso = pagPeriodo.reduce((s,p)=>s+p.importo,0);
+              const totQuotaAg = pagPeriodo.reduce((s,p)=>s+p.quotaAg,0);
+              const ultimoP = pagPeriodo[0];
+              const giorniDaUltimo = ultimoP ? Math.floor((Date.now()-new Date(ultimoP.data))/(1000*60*60*24)) : null;
+              const presetBtnMini = (val,lbl)=>(
+                <button key={val} onClick={()=>setPeriodo(val)} style={{background:periodo===val?"#1D9E75":"transparent",border:`0.5px solid ${periodo===val?"#1D9E75":"#e0ddd5"}`,color:periodo===val?"#fff":"#555",padding:"2px 8px",borderRadius:4,fontSize:10,cursor:"pointer",fontWeight:periodo===val?500:400}}>{lbl}</button>
+              );
+              if(pagPeriodo.length===0){
+                return(<div style={{background:"#fafaf8",border:"0.5px dashed #ccc",borderRadius:8,padding:"10px 16px",marginBottom:"1.25rem",display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:"#aaa",gap:8,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <span>💰 Nessun incasso nel periodo</span>
+                    <div style={{display:"flex",gap:2}}>{presetBtnMini("oggi","Oggi")}{presetBtnMini("settimana","Settimana")}{presetBtnMini("mese","Mese")}</div>
+                  </div>
+                </div>);
+              }
+              return(<div style={{background:"#fff",border:"0.5px solid #1D9E7544",borderLeft:"3px solid #1D9E75",borderRadius:8,padding:"12px 16px",marginBottom:"1.25rem"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:200}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,fontWeight:500,color:"#1D9E75"}}>💰 Incassato</span>
+                      <div style={{display:"flex",gap:2}}>{presetBtnMini("oggi","Oggi")}{presetBtnMini("settimana","Settimana")}{presetBtnMini("mese","Mese")}</div>
+                    </div>
+                    <div style={{fontSize:11,color:"#aaa",marginTop:4}}>
+                      {pagPeriodo.length} pagament{pagPeriodo.length===1?"o":"i"}
+                      {giorniDaUltimo!==null&&<> · ultimo {giorniDaUltimo===0?"oggi":giorniDaUltimo===1?"ieri":`${giorniDaUltimo} giorni fa`}</>}
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:20,fontWeight:500,color:"#1D9E75",lineHeight:1.1}}>€ {fmt(totIncasso)}</div>
+                    <div style={{fontSize:11,color:"#888",marginTop:2}}>di cui quota agenzia: <span style={{color:BRAND.oroD,fontWeight:500}}>€ {fmt(Math.round(totQuotaAg))}</span></div>
+                  </div>
+                  <button onClick={()=>{setTab("Venduti");setVendViewMode("incassi");setIncassiPeriodo(periodo);}} style={{background:"transparent",border:"0.5px solid #1D9E7566",color:"#1D9E75",padding:"5px 12px",borderRadius:6,fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>Vedi dettagli →</button>
+                </div>
+              </div>);
+            })()}
             {!isBroker&&!isBackOffice&&(()=>{
               const oggiD=new Date();oggiD.setHours(0,0,0,0);
               const tra30=new Date(oggiD);tra30.setDate(tra30.getDate()+30);
@@ -3822,10 +3921,15 @@ export default function App() {
               </div>
               <button onClick={chiudiBannerVend} title="Chiudi (puoi riaprirlo con ⓘ)" style={{background:"none",border:"none",cursor:"pointer",color:"#A8863A",fontSize:18,padding:"0 4px",lineHeight:1,fontWeight:600}}>×</button>
             </div>}
-            <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:10}}>
+            <div style={{marginBottom:"1rem",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
               <SubTabs value={subVend} onChange={v=>{setSubVend(v);setFVendStato("Tutti");}} options={[{v:"vendita",l:"🏠 Vendite"},{v:"affitto",l:"🔑 Locazioni"}]}/>
               {!showBannerVend&&<button onClick={()=>setShowBannerVend(true)} title="Cosa significa Venduti?" style={{background:"#FAEEDA",border:"0.5px solid #D9A954",borderRadius:"50%",width:22,height:22,display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#A8863A",fontSize:12,fontWeight:700,padding:0}}>ⓘ</button>}
+              {canViewAll&&<div style={{marginLeft:"auto",display:"flex",gap:4,background:"#fafaf8",padding:3,borderRadius:8,border:"0.5px solid #e8e5e0"}}>
+                <button onClick={()=>setVendViewMode("pratiche")} style={{background:vendViewMode==="pratiche"?"#fff":"transparent",border:vendViewMode==="pratiche"?"0.5px solid #e0ddd5":"0.5px solid transparent",color:vendViewMode==="pratiche"?"#2C2C2C":"#888",padding:"5px 12px",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:vendViewMode==="pratiche"?500:400}}>📋 Pratiche</button>
+                <button onClick={()=>setVendViewMode("incassi")} style={{background:vendViewMode==="incassi"?"#fff":"transparent",border:vendViewMode==="incassi"?"0.5px solid #e0ddd5":"0.5px solid transparent",color:vendViewMode==="incassi"?"#A8863A":"#888",padding:"5px 12px",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:vendViewMode==="incassi"?500:400}}>💰 Incassi</button>
+              </div>}
             </div>
+            {vendViewMode==="pratiche"&&(<>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
               <FiltriVend/>
               <SearchBar value={searchVenduti} onChange={setSearchVenduti} placeholder="Cerca immobile, venditore, acquirente..." nResults={vendFiltrati.length}/>
@@ -3989,6 +4093,131 @@ export default function App() {
               </tbody>
 
             </table></div>
+            </>)}
+            {/* VISTA INCASSI — timeline pagamenti */}
+            {vendViewMode==="incassi"&&(()=>{
+              // Calcolo periodo dal/al in base al toggle
+              const oggiD = new Date(); oggiD.setHours(0,0,0,0);
+              let dal, al = todayStr();
+              if(incassiPeriodo==="oggi"){
+                dal = todayStr();
+              } else if(incassiPeriodo==="settimana"){
+                const d = new Date(oggiD); d.setDate(d.getDate()-6);
+                dal = d.toISOString().slice(0,10);
+              } else if(incassiPeriodo==="mese"){
+                const d = new Date(oggiD); d.setDate(1);
+                dal = d.toISOString().slice(0,10);
+              } else if(incassiPeriodo==="mese_scorso"){
+                const d = new Date(oggiD); d.setMonth(d.getMonth()-1); d.setDate(1);
+                dal = d.toISOString().slice(0,10);
+                const dEnd = new Date(oggiD); dEnd.setDate(0); // ultimo del mese precedente
+                al = dEnd.toISOString().slice(0,10);
+              } else { // custom
+                dal = incassiDal || "";
+                al = incassiAl || todayStr();
+              }
+              // Estrai tutti i pagamenti dai venduti filtrati per categoria (vendita/affitto)
+              const vendCat = venduti.filter(v=>v.categoria===subVend);
+              const tuttiPag = estraiPagamenti(vendCat);
+              // Filtra per periodo
+              const pagPeriodo = tuttiPag.filter(p=>{
+                if(dal && p.data<dal) return false;
+                if(al && p.data>al) return false;
+                return true;
+              });
+              const totIncasso = pagPeriodo.reduce((s,p)=>s+p.importo,0);
+              const totQuotaAg = pagPeriodo.reduce((s,p)=>s+p.quotaAg,0);
+              const pratiche = new Set(pagPeriodo.map(p=>p.venduto.id));
+              const percAg = totIncasso>0?Math.round(totQuotaAg/totIncasso*100):0;
+              const presetBtn = (val,lbl)=>(
+                <button key={val} onClick={()=>setIncassiPeriodo(val)} style={{background:incassiPeriodo===val?BRAND.oro:"transparent",border:`0.5px solid ${incassiPeriodo===val?BRAND.oro:"#e0ddd5"}`,color:incassiPeriodo===val?"#fff":"#555",padding:"5px 12px",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:incassiPeriodo===val?500:400}}>{lbl}</button>
+              );
+              return(<div>
+                {/* Riepilogo periodo + filtri */}
+                <div style={{background:"#FDFBF7",border:"0.5px solid #e8e5e0",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",fontWeight:500}}>Periodo</span>
+                    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                      {presetBtn("oggi","Oggi")}
+                      {presetBtn("settimana","Settimana")}
+                      {presetBtn("mese","Mese")}
+                      {presetBtn("mese_scorso","Mese scorso")}
+                      {presetBtn("custom","Personalizzato")}
+                    </div>
+                    {incassiPeriodo==="custom"&&<div style={{display:"flex",alignItems:"center",gap:6,marginLeft:"auto",flexWrap:"wrap"}}>
+                      <span style={{fontSize:11,color:"#aaa"}}>Dal</span>
+                      <input type="date" value={incassiDal} onChange={e=>setIncassiDal(e.target.value)} style={{fontSize:12,padding:"4px 8px",border:"0.5px solid #e0ddd5",borderRadius:6}}/>
+                      <span style={{fontSize:11,color:"#aaa"}}>al</span>
+                      <input type="date" value={incassiAl} onChange={e=>setIncassiAl(e.target.value)} style={{fontSize:12,padding:"4px 8px",border:"0.5px solid #e0ddd5",borderRadius:6}}/>
+                    </div>}
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:12}}>
+                    <div style={{background:"#fff",padding:"12px 14px",borderRadius:8,borderLeft:"3px solid #1D9E75"}}>
+                      <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Totale incassato</div>
+                      <div style={{fontSize:22,fontWeight:500,color:"#1D9E75"}}>€ {fmt(totIncasso)}</div>
+                    </div>
+                    <div style={{background:"#fff",padding:"12px 14px",borderRadius:8,borderLeft:`3px solid ${BRAND.oro}`}}>
+                      <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Quota agenzia</div>
+                      <div style={{fontSize:22,fontWeight:500,color:BRAND.oroD}}>€ {fmt(totQuotaAg)}</div>
+                      {totIncasso>0&&<div style={{fontSize:10,color:"#aaa",marginTop:2}}>{percAg}% del totale</div>}
+                    </div>
+                    <div style={{background:"#fff",padding:"12px 14px",borderRadius:8,borderLeft:"3px solid #888"}}>
+                      <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:4}}>Pagamenti</div>
+                      <div style={{fontSize:22,fontWeight:500,color:"#2C2C2C"}}>{pagPeriodo.length}</div>
+                      {pratiche.size>0&&<div style={{fontSize:10,color:"#aaa",marginTop:2}}>su {pratiche.size} pratich{pratiche.size===1?"a":"e"}</div>}
+                    </div>
+                  </div>
+                </div>
+                {/* Tabella incassi */}
+                {pagPeriodo.length===0?(
+                  <div style={{background:"#fafaf8",border:"0.5px dashed #ccc",borderRadius:8,padding:"30px",textAlign:"center",color:"#aaa",fontSize:13}}>
+                    Nessun pagamento registrato nel periodo selezionato
+                  </div>
+                ):(
+                  <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:12,overflow:"hidden"}}>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:isMobile?620:"100%"}}>
+                        <thead>
+                          <tr style={{background:"#fafaf8",borderBottom:"0.5px solid #e8e5e0"}}>
+                            <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Data</th>
+                            <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Pratica</th>
+                            <th style={{textAlign:"center",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Lato</th>
+                            <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Importo</th>
+                            <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Quota ag.</th>
+                            <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Note</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagPeriodo.map((p,i)=>(
+                            <tr key={i} style={{borderBottom:"0.5px solid #f5f3ed"}}>
+                              <td style={{padding:"10px 12px",color:"#555"}}>{fmtD(p.data)}</td>
+                              <td style={{padding:"10px 12px"}}>
+                                <div style={{fontWeight:500,color:"#2C2C2C"}}>{p.venduto.nominativoVenditore} · {p.venduto.nomeAcquirente}</div>
+                                <div style={{fontSize:10,color:"#aaa"}}>{p.venduto.comuneImmobile} — {p.venduto.indirizzoImmobile}</div>
+                              </td>
+                              <td style={{padding:"10px 12px",textAlign:"center"}}>
+                                <span style={{fontSize:10,padding:"2px 7px",borderRadius:3,background:p.lato==="V"?"#EAF1F8":"#F4EAF5",color:p.lato==="V"?"#2980B9":"#8E44AD",fontWeight:500}}>{p.lato}</span>
+                              </td>
+                              <td style={{padding:"10px 12px",textAlign:"right",fontWeight:500,color:"#1D9E75"}}>€ {fmt(p.importo)}</td>
+                              <td style={{padding:"10px 12px",textAlign:"right",color:BRAND.oroD}}>€ {fmt(Math.round(p.quotaAg))}</td>
+                              <td style={{padding:"10px 12px",color:"#888",fontSize:11}}>{p.note||"—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr style={{background:"#fafaf8",borderTop:"1px solid #e8e5e0"}}>
+                            <td colSpan={3} style={{padding:"10px 12px",fontWeight:500,color:"#2C2C2C"}}>TOTALE ({pagPeriodo.length} pagament{pagPeriodo.length===1?"o":"i"})</td>
+                            <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:"#1D9E75"}}>€ {fmt(totIncasso)}</td>
+                            <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:BRAND.oroD}}>€ {fmt(Math.round(totQuotaAg))}</td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>);
+            })()}
           </div>)}
 
           {/* Archivio Venduti */}
