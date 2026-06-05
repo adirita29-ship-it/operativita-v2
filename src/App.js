@@ -8113,14 +8113,16 @@ export default function App() {
                         </div>
                       ))}
                     </div>
-                    <div style={{...sCard2,display:"flex",alignItems:"center",gap:12,marginBottom:"1.25rem",borderLeft:`4px solid ${proiezioneFineAnno>=obFattPiano?"#27AE60":"#E67E22"}`}}>
-                      <span style={{fontSize:28}}>{proiezioneFineAnno>=obFattPiano?"🎉":"📅"}</span>
+                    <div style={{...sCard2,display:"flex",alignItems:"center",gap:12,marginBottom:"1.25rem",borderLeft:`4px solid ${obFattPiano<=0?"#aaa":proiezioneFineAnno>=obFattPiano?"#27AE60":"#E67E22"}`}}>
+                      <span style={{fontSize:28}}>{obFattPiano<=0?"💡":proiezioneFineAnno>=obFattPiano?"🎉":"📅"}</span>
                       <div>
-                        {proiezioneFineAnno>=obFattPiano
-                          ?<p style={{fontSize:14,fontWeight:600,color:"#27AE60",margin:"0 0 2px"}}>A questo ritmo supererai l'obiettivo — proiezione € {fmt(proiezioneFineAnno)}</p>
-                          :<p style={{fontSize:14,fontWeight:600,color:"#2c2c2c",margin:"0 0 2px"}}>A questo ritmo chiuderai a € {fmt(proiezioneFineAnno)} — mancano € {fmt(Math.max(0,obFattPiano-proiezioneFineAnno))}</p>
+                        {obFattPiano<=0
+                          ?<p style={{fontSize:14,fontWeight:600,color:"#888",margin:"0 0 2px"}}>Imposta un obiettivo annuale per vedere la proiezione</p>
+                          :proiezioneFineAnno>=obFattPiano
+                            ?<p style={{fontSize:14,fontWeight:600,color:"#27AE60",margin:"0 0 2px"}}>A questo ritmo supererai l'obiettivo — proiezione € {fmt(proiezioneFineAnno)}</p>
+                            :<p style={{fontSize:14,fontWeight:600,color:"#2c2c2c",margin:"0 0 2px"}}>A questo ritmo chiuderai a € {fmt(proiezioneFineAnno)} — mancano € {fmt(Math.max(0,obFattPiano-proiezioneFineAnno))}</p>
                         }
-                        {obFattPiano>proiezioneFineAnno&&<p style={{fontSize:12,color:"#888",margin:0}}>Accelera di +€ {fmt(Math.round((obFattPiano-fattYTD4)/Math.max(1,12-meseCorr)))} / mese nei prossimi {12-meseCorr} mesi</p>}
+                        {obFattPiano>0&&obFattPiano>proiezioneFineAnno&&<p style={{fontSize:12,color:"#888",margin:0}}>Accelera di +€ {fmt(Math.round((obFattPiano-fattYTD4)/Math.max(1,12-meseCorr)))} / mese nei prossimi {12-meseCorr} mesi</p>}
                       </div>
                     </div>
                   </>}
