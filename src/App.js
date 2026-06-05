@@ -7518,26 +7518,25 @@ export default function App() {
                     })()}
 
                     {/* ====== AZIONI OGGI ====== */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni oggi</h3>
-                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>💡 = suggerito · clicca per impostare</span>
-                    </div>
-
-                    {/* Legenda colonne (compatta, una sola volta) */}
-                    <div style={{display:"grid",gridTemplateColumns:"4px 1fr 130px 100px 55px",alignItems:"center",gap:10,padding:"0 1.25rem 6px",fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>
-                      <div></div>
-                      <div>Azione</div>
-                      <div style={{textAlign:"center"}}>Fatto / Target</div>
-                      <div style={{textAlign:"center"}}>Progresso</div>
-                      <div style={{textAlign:"right"}}>%</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,padding:"0 2px"}}>
+                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni oggi</h3>
+                      <span style={{fontSize:10,color:BRAND.oroD,fontWeight:500}}>💡 = suggerito · clicca per impostare</span>
                     </div>
 
                     {GRUPPI_AZIONI.map(gruppo=>{
                       const azioniDelGruppo = azioniAttive.filter(a=>a.gruppo===gruppo.id);
                       if(azioniDelGruppo.length===0) return null;
                       const colorGruppo = gruppo.id==="telefono"?"#2980B9":gruppo.id==="scritto"?"#8E44AD":gruppo.id==="social"?"#E91E63":"#E67E22";
-                      return(<div key={gruppo.id} style={{background:"#fff",border:`1px solid #e8e5e0`,borderLeft:`4px solid ${colorGruppo}`,borderRadius:10,padding:"1rem 1.25rem",marginBottom:"0.875rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
-                        <p style={{margin:"0 0 12px",fontSize:12,color:colorGruppo,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{gruppo.icona} {gruppo.nome}</p>
+                      // Totali gruppo
+                      const totFatto = azioniDelGruppo.reduce((s,a)=>s+Number((azioniOggi[a.id]||{}).fatto||0),0);
+                      const totTarget = azioniDelGruppo.reduce((s,a)=>s+Number((azioniOggi[a.id]||{}).target||0),0);
+                      const percGruppo = totTarget>0?Math.round(totFatto/totTarget*100):0;
+                      return(<div key={gruppo.id} style={{background:"#fff",borderRadius:8,marginBottom:8,overflow:"hidden",border:"0.5px solid #e8e5e0",borderLeft:`3px solid ${colorGruppo}`}}>
+                        {/* Header gruppo: compatto */}
+                        <div style={{padding:"6px 12px",background:"#fafaf8",borderBottom:"0.5px solid #f0f0f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <span style={{fontSize:11,fontWeight:600,color:colorGruppo,textTransform:"uppercase",letterSpacing:".08em"}}>{gruppo.icona} {gruppo.nome}</span>
+                          {totTarget>0&&<span style={{fontSize:10,color:"#aaa"}}>{totFatto}/{totTarget} totali · {percGruppo}%</span>}
+                        </div>
                         {azioniDelGruppo.map((az,idx)=>{
                           const dati = azioniOggi[az.id]||{};
                           const target = Number(dati.target||0);
@@ -7546,45 +7545,57 @@ export default function App() {
                           const perc = target>0 ? Math.min(100, Math.round(fatto/target*100)) : 0;
                           const completata = target>0&&fatto>=target;
                           const daFare = target>0&&fatto<target;
-                          const clr = completata?"#27AE60":perc>=66?"#A8863A":perc>=33?"#E67E22":perc>0?"#E74C3C":"#bbb";
+                          const clr = completata?"#1D9E75":perc>=66?"#A8863A":perc>=33?"#E67E22":perc>0?"#E74C3C":"#bbb";
                           const isLast = idx===azioniDelGruppo.length-1;
-                          return(<div key={az.id} style={{padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
-                            <div style={{display:"grid",gridTemplateColumns:"4px 1fr 130px 100px 55px",alignItems:"center",gap:10}}>
-                              <div style={{width:4,height:32,background:daFare?BRAND.oro:completata?"#27AE60":"transparent",borderRadius:2}}/>
-                              <div>
-                                <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio,textDecoration:completata?"line-through":"none",opacity:completata?0.65:1}}>
+                          // Helper per cambio veloce con +/-
+                          const setFatto = (nuovo) => aggiornaAzione(az.id,{fatto:Math.max(0,nuovo)});
+                          return(<div key={az.id}>
+                            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr auto":"1fr 60px 80px 100px 40px 36px",alignItems:"center",gap:8,padding:"6px 12px",borderBottom:isLast&&!az.hasTipoVolantino?"none":"0.5px solid #f8f8f5",background:completata?"#fafff5":target===0?"#fafaf8":"transparent",opacity:target===0&&!consigliato?0.6:1}}>
+                              {/* Nome azione */}
+                              <div style={{minWidth:0}}>
+                                <div style={{fontSize:12,fontWeight:500,color:completata?"#888":"#2C2C2C",textDecoration:completata?"line-through":"none",lineHeight:1.3}}>
                                   {az.nome}
-                                  {daFare&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
-                                  {completata&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:"#27AE60",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>✓ FATTO</span>}
-                                </p>
-                                {consigliato>0&&target===0&&puoModificare&&<p style={{margin:"3px 0 0",fontSize:11}}>
-                                  <button onClick={()=>aggiornaAzione(az.id,{target:consigliato})} style={{background:"none",border:"none",color:"#2980B9",cursor:"pointer",padding:0,fontSize:11,fontWeight:600,fontFamily:"inherit",textDecoration:"underline dotted"}}>💡 Consigliato: {consigliato} · clicca per impostare</button>
-                                </p>}
-                                {consigliato>0&&target>0&&target!==consigliato&&<p style={{margin:"3px 0 0",fontSize:10,color:"#888"}}>💡 Consigliato: {consigliato}</p>}
+                                </div>
+                                {consigliato>0&&target===0&&puoModificare&&<button onClick={()=>aggiornaAzione(az.id,{target:consigliato})} style={{background:"none",border:"none",color:"#2980B9",cursor:"pointer",padding:"2px 0 0",fontSize:10,fontWeight:500,fontFamily:"inherit",textDecoration:"underline dotted"}}>💡 imposta target {consigliato}</button>}
+                                {consigliato>0&&target>0&&target!==consigliato&&<span style={{fontSize:9,color:"#aaa",marginLeft:0,display:"block",paddingTop:1}}>💡 consigliato: {consigliato}</span>}
                               </div>
-                              <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center"}}>
+                              {/* Fatto/Target compatto */}
+                              <div style={{display:"flex",alignItems:"center",gap:3,justifyContent:"center"}}>
                                 <input type="number" min="0" value={fatto===0?"":fatto} placeholder="0" disabled={!puoModificare}
                                   onChange={e=>aggiornaAzione(az.id,{fatto:e.target.value===""?0:Number(e.target.value)})}
-                                  style={inpNumGrande} title="Fatto"/>
-                                <span style={{fontSize:14,color:"#aaa",fontWeight:600}}>/</span>
+                                  style={{width:30,padding:"2px 4px",fontSize:13,fontWeight:600,border:"0.5px solid #e0ddd5",borderRadius:4,textAlign:"center",color:clr,fontFamily:"inherit",background:"#fff"}} title="Fatto"/>
+                                <span style={{fontSize:11,color:"#aaa"}}>/</span>
                                 <input type="number" min="0" value={target===0?"":target} placeholder="0" disabled={!puoModificare}
                                   onChange={e=>aggiornaAzione(az.id,{target:e.target.value===""?0:Number(e.target.value)})}
-                                  style={inpNum} title="Target"/>
+                                  style={{width:26,padding:"2px 3px",fontSize:11,fontWeight:500,border:"0.5px solid #e0ddd5",borderRadius:4,textAlign:"center",color:"#888",fontFamily:"inherit",background:"#fff"}} title="Target"/>
                               </div>
-                              <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
-                                <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s",borderRadius:4}}/>
-                              </div>
-                              <div style={{fontSize:13,fontWeight:700,color:clr,textAlign:"right"}}>{target>0?`${perc}%`:"—"}</div>
+                              {/* Bottoni +/- rapidi */}
+                              {puoModificare&&<div style={{display:"flex",alignItems:"center",gap:2}}>
+                                <button onClick={()=>setFatto(fatto-1)} disabled={fatto<=0} style={{width:22,height:22,border:"0.5px solid #e0ddd5",background:"#fff",borderRadius:4,cursor:fatto<=0?"not-allowed":"pointer",fontSize:14,color:"#888",lineHeight:1,padding:0,opacity:fatto<=0?0.4:1}}>−</button>
+                                <button onClick={()=>setFatto(fatto+1)} style={{width:22,height:22,border:`0.5px solid ${colorGruppo}`,background:colorGruppo,color:"#fff",borderRadius:4,cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>+</button>
+                              </div>}
+                              {/* Barra progresso */}
+                              {!isMobile&&<div style={{height:6,background:"#f0ece4",borderRadius:3,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s",borderRadius:3}}/>
+                              </div>}
+                              {/* Percentuale */}
+                              {!isMobile&&<div style={{fontSize:11,fontWeight:600,color:clr,textAlign:"right"}}>{target>0?(completata?"✓ 100%":`${perc}%`):"—"}</div>}
+                              {/* Badge stato */}
+                              {!isMobile&&<div style={{textAlign:"center"}}>
+                                {target===0&&consigliato>0&&<span style={{fontSize:9,color:"#fff",padding:"1px 5px",borderRadius:3,background:"#bbb",textTransform:"uppercase",letterSpacing:".04em",fontWeight:600}}>IMP</span>}
+                                {daFare&&perc<33&&<span style={{fontSize:9,color:"#fff",padding:"1px 5px",borderRadius:3,background:BRAND.oro,textTransform:"uppercase",letterSpacing:".04em",fontWeight:600}}>FAI</span>}
+                                {completata&&<span style={{fontSize:9,color:"#fff",padding:"1px 5px",borderRadius:3,background:"#1D9E75",textTransform:"uppercase",letterSpacing:".04em",fontWeight:600}}>OK</span>}
+                              </div>}
                             </div>
-                            {/* Selettore tipo volantino */}
-                            {az.hasTipoVolantino&&(target>0||fatto>0)&&<div style={{marginTop:8,marginLeft:14,padding:"8px 12px",background:"#FDFBF7",borderRadius:6,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                              <span style={{fontSize:11,color:"#888",fontWeight:600}}>TIPO:</span>
+                            {/* Selettore tipo volantino (invariato) */}
+                            {az.hasTipoVolantino&&(target>0||fatto>0)&&<div style={{padding:"6px 12px 8px 24px",background:"#FDFBF7",borderBottom:isLast?"none":"0.5px solid #f8f8f5",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                              <span style={{fontSize:10,color:"#888",fontWeight:600}}>TIPO:</span>
                               {TIPI_VOLANTINO.map(tv=>(
-                                <button key={tv} onClick={()=>puoModificare&&aggiornaAzione(az.id,{tipoVolantino:dati.tipoVolantino===tv?"":tv})} disabled={!puoModificare} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:`1px solid ${dati.tipoVolantino===tv?BRAND.oro:"#ddd"}`,background:dati.tipoVolantino===tv?BRAND.oro:"#fff",color:dati.tipoVolantino===tv?"#fff":"#666",cursor:puoModificare?"pointer":"default",fontFamily:"inherit",fontWeight:dati.tipoVolantino===tv?700:500}}>{tv}</button>
+                                <button key={tv} onClick={()=>puoModificare&&aggiornaAzione(az.id,{tipoVolantino:dati.tipoVolantino===tv?"":tv})} disabled={!puoModificare} style={{fontSize:10,padding:"3px 8px",borderRadius:4,border:`0.5px solid ${dati.tipoVolantino===tv?BRAND.oro:"#ddd"}`,background:dati.tipoVolantino===tv?BRAND.oro:"#fff",color:dati.tipoVolantino===tv?"#fff":"#666",cursor:puoModificare?"pointer":"default",fontFamily:"inherit",fontWeight:dati.tipoVolantino===tv?600:500}}>{tv}</button>
                               ))}
                               <input type="text" placeholder="Zona (es. Bizzozero)" value={dati.zona||""} disabled={!puoModificare}
                                 onChange={e=>aggiornaAzione(az.id,{zona:e.target.value})}
-                                style={{flex:1,minWidth:120,padding:"4px 10px",fontSize:12,border:"1px solid #ddd",borderRadius:5,fontFamily:"inherit"}}/>
+                                style={{flex:1,minWidth:100,padding:"3px 8px",fontSize:11,border:"0.5px solid #ddd",borderRadius:4,fontFamily:"inherit"}}/>
                             </div>}
                           </div>);
                         })}
@@ -7592,39 +7603,42 @@ export default function App() {
                     })}
 
                     {/* ====== CONSEGUENZE OGGI ====== */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"1.75rem",marginBottom:10}}>
-                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔄 Conseguenze oggi</h3>
-                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>output diretti delle azioni</span>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,marginBottom:8,padding:"0 2px"}}>
+                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔄 Conseguenze oggi</h3>
+                      <span style={{fontSize:10,color:"#aaa",fontStyle:"italic"}}>output diretti delle azioni</span>
                     </div>
-                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:8,overflow:"hidden",marginBottom:14}}>
                       {CATALOGO_CONSEGUENZE_DEFAULT.map((c,idx)=>{
                         const val = Number(conseguenzeOggi[c.id]||0);
                         const isLast = idx===CATALOGO_CONSEGUENZE_DEFAULT.length-1;
-                        return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
-                          <span style={{fontSize:18}}>{c.icona}</span>
-                          <p style={{margin:0,fontSize:14,fontWeight:600,flex:1,color:BRAND.grigio}}>{c.nome}</p>
+                        return(<div key={c.id} style={{display:"grid",gridTemplateColumns:"1fr 50px auto",alignItems:"center",gap:8,padding:"6px 12px",borderBottom:isLast?"none":"0.5px solid #f8f8f5"}}>
+                          <div style={{fontSize:12,color:"#2C2C2C",fontWeight:500}}><span style={{marginRight:6}}>{c.icona}</span>{c.nome}</div>
                           <input type="number" min="0" value={val===0?"":val} placeholder="0" disabled={!puoModificare}
                             onChange={e=>aggiornaConseguenza(c.id,e.target.value)}
-                            style={{...inpNumGrande,color:val>0?c.clr:"#bbb",border:`1.5px solid ${val>0?c.clr:BRAND.oro+"88"}`}}/>
+                            style={{width:36,padding:"2px 4px",fontSize:13,fontWeight:600,border:"0.5px solid #e0ddd5",borderRadius:4,textAlign:"center",color:val>0?c.clr:"#bbb",fontFamily:"inherit",background:"#fff"}}/>
+                          {puoModificare&&<div style={{display:"flex",alignItems:"center",gap:2}}>
+                            <button onClick={()=>aggiornaConseguenza(c.id,Math.max(0,val-1))} disabled={val<=0} style={{width:22,height:22,border:"0.5px solid #e0ddd5",background:"#fff",borderRadius:4,cursor:val<=0?"not-allowed":"pointer",fontSize:14,color:"#888",lineHeight:1,padding:0,opacity:val<=0?0.4:1}}>−</button>
+                            <button onClick={()=>aggiornaConseguenza(c.id,val+1)} style={{width:22,height:22,border:`0.5px solid ${c.clr}`,background:c.clr,color:"#fff",borderRadius:4,cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>+</button>
+                          </div>}
                         </div>);
                       })}
                     </div>
 
                     {/* ====== TEMPO DEDICATO ====== */}
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>⏱️ Tempo dedicato</h3>
-                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>ore investite per categoria</span>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,marginBottom:8,padding:"0 2px"}}>
+                      <h3 style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>⏱️ Tempo dedicato</h3>
+                      <span style={{fontSize:10,color:"#aaa",fontStyle:"italic"}}>ore investite per categoria</span>
                     </div>
-                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:8,padding:"8px 12px",marginBottom:14}}>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(auto-fit,minmax(160px,1fr))",gap:6}}>
                         {CATALOGO_TEMPO_DEFAULT.map(t=>{
                           const val=Number(tempoOggi[t.id]||0);
-                          return(<div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FDFBF7",borderRadius:6,borderLeft:`3px solid ${t.clr}`}}>
-                            <p style={{margin:0,fontSize:13,fontWeight:600,flex:1,color:BRAND.grigio}}>{t.nome}</p>
+                          return(<div key={t.id} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",background:"#FDFBF7",borderRadius:5,borderLeft:`2px solid ${t.clr}`}}>
+                            <p style={{margin:0,fontSize:11,fontWeight:500,flex:1,color:BRAND.grigio}}>{t.nome}</p>
                             <input type="number" min="0" step="0.5" value={val===0?"":val} placeholder="0" disabled={!puoModificare}
                               onChange={e=>aggiornaTempo(t.id,e.target.value)}
-                              style={{...inpNum,width:56,color:val>0?t.clr:"#bbb",borderColor:val>0?t.clr:"#ddd"}}/>
-                            <span style={{fontSize:11,color:"#888",fontWeight:600}}>h</span>
+                              style={{width:42,padding:"2px 4px",fontSize:12,fontWeight:600,border:"0.5px solid "+(val>0?t.clr:"#e0ddd5"),borderRadius:4,textAlign:"center",color:val>0?t.clr:"#bbb",fontFamily:"inherit",background:"#fff"}}/>
+                            <span style={{fontSize:10,color:"#888",fontWeight:500}}>h</span>
                           </div>);
                         })}
                       </div>
