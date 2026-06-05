@@ -4180,7 +4180,7 @@ export default function App() {
                         <thead>
                           <tr style={{background:"#fafaf8",borderBottom:"0.5px solid #e8e5e0"}}>
                             <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Data</th>
-                            <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Pratica</th>
+                            <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Cliente</th>
                             <th style={{textAlign:"center",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Lato</th>
                             <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Importo</th>
                             <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Quota ag.</th>
@@ -4192,7 +4192,7 @@ export default function App() {
                             <tr key={i} style={{borderBottom:"0.5px solid #f5f3ed"}}>
                               <td style={{padding:"10px 12px",color:"#555"}}>{fmtD(p.data)}</td>
                               <td style={{padding:"10px 12px"}}>
-                                <div style={{fontWeight:500,color:"#2C2C2C"}}>{p.venduto.nominativoVenditore} · {p.venduto.nomeAcquirente}</div>
+                                <div style={{fontWeight:500,color:"#2C2C2C"}}>{p.lato==="V"?p.venduto.nominativoVenditore:p.venduto.nomeAcquirente}</div>
                                 <div style={{fontSize:10,color:"#aaa"}}>{p.venduto.comuneImmobile} — {p.venduto.indirizzoImmobile}</div>
                               </td>
                               <td style={{padding:"10px 12px",textAlign:"center"}}>
@@ -4322,7 +4322,7 @@ export default function App() {
                           <thead>
                             <tr style={{background:"#fafaf8",borderBottom:"0.5px solid #e8e5e0"}}>
                               <th style={{textAlign:"center",padding:"10px 8px",fontWeight:500,color:"#888",fontSize:11,width:40}}></th>
-                              <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Pratica</th>
+                              <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Cliente</th>
                               <th style={{textAlign:"center",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Lato</th>
                               <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Provv. tot.</th>
                               <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Già inc.</th>
@@ -4336,7 +4336,7 @@ export default function App() {
                               <tr key={i} style={{background:bgUrg(r.urgenza),borderBottom:"0.5px solid #f5f3ed"}}>
                                 <td style={{padding:"10px 8px",textAlign:"center"}}>{emojiUrg(r.urgenza)}</td>
                                 <td style={{padding:"10px 12px"}}>
-                                  <div style={{fontWeight:500,color:"#2C2C2C"}}>{r.v.nominativoVenditore} · {r.v.nomeAcquirente}</div>
+                                  <div style={{fontWeight:500,color:"#2C2C2C"}}>{r.lato==="V"?r.v.nominativoVenditore:r.v.nomeAcquirente}</div>
                                   <div style={{fontSize:10,color:"#aaa"}}>{r.v.comuneImmobile} — {r.v.indirizzoImmobile}</div>
                                 </td>
                                 <td style={{padding:"10px 12px",textAlign:"center"}}>
@@ -4690,7 +4690,7 @@ export default function App() {
                           <th style={{padding:"8px 10px",width:36,borderBottom:"0.5px solid #e8e5e0"}}>
                             <input type="checkbox" checked={prospettoSel.length>0&&prospettoSel.length===righeDisponibili.length} onChange={e=>setProspettoSel(e.target.checked?righeDisponibili.map(r=>r.key):[])}/>
                           </th>
-                          <th style={{...S.th,fontSize:10}}>Pratica</th>
+                          <th style={{...S.th,fontSize:10}}>Cliente</th>
                           <th style={{...S.th,fontSize:10}}>Data</th>
                           <th style={{...S.th,fontSize:10}}>Ruolo</th>
                           <th style={{...S.th,fontSize:10,textAlign:"center"}}>Cliente pagato?</th>
@@ -4929,7 +4929,7 @@ export default function App() {
                     <p style={{margin:"0 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Dettaglio righe</p>
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:"1rem"}}>
                       <thead><tr style={{background:"#fafaf8"}}>
-                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Pratica</th>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Cliente</th>
                         <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Ruolo</th>
                         <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Importo</th>
                       </tr></thead>
@@ -6801,7 +6801,7 @@ export default function App() {
                     <p style={{margin:"0 0 8px",fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600}}>Dettaglio pratiche</p>
                     <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginBottom:"1rem"}}>
                       <thead><tr style={{background:"#fafaf8"}}>
-                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Pratica</th>
+                        <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Cliente</th>
                         <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Cliente</th>
                         <th style={{padding:"6px 8px",textAlign:"left",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Ruolo</th>
                         <th style={{padding:"6px 8px",textAlign:"right",fontWeight:600,color:"#666",borderBottom:"0.5px solid #e8e5e0"}}>Importo</th>
