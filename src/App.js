@@ -5132,21 +5132,15 @@ export default function App() {
 
                 {/* BOX 4: OBIETTIVI */}
                 {(()=>{
-                  const mesiAnno=Array.from({length:12},(_,i)=>`${costiAnno}-${String(i+1).padStart(2,"0")}`);
-                  const obFattAutoPerAgente=agenti.map(ag=>{
-                    const obMesi=mesiAnno.map(m=>{
-                      const ob=(obiettiviOp[ag.id]||{})[m]||{};
-                      const proposti=ob.proposti||ob||{};
-                      return Number(proposti.fatturato||proposti.fatturatoBruto||0);
-                    });
-                    const maxOb=Math.max(...obMesi);
-                    return maxOb>0?maxOb*12:0;
-                  });
-                  const obFattTeamAuto=obFattAutoPerAgente.reduce((s,v)=>s+v,0);
-                  const obFattEffettivo=obFattTeamAuto>0?obFattTeamAuto:obiettivoFatturato;
-                  const fattLordo=vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
-                  const percFatt=obFattEffettivo>0?Math.min(100,Math.round(fattLordo/obFattEffettivo*100)):0;
-                  const percQuota=obiettivoQuotaAgenzia>0?Math.min(100,Math.round(quotaAgTot/obiettivoQuotaAgenzia*100)):0;
+                  // Includo solo agenti del team (Broker/Consulente/Collaboratore) che entrano nel report
+                  const agentiTeam = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                  // Obiettivo annuale di ciascun agente dal Piano (Operatività → Imposta obiettivo)
+                  const obFattAutoPerAgente = agentiTeam.map(ag=>Number((obiettivoAgente[ag.id]||{}).fatturato||0));
+                  const obFattTeamAuto = obFattAutoPerAgente.reduce((s,v)=>s+v,0);
+                  const obFattEffettivo = obFattTeamAuto>0 ? obFattTeamAuto : obiettivoFatturato;
+                  const fattLordo = vendAnno.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);
+                  const percFatt = obFattEffettivo>0 ? Math.min(100,Math.round(fattLordo/obFattEffettivo*100)) : 0;
+                  const percQuota = obiettivoQuotaAgenzia>0 ? Math.min(100,Math.round(quotaAgTot/obiettivoQuotaAgenzia*100)) : 0;
 
                   return(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1.25rem 1.5rem"}}>
                     <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888",margin:"0 0 1rem"}}>🎯 Obiettivi annuali {costiAnno}</p>
@@ -5162,7 +5156,7 @@ export default function App() {
                         <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>€ {fmt(obFattEffettivo||0)}</span>
                       </div>
                       {obFattTeamAuto>0&&<div style={{fontSize:11,color:"#aaa",marginBottom:8}}>
-                        Somma obiettivi: {agenti.filter((_,i)=>obFattAutoPerAgente[i]>0).map(a=>`${a.nome}: € ${fmt(obFattAutoPerAgente[agenti.indexOf(a)])}`).join(" · ")}
+                        Somma obiettivi: {agentiTeam.filter((_,i)=>obFattAutoPerAgente[i]>0).map(a=>{const i=agentiTeam.indexOf(a);return `${a.nome}: € ${fmt(obFattAutoPerAgente[i])}`;}).join(" · ")}
                       </div>}
                       {obFattTeamAuto===0&&<div style={{marginBottom:8}}>
                         <input type="number" style={{...S.inp,margin:0}} value={obiettivoFatturato||""} placeholder="es. 300.000" onChange={e=>{if(isReadOnly)return;setObiettivoFatturato(Number(e.target.value))}}/>
@@ -5170,14 +5164,123 @@ export default function App() {
                       </div>}
                       {obFattEffettivo>0&&(<>
                         <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888",marginBottom:3}}>
-                          <span>Realizzato: € {fmt(fattLordo)}</span>
+                          <span>Realizzato team: <strong style={{color:"#2C2C2C"}}>€ {fmt(fattLordo)}</strong></span>
                           <span style={{fontWeight:600,color:percFatt>=100?"#27AE60":BRAND.oroD}}>{percFatt}%</span>
                         </div>
                         <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
                           <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":BRAND.oro,borderRadius:4}}/>
                         </div>
+                        {obFattEffettivo-fattLordo>0&&<div style={{fontSize:11,color:"#aaa",marginTop:6}}>Mancano <strong style={{color:"#E67E22"}}>€ {fmt(obFattEffettivo-fattLordo)}</strong> all'obiettivo team</div>}
                       </>)}
                     </div>
+
+                    {/* TABELLA STATO PER AGENTE — solo se ci sono obiettivi auto */}
+                    {obFattTeamAuto>0&&(()=>{
+                      // Helper colore semaforo
+                      const semaforo = (perc) => perc>=70?"#27AE60":perc>=25?"#E67E22":"#E74C3C";
+                      // Realizzato per agente (somma provv V + A sui venduti dell'anno selezionato)
+                      const realizzatoPerAg = agentiTeam.map(ag=>{
+                        return vendAnno.reduce((s,v)=>{
+                          let p=0;
+                          if(Number(v.agenteListing)===ag.id) p+=Number(v.provvVenditore||0);
+                          if(Number(v.agenteAcquirente)===ag.id) p+=Number(v.provvAcquirente||0);
+                          return s+p;
+                        },0);
+                      });
+                      // Colore per profilo
+                      const colorePrf = (prf) => prf==="Broker"?BRAND.oroD:prf==="Consulente"?"#2980B9":"#5F5E5A";
+                      // Identifico agenti critici (0% e sotto 10%)
+                      const critici = agentiTeam.map((ag,i)=>{
+                        const ob = obFattAutoPerAgente[i];
+                        const real = realizzatoPerAg[i];
+                        const perc = ob>0?Math.round(real/ob*100):0;
+                        return {ag,ob,real,perc};
+                      }).filter(x=>x.ob>0&&x.perc<10);
+
+                      return(<div style={{marginTop:16}}>
+                        <p style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em",color:"#888",margin:"0 0 10px"}}>👥 Stato per agente</p>
+                        <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:isMobile?540:"100%"}}>
+                            <thead>
+                              <tr style={{background:"#fafaf8",borderBottom:"0.5px solid #e8e5e0"}}>
+                                <th style={{textAlign:"left",padding:"8px 10px",fontWeight:500,color:"#888",fontSize:11}}>Agente</th>
+                                <th style={{textAlign:"right",padding:"8px 10px",fontWeight:500,color:"#888",fontSize:11}}>Obiettivo</th>
+                                <th style={{textAlign:"right",padding:"8px 10px",fontWeight:500,color:"#888",fontSize:11}}>Realizzato</th>
+                                <th style={{textAlign:"center",padding:"8px 10px",fontWeight:500,color:"#888",fontSize:11,minWidth:140}}>Avanzamento</th>
+                                <th style={{textAlign:"right",padding:"8px 10px",fontWeight:500,color:"#888",fontSize:11}}>Mancano</th>
+                                <th style={{textAlign:"right",padding:"8px 10px",fontWeight:500,color:"#888",fontSize:11}}>Su team</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {agentiTeam.map((ag,i)=>{
+                                const ob = obFattAutoPerAgente[i];
+                                const real = realizzatoPerAg[i];
+                                const perc = ob>0?Math.round(real/ob*100):0;
+                                const percShow = Math.min(100, perc);
+                                const mancano = Math.max(0, ob-real);
+                                const pesoTeam = obFattTeamAuto>0?Math.round(ob/obFattTeamAuto*100):0;
+                                const clrSem = semaforo(perc);
+                                const critico = ob>0&&perc<10;
+                                return(
+                                  <tr key={ag.id} style={{borderBottom:"0.5px solid #f5f3ed",background:critico?"#FDF0F0":"transparent"}}>
+                                    <td style={{padding:10}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <span style={{width:8,height:8,borderRadius:"50%",background:colorePrf(ag.profilo),flexShrink:0}}/>
+                                        <div>
+                                          <div style={{fontWeight:500,color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</div>
+                                          <div style={{fontSize:10,color:colorePrf(ag.profilo)}}>{ag.profilo}</div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td style={{padding:10,textAlign:"right",color:"#555"}}>{ob>0?`€ ${fmt(ob)}`:<span style={{color:"#ccc",fontStyle:"italic"}}>—</span>}</td>
+                                    <td style={{padding:10,textAlign:"right",color:"#2C2C2C",fontWeight:500}}>€ {fmt(real)}</td>
+                                    <td style={{padding:10}}>
+                                      {ob>0?<div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <div style={{flex:1,height:6,background:"#f0ece4",borderRadius:3,overflow:"hidden"}}>
+                                          <div style={{height:"100%",width:`${percShow}%`,background:clrSem,borderRadius:3}}/>
+                                        </div>
+                                        <span style={{fontWeight:500,color:clrSem,minWidth:32,textAlign:"right"}}>{perc}%</span>
+                                      </div>:<span style={{color:"#ccc",fontSize:11,fontStyle:"italic"}}>nessun obiettivo</span>}
+                                    </td>
+                                    <td style={{padding:10,textAlign:"right",color:ob>0?clrSem:"#ccc"}}>{ob>0?`€ ${fmt(mancano)}`:"—"}</td>
+                                    <td style={{padding:10,textAlign:"right",color:"#555"}}>{ob>0?`${pesoTeam}%`:"—"}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr style={{borderTop:"1px solid #e8e5e0",background:"#fafaf8"}}>
+                                <td style={{padding:10,fontWeight:600,color:"#2C2C2C"}}>TOTALE TEAM</td>
+                                <td style={{padding:10,textAlign:"right",fontWeight:600,color:BRAND.oroD}}>€ {fmt(obFattTeamAuto)}</td>
+                                <td style={{padding:10,textAlign:"right",fontWeight:600,color:BRAND.oroD}}>€ {fmt(fattLordo)}</td>
+                                <td style={{padding:10}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <div style={{flex:1,height:6,background:"#f0ece4",borderRadius:3,overflow:"hidden"}}>
+                                      <div style={{height:"100%",width:`${percFatt}%`,background:percFatt>=100?"#27AE60":BRAND.oro,borderRadius:3}}/>
+                                    </div>
+                                    <span style={{fontWeight:600,color:percFatt>=100?"#27AE60":BRAND.oroD,minWidth:32,textAlign:"right"}}>{percFatt}%</span>
+                                  </div>
+                                </td>
+                                <td style={{padding:10,textAlign:"right",fontWeight:600,color:"#E67E22"}}>€ {fmt(Math.max(0,obFattTeamAuto-fattLordo))}</td>
+                                <td style={{padding:10,textAlign:"right",color:"#555"}}>100%</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+
+                        {/* Alert critici */}
+                        {critici.length>0&&<div style={{marginTop:12,padding:"10px 14px",background:"#FDF0F0",borderLeft:"3px solid #E74C3C",borderRadius:6,fontSize:11,color:"#555"}}>
+                          ⚠ <strong style={{color:"#A32D2D"}}>Attenzione</strong> — {critici.map(c=>`${c.ag.nome} ${c.ag.cognome} ${c.perc===0?"a 0%":`solo al ${c.perc}%`}`).join(" · ")}
+                        </div>}
+
+                        {/* Legenda */}
+                        <div style={{marginTop:10,display:"flex",gap:16,flexWrap:"wrap",fontSize:10,color:"#aaa"}}>
+                          <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,background:"#27AE60",borderRadius:2}}/>Buono (≥70%)</span>
+                          <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,background:"#E67E22",borderRadius:2}}/>Da seguire (25-70%)</span>
+                          <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,background:"#E74C3C",borderRadius:2}}/>In ritardo (&lt;25%)</span>
+                        </div>
+                      </div>);
+                    })()}
 
                     <div style={{padding:"10px 14px",background:"#FDFBF7",borderRadius:8,border:"0.5px solid #e8e5e0"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:4}}>
