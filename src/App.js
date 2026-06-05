@@ -1690,16 +1690,16 @@ export default function App() {
   const dashSospeso=propVincolo.reduce((s,p)=>s+Number(p.provvVenditore||0)+Number(p.provvAcquirente||0),0);
   const dashSospesoQuotaAg=useMemo(()=>propVincolo.reduce((s,p)=>{
     // Quota agenzia = provv totale - quote agenti - quote buyer
+    // Le % vanno SEMPRE lette dalla pratica (p.percListing/p.percAcquirente/p.percBuyer/p.percBuyerListing),
+    // perché ogni pratica può avere override rispetto al default agente.
     const pV=Number(p.provvVenditore||0); const pA=Number(p.provvAcquirente||0);
     let qAg=pV+pA;
-    agenti.filter(a=>a.profilo!=="Broker").forEach(a=>{
-      if(p.agenteListing===a.id) qAg-=pV*(Number(a.percListing||0)/100);
-      if(p.agenteAcquirente===a.id) qAg-=pA*(Number(a.percAcquirente||0)/100);
-      if(p.buyerListing===a.id&&p.agenteListing!==a.id) qAg-=pV*(Number(a.percBuyerListing||p.percBuyerListing||0)/100);
-      if(p.buyer===a.id&&p.agenteAcquirente!==a.id) qAg-=pA*(Number(a.percBuyer||p.percBuyer||0)/100);
-    });
+    if(p.agenteListing) qAg-=pV*(Number(p.percListing||0)/100);
+    if(p.agenteAcquirente) qAg-=pA*(Number(p.percAcquirente||0)/100);
+    if(p.buyerListing&&p.buyerListing!==p.agenteListing) qAg-=pV*(Number(p.percBuyerListing||0)/100);
+    if(p.buyer&&p.buyer!==p.agenteAcquirente) qAg-=pA*(Number(p.percBuyer||0)/100);
     return s+Math.max(0,qAg);
-  },0),[propVincolo,agenti]);
+  },0),[propVincolo]);
 
   const agentiFattura=useMemo(()=>agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false),[agenti]);
   const fatAg=agenti.find(a=>a.id===Number(fatAgente));
