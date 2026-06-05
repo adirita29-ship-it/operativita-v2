@@ -1081,9 +1081,6 @@ export default function App() {
   const [opDataSel,setOpDataSel]=useState(todayStr());
   const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
   const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
-  const [opSettimanaOffset,setOpSettimanaOffset]=useState(0);
-  const [opCampoCustom,setOpCampoCustom]=useState("contatti");
-  const [opQtyCustom,setOpQtyCustom]=useState("");
   // Gestione Pratiche: {incaricoId: {fasi:{}, checklistA:{}, checklistB:{}, checklistC:{}, note:""}}
   const [pratiche,setPratiche]=useState(_ls?.pratiche||{});
   const [gpIncSel,setGpIncSel]=useState(null);
@@ -6872,255 +6869,1818 @@ export default function App() {
 
           {/* OPERATIVITÀ */}
           {tab==="Operatività"&&(()=>{
-            // === STANDARD AGENZIA: carico annuo distribuito su 10 mesi attivi ===
-            // Modificabili in futuro nelle Impostazioni
-            const STD = {
-              contattiAnno: 1800,      // 45/settimana × 40 settimane
-              zonaAnno: 70,             // 7/mese
-              volantiniAnno: 2500,      // 250/mese
-              postAnno: 50,             // ~1/settimana
-              videoAnno: 50,            // ~1/settimana
-            };
-            // Conversioni per derivare numeri commerciali dal Piano (Pagliara 78k → 14 vendite → ...)
-            const PARAM = {
-              pmcMedio: 5500,
-              convIncVend: 0.65,
-              convApptInc: 0.40,
-              convChiamApt: 0.15,
-            };
-            const SETTIMANE_ATTIVE = 40; // ~10 mesi × 4 settimane
-            const MESI_ATTIVI = 10;
+            // Chi vede tutto (Broker, BackOffice, Coach Agenzia) seleziona da menu; gli altri vedono solo sé
+            const agentiVisibili = canViewAll ? agenti : agenti.filter(a=>a.id===myAgentId);
+            const agIdSel = canViewAll ? (opAgenteSel==="Tutti"?null:Number(opAgenteSel)) : myAgentId;
 
-            // Helpers state
+            // Helper: ottieni/salva giornata
             const getGiornata = (agId,data) => (operativita[agId]||{})[data]||{};
             const salvaGiornata = (agId,data,dati) => { if(isReadOnly) return;
               setOperativita(prev=>({...prev,[agId]:{...(prev[agId]||{}),[data]:{...(getGiornata(agId,data)),...dati}}}));
             };
-            const incrementa = (agId,data,campo,delta=1) => {
-              const g = getGiornata(agId,data);
-              const nuovo = Math.max(0, Number(g[campo]||0)+delta);
-              salvaGiornata(agId,data,{[campo]:nuovo});
+
+            // Helper: ottieni obiettivi mese
+            const getObiettivi = (agId,mese) => (obiettiviOp[agId]||{})[mese]||{proposti:{},approvati:{},stato:"bozza"};
+            const salvaObiettivi = (agId,mese,dati) => setObiettiviOp(prev=>({...prev,[agId]:{...(prev[agId]||{}),[mese]:dati}}));
+
+            // Colori per categoria
+            const CAT_CFG = {
+              ricerca:{lbl:"Ricerca / acquisizione",clr:"#185FA5",bg:"#E6F1FB"},
+              oh:{lbl:"Open House",clr:"#D85A30",bg:"#FAECE7"},
+              immobile:{lbl:"Attività immobile",clr:"#085041",bg:"#E1F5EE"},
+              operativo:{lbl:"Operativo / vendite",clr:"#633806",bg:"#FAEEDA"},
+              sviluppo:{lbl:"Sviluppo",clr:"#3C3489",bg:"#EEEDFE"},
+              marketing:{lbl:"Marketing / social",clr:"#3B6D11",bg:"#EAF3DE"},
+              amm:{lbl:"Amministrativo",clr:"#444441",bg:"#F1EFE8"},
             };
 
-            // Selezione agente
-            const agentiOperativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.attivo!==false);
-            const agentiVisibili = canViewAll ? agentiOperativi : agentiOperativi.filter(a=>a.id===myAgentId);
-            const agSel = canViewAll
-              ? (agentiVisibili.find(a=>a.id===Number(opAgenteSel))||agentiVisibili.find(a=>a.id===myAgentId)||agentiVisibili[0])
-              : agentiVisibili[0];
-            if(!agSel){
-              return(<div style={S.sec}><p style={{textAlign:"center",color:"#888",padding:"3rem"}}>Nessun agente disponibile</p></div>);
-            }
-            const agId = agSel.id;
-            const colorePrf = agSel.profilo==="Broker"?BRAND.oroD:agSel.profilo==="Consulente"?"#2980B9":"#5F5E5A";
-            const colorePrfLight = agSel.profilo==="Broker"?BRAND.oro:agSel.profilo==="Consulente"?"#7CB0DE":"#B4B2A9";
-            const colorePrfBg = agSel.profilo==="Broker"?BRAND.beige:agSel.profilo==="Consulente"?"#EAF1F8":"#f0ede6";
+            // Settimana corrente: lunedì→sabato
+            const getSettimana = (dataRef) => {
+              const d = new Date(dataRef);
+              const dow = d.getDay()===0?6:d.getDay()-1; // 0=lun..5=sab
+              const lun = new Date(d); lun.setDate(d.getDate()-dow);
+              return Array.from({length:6},(_,i)=>{const x=new Date(lun);x.setDate(lun.getDate()+i);return x.toISOString().slice(0,10);});
+            };
+            const settimana = getSettimana(opDataSel);
+            const lunedi = settimana[0];
+            const sabato = settimana[5];
+            const fmtGg = iso => {const d=new Date(iso);return ["Lun","Mar","Mer","Gio","Ven","Sab"][d.getDay()===0?6:d.getDay()-1]+" "+d.getDate();};
 
-            // === CALCOLO SETTIMANA CORRENTE (lun-dom) ===
-            const oggiDate = new Date(); oggiDate.setHours(0,0,0,0);
-            const dowOggi = oggiDate.getDay()===0?6:oggiDate.getDay()-1;
-            const lunSettCorr = new Date(oggiDate); lunSettCorr.setDate(oggiDate.getDate()-dowOggi);
-            const offsetSett = Number(opSettimanaOffset||0);
-            const lunSett = new Date(lunSettCorr); lunSett.setDate(lunSettCorr.getDate()+offsetSett*7);
-            const domSett = new Date(lunSett); domSett.setDate(lunSett.getDate()+6);
-            const giorniSett = Array.from({length:7},(_,i)=>{
-              const d = new Date(lunSett); d.setDate(lunSett.getDate()+i);
-              return d.toISOString().slice(0,10);
-            });
-            const fmtSettRange = `${lunSett.getDate()}-${domSett.getDate()} ${domSett.toLocaleString("it-IT",{month:"long"})} ${domSett.getFullYear()}`;
+            // Conta attività giornata (per heatmap)
+            const intensita = (agId,data) => {
+              const g = getGiornata(agId,data);
+              let tot = 0;
+              tot += Number(g.chiamate||0)*2 + Number(g.appuntamenti||0)*5 + Number(g.acquisizioni||0)*10;
+              tot += Number(g.oreRicerca||0)*3 + Number(g.oreSviluppo||0)*2 + Number(g.oreMarketing||0)*2;
+              tot += (g.ohImmobili||[]).reduce((s,oh)=>s+Number(oh.visite||0)*3,0);
+              if(tot===0) return "vuoto";
+              if(tot<10) return "basso";
+              if(tot<25) return "medio";
+              return "alto";
+            };
+            const INT_CFG = {vuoto:{bg:"var(--color-background-secondary)",clr:"var(--color-text-tertiary)"},basso:{bg:"#E1F5EE",clr:"#085041"},medio:{bg:"#9FE1CB",clr:"#04342C"},alto:{bg:"#1D9E75",clr:"#fff"}};
 
-            // === CALCOLO TARGET SETTIMANALI ===
-            // Standard agenzia per attività fisse
-            const tgtContattiSett = Math.ceil(STD.contattiAnno/SETTIMANE_ATTIVE);
-            const tgtZonaSett = Math.ceil(STD.zonaAnno/SETTIMANE_ATTIVE*10)/10; // es. 1,75
-            const tgtVolantiniSett = Math.ceil(STD.volantiniAnno/SETTIMANE_ATTIVE);
-            const tgtPostSett = Math.ceil(STD.postAnno/SETTIMANE_ATTIVE*10)/10; // ~1,25/sett
-            const tgtVideoSett = Math.ceil(STD.videoAnno/SETTIMANE_ATTIVE*10)/10;
-            // Target commerciali dal Piano annuale del SINGOLO agente
-            const obFatt = Number((obiettivoAgente[agId]||{}).fatturato||0);
-            let tgtApptSett=0, tgtValutSett=0, tgtIncMese=0;
-            if(obFatt>0){
-              const venditeAnno = obFatt/PARAM.pmcMedio;
-              const incarichiAnno = venditeAnno/PARAM.convIncVend;
-              const apptAnno = incarichiAnno/PARAM.convApptInc;
-              tgtApptSett = Math.round(apptAnno/SETTIMANE_ATTIVE*10)/10;
-              tgtValutSett = tgtApptSett; // ~= appuntamenti
-              tgtIncMese = Math.round(incarichiAnno/MESI_ATTIVI*10)/10;
-            }
+            // Auto-compila dati da gestionale (opzione 3 - misto)
+            const autoCompila = (agId,data) => {
+              const existing = getGiornata(agId,data);
+              // Proposte presentate in questa data
+              const propPres = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&p.dataStato===data).length;
+              // Proposte accettate
+              const propAcc = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&p.dataStato===data&&p.stato==="Accettata").length;
+              // Preliminari firmati (venduti con dataVendita=data e tipoAtto=Preliminare)
+              const prelim = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&v.dataVendita===data&&v.tipoAtto==="Preliminare").length;
+              // Rogiti
+              const rogiti = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&v.dataAtto===data).length;
+              return {...existing, propPresentate:propPres||existing.propPresentate||0, propAccettate:propAcc||existing.propAccettate||0, preliminari:prelim||existing.preliminari||0, rogiti:rogiti||existing.rogiti||0};
+            };
 
-            // === SOMMA EFFETTIVA NELLA SETTIMANA ===
-            const sommaSett = (campo) => giorniSett.reduce((s,d)=>s+Number(getGiornata(agId,d)[campo]||0),0);
-            const fattoContatti = sommaSett("contatti");
-            const fattoZona = sommaSett("zona");
-            const fattoVolantini = sommaSett("volantini");
-            const fattoPost = sommaSett("postSocial");
-            const fattoVideo = sommaSett("videoSocial");
-            const fattoSocial = fattoPost + fattoVideo;
-            const fattoAppt = sommaSett("apptAcq");
-            const fattoValut = sommaSett("valutazioni");
-            const tgtSocialSett = Math.round((tgtPostSett+tgtVideoSett)*10)/10;
-            // Incarichi su mese corrente
-            const meseCorr = lunSett.toISOString().slice(0,7);
-            const incMese = Object.entries(operativita[agId]||{}).filter(([d])=>d.startsWith(meseCorr)).reduce((s,[,g])=>s+Number(g.incarichi||0),0);
+            // Incarichi visibili all'agente per attività immobile
+            const incarichiAgente = (agId) => incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(i.agenteListing===agId||i.buyerListing===agId||i.buyer===agId));
 
-            // === GIORNATA DI OGGI ===
-            const oggiStr = todayStr();
-            const giornataOggi = getGiornata(agId,oggiStr);
+            // Form giornata per un agente
+            const FormGiornata = ({agId, data}) => {
+              const cacheKey=`${agId}_${data}`;
+              const g={...autoCompila(agId,data),...(opFormCache[cacheKey]||{})};
+              const isSabato=new Date(data).getDay()===6;
+              const upd=(k,v)=>{
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),[k]:v}}));
+                salvaGiornata(agId,data,{[k]:v});
+              };
+              const updCh=(k,v)=>{
+                const n={...(g.chiamate_tipi||{}),[k]:Math.max(0,Number(v))};
+                const tot=Object.values(n).reduce((s,x)=>s+Number(x||0),0);
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),chiamate_tipi:n,chiamate:tot}}));
+                salvaGiornata(agId,data,{chiamate_tipi:n,chiamate:tot});
+              };
+              const updN=(k,delta)=>upd(k,Math.max(0,(Number(g[k]||0))+delta));
+              const updH=(k,delta)=>upd(k,Math.max(0,parseFloat(((Number(g[k]||0))+0.5*delta).toFixed(1))));
+              const updChN=(k,delta)=>updCh(k,Math.max(0,(Number((g.chiamate_tipi||{})[k]||0))+delta));
+              const updImm=(idx,k,v)=>{
+                const arr=[...(g.attImm||[])];
+                if(!arr[idx])arr[idx]={};
+                arr[idx]={...arr[idx],[k]:v};
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),attImm:arr}}));
+                salvaGiornata(agId,data,{attImm:arr});
+              };
+              const addImmobile=()=>{
+                const arr=[...(g.attImm||[]),{incId:"",cartello:false,lettAMV:false,lettOH:false,volVend:false,reportProp:false,ribasso:false,tipoVol:"",modalita:"Di persona",copie:0}];
+                setOpFormCache(prev=>({...prev,[cacheKey]:{...(prev[cacheKey]||{}),attImm:arr}}));
+                salvaGiornata(agId,data,{attImm:arr});
+              };
+              const toggleChip=(k,tipo)=>{
+                const cur=g[k]||[];
+                const next=cur.includes(tipo)?cur.filter(t=>t!==tipo):[...cur,tipo];
+                upd(k,next);
+              };
+              const incarichiAg=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&(isBroker||i.agenteListing===agId));
+              const ct=g.chiamate_tipi||{};
+              const totCh=Object.values(ct).reduce((s,x)=>s+Number(x||0),0);
 
-            // Helper colore semaforo
-            const colorePerc = (perc) => perc>=100?"#1D9E75":perc>=50?"#E67E22":"#E74C3C";
-            const labelPerc = (fatto,tgt) => tgt>0?Math.round(fatto/tgt*100):0;
-
-            // === RIGA STATO ATTIVITÀ ===
-            const RigaAttivita = ({icon,nome,sub,fatto,tgt,evidenza,formatPerc}) => {
-              const perc = labelPerc(fatto,tgt);
-              const colore = colorePerc(perc);
-              const showPerc = tgt>0;
-              const widthBar = showPerc ? Math.min(100,perc) : 0;
-              return(
-                <div style={{display:"flex",alignItems:"center",gap:12,padding:evidenza?"10px 12px":"6px 0",background:evidenza?"#FDFBF7":"transparent",borderRadius:evidenza?8:0,border:evidenza?"0.5px solid #C9A96E33":"none"}}>
-                  <span style={{fontSize:18,width:28,textAlign:"center"}}>{icon}</span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,gap:8,flexWrap:"wrap"}}>
-                      <div style={{minWidth:0}}>
-                        <span style={{fontSize:13,fontWeight:500,color:evidenza?"#A8863A":"#2C2C2C"}}>{nome}</span>
-                        {sub&&<span style={{fontSize:10,color:"#aaa",marginLeft:6}}>{sub}</span>}
-                      </div>
-                      <div style={{fontSize:13,whiteSpace:"nowrap"}}>
-                        <strong style={{color:evidenza?"#A8863A":"#2C2C2C",fontSize:evidenza?16:13}}>{fatto}</strong>
-                        {showPerc&&<><span style={{color:"#aaa"}}> / {tgt}</span> <span style={{color:colore,marginLeft:4,fontWeight:500}}>{perc}%{perc>=100?" ✓":perc<50?" ⚠":""}</span></>}
-                      </div>
-                    </div>
-                    {showPerc&&<div style={{height:6,background:"#f0ece4",borderRadius:3,overflow:"hidden"}}>
-                      <div style={{height:"100%",width:`${widthBar}%`,background:colore,borderRadius:3,transition:"width .3s"}}/>
-                    </div>}
+              // Stili locali
+              const CARD={background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"14px 16px",marginBottom:10};
+              const HDOT=(clr)=><div style={{width:4,height:18,borderRadius:2,background:clr,flexShrink:0}}/>;
+              const HLBL=(lbl,clr,badge)=>(<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                {HDOT(clr)}
+                <span style={{fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:".08em",color:"#888"}}>{lbl}</span>
+                {badge&&<span style={{marginLeft:"auto",fontSize:11,padding:"2px 8px",borderRadius:12,background:clr+"18",color:clr,fontWeight:600}}>{badge}</span>}
+              </div>);
+              const Stepper=({label,k,step=1,auto=false,last=false})=>{
+                const val=step===0.5?`${g[k]||0}h`:(g[k]||0);
+                return(<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:last?"none":"0.5px solid #f5f5f5"}}>
+                  <span style={{fontSize:12,color:"#2c2c2c"}}>{label}{auto&&<span style={{fontSize:10,color:"#27AE60",marginLeft:4}}>✓</span>}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>step===0.5?updH(k,-1):updN(k,-1)}>−</button>
+                    <span style={{fontSize:13,fontWeight:600,minWidth:32,textAlign:"center",color:"#2c2c2c"}}>{val}</span>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>step===0.5?updH(k,1):updN(k,1)}>+</button>
+                  </div>
+                </div>);
+              };
+              const StepperCh=({label,k,last=false})=>(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:last?"none":"0.5px solid #f5f5f5"}}>
+                  <span style={{fontSize:12,color:"#2c2c2c"}}>{label}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>updChN(k,-1)}>−</button>
+                    <span style={{fontSize:13,fontWeight:600,minWidth:32,textAlign:"center",color:"#2c2c2c"}}>{ct[k]||0}</span>
+                    <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,lineHeight:1,fontFamily:"inherit",color:"#555"}} onClick={()=>updChN(k,1)}>+</button>
                   </div>
                 </div>
               );
+              const Chip=({label,k,tipo,clrOn="#185FA5"})=>{
+                const on=(g[k]||[]).includes(tipo);
+                return(<span onClick={()=>toggleChip(k,tipo)} style={{display:"inline-flex",padding:"5px 12px",borderRadius:20,fontSize:11,cursor:"pointer",border:`0.5px solid ${on?clrOn:"#ddd"}`,background:on?clrOn+"18":"#fafaf8",color:on?clrOn:"#888",fontWeight:on?500:400,marginBottom:5,marginRight:5,transition:"all .15s"}}>{label}</span>);
+              };
+
+              // Riepilogo badges
+              const badges=[];
+              if(totCh>0)badges.push({l:`📞 ${totCh} chiam.`,bg:"#E6F1FB",c:"#0C447C"});
+              if(g.appuntamenti>0)badges.push({l:`🤝 ${g.appuntamenti} appt. acq.`,bg:"#FAEEDA",c:"#412402"});
+              if(g.immVisitati>0)badges.push({l:`🏠 ${g.immVisitati} visitati`,bg:"#EAF3DE",c:"#173404"});
+              if(g.postSocial>0)badges.push({l:`📱 ${g.postSocial} post`,bg:"#EEEDFE",c:"#26215C"});
+              if((g.oreSviluppo||0)>0)badges.push({l:`📚 ${g.oreSviluppo}h sviluppo`,bg:"#E1F5EE",c:"#04342C"});
+              if(g.mood)badges.push({l:g.mood==="top"?"😊 Ottima":g.mood==="ok"?"😐 Normale":"😓 Difficile",bg:g.mood==="top"?"#E9F7EF":g.mood==="ok"?"#f5f5f5":"#FCEBEB",c:g.mood==="top"?"#085041":g.mood==="ok"?"#444":"#A32D2D"});
+
+              return(<div>
+                {/* ─── A.1 CHIAMATE ─── */}
+                <div style={CARD}>
+                  {HLBL("Chiamate","#185FA5",totCh>0?`Totale: ${totCh}`:null)}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 24px"}}>
+                    <div>
+                      <StepperCh label="Centri d'influenza" k="centri_inf"/>
+                      <StepperCh label="Clienti passati" k="clienti_pass"/>
+                      <StepperCh label="Privati" k="privati" last/>
+                    </div>
+                    <div>
+                      <StepperCh label="Generica / Freddo" k="freddo"/>
+                      <StepperCh label="Zona post volantino" k="zona_vol"/>
+                      <StepperCh label="Follow-up notizie" k="followup" last/>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── A.2 ACQUISIZIONE + VENDITA affiancati ─── */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                  <div style={CARD}>
+                    {HLBL("Acquisizione","#A8863A")}
+                    <Stepper label="Appt. fissati" k="appuntamenti"/>
+                    <Stepper label="Presentaz./Valutaz." k="valutazioni"/>
+                    <Stepper label="Immobili visitati" k="immVisitati"/>
+                    <Stepper label="Ore telefono" k="oreTel" step={0.5}/>
+                    <Stepper label="Ore zona" k="oreZona" step={0.5} last/>
+                  </div>
+                  <div style={CARD}>
+                    {HLBL("Vendita","#533AB7")}
+                    <Stepper label="Appt. acquirenti" k="apptAcq"/>
+                    <Stepper label="OH effettuati" k="ohNum"/>
+                    <Stepper label="Proposte" k="propPresentate" auto/>
+                    <Stepper label="Preliminari" k="preliminari" auto/>
+                    <Stepper label="Rogiti" k="rogiti" auto last/>
+                  </div>
+                </div>
+
+                {/* ─── A.3 SOCIAL ─── */}
+                <div style={{...CARD,marginBottom:20}}>
+                  {HLBL("Social / Marketing","#3C3489")}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                    {[["Post pubblicati","postSocial"],["Video","video"],["Stories / Reels","stories"]].map(([lbl,k])=>(
+                      <div key={k} style={{textAlign:"center",padding:"10px 6px",background:"#fafaf8",borderRadius:8,border:"0.5px solid #f0f0f0"}}>
+                        <div style={{fontSize:11,color:"#888",marginBottom:8}}>{lbl}</div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f0f0f0",cursor:"pointer",fontSize:15,fontFamily:"inherit",color:"#555"}} onClick={()=>updN(k,-1)}>−</button>
+                          <span style={{fontSize:18,fontWeight:600,color:"#3C3489",minWidth:24}}>{g[k]||0}</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f0f0f0",cursor:"pointer",fontSize:15,fontFamily:"inherit",color:"#555"}} onClick={()=>updN(k,1)}>+</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ─── B: ATTIVITA IMMOBILE ─── */}
+                <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",marginBottom:8}}>B — Attività su immobili</div>
+                <div style={CARD}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:(g.attImm||[]).length>0?12:0}}>
+                    {HLBL("Attività immobile","#085041")}
+                    <button style={{fontSize:11,padding:"4px 12px",borderRadius:6,border:"0.5px solid #085041",background:"transparent",cursor:"pointer",color:"#085041",marginBottom:10}} onClick={addImmobile}>+ Aggiungi immobile</button>
+                  </div>
+                  {(g.attImm||[]).length===0&&<p style={{fontSize:12,color:"#aaa",fontStyle:"italic",paddingBottom:4}}>Nessuna attività su immobili — clicca "+ Aggiungi immobile"</p>}
+                  {(g.attImm||[]).map((att,idx)=>(
+                    <div key={idx} style={{background:"#fafal8",borderRadius:8,padding:"10px 12px",marginBottom:8,border:"0.5px solid #e8e5e0"}}>
+                      <select style={{width:"100%",fontSize:12,padding:"6px 10px",borderRadius:6,border:"0.5px solid #ddd",background:"#fff",marginBottom:10}} value={att.incId||""} onChange={e=>updImm(idx,"incId",e.target.value)}>
+                        <option value="">— seleziona immobile —</option>
+                        {incarichiAg.map(i=><option key={i.id} value={i.id}>{i.comune} — {i.indirizzo}</option>)}
+                      </select>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
+                        {[["cartello","Cartello AMV affisso","#e8e5e0"],["lettAMV","Lettera AMV","#e8e5e0"],["lettOH","Lettera OH distribuita","#e8e5e0"],["volVend","Volantino Venduto","#e8e5e0"]].map(([k,lbl])=>(
+                          <label key={k} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",background:"#fafal8",borderRadius:6,cursor:"pointer",border:"0.5px solid #e8e5e0"}}>
+                            <input type="checkbox" style={{accentColor:"#085041"}} checked={att[k]||false} onChange={e=>updImm(idx,k,e.target.checked)}/>{lbl}
+                          </label>
+                        ))}
+                        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",background:"#FEF9E7",borderRadius:6,cursor:"pointer",border:"0.5px solid #D4AC0D44"}}>
+                          <input type="checkbox" style={{accentColor:"#A8863A"}} checked={att.reportProp||false} onChange={e=>updImm(idx,"reportProp",e.target.checked)}/>Report al proprietario
+                        </label>
+                        <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,padding:"7px 10px",background:"#FCEBEB",borderRadius:6,cursor:"pointer",border:"0.5px solid #E24B4A44"}}>
+                          <input type="checkbox" style={{accentColor:"#E24B4A"}} checked={att.ribasso||false} onChange={e=>updImm(idx,"ribasso",e.target.checked)}/>Ribasso proposto
+                        </label>
+                      </div>
+                      {(att.lettOH||att.lettAMV||att.volVend)&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                        <div><div style={{fontSize:10,color:"#aaa",marginBottom:3}}>Tipo volantino</div>
+                          <select style={{width:"100%",fontSize:11,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={att.tipoVol||""} onChange={e=>updImm(idx,"tipoVol",e.target.value)}>
+                            <option value="">—</option>{tipiVolantino.map(v=><option key={v}>{v}</option>)}
+                          </select>
+                        </div>
+                        <div><div style={{fontSize:10,color:"#aaa",marginBottom:3}}>Modalità</div>
+                          <select style={{width:"100%",fontSize:11,padding:"5px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={att.modalita||"Di persona"} onChange={e=>updImm(idx,"modalita",e.target.value)}>
+                            <option>Di persona</option><option>Distributore</option>
+                          </select>
+                        </div>
+                        <div><div style={{fontSize:10,color:"#aaa",marginBottom:3}}>N° copie</div>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:13,fontFamily:"inherit"}} onClick={()=>updImm(idx,"copie",Math.max(0,(att.copie||0)-10))}>−</button>
+                            <span style={{fontSize:12,fontWeight:600,minWidth:28,textAlign:"center"}}>{att.copie||0}</span>
+                            <button style={{width:26,height:26,borderRadius:4,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:13,fontFamily:"inherit"}} onClick={()=>updImm(idx,"copie",(att.copie||0)+10)}>+</button>
+                          </div>
+                        </div>
+                      </div>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ─── C: SVILUPPO, AMM, NOTE ─── */}
+                <div style={{fontSize:10,fontWeight:600,textTransform:"uppercase",letterSpacing:".1em",color:"#aaa",marginBottom:8,marginTop:4}}>C — Sviluppo, Amministrativo, Note</div>
+                <div style={CARD}>
+                  {/* Sviluppo */}
+                  <div style={{marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#533AB7",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Sviluppo professionale</div>
+                    <div style={{marginBottom:10}}>
+                      {["Corso / Formazione","Riunione team","One-to-one broker","Programmazione settimana","Formazione online","Coaching","Altro"].map(t=><Chip key={t} label={t} k="tipiSviluppoSel" tipo={t} clrOn="#533AB7"/>)}
+                    </div>
+                    {(g.tipiSviluppoSel||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Ore totali sviluppo</div>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreSviluppo",-1)}>−</button>
+                          <span style={{fontSize:14,fontWeight:600,minWidth:32,textAlign:"center"}}>{g.oreSviluppo||0}h</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreSviluppo",1)}>+</button>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Note</div>
+                        <input style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={g.noteSviluppo||""} placeholder="es. corso negoziazione..." onChange={e=>upd("noteSviluppo",e.target.value)}/>
+                      </div>
+                    </div>}
+                  </div>
+                  {/* Amministrativo */}
+                  <div style={{borderTop:"0.5px solid #f0f0f0",paddingTop:16,marginBottom:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#444441",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Amministrativo / Back-office</div>
+                    <div style={{marginBottom:10}}>
+                      {["Pratiche e documenti","Inserimento gestionale","Email e comunicazioni","Fatturazione","Archivio","Altro"].map(t=><Chip key={t} label={t} k="tipiAmmSel" tipo={t} clrOn="#444441"/>)}
+                    </div>
+                    {(g.tipiAmmSel||[]).length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                      <div>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Ore back-office</div>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreAmm",-1)}>−</button>
+                          <span style={{fontSize:14,fontWeight:600,minWidth:32,textAlign:"center"}}>{g.oreAmm||0}h</span>
+                          <button style={{width:28,height:28,borderRadius:5,border:"0.5px solid #ddd",background:"#f5f5f5",cursor:"pointer",fontSize:15,fontFamily:"inherit"}} onClick={()=>updH("oreAmm",1)}>+</button>
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:"#aaa",marginBottom:4}}>Dettaglio</div>
+                        <input style={{width:"100%",fontSize:12,padding:"6px 8px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff"}} value={g.noteAmm||""} placeholder="es. pratica Maconi..." onChange={e=>upd("noteAmm",e.target.value)}/>
+                      </div>
+                    </div>}
+                  </div>
+                  {/* Note + Mood */}
+                  <div style={{borderTop:"0.5px solid #f0f0f0",paddingTop:16}}>
+                    <div style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Note giornata</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:12}}>
+                      {[["top","😊","Ottima"],["ok","😐","Normale"],["hard","😓","Difficile"]].map(([v,em,lbl])=>(
+                        <button key={v} onClick={()=>upd("mood",g.mood===v?"":v)} style={{padding:"10px 6px",fontSize:14,borderRadius:8,border:`1px solid ${g.mood===v?"#A8863A":"#e8e5e0"}`,background:g.mood===v?"#FEF9E7":"#fafal8",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                          <span style={{fontSize:22}}>{em}</span>
+                          <span style={{fontSize:10,color:g.mood===v?"#A8863A":"#888",fontWeight:g.mood===v?600:400}}>{lbl}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <textarea style={{width:"100%",fontSize:12,padding:"8px",borderRadius:6,border:"0.5px solid #ddd",resize:"none",background:"#fff",lineHeight:1.6}} rows={3} value={g.note||""} placeholder="Annotazioni, idee, promemoria per domani..." onChange={e=>upd("note",e.target.value)}/>
+                  </div>
+                </div>
+
+                {/* Riepilogo */}
+                {badges.length>0&&<div style={{background:"#fafal8",borderRadius:10,padding:"10px 14px",marginBottom:10,border:"0.5px solid #e8e5e0"}}>
+                  <div style={{fontSize:10,fontWeight:600,color:"#aaa",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>Riepilogo giornata</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                    {badges.map((b,i)=><span key={i} style={{fontSize:11,padding:"3px 9px",borderRadius:12,background:b.bg,color:b.c,fontWeight:500}}>{b.l}</span>)}
+                  </div>
+                </div>}
+
+                <button disabled={isReadOnly} style={{width:"100%",padding:11,background:isReadOnly?"#ccc":opSaved?"#27AE60":"#A8863A",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer",transition:"background .3s"}} onClick={()=>{
+                  if(isReadOnly)return;
+                  const cached=opFormCache[cacheKey]||{};
+                  salvaGiornata(agId,data,cached);
+                  setOpSaved(true);
+                  setTimeout(()=>setOpSaved(false),2000);
+                }}>{isReadOnly?"👁 Solo lettura":opSaved?"✓ Salvato!":"Salva giornata"}</button>
+              </div>);
             };
 
-            // === BOTTONE +1 ===
-            const Btn = ({campo,delta=1,label,colore=colorePrf}) => (
-              <button disabled={isReadOnly} onClick={()=>incrementa(agId,oggiStr,campo,delta)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:"#fff",border:`0.5px solid ${colore}`,color:colore,borderRadius:8,fontSize:12,fontWeight:500,cursor:isReadOnly?"not-allowed":"pointer",opacity:isReadOnly?0.5:1}}>{label}</button>
-            );
+            // ── CALCOLI REPORT MENSILE ──────────────────────────────────────
+            const calcReport = (agId, mese) => {
+              const giorni = Object.entries(operativita[agId]||{}).filter(([d])=>d.startsWith(mese));
+              const sum = (k) => giorni.reduce((s,[,g])=>s+Number(g[k]||0),0);
+              const sumArr = (arr,k) => giorni.reduce((s,[,g])=>s+(g[arr]||[]).reduce((a,x)=>a+Number(x[k]||0),0),0);
+              const sumNested = (parent,k) => giorni.reduce((s,[,g])=>s+Number((g[parent]||{})[k]||0),0);
+              const chiamateTot = giorni.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0)||sum("chiamate");
+              const ohVisite = sumArr("ohImmobili","visite");
+              const ohNum = giorni.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);
+              const giorniCompilati = giorni.filter(([,g])=>Object.keys(g).some(k=>Number(g[k]||0)>0||g[k]===true)).length;
+              const vendMese = venduti.filter(v=>(v.agenteListing===agId||v.agenteAcquirente===agId)&&dataCompAgenzia(v).startsWith(mese));
+              const propMese = proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"").startsWith(mese));
+              return {
+                giorniCompilati, chiamate:chiamateTot, appuntamenti:sum("appuntamenti"), acquisizioni:sum("acquisizioni"),
+                centri_inf:sumNested("chiamate_tipi","centri_inf"), clienti_pass:sumNested("chiamate_tipi","clienti_pass"),
+                privati:sumNested("chiamate_tipi","privati"), freddo:sumNested("chiamate_tipi","freddo"),
+                zona_vol:sumNested("chiamate_tipi","zona_vol"), followup:sumNested("chiamate_tipi","followup"),
+                immVisitati:sum("immVisitati"), valutazioni:sum("valutazioni"),
+                oreTel:sum("oreTel"), oreZona:sum("oreZona"), oreSviluppoRic:sum("oreSviluppoRic"),
+                oreRicerca:sum("oreTel")+sum("oreZona")+sum("oreSviluppoRic"),
+                propPresentate:Math.max(sum("propPresentate"),propMese.length),
+                propAccettate:Math.max(sum("propAccettate"),propMese.filter(p=>p.stato==="Accettata"||p.stato==="Accettata con Vincolo").length),
+                preliminari:Math.max(sum("preliminari"),vendMese.filter(v=>v.tipoAtto==="Preliminare").length),
+                rogiti:vendMese.filter(v=>v.dataAtto).length,
+                ohNum, ohVisite, postSocial:sum("postSocial"), video:sum("video"), stories:sum("stories"),
+                oreSviluppo:sum("oreSviluppo"), oreAmm:sum("oreAmm"), oreMarketing:sum("postSocial"),
+              };
+            };
+
+            const obMese = getObiettivi(agIdSel||myAgentId||agenti[0]?.id, opMeseSel);
+            const ob = obMese.approvati && Object.keys(obMese.approvati).length>0 ? obMese.approvati : obMese.proposti;
+            const rep = agIdSel ? calcReport(agIdSel, opMeseSel) : null;
+
+            const S2 = {
+              card:{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem",marginBottom:"1rem"},
+              sec:{fontSize:10,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 8px"},
+              kpi:{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 12px"},
+              bar:(perc,clr)=><div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginTop:4}}><div style={{height:"100%",width:`${Math.min(100,perc)}%`,background:clr,borderRadius:3,transition:"width 0.4s"}}/></div>,
+            };
 
             return(
               <div style={S.sec}>
-                {/* Header agente + navigazione */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-                  <div>
-                    <div style={{fontSize:11,color:colorePrf,textTransform:"uppercase",letterSpacing:".08em",fontWeight:500}}>📅 Operatività di {agSel.nome} {agSel.cognome} · {agSel.profilo}</div>
-                    <div style={{fontSize:20,fontWeight:500,color:"#2C2C2C",marginTop:2}}>Settimana {fmtSettRange}</div>
-                  </div>
-                  <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                    {canViewAll&&agentiVisibili.length>1&&<select value={agId} onChange={e=>setOpAgenteSel(e.target.value)} style={{fontSize:12,padding:"6px 10px",border:"0.5px solid #e0ddd5",borderRadius:6,background:"#fff"}}>
-                      {agentiVisibili.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
-                    </select>}
-                    <div style={{display:"flex",gap:4,background:"#fafaf8",padding:3,borderRadius:8,border:"0.5px solid #e8e5e0"}}>
-                      <button onClick={()=>setOpSettimanaOffset(offsetSett-1)} style={{background:"transparent",border:"none",padding:"6px 12px",borderRadius:6,fontSize:12,cursor:"pointer",color:"#555"}}>←</button>
-                      <button onClick={()=>setOpSettimanaOffset(0)} style={{background:offsetSett===0?"#fff":"transparent",border:offsetSett===0?"0.5px solid #e0ddd5":"none",padding:"6px 12px",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:offsetSett===0?500:400,color:"#2C2C2C"}}>📅 Questa</button>
-                      <button onClick={()=>setOpSettimanaOffset(offsetSett+1)} style={{background:"transparent",border:"none",padding:"6px 12px",borderRadius:6,fontSize:12,cursor:"pointer",color:"#555"}}>→</button>
-                    </div>
-                  </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"1rem",flexWrap:"wrap",gap:8}}>
+                  <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📅 Operatività</h2>
                 </div>
 
-                {isReadOnly&&<div style={{padding:"8px 12px",background:"#EAF1F8",borderRadius:6,fontSize:12,color:"#185FA5",marginBottom:14}}>👁 Vista in sola lettura</div>}
+                {isReadOnly&&<div style={{background:"#EAF4FB",border:"1px solid #2980B944",borderRadius:8,padding:"10px 14px",marginBottom:"1rem",fontSize:13,color:"#2980B9",display:"flex",alignItems:"center",gap:8}}><span>👁</span><strong>Modalità sola lettura</strong></div>}
+                {/* Main tab: Attività vs Piano Produzione */}
+                <div style={{display:"flex",gap:4,background:"#f0f0f0",borderRadius:8,padding:4,width:"fit-content",marginBottom:"1.25rem"}}>
+                  {[["attivita","⚙ Attività"],["piano","🎯 Piano Produzione"]].map(([v,l])=>(
+                    <button key={v} onClick={()=>setOpMainTab(v)} style={{padding:"7px 18px",fontSize:12,borderRadius:6,border:"none",background:opMainTab===v?"#fff":"transparent",color:opMainTab===v?"#A8863A":"#888",fontWeight:opMainTab===v?600:400,cursor:"pointer",fontFamily:"inherit",boxShadow:opMainTab===v?"0 1px 4px rgba(0,0,0,.12)":"none"}}>{l}</button>
+                  ))}
+                </div>
+                {opMainTab==="attivita"&&<div>
+                {/* Sotto-tab */}
+                <div style={{display:"flex",gap:6,marginBottom:"1.25rem",borderBottom:"1px solid #eee",paddingBottom:"0.75rem",flexWrap:"wrap"}}>
+                  {[{v:"oggi",l:"📅 Oggi"},{v:"settimana",l:"📆 Settimana"},{v:"report",l:"📊 Report mensile"},{v:"obiettivi",l:"🎯 Obiettivi mensili"}].map(o=>(
+                    <button key={o.v} onClick={()=>setOpSubTab(o.v)} style={{padding:"6px 16px",fontSize:13,cursor:"pointer",border:"none",background:"none",borderBottom:`2px solid ${opSubTab===o.v?"#A8863A":"transparent"}`,color:opSubTab===o.v?"#A8863A":"#666",fontWeight:opSubTab===o.v?600:400,fontFamily:"inherit"}}>
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+                {/* ── VISTA OGGI ── */}
+                {opSubTab==="oggi"&&(()=>{
+                  // ── LOGICA AGENTE/BROKER ──
+                  // Il broker ha il SUO Oggi personale (default) E può guardare gli altri agenti dal selettore.
+                  // Per il broker: opAgenteSel === "" o "self" = se stesso; numero = altro agente
+                  const brokerVedeSeStesso = canViewAll && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
+                  const agIdSel = canViewAll
+                    ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
+                    : myAgentId;
+                  const dataSel = opDataSel||todayStr();
+                  const agSel = agenti.find(a=>a.id===agIdSel);
+                  // Sta vedendo i propri dati? (può modificare TUTTO inclusi spazi personali)
+                  const stoGuardandomi = agIdSel===myAgentId;
+                  // Posso modificare numeri? Solo se sto guardandomi
+                  const puoModificare = stoGuardandomi && !isReadOnly;
+                  // Vedo gli spazi personali? Solo se sto guardandomi
+                  const vedoSpaziPersonali = stoGuardandomi;
+                  const frase = getFraseDelGiorno();
 
-                {/* BOX 1: Stato settimana */}
-                <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
-                  <div style={{fontSize:13,fontWeight:500,color:"#2C2C2C",marginBottom:14}}>📊 La tua settimana</div>
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    <RigaAttivita icon="📞" nome="Contatti" sub="chiamate, WhatsApp, incontri" fatto={fattoContatti} tgt={tgtContattiSett}/>
-                    <RigaAttivita icon="🚶" nome="Uscite in zona" sub="sessioni di porta-a-porta" fatto={fattoZona} tgt={tgtZonaSett}/>
-                    <RigaAttivita icon="📰" nome="Volantini consegnati" fatto={fattoVolantini} tgt={tgtVolantiniSett}/>
-                    <RigaAttivita icon="📱" nome="Social" sub={`${fattoPost} post · ${fattoVideo} video`} fatto={fattoSocial} tgt={tgtSocialSett}/>
-                    <div style={{margin:"8px 0 4px",paddingBottom:4,borderBottom:"0.5px solid #f5f3ed"}}>
-                      <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",letterSpacing:".06em",fontWeight:500}}>
-                        Attività commerciali · {obFatt>0?"dal Piano":"imposta obiettivo annuale"}
-                      </span>
+                  // Dati giornata corrente
+                  const datiOggi = (oggiDati[agIdSel]||{})[dataSel] || {};
+                  const azioniOggi = datiOggi.azioni || {};
+                  const conseguenzeOggi = datiOggi.conseguenze || {};
+                  const tempoOggi = datiOggi.tempo || {};
+                  const routineOggi = datiOggi.routine || {};
+                  const spaziPersonaliOggi = datiOggi.spaziPersonali || [];
+
+                  // Helper salvataggio
+                  const salvaDatiOggi = (patch) => {
+                    if(!agIdSel||!puoModificare) return;
+                    setOggiDati(prev=>({
+                      ...prev,
+                      [agIdSel]:{
+                        ...(prev[agIdSel]||{}),
+                        [dataSel]:{
+                          ...((prev[agIdSel]||{})[dataSel]||{}),
+                          ...patch
+                        }
+                      }
+                    }));
+                  };
+                  const aggiornaAzione = (azId, patch) => {
+                    const cur = azioniOggi[azId]||{};
+                    salvaDatiOggi({azioni:{...azioniOggi, [azId]:{...cur, ...patch}}});
+                  };
+                  const aggiornaConseguenza = (cId, val) => {
+                    const nuovo={...conseguenzeOggi};
+                    if(val===""||val===null||val===undefined||Number(val)===0) delete nuovo[cId];
+                    else nuovo[cId]=Number(val);
+                    salvaDatiOggi({conseguenze:nuovo});
+                  };
+                  const aggiornaTempo = (tId, val) => {
+                    const nuovo={...tempoOggi};
+                    if(val===""||val===null||val===undefined||Number(val)===0) delete nuovo[tId];
+                    else nuovo[tId]=Number(val);
+                    salvaDatiOggi({tempo:nuovo});
+                  };
+                  const toggleRoutine = (rId) => {
+                    const cur = routineOggi[rId]||{};
+                    salvaDatiOggi({routine:{...routineOggi, [rId]:{fatto:!cur.fatto, ora:!cur.fatto?new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):""}}});
+                  };
+                  const toggleSpazio = (idx) => {
+                    const nuovo=[...spaziPersonaliOggi];
+                    nuovo[idx]={...nuovo[idx], fatto:!nuovo[idx].fatto};
+                    salvaDatiOggi({spaziPersonali:nuovo});
+                  };
+                  const aggiungiSpazio = () => {
+                    const nome=window.prompt("Nuovo spazio personale (solo tu lo vedi):");
+                    if(!nome) return;
+                    salvaDatiOggi({spaziPersonali:[...spaziPersonaliOggi, {id:Date.now(), nome, fatto:false}]});
+                  };
+                  const rimuoviSpazio = (idx) => {
+                    if(!window.confirm("Rimuovere questo spazio personale?")) return;
+                    const nuovo=spaziPersonaliOggi.filter((_,i)=>i!==idx);
+                    salvaDatiOggi({spaziPersonali:nuovo});
+                  };
+
+                  // ── CONSIGLIATO DAL PIANO PRODUZIONE ──
+                  // Per ogni azione, calcolo il "consigliato giornaliero":
+                  // - Se l'azione è collegata al Piano (acquisizioni/appuntamenti) → derivo dai numeri del piano
+                  // - Altrimenti uso consigliatoDefault dal catalogo
+                  // Il Piano Produzione è in obiettivoAgente[agIdSel] = {fatturatoAnnuale, provvMedia, ...}
+                  // I numeri derivati: acquisizioniNec/anno (default 13), apptAcqSettimana (default 1)
+                  const pianoAg = obiettivoAgente?.[agIdSel] || {};
+                  const acquisizioniNecAnno = Number(pianoAg.acquisizioniNec||0);
+                  const apptAcqSettimana = Number(pianoAg.apptAcqSettimana||0);
+                  // Distribuzione: 22 giorni lavorativi/mese, 6 giorni/settimana
+                  const acquisizioniMese = acquisizioniNecAnno>0 ? acquisizioniNecAnno/12 : 0;
+                  const apptAcqGiorno = apptAcqSettimana>0 ? apptAcqSettimana/6 : 0;
+                  // Map azione → consigliato giornaliero
+                  const getConsigliato = (az) => {
+                    // Per le voci collegate al Piano, uso il calcolato (se >0)
+                    // Per le altre, uso consigliatoDefault del catalogo
+                    return Math.round(az.consigliatoDefault||0);
+                  };
+
+                  // Calcolo avanzamento azioni complessivo
+                  const azioniAttive = catalogoAzioni.filter(a=>a.attivo);
+                  let totTarget=0, totFatto=0, totAzioniConTarget=0, totAzioniCompletate=0;
+                  azioniAttive.forEach(a=>{
+                    const dati = azioniOggi[a.id]||{};
+                    const t = Number(dati.target||0);
+                    const f = Number(dati.fatto||0);
+                    if(t>0){
+                      totAzioniConTarget++;
+                      totTarget+=t;
+                      totFatto+=Math.min(f,t);
+                      if(f>=t) totAzioniCompletate++;
+                    }
+                  });
+                  const avanzamentoPerc = totTarget>0 ? Math.round(totFatto/totTarget*100) : 0;
+                  const routineCompletate = Object.values(routineOggi).filter(r=>r&&r.fatto).length;
+                  const dataObj = new Date(dataSel);
+                  const giorniSett = ["Domenica","Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato"];
+                  const mesi=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+                  const settimanaCal = (()=>{
+                    const d=new Date(dataObj);
+                    d.setHours(0,0,0,0);
+                    d.setDate(d.getDate()+4-(d.getDay()||7));
+                    const yearStart=new Date(d.getFullYear(),0,1);
+                    return Math.ceil(((d-yearStart)/86400000+1)/7);
+                  })();
+
+                  // Stili input
+                  const inpNum={width:48,padding:"6px 4px",fontSize:14,fontWeight:600,border:`1px solid ${BRAND.oro}66`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.grigio,outline:"none"};
+                  const inpNumGrande={width:60,padding:"7px 6px",fontSize:16,fontWeight:700,border:`1.5px solid ${BRAND.oro}88`,borderRadius:6,textAlign:"center",fontFamily:"inherit",background:"#FFFEF9",color:BRAND.oroD,outline:"none"};
+
+                  // ── CHECK DI SICUREZZA ──
+                  // Se non riusciamo a determinare un agente valido, mostra messaggio invece di crashare
+                  if(!agIdSel||!agSel){
+                    return(<div style={{textAlign:"center",padding:"3rem 1rem",color:"#888"}}>
+                      <p style={{fontSize:18,marginBottom:8,color:BRAND.grigio,fontWeight:600}}>👤 Seleziona un agente</p>
+                      <p style={{fontSize:13,color:"#aaa",marginBottom:20}}>Per visualizzare la giornata operativa serve un agente di riferimento.</p>
+                      {canViewAll&&<select style={{...S.sel,fontSize:14,padding:"8px 14px",minWidth:220}} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="">— Seleziona —</option>
+                        {myAgentId&&<option value="self">🏠 I miei dati</option>}
+                        {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                      </select>}
+                      {!isBroker&&!isBackOffice&&!myAgentId&&<p style={{fontSize:12,color:"#E74C3C",marginTop:12,padding:"8px 14px",background:"#FDECEA",borderRadius:6,display:"inline-block"}}>⚠️ Il tuo utente non è associato a un agente. Contatta il broker per la configurazione.</p>}
+                    </div>);
+                  }
+
+                  return(<>
+                    {/* Selettore data e agente (broker può scegliere se stesso o altri) */}
+                    <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                      <input type="date" style={{...S.sel}} value={dataSel} onChange={e=>setOpDataSel(e.target.value)}/>
+                      {canViewAll&&<select style={S.sel} value={brokerVedeSeStesso?"self":opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="self">🏠 I miei dati</option>
+                        <optgroup label="Vista di un agente">
+                          {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                        </optgroup>
+                      </select>}
+                      {!stoGuardandomi&&<div style={{padding:"6px 12px",background:"#EAF4FB",borderRadius:6,fontSize:12,color:"#2980B9",fontWeight:600,border:"0.5px solid #2980B944"}}>👁 Stai guardando {agSel?.nome} — sola lettura</div>}
+                      {/* Stato salvataggio + bottone Salva ora */}
+                      {puoModificare&&<div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <div style={{fontSize:11,color:dbSaving?"#E67E22":"#27AE60",fontWeight:600,padding:"5px 10px",background:dbSaving?"#FEF6E6":"#E8F8EF",borderRadius:6,border:`0.5px solid ${dbSaving?"#F39C1244":"#27AE6044"}`}}>
+                          {dbSaving ? "⏳ Salvataggio..." : ultimoSalvataggio ? `✓ Salvato alle ${ultimoSalvataggio.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}` : "✓ Sincronizzato"}
+                        </div>
+                        <button onClick={salvaOraManuale} disabled={dbSaving} style={{...S.btn,fontSize:12,padding:"6px 14px",background:BRAND.oro,color:"#fff",border:"none",fontWeight:600,opacity:dbSaving?0.6:1,cursor:dbSaving?"default":"pointer"}}>💾 Salva ora</button>
+                      </div>}
                     </div>
-                    {obFatt>0?(<>
-                      <RigaAttivita icon="🏠" nome="Appuntamenti acquisizione" fatto={fattoAppt} tgt={tgtApptSett}/>
-                      <RigaAttivita icon="📋" nome="Valutazioni consegnate" fatto={fattoValut} tgt={tgtValutSett}/>
-                      <div style={{display:"flex",alignItems:"center",gap:12,padding:"10px 12px",background:"#FDFBF7",borderRadius:8,border:"0.5px solid #C9A96E33"}}>
-                        <span style={{fontSize:18,width:28,textAlign:"center"}}>🤝</span>
-                        <div style={{flex:1}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                            <div>
-                              <span style={{fontSize:13,fontWeight:500,color:"#A8863A"}}>Incarichi presi</span>
-                              <span style={{fontSize:10,color:"#aaa",marginLeft:6}}>il risultato che conta</span>
+
+                    {/* HEADER MOTIVAZIONALE */}
+                    <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`1.5px solid ${BRAND.oro}55`,boxShadow:`0 2px 8px ${BRAND.oro}15`}}>
+                      <div>
+                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>{stoGuardandomi?"☀️ Buongiorno":"👁 Vista giornata di"}</p>
+                        <h2 style={{margin:0,fontSize:24,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{agSel?.nome} {agSel?.cognome}</h2>
+                        <p style={{fontSize:13,color:"#666",margin:"5px 0 0",fontWeight:500}}>{giorniSett[dataObj.getDay()]} {dataObj.getDate()} {mesi[dataObj.getMonth()]} · settimana {settimanaCal}</p>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <p style={{fontSize:10,color:BRAND.oroD,margin:0,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>Avanzamento</p>
+                        <p style={{fontSize:32,fontWeight:800,margin:"3px 0 0",color:avanzamentoPerc>=80?"#27AE60":avanzamentoPerc>=50?BRAND.oroD:avanzamentoPerc>0?"#E67E22":"#bbb",fontFamily:"Georgia,serif"}}>{avanzamentoPerc}%</p>
+                        <p style={{fontSize:11,color:"#888",margin:0,fontWeight:500}}>{totAzioniCompletate} di {totAzioniConTarget} target</p>
+                      </div>
+                    </div>
+
+                    {/* FRASE DEL GIORNO */}
+                    <div style={{background:"#FDFBF7",borderRadius:10,padding:"14px 18px",marginBottom:"1.5rem",borderLeft:`4px solid ${BRAND.oro}`,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
+                      <p style={{margin:0,fontSize:15,fontStyle:"italic",color:BRAND.grigio,fontFamily:"Georgia,serif",lineHeight:1.5}}>"{frase.t}"</p>
+                      <p style={{margin:"6px 0 0",fontSize:12,color:BRAND.oroD,fontWeight:600}}>— {frase.a}</p>
+                    </div>
+
+                    {/* ====== WIDGET OBIETTIVO DEL MESE ====== */}
+                    {(()=>{
+                      const meseSelOg=dataSel.substring(0,7); // YYYY-MM dalla data selezionata
+                      const obMese=(getObiettivi(agIdSel,meseSelOg)?.proposti)||{};
+                      const repMese=calcReport(agIdSel,meseSelOg);
+                      const vociMese=[
+                        {k:"chiamate",lbl:"Chiamate",icon:"📞",val:repMese.chiamate,clr:"#185FA5"},
+                        {k:"appuntamenti",lbl:"Appt. acq.",icon:"🤝",val:repMese.appuntamenti,clr:"#633806"},
+                        {k:"acquisizioni",lbl:"Acquisizioni",icon:"🏠",val:repMese.acquisizioni,clr:"#533AB7"},
+                        {k:"oh",lbl:"Open House",icon:"🚪",val:repMese.ohNum,clr:"#D85A30"},
+                        {k:"propPresentate",lbl:"Proposte",icon:"📝",val:repMese.propPresentate,clr:"#27AE60"},
+                        {k:"immVisitati",lbl:"Imm. visitati",icon:"👁",val:repMese.immVisitati,clr:"#085041"},
+                        {k:"oreTel",lbl:"Ore telefono",icon:"⏱",val:repMese.oreTel,clr:"#0F6E56"},
+                        {k:"postSocial",lbl:"Post social",icon:"📱",val:repMese.postSocial,clr:"#3C3489"},
+                      ];
+                      const vociConOb=vociMese.filter(v=>Number(obMese[v.k]||0)>0);
+                      const haObiettivi=vociConOb.length>0;
+                      // Calcolo % media raggiungimento
+                      const percMedia=haObiettivi?Math.round(vociConOb.reduce((s,v)=>{
+                        const t=Number(obMese[v.k]||0);
+                        const p=t>0?Math.min(100,Math.round(v.val/t*100)):0;
+                        return s+p;
+                      },0)/vociConOb.length):0;
+                      const mesiN=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+                      const nomeMese=mesiN[parseInt(meseSelOg.substring(5,7))-1];
+
+                      return(<div style={{background:`linear-gradient(135deg, #FDFBF7 0%, ${BRAND.oro}10 100%)`,border:`1.5px solid ${BRAND.oro}55`,borderRadius:12,padding:"1rem 1.25rem",marginBottom:"1.5rem"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:haObiettivi?12:0,flexWrap:"wrap",gap:8}}>
+                          <div>
+                            <h3 style={{margin:0,fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Il tuo obiettivo del mese</h3>
+                            <p style={{margin:"2px 0 0",fontSize:11,color:"#888"}}>{nomeMese} {meseSelOg.substring(0,4)} · {haObiettivi?`${vociConOb.length} obiettivi attivi`:"nessun obiettivo impostato"}</p>
+                          </div>
+                          {haObiettivi&&<div style={{textAlign:"right"}}>
+                            <div style={{fontSize:28,fontWeight:800,color:percMedia>=80?"#27AE60":percMedia>=50?BRAND.oroD:percMedia>0?"#E67E22":"#bbb",fontFamily:"Georgia,serif",lineHeight:1}}>{percMedia}%</div>
+                            <div style={{fontSize:10,color:"#888",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.08em"}}>media mese</div>
+                          </div>}
+                        </div>
+
+                        {haObiettivi?(
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8,marginBottom:10}}>
+                            {vociConOb.map(v=>{
+                              const target=Number(obMese[v.k]||0);
+                              const perc=Math.min(100,Math.round(v.val/target*100));
+                              const raggiunto=v.val>=target;
+                              return(<div key={v.k} style={{background:"#fff",borderRadius:8,padding:"8px 10px",border:`0.5px solid ${v.clr}33`}}>
+                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                                  <span style={{fontSize:11,color:"#888",fontWeight:500}}>{v.icon} {v.lbl}</span>
+                                  {raggiunto&&<span style={{fontSize:12}}>✓</span>}
+                                </div>
+                                <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:4}}>
+                                  <span style={{fontSize:18,fontWeight:700,color:raggiunto?"#27AE60":v.clr}}>{v.val}</span>
+                                  <span style={{fontSize:11,color:"#aaa"}}>/ {target}</span>
+                                </div>
+                                <div style={{height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                                  <div style={{height:"100%",width:`${perc}%`,background:raggiunto?"#27AE60":v.clr,borderRadius:2,transition:"width .4s"}}/>
+                                </div>
+                              </div>);
+                            })}
+                          </div>
+                        ):(
+                          <p style={{margin:"4px 0 10px",fontSize:13,color:"#888",fontStyle:"italic"}}>Non hai ancora impostato gli obiettivi per questo mese. Vai a "Obiettivi mensili" per definirli.</p>
+                        )}
+
+                        <div style={{display:"flex",justifyContent:"flex-end"}}>
+                          <button onClick={()=>setOpSubTab("obiettivi")} style={{fontSize:12,padding:"6px 14px",borderRadius:6,border:`1px solid ${BRAND.oro}`,background:"transparent",color:BRAND.oroD,cursor:"pointer",fontFamily:"inherit",fontWeight:600}}>
+                            {haObiettivi?"✏️ Modifica obiettivi":"➕ Imposta obiettivi"} →
+                          </button>
+                        </div>
+                      </div>);
+                    })()}
+
+                    {/* ====== AZIONI OGGI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni oggi</h3>
+                      <span style={{fontSize:12,color:BRAND.oroD,fontWeight:600,padding:"3px 10px",background:`${BRAND.oro}15`,borderRadius:10}}>💡 = suggerito · clicca per impostare</span>
+                    </div>
+
+                    {/* Legenda colonne (compatta, una sola volta) */}
+                    <div style={{display:"grid",gridTemplateColumns:"4px 1fr 130px 100px 55px",alignItems:"center",gap:10,padding:"0 1.25rem 6px",fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:600}}>
+                      <div></div>
+                      <div>Azione</div>
+                      <div style={{textAlign:"center"}}>Fatto / Target</div>
+                      <div style={{textAlign:"center"}}>Progresso</div>
+                      <div style={{textAlign:"right"}}>%</div>
+                    </div>
+
+                    {GRUPPI_AZIONI.map(gruppo=>{
+                      const azioniDelGruppo = azioniAttive.filter(a=>a.gruppo===gruppo.id);
+                      if(azioniDelGruppo.length===0) return null;
+                      const colorGruppo = gruppo.id==="telefono"?"#2980B9":gruppo.id==="scritto"?"#8E44AD":gruppo.id==="social"?"#E91E63":"#E67E22";
+                      return(<div key={gruppo.id} style={{background:"#fff",border:`1px solid #e8e5e0`,borderLeft:`4px solid ${colorGruppo}`,borderRadius:10,padding:"1rem 1.25rem",marginBottom:"0.875rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                        <p style={{margin:"0 0 12px",fontSize:12,color:colorGruppo,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{gruppo.icona} {gruppo.nome}</p>
+                        {azioniDelGruppo.map((az,idx)=>{
+                          const dati = azioniOggi[az.id]||{};
+                          const target = Number(dati.target||0);
+                          const fatto = Number(dati.fatto||0);
+                          const consigliato = getConsigliato(az);
+                          const perc = target>0 ? Math.min(100, Math.round(fatto/target*100)) : 0;
+                          const completata = target>0&&fatto>=target;
+                          const daFare = target>0&&fatto<target;
+                          const clr = completata?"#27AE60":perc>=66?"#A8863A":perc>=33?"#E67E22":perc>0?"#E74C3C":"#bbb";
+                          const isLast = idx===azioniDelGruppo.length-1;
+                          return(<div key={az.id} style={{padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                            <div style={{display:"grid",gridTemplateColumns:"4px 1fr 130px 100px 55px",alignItems:"center",gap:10}}>
+                              <div style={{width:4,height:32,background:daFare?BRAND.oro:completata?"#27AE60":"transparent",borderRadius:2}}/>
+                              <div>
+                                <p style={{margin:0,fontSize:14,fontWeight:600,color:BRAND.grigio,textDecoration:completata?"line-through":"none",opacity:completata?0.65:1}}>
+                                  {az.nome}
+                                  {daFare&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
+                                  {completata&&<span style={{fontSize:10,color:"#fff",marginLeft:8,padding:"2px 8px",borderRadius:4,background:"#27AE60",textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>✓ FATTO</span>}
+                                </p>
+                                {consigliato>0&&target===0&&puoModificare&&<p style={{margin:"3px 0 0",fontSize:11}}>
+                                  <button onClick={()=>aggiornaAzione(az.id,{target:consigliato})} style={{background:"none",border:"none",color:"#2980B9",cursor:"pointer",padding:0,fontSize:11,fontWeight:600,fontFamily:"inherit",textDecoration:"underline dotted"}}>💡 Consigliato: {consigliato} · clicca per impostare</button>
+                                </p>}
+                                {consigliato>0&&target>0&&target!==consigliato&&<p style={{margin:"3px 0 0",fontSize:10,color:"#888"}}>💡 Consigliato: {consigliato}</p>}
+                              </div>
+                              <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"center"}}>
+                                <input type="number" min="0" value={fatto===0?"":fatto} placeholder="0" disabled={!puoModificare}
+                                  onChange={e=>aggiornaAzione(az.id,{fatto:e.target.value===""?0:Number(e.target.value)})}
+                                  style={inpNumGrande} title="Fatto"/>
+                                <span style={{fontSize:14,color:"#aaa",fontWeight:600}}>/</span>
+                                <input type="number" min="0" value={target===0?"":target} placeholder="0" disabled={!puoModificare}
+                                  onChange={e=>aggiornaAzione(az.id,{target:e.target.value===""?0:Number(e.target.value)})}
+                                  style={inpNum} title="Target"/>
+                              </div>
+                              <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:clr,transition:"width .4s",borderRadius:4}}/>
+                              </div>
+                              <div style={{fontSize:13,fontWeight:700,color:clr,textAlign:"right"}}>{target>0?`${perc}%`:"—"}</div>
                             </div>
-                            <div style={{fontSize:13}}>
-                              <strong style={{fontSize:18,color:"#A8863A"}}>{incMese}</strong>
-                              <span style={{color:"#aaa"}}> questo mese · target {tgtIncMese}/mese</span>
-                            </div>
+                            {/* Selettore tipo volantino */}
+                            {az.hasTipoVolantino&&(target>0||fatto>0)&&<div style={{marginTop:8,marginLeft:14,padding:"8px 12px",background:"#FDFBF7",borderRadius:6,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                              <span style={{fontSize:11,color:"#888",fontWeight:600}}>TIPO:</span>
+                              {TIPI_VOLANTINO.map(tv=>(
+                                <button key={tv} onClick={()=>puoModificare&&aggiornaAzione(az.id,{tipoVolantino:dati.tipoVolantino===tv?"":tv})} disabled={!puoModificare} style={{fontSize:11,padding:"4px 10px",borderRadius:5,border:`1px solid ${dati.tipoVolantino===tv?BRAND.oro:"#ddd"}`,background:dati.tipoVolantino===tv?BRAND.oro:"#fff",color:dati.tipoVolantino===tv?"#fff":"#666",cursor:puoModificare?"pointer":"default",fontFamily:"inherit",fontWeight:dati.tipoVolantino===tv?700:500}}>{tv}</button>
+                              ))}
+                              <input type="text" placeholder="Zona (es. Bizzozero)" value={dati.zona||""} disabled={!puoModificare}
+                                onChange={e=>aggiornaAzione(az.id,{zona:e.target.value})}
+                                style={{flex:1,minWidth:120,padding:"4px 10px",fontSize:12,border:"1px solid #ddd",borderRadius:5,fontFamily:"inherit"}}/>
+                            </div>}
+                          </div>);
+                        })}
+                      </div>);
+                    })}
+
+                    {/* ====== CONSEGUENZE OGGI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"1.75rem",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔄 Conseguenze oggi</h3>
+                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>output diretti delle azioni</span>
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                      {CATALOGO_CONSEGUENZE_DEFAULT.map((c,idx)=>{
+                        const val = Number(conseguenzeOggi[c.id]||0);
+                        const isLast = idx===CATALOGO_CONSEGUENZE_DEFAULT.length-1;
+                        return(<div key={c.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                          <span style={{fontSize:18}}>{c.icona}</span>
+                          <p style={{margin:0,fontSize:14,fontWeight:600,flex:1,color:BRAND.grigio}}>{c.nome}</p>
+                          <input type="number" min="0" value={val===0?"":val} placeholder="0" disabled={!puoModificare}
+                            onChange={e=>aggiornaConseguenza(c.id,e.target.value)}
+                            style={{...inpNumGrande,color:val>0?c.clr:"#bbb",border:`1.5px solid ${val>0?c.clr:BRAND.oro+"88"}`}}/>
+                        </div>);
+                      })}
+                    </div>
+
+                    {/* ====== TEMPO DEDICATO ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>⏱️ Tempo dedicato</h3>
+                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>ore investite per categoria</span>
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10}}>
+                        {CATALOGO_TEMPO_DEFAULT.map(t=>{
+                          const val=Number(tempoOggi[t.id]||0);
+                          return(<div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#FDFBF7",borderRadius:6,borderLeft:`3px solid ${t.clr}`}}>
+                            <p style={{margin:0,fontSize:13,fontWeight:600,flex:1,color:BRAND.grigio}}>{t.nome}</p>
+                            <input type="number" min="0" step="0.5" value={val===0?"":val} placeholder="0" disabled={!puoModificare}
+                              onChange={e=>aggiornaTempo(t.id,e.target.value)}
+                              style={{...inpNum,width:56,color:val>0?t.clr:"#bbb",borderColor:val>0?t.clr:"#ddd"}}/>
+                            <span style={{fontSize:11,color:"#888",fontWeight:600}}>h</span>
+                          </div>);
+                        })}
+                      </div>
+                      {(()=>{
+                        const tot=CATALOGO_TEMPO_DEFAULT.reduce((s,t)=>s+Number(tempoOggi[t.id]||0),0);
+                        return tot>0&&<div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid #f0f0f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <span style={{fontSize:12,color:"#888",fontWeight:600}}>TOTALE ORE GIORNATA</span>
+                          <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>{tot} h</span>
+                        </div>;
+                      })()}
+                    </div>
+
+                    {/* ====== ROUTINE PROFESSIONALI ====== */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                      <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📌 Routine professionali</h3>
+                      <span style={{fontSize:12,color:"#888",fontWeight:500}}>linee guida agenzia · <strong style={{color:routineCompletate===routineProf.filter(r=>r.attivo).length?"#27AE60":BRAND.oroD}}>{routineCompletate} di {routineProf.filter(r=>r.attivo).length}</strong></span>
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                      {routineProf.filter(r=>r.attivo).map((r,idx,arr)=>{
+                        const d=routineOggi[r.id]||{};
+                        const fatto=d.fatto;
+                        const isLast=idx===arr.length-1;
+                        return(<div key={r.id} onClick={()=>puoModificare&&toggleRoutine(r.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0",cursor:puoModificare?"pointer":"default"}}>
+                          <span style={{fontSize:20,color:fatto?"#27AE60":"#bbb"}}>{fatto?"✅":"⬜"}</span>
+                          <p style={{margin:0,fontSize:14,flex:1,fontWeight:fatto?500:600,textDecoration:fatto?"line-through":"none",color:fatto?"#888":BRAND.grigio}}>{r.nome}</p>
+                          {fatto?<span style={{fontSize:12,color:"#27AE60",fontWeight:600}}>completata · {d.ora}</span>:<span style={{fontSize:10,color:"#fff",padding:"3px 10px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>DA FARE</span>}
+                        </div>);
+                      })}
+                    </div>
+
+                    {/* ====== SPAZI PERSONALI — solo quando guardo me stesso ====== */}
+                    {vedoSpaziPersonali&&<>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                        <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>❤️ Spazi personali</h3>
+                        <span style={{fontSize:12,color:"#888",fontWeight:500}}>privati · solo tu li vedi</span>
+                      </div>
+                      <div style={{background:"#fff",border:"1px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                        {spaziPersonaliOggi.length===0&&<p style={{fontSize:13,color:"#aaa",textAlign:"center",margin:"10px 0",fontStyle:"italic"}}>Nessuno spazio personale per oggi. Aggiungi sport, lettura, famiglia o quello che vuoi.</p>}
+                        {spaziPersonaliOggi.map((s,idx)=>{
+                          const isLast=idx===spaziPersonaliOggi.length-1;
+                          return(<div key={s.id} style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:isLast?"none":"0.5px solid #f0f0f0"}}>
+                            <span onClick={()=>puoModificare&&toggleSpazio(idx)} style={{fontSize:20,color:s.fatto?"#27AE60":"#bbb",cursor:puoModificare?"pointer":"default"}}>{s.fatto?"✅":"⬜"}</span>
+                            <p style={{margin:0,fontSize:14,flex:1,fontWeight:s.fatto?500:600,textDecoration:s.fatto?"line-through":"none",color:s.fatto?"#888":BRAND.grigio}}>{s.nome}</p>
+                            {puoModificare&&<button onClick={()=>rimuoviSpazio(idx)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:16,padding:"0 4px"}}>✕</button>}
+                          </div>);
+                        })}
+                        {puoModificare&&<div style={{marginTop:12,paddingTop:10,borderTop:"0.5px solid #f0f0f0"}}>
+                          <button onClick={aggiungiSpazio} style={{...S.btn,fontSize:13,padding:"8px 14px",width:"100%",fontWeight:600}}>+ Aggiungi spazio personale</button>
+                        </div>}
+                      </div>
+                    </>}
+
+                    {/* ====== DOVE SEI - nuove voci: Incarichi mese, Appt acq fissati, Immobili visti, Valutazioni fatte ====== */}
+                    {(()=>{
+                      const mese = dataSel.substring(0,7);
+                      const incMese = incarichi.filter(i=>i.agenteListing===agIdSel&&(i.dataInizio||"").startsWith(mese)&&!i.archiviato).length;
+                      // Aggrego conseguenze del mese da oggiDati
+                      const datiMese = oggiDati[agIdSel]||{};
+                      let apptAcqMese=0, immVistiMese=0, valFatteMese=0;
+                      Object.keys(datiMese).forEach(data=>{
+                        if(data.startsWith(mese)){
+                          const c=datiMese[data]?.conseguenze||{};
+                          apptAcqMese += Number(c.appt_acq_fissati||0);
+                          immVistiMese += Number(c.immobili_visti||0);
+                          valFatteMese += Number(c.presentazioni||0);
+                        }
+                      });
+                      return(<>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>📊 Dove sei</h3>
+                          <span style={{fontSize:12,color:"#888",fontWeight:500}}>produttività del mese</span>
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:"1.5rem"}}>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Incarichi mese</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{incMese}<span style={{fontSize:13,fontWeight:500,marginLeft:4}}>nuovi</span></p>
+                          </div>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Appt. acquisizione</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{apptAcqMese}<span style={{fontSize:13,fontWeight:500,marginLeft:4}}>fissati</span></p>
+                          </div>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Immobili visti</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{immVistiMese}</p>
+                          </div>
+                          <div style={{background:`linear-gradient(135deg, ${BRAND.oro}15, ${BRAND.oro}05)`,borderRadius:10,padding:"14px 16px",border:`1px solid ${BRAND.oro}33`}}>
+                            <p style={{margin:"0 0 4px",fontSize:11,color:BRAND.oroD,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em"}}>Valutazioni fatte</p>
+                            <p style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{valFatteMese}</p>
                           </div>
                         </div>
-                      </div>
-                    </>):(
-                      <div style={{padding:"14px",background:"#fafaf8",borderRadius:8,textAlign:"center"}}>
-                        <p style={{fontSize:12,color:"#888",margin:"0 0 8px"}}>Imposta il tuo obiettivo annuale per vedere appuntamenti, valutazioni e incarichi target</p>
-                        <button onClick={()=>setTab("Il mio report")} style={{background:colorePrf,color:"#fff",border:"none",padding:"6px 14px",borderRadius:6,fontSize:11,cursor:"pointer",fontWeight:500}}>Imposta obiettivo →</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                      </>);
+                    })()}
 
-                {/* BOX 2: Registra oggi */}
-                {!isReadOnly&&offsetSett===0&&<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:12,padding:"16px 20px",marginBottom:14}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:6}}>
-                    <div style={{fontSize:13,fontWeight:500,color:"#2C2C2C"}}>➕ Registra cosa hai fatto oggi</div>
-                    <div style={{fontSize:11,color:"#aaa"}}>{fmtD(oggiStr)}</div>
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    <Btn campo="contatti" label="📞 +1 contatto"/>
-                    <Btn campo="zona" label="🚶 +1 uscita zona"/>
-                    <Btn campo="volantini" delta={50} label="📰 +50 volantini"/>
-                    <Btn campo="postSocial" label="📱 +1 post"/>
-                    <Btn campo="videoSocial" label="📱 +1 video"/>
-                    <Btn campo="apptAcq" label="🏠 +1 appuntamento"/>
-                    <Btn campo="valutazioni" label="📋 +1 valutazione"/>
-                    <button disabled={isReadOnly} onClick={()=>incrementa(agId,oggiStr,"incarichi",1)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:BRAND.oro,border:`0.5px solid ${BRAND.oro}`,color:"#fff",borderRadius:8,fontSize:12,fontWeight:600,cursor:isReadOnly?"not-allowed":"pointer"}}>🤝 Ho preso un incarico!</button>
-                  </div>
-                  {/* Input numerico libero */}
-                  <div style={{marginTop:12,paddingTop:12,borderTop:"0.5px solid #f5f3ed",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <span style={{fontSize:11,color:"#aaa"}}>Oppure inserisci una quantità precisa:</span>
-                    <select value={opCampoCustom||"contatti"} onChange={e=>setOpCampoCustom(e.target.value)} style={{fontSize:11,padding:"4px 8px",border:"0.5px solid #e0ddd5",borderRadius:6,background:"#fff",color:"#555"}}>
-                      <option value="contatti">Contatti</option>
-                      <option value="volantini">Volantini</option>
-                      <option value="zona">Uscite zona</option>
-                      <option value="postSocial">Post</option>
-                      <option value="videoSocial">Video</option>
-                      <option value="apptAcq">Appuntamenti</option>
-                      <option value="valutazioni">Valutazioni</option>
-                    </select>
-                    <input type="number" min="1" value={opQtyCustom||""} onChange={e=>setOpQtyCustom(e.target.value)} placeholder="quantità" style={{fontSize:11,padding:"4px 8px",border:"0.5px solid #e0ddd5",borderRadius:6,width:90}}/>
-                    <button onClick={()=>{const q=Number(opQtyCustom||0); if(q>0){incrementa(agId,oggiStr,opCampoCustom||"contatti",q); setOpQtyCustom("");}}} style={{fontSize:11,padding:"4px 12px",background:colorePrf,color:"#fff",border:"none",borderRadius:6,cursor:"pointer"}}>Aggiungi</button>
-                  </div>
-                </div>}
+                    {/* ====== PROMEMORIA ====== */}
+                    {(()=>{
+                      const oggiStr=dataSel;
+                      const tra7gg=(()=>{const d=new Date(oggiStr);d.setDate(d.getDate()+7);return d.toISOString().slice(0,10);})();
+                      const incInScadenza = incarichi.filter(i=>i.agenteListing===agIdSel&&!i.archiviato&&i.scadenza&&i.scadenza>=oggiStr&&i.scadenza<=tra7gg);
+                      const propAttesa = proposte.filter(p=>(p.agenteListing===agIdSel||p.agenteAcquirente===agIdSel)&&p.stato==="In trattativa");
+                      if(incInScadenza.length===0&&propAttesa.length===0) return null;
+                      return(<>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                          <h3 style={{margin:0,fontSize:16,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔔 Promemoria</h3>
+                          <span style={{fontSize:12,color:"#888",fontWeight:500}}>dalle altre sezioni</span>
+                        </div>
+                        <div style={{background:"#fff",border:"1px solid #e8e5e0",borderLeft:`4px solid #E67E22`,borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.5rem",boxShadow:"0 1px 3px rgba(0,0,0,0.03)"}}>
+                          {incInScadenza.length>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0",borderBottom:propAttesa.length>0?"0.5px solid #f0f0f0":"none"}}>
+                            <span style={{fontSize:20}}>⚠️</span>
+                            <div style={{flex:1}}>
+                              <p style={{margin:0,fontSize:14,fontWeight:700,color:BRAND.grigio}}>{incInScadenza.length} incarico{incInScadenza.length>1?"i":""} in scadenza nei prossimi 7 giorni</p>
+                              <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>{incInScadenza.slice(0,3).map(i=>`${i.nominativo}`).join(" · ")}{incInScadenza.length>3?" · ...":""}</p>
+                            </div>
+                          </div>}
+                          {propAttesa.length>0&&<div style={{display:"flex",alignItems:"center",gap:12,padding:"9px 0"}}>
+                            <span style={{fontSize:20}}>📄</span>
+                            <div style={{flex:1}}>
+                              <p style={{margin:0,fontSize:14,fontWeight:700,color:BRAND.grigio}}>{propAttesa.length} proposta in attesa di risposta</p>
+                              <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>verificare follow-up con il cliente</p>
+                            </div>
+                          </div>}
+                        </div>
+                      </>);
+                    })()}
 
-                {/* BOX 3: Giornata di oggi */}
-                {!isReadOnly&&offsetSett===0&&<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:12,padding:"16px 20px"}}>
-                  <div style={{fontSize:13,fontWeight:500,color:"#2C2C2C",marginBottom:10}}>📝 La tua giornata di oggi ({fmtD(oggiStr)})</div>
-                  {Object.entries(giornataOggi).filter(([k,v])=>["contatti","zona","volantini","postSocial","videoSocial","apptAcq","valutazioni","incarichi"].includes(k)&&Number(v)>0).length===0?(
-                    <p style={{fontSize:12,color:"#aaa",margin:0,fontStyle:"italic"}}>Nessuna attività registrata oggi. Inizia con uno dei bottoni qui sopra!</p>
-                  ):(
-                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                      {Number(giornataOggi.contatti||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>📞 {giornataOggi.contatti} contatti</span>}
-                      {Number(giornataOggi.zona||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>🚶 {giornataOggi.zona} usc. zona</span>}
-                      {Number(giornataOggi.volantini||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>📰 {giornataOggi.volantini} volantini</span>}
-                      {Number(giornataOggi.postSocial||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>📱 {giornataOggi.postSocial} post</span>}
-                      {Number(giornataOggi.videoSocial||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>🎥 {giornataOggi.videoSocial} video</span>}
-                      {Number(giornataOggi.apptAcq||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>🏠 {giornataOggi.apptAcq} appt</span>}
-                      {Number(giornataOggi.valutazioni||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:colorePrfBg,color:colorePrf}}>📋 {giornataOggi.valutazioni} valutazioni</span>}
-                      {Number(giornataOggi.incarichi||0)>0&&<span style={{fontSize:11,padding:"4px 10px",borderRadius:12,background:`${BRAND.oro}22`,color:BRAND.oroD,fontWeight:600}}>🤝 {giornataOggi.incarichi} incarico/i!</span>}
+                  </>);
+                })()}
+
+                {/* ── VISTA SETTIMANA ── */}
+                {opSubTab==="settimana"&&(()=>{
+                  // === LOGICA AGENTE/BROKER ===
+                  const brokerVedeSeStesso = canViewAll && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
+                  const isAgg = canViewAll && opAgenteSel==="team";
+                  const agIdSelW = isAgg ? null :
+                    canViewAll
+                      ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
+                      : myAgentId;
+
+                  // Calcolo i 6 giorni Lun-Sab della settimana che contiene opDataSel
+                  const baseDate = new Date(opDataSel||todayStr());
+                  const giornoSett = baseDate.getDay(); // 0=Dom, 1=Lun, ..., 6=Sab
+                  const offsetLun = giornoSett===0 ? -6 : 1-giornoSett;
+                  const lunedi = new Date(baseDate);
+                  lunedi.setDate(baseDate.getDate()+offsetLun);
+                  const giorniSettim = [];
+                  for(let i=0; i<6; i++){
+                    const d = new Date(lunedi);
+                    d.setDate(lunedi.getDate()+i);
+                    giorniSettim.push(d);
+                  }
+                  const fmtData = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()+0).padStart(2,"0")}`;
+                  const dataStart = fmtData(giorniSettim[0]);
+                  const dataEnd = fmtData(giorniSettim[5]);
+                  const giorniSettCorti = ["Lun","Mar","Mer","Gio","Ven","Sab"];
+
+                  // Funzione che aggrega i dati di un agente in un range
+                  const aggregaPerAgente = (agId) => {
+                    const dati = oggiDati[agId]||{};
+                    const aggr = {
+                      perGiorno: {}, // {dataStr: {azioniTot, conseguenze, oreTot, percMedia}}
+                      totazioni: {},  // {azioneId: {fatto, target}}
+                      totconseguenze: {},
+                      tottempo: {},
+                      routineCompl: 0,
+                      routineTot: 0,
+                    };
+                    giorniSettim.forEach(d=>{
+                      const k = fmtData(d);
+                      const g = dati[k] || {};
+                      const az = g.azioni||{};
+                      const co = g.conseguenze||{};
+                      const tp = g.tempo||{};
+                      const rt = g.routine||{};
+                      // Aggregazione giornaliera
+                      let azFatto=0, azTarget=0, azCompletate=0, azConTarget=0;
+                      Object.entries(az).forEach(([azId, v])=>{
+                        const f = Number(v.fatto||0), t = Number(v.target||0);
+                        azFatto += f; azTarget += t;
+                        if(t>0){ azConTarget++; if(f>=t) azCompletate++; }
+                        // Totali
+                        if(!aggr.totazioni[azId]) aggr.totazioni[azId] = {fatto:0, target:0};
+                        aggr.totazioni[azId].fatto += f;
+                        aggr.totazioni[azId].target += t;
+                      });
+                      Object.entries(co).forEach(([cId, v])=>{
+                        aggr.totconseguenze[cId] = (aggr.totconseguenze[cId]||0) + Number(v||0);
+                      });
+                      Object.entries(tp).forEach(([tId, v])=>{
+                        aggr.tottempo[tId] = (aggr.tottempo[tId]||0) + Number(v||0);
+                      });
+                      Object.values(rt).forEach(r=>{
+                        if(r&&r.fatto) aggr.routineCompl++;
+                        aggr.routineTot++;
+                      });
+                      const perc = azTarget>0 ? Math.round(azFatto/azTarget*100) : 0;
+                      const oreGiorno = Object.values(tp).reduce((s,v)=>s+Number(v||0),0);
+                      aggr.perGiorno[k] = {
+                        azioniTot: azFatto,
+                        azCompletate, azConTarget,
+                        perc: Math.min(100, perc),
+                        ore: oreGiorno,
+                        hasData: Object.keys(az).length>0 || Object.keys(co).length>0 || Object.keys(tp).length>0
+                      };
+                    });
+                    return aggr;
+                  };
+
+                  // Aggrego: se team → tutti gli agenti operativi sommati, altrimenti l'agente selezionato
+                  const aggregaTotale = (()=>{
+                    if(isAgg){
+                      const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                      const merged = {perGiorno:{}, totazioni:{}, totconseguenze:{}, tottempo:{}, routineCompl:0, routineTot:0, agentiAttivi:0};
+                      operativi.forEach(ag=>{
+                        const a = aggregaPerAgente(ag.id);
+                        let hasAny = false;
+                        Object.entries(a.perGiorno).forEach(([k,v])=>{
+                          if(!merged.perGiorno[k]) merged.perGiorno[k]={azioniTot:0,ore:0,giorniAttivi:0,percSum:0,percCount:0};
+                          merged.perGiorno[k].azioniTot += v.azioniTot;
+                          merged.perGiorno[k].ore += v.ore;
+                          if(v.hasData){ merged.perGiorno[k].giorniAttivi++; merged.perGiorno[k].percSum+=v.perc; merged.perGiorno[k].percCount++; hasAny=true; }
+                        });
+                        Object.entries(a.totazioni).forEach(([k,v])=>{
+                          if(!merged.totazioni[k]) merged.totazioni[k]={fatto:0,target:0};
+                          merged.totazioni[k].fatto += v.fatto;
+                          merged.totazioni[k].target += v.target;
+                        });
+                        Object.entries(a.totconseguenze).forEach(([k,v])=>{ merged.totconseguenze[k]=(merged.totconseguenze[k]||0)+v; });
+                        Object.entries(a.tottempo).forEach(([k,v])=>{ merged.tottempo[k]=(merged.tottempo[k]||0)+v; });
+                        merged.routineCompl += a.routineCompl;
+                        merged.routineTot += a.routineTot;
+                        if(hasAny) merged.agentiAttivi++;
+                      });
+                      // Calcolo media perc per giorno
+                      Object.values(merged.perGiorno).forEach(g=>{ g.perc = g.percCount>0 ? Math.round(g.percSum/g.percCount) : 0; });
+                      return merged;
+                    } else {
+                      return aggregaPerAgente(agIdSelW);
+                    }
+                  })();
+
+                  const agSelW = !isAgg ? agenti.find(a=>a.id===agIdSelW) : null;
+                  const totSettAzioni = Object.values(aggregaTotale.perGiorno).reduce((s,g)=>s+g.azioniTot,0);
+                  const totSettOre = Object.values(aggregaTotale.perGiorno).reduce((s,g)=>s+g.ore,0);
+                  const giorniConDati = Object.values(aggregaTotale.perGiorno).filter(g=>(isAgg?g.azioniTot>0:g.hasData)).length;
+                  const percMediaSett = (()=>{
+                    const valori = Object.values(aggregaTotale.perGiorno).map(g=>g.perc).filter(p=>p>0);
+                    return valori.length>0 ? Math.round(valori.reduce((s,p)=>s+p,0)/valori.length) : 0;
+                  })();
+
+                  // Mappe nome categorie/conseguenze
+                  const nomeAzioneById = {};
+                  catalogoAzioni.forEach(a=>{ nomeAzioneById[a.id] = {nome:a.nome, gruppo:a.gruppo, icona:a.icona}; });
+                  const nomeConsById = {};
+                  CATALOGO_CONSEGUENZE_DEFAULT.forEach(c=>{ nomeConsById[c.id] = {nome:c.nome, icona:c.icona, clr:c.clr}; });
+                  const nomeTempoById = {};
+                  CATALOGO_TEMPO_DEFAULT.forEach(t=>{ nomeTempoById[t.id] = {nome:t.nome, clr:t.clr}; });
+
+                  return(<>
+                    {/* Selettori */}
+                    <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                      <input type="date" style={S.sel} value={opDataSel} onChange={e=>setOpDataSel(e.target.value)}/>
+                      {canViewAll&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":opAgenteSel)} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="self">🏠 I miei dati</option>
+                        <option value="team">👥 Vista team aggregata</option>
+                        <optgroup label="Singolo agente">
+                          {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                        </optgroup>
+                      </select>}
+                      <span style={{fontSize:12,color:"#888"}}>{dataStart.split("-").reverse().join("/")} → {dataEnd.split("-").reverse().join("/")}</span>
                     </div>
-                  )}
-                  {Object.entries(giornataOggi).filter(([k,v])=>["contatti","zona","volantini","postSocial","videoSocial","apptAcq","valutazioni","incarichi"].includes(k)&&Number(v)>0).length>0&&<button onClick={()=>{if(window.confirm("Azzerare tutte le attività di oggi?")){salvaGiornata(agId,oggiStr,{contatti:0,zona:0,volantini:0,postSocial:0,videoSocial:0,apptAcq:0,valutazioni:0,incarichi:0});}}} style={{marginTop:10,padding:"4px 10px",background:"transparent",border:"none",color:"#888",fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Azzera oggi</button>}
-                </div>}
-              </div>
+
+                    {/* HEADER */}
+                    <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`1.5px solid ${BRAND.oro}55`}}>
+                      <div>
+                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>📆 Settimana</p>
+                        <h2 style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{isAgg?"Vista team aggregata":(agSelW?`${agSelW.nome} ${agSelW.cognome}`:"—")}</h2>
+                        <p style={{fontSize:12,color:"#666",margin:"4px 0 0",fontWeight:500}}>{dataStart.split("-").reverse().join("/")} → {dataEnd.split("-").reverse().join("/")} · {giorniConDati}/6 giorni con attività</p>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <p style={{fontSize:10,color:BRAND.oroD,margin:0,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>% media settimana</p>
+                        <p style={{fontSize:30,fontWeight:800,margin:"2px 0 0",color:percMediaSett>=80?"#27AE60":percMediaSett>=50?BRAND.oroD:percMediaSett>0?"#E67E22":"#bbb",fontFamily:"Georgia,serif"}}>{percMediaSett}%</p>
+                        <p style={{fontSize:11,color:"#888",margin:0,fontWeight:500}}>{totSettAzioni} azioni · {totSettOre.toFixed(1)}h</p>
+                      </div>
+                    </div>
+
+                    {/* GRIGLIA GIORNI LUN-SAB */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:"1.5rem"}}>
+                      {giorniSettim.map((d,i)=>{
+                        const k = fmtData(d);
+                        const g = aggregaTotale.perGiorno[k]||{azioniTot:0,perc:0,ore:0,hasData:false};
+                        const isOggi = k===todayStr();
+                        const clrPerc = g.perc>=80?"#27AE60":g.perc>=50?BRAND.oroD:g.perc>0?"#E67E22":"#bbb";
+                        return(<div key={k} onClick={()=>{setOpDataSel(k);setOpSubTab("oggi");}} style={{background:"#fff",border:`1.5px solid ${isOggi?BRAND.oro:"#e8e5e0"}`,borderRadius:10,padding:"12px 10px",cursor:"pointer",transition:"all .2s",boxShadow:isOggi?`0 2px 8px ${BRAND.oro}30`:"0 1px 3px rgba(0,0,0,0.03)",textAlign:"center"}}>
+                          <div style={{fontSize:11,fontWeight:700,color:isOggi?BRAND.oroD:"#888",textTransform:"uppercase",letterSpacing:"0.08em"}}>{giorniSettCorti[i]}</div>
+                          <div style={{fontSize:18,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif",margin:"4px 0"}}>{d.getDate()}</div>
+                          {g.azioniTot>0 ? (<>
+                            <div style={{fontSize:20,fontWeight:800,color:clrPerc,marginBottom:2,fontFamily:"Georgia,serif"}}>{g.perc}%</div>
+                            <div style={{fontSize:10,color:"#888",marginBottom:6}}>{g.azioniTot} azioni{isAgg?` · ${g.giorniAttivi||0} agenti`:""}</div>
+                            <div style={{height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}>
+                              <div style={{height:"100%",width:`${g.perc}%`,background:clrPerc,borderRadius:2}}/>
+                            </div>
+                            {g.ore>0&&<div style={{fontSize:10,color:"#888",marginTop:6}}>⏱ {g.ore.toFixed(1)}h</div>}
+                          </>) : (
+                            <div style={{fontSize:11,color:"#bbb",marginTop:14}}>—</div>
+                          )}
+                          {isOggi&&<div style={{fontSize:9,color:BRAND.oroD,marginTop:6,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em"}}>OGGI</div>}
+                        </div>);
+                      })}
+                    </div>
+
+                    {/* TOTALI SETTIMANA - AZIONI PER GRUPPO */}
+                    {(()=>{
+                      const azioniPerGruppo = {};
+                      Object.entries(aggregaTotale.totazioni).forEach(([azId, v])=>{
+                        const meta = nomeAzioneById[azId];
+                        if(!meta) return;
+                        if(!azioniPerGruppo[meta.gruppo]) azioniPerGruppo[meta.gruppo] = [];
+                        azioniPerGruppo[meta.gruppo].push({...v, nome:meta.nome, icona:meta.icona, id:azId});
+                      });
+                      if(Object.keys(azioniPerGruppo).length===0){
+                        return(<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"2rem 1rem",textAlign:"center",marginBottom:"1.5rem"}}>
+                          <p style={{fontSize:13,color:"#888",margin:0}}>Nessuna azione registrata in questa settimana.</p>
+                          <p style={{fontSize:12,color:"#aaa",margin:"6px 0 0"}}>Clicca su un giorno per registrare attività.</p>
+                        </div>);
+                      }
+                      return(<>
+                        <h3 style={{margin:"0 0 10px",fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Totale Azioni settimana</h3>
+                        {GRUPPI_AZIONI.map(gruppo=>{
+                          const voci = azioniPerGruppo[gruppo.id]||[];
+                          if(voci.length===0) return null;
+                          const colorGruppo = gruppo.id==="telefono"?"#2980B9":gruppo.id==="scritto"?"#8E44AD":gruppo.id==="social"?"#E91E63":"#E67E22";
+                          const totGruppoFatto = voci.reduce((s,v)=>s+v.fatto,0);
+                          const totGruppoTarget = voci.reduce((s,v)=>s+v.target,0);
+                          return(<div key={gruppo.id} style={{background:"#fff",border:"0.5px solid #e8e5e0",borderLeft:`4px solid ${colorGruppo}`,borderRadius:10,padding:"0.875rem 1.125rem",marginBottom:"0.75rem"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                              <p style={{margin:0,fontSize:11,color:colorGruppo,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{gruppo.icona} {gruppo.nome}</p>
+                              <p style={{margin:0,fontSize:12,color:"#666",fontWeight:600}}>{totGruppoFatto} / {totGruppoTarget} <span style={{fontSize:10,color:"#aaa",marginLeft:4}}>settimana</span></p>
+                            </div>
+                            {voci.filter(v=>v.fatto>0||v.target>0).map(v=>{
+                              const perc = v.target>0 ? Math.min(100,Math.round(v.fatto/v.target*100)) : 0;
+                              const clr = v.fatto>=v.target&&v.target>0?"#27AE60":perc>=66?BRAND.oroD:perc>=33?"#E67E22":perc>0?"#E74C3C":"#bbb";
+                              return(<div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 100px 50px",gap:10,alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                                <p style={{margin:0,fontSize:13,color:BRAND.grigio,fontWeight:500}}>{v.nome}</p>
+                                <p style={{margin:0,fontSize:13,color:"#666",textAlign:"right",fontWeight:600}}>{v.fatto} <span style={{fontSize:11,color:"#aaa"}}>/ {v.target}</span></p>
+                                <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                                  <div style={{height:"100%",width:`${perc}%`,background:clr,borderRadius:3}}/>
+                                </div>
+                                <p style={{margin:0,fontSize:12,color:clr,fontWeight:700,textAlign:"right"}}>{v.target>0?`${perc}%`:"—"}</p>
+                              </div>);
+                            })}
+                          </div>);
+                        })}
+                      </>);
+                    })()}
+
+                    {/* CONSEGUENZE SETTIMANA */}
+                    {Object.keys(aggregaTotale.totconseguenze).length>0&&(()=>{
+                      const voci = Object.entries(aggregaTotale.totconseguenze).filter(([_,v])=>v>0).map(([id,val])=>({...nomeConsById[id], val, id})).filter(x=>x.nome);
+                      if(voci.length===0) return null;
+                      return(<>
+                        <h3 style={{margin:"1.25rem 0 10px",fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔄 Totale Conseguenze settimana</h3>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.25rem"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}>
+                            {voci.map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#FDFBF7",borderRadius:6,borderLeft:`3px solid ${v.clr}`}}>
+                              <span style={{fontSize:13,color:BRAND.grigio,fontWeight:500}}>{v.icona} {v.nome}</span>
+                              <strong style={{fontSize:16,color:v.clr,fontWeight:700}}>{v.val}</strong>
+                            </div>))}
+                          </div>
+                        </div>
+                      </>);
+                    })()}
+
+                    {/* TEMPO SETTIMANA */}
+                    {Object.keys(aggregaTotale.tottempo).length>0&&(()=>{
+                      const voci = Object.entries(aggregaTotale.tottempo).filter(([_,v])=>v>0).map(([id,val])=>({...nomeTempoById[id], val, id})).filter(x=>x.nome);
+                      if(voci.length===0) return null;
+                      const totOre = voci.reduce((s,v)=>s+v.val,0);
+                      return(<>
+                        <h3 style={{margin:"1.25rem 0 10px",fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>⏱️ Tempo settimana ({totOre.toFixed(1)}h)</h3>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.25rem"}}>
+                          {voci.map(v=>{
+                            const perc = Math.round(v.val/totOre*100);
+                            return(<div key={v.id} style={{display:"grid",gridTemplateColumns:"160px 1fr 80px",gap:10,alignItems:"center",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                              <p style={{margin:0,fontSize:13,color:BRAND.grigio,fontWeight:500}}>{v.nome}</p>
+                              <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:v.clr,borderRadius:4}}/>
+                              </div>
+                              <p style={{margin:0,fontSize:13,color:v.clr,fontWeight:700,textAlign:"right"}}>{v.val.toFixed(1)}h <span style={{fontSize:10,color:"#aaa",fontWeight:500}}>({perc}%)</span></p>
+                            </div>);
+                          })}
+                        </div>
+                      </>);
+                    })()}
+
+                    {/* ROUTINE SETTIMANA */}
+                    {aggregaTotale.routineTot>0&&<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.25rem",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                      <p style={{margin:0,fontSize:13,color:BRAND.grigio,fontWeight:500}}>📌 Routine professionali completate</p>
+                      <strong style={{fontSize:16,color:aggregaTotale.routineCompl>=aggregaTotale.routineTot*0.7?"#27AE60":BRAND.oroD,fontWeight:700}}>{aggregaTotale.routineCompl} / {aggregaTotale.routineTot}</strong>
+                    </div>}
+
+                  </>);
+                })()}
+
+                {/* ── REPORT MENSILE ── */}
+                {opSubTab==="report"&&(()=>{
+                  // === LOGICA AGENTE/BROKER ===
+                  const brokerVedeSeStesso = canViewAll && (opAgenteSel==="Tutti"||opAgenteSel===""||opAgenteSel==="self"||opAgenteSel===String(myAgentId));
+                  const isAgg = canViewAll && opAgenteSel==="team";
+                  const agIdSelM = isAgg ? null :
+                    canViewAll
+                      ? (brokerVedeSeStesso ? myAgentId : Number(opAgenteSel))
+                      : myAgentId;
+
+                  const meseSel = opMeseSel || (annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
+                  const annoR = meseSel.substring(0,4);
+                  const meseR = meseSel.substring(5,7);
+                  const ultimoGiorno = new Date(parseInt(annoR), parseInt(meseR), 0).getDate();
+
+                  // Aggregazione mese
+                  const aggregaMeseAgente = (agId) => {
+                    const dati = oggiDati[agId]||{};
+                    const aggr = {totazioni:{}, totconseguenze:{}, tottempo:{}, routineCompl:0, routineTot:0, giorniCompilati:0};
+                    Object.entries(dati).forEach(([k, g])=>{
+                      if(!k.startsWith(meseSel)) return;
+                      const az = g.azioni||{};
+                      const co = g.conseguenze||{};
+                      const tp = g.tempo||{};
+                      const rt = g.routine||{};
+                      const hasData = Object.keys(az).length>0 || Object.keys(co).length>0 || Object.keys(tp).length>0;
+                      if(hasData) aggr.giorniCompilati++;
+                      Object.entries(az).forEach(([azId, v])=>{
+                        if(!aggr.totazioni[azId]) aggr.totazioni[azId] = {fatto:0, target:0};
+                        aggr.totazioni[azId].fatto += Number(v.fatto||0);
+                        aggr.totazioni[azId].target += Number(v.target||0);
+                      });
+                      Object.entries(co).forEach(([cId, v])=>{ aggr.totconseguenze[cId] = (aggr.totconseguenze[cId]||0) + Number(v||0); });
+                      Object.entries(tp).forEach(([tId, v])=>{ aggr.tottempo[tId] = (aggr.tottempo[tId]||0) + Number(v||0); });
+                      Object.values(rt).forEach(r=>{ if(r&&r.fatto) aggr.routineCompl++; aggr.routineTot++; });
+                    });
+                    return aggr;
+                  };
+
+                  const aggregaTotaleM = (()=>{
+                    if(isAgg){
+                      const operativi = agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                      const merged = {totazioni:{}, totconseguenze:{}, tottempo:{}, routineCompl:0, routineTot:0, giorniCompilati:0, agentiAttivi:0};
+                      operativi.forEach(ag=>{
+                        const a = aggregaMeseAgente(ag.id);
+                        if(a.giorniCompilati>0) merged.agentiAttivi++;
+                        merged.giorniCompilati += a.giorniCompilati;
+                        Object.entries(a.totazioni).forEach(([k,v])=>{
+                          if(!merged.totazioni[k]) merged.totazioni[k]={fatto:0,target:0};
+                          merged.totazioni[k].fatto += v.fatto;
+                          merged.totazioni[k].target += v.target;
+                        });
+                        Object.entries(a.totconseguenze).forEach(([k,v])=>{ merged.totconseguenze[k]=(merged.totconseguenze[k]||0)+v; });
+                        Object.entries(a.tottempo).forEach(([k,v])=>{ merged.tottempo[k]=(merged.tottempo[k]||0)+v; });
+                        merged.routineCompl += a.routineCompl;
+                        merged.routineTot += a.routineTot;
+                      });
+                      return merged;
+                    } else {
+                      return aggregaMeseAgente(agIdSelM);
+                    }
+                  })();
+
+                  const agSelM = !isAgg ? agenti.find(a=>a.id===agIdSelM) : null;
+                  const totMeseAzioni = Object.values(aggregaTotaleM.totazioni).reduce((s,v)=>s+v.fatto,0);
+                  const totMeseConseg = Object.values(aggregaTotaleM.totconseguenze).reduce((s,v)=>s+v,0);
+                  const totMeseOre = Object.values(aggregaTotaleM.tottempo).reduce((s,v)=>s+v,0);
+                  const totMeseTarget = Object.values(aggregaTotaleM.totazioni).reduce((s,v)=>s+v.target,0);
+                  const percMese = totMeseTarget>0 ? Math.min(100, Math.round(totMeseAzioni/totMeseTarget*100)) : 0;
+
+                  const nomeAzioneById = {};
+                  catalogoAzioni.forEach(a=>{ nomeAzioneById[a.id] = {nome:a.nome, gruppo:a.gruppo, icona:a.icona}; });
+                  const nomeConsById = {};
+                  CATALOGO_CONSEGUENZE_DEFAULT.forEach(c=>{ nomeConsById[c.id] = {nome:c.nome, icona:c.icona, clr:c.clr}; });
+                  const nomeTempoById = {};
+                  CATALOGO_TEMPO_DEFAULT.forEach(t=>{ nomeTempoById[t.id] = {nome:t.nome, clr:t.clr}; });
+                  const mesiNomi=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+
+                  return(<>
+                    {/* Selettori */}
+                    <div style={{display:"flex",gap:8,marginBottom:"1rem",alignItems:"center",flexWrap:"wrap"}}>
+                      <input type="month" style={S.sel} value={meseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
+                      {canViewAll&&<select style={S.sel} value={isAgg?"team":(brokerVedeSeStesso?"self":opAgenteSel)} onChange={e=>setOpAgenteSel(e.target.value)}>
+                        <option value="self">🏠 I miei dati</option>
+                        <option value="team">👥 Vista team aggregata</option>
+                        <optgroup label="Singolo agente">
+                          {agenti.filter(a=>["Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false&&a.id!==myAgentId).map(a=><option key={a.id} value={a.id}>👤 {a.nome} {a.cognome}</option>)}
+                        </optgroup>
+                      </select>}
+                    </div>
+
+                    {/* HEADER */}
+                    <div style={{background:`linear-gradient(135deg, ${BRAND.oro}18 0%, ${BRAND.oro}08 100%)`,borderRadius:14,padding:"1.25rem 1.5rem",marginBottom:"1.25rem",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,border:`1.5px solid ${BRAND.oro}55`}}>
+                      <div>
+                        <p style={{fontSize:11,color:BRAND.oroD,margin:"0 0 4px",textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>📊 Report mensile</p>
+                        <h2 style={{margin:0,fontSize:22,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>{mesiNomi[parseInt(meseR)-1]} {annoR}</h2>
+                        <p style={{fontSize:12,color:"#666",margin:"4px 0 0",fontWeight:500}}>{isAgg?`Team aggregato · ${aggregaTotaleM.agentiAttivi||0} agenti attivi`:(agSelM?`${agSelM.nome} ${agSelM.cognome}`:"—")}</p>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <p style={{fontSize:10,color:BRAND.oroD,margin:0,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:700}}>% media mese</p>
+                        <p style={{fontSize:30,fontWeight:800,margin:"2px 0 0",color:percMese>=80?"#27AE60":percMese>=50?BRAND.oroD:percMese>0?"#E67E22":"#bbb",fontFamily:"Georgia,serif"}}>{percMese}%</p>
+                      </div>
+                    </div>
+
+                    {/* KPI MENSILI */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginBottom:"1.5rem"}}>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #2980B9`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Giorni operativi</div>
+                        <div style={{fontSize:26,fontWeight:700,color:"#2980B9",fontFamily:"Georgia,serif"}}>{aggregaTotaleM.giorniCompilati}</div>
+                        <div style={{fontSize:11,color:"#aaa",marginTop:2}}>su {ultimoGiorno} del mese</div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid ${BRAND.oro}`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Totale azioni</div>
+                        <div style={{fontSize:26,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>{totMeseAzioni}</div>
+                        <div style={{fontSize:11,color:"#aaa",marginTop:2}}>su {totMeseTarget} pianificate</div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #27AE60`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Conseguenze</div>
+                        <div style={{fontSize:26,fontWeight:700,color:"#27AE60",fontFamily:"Georgia,serif"}}>{totMeseConseg}</div>
+                        <div style={{fontSize:11,color:"#aaa",marginTop:2}}>output prodotti</div>
+                      </div>
+                      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e8e5e0",borderTop:`3px solid #E67E22`,padding:"1rem",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6,fontWeight:700}}>Ore lavorate</div>
+                        <div style={{fontSize:26,fontWeight:700,color:"#E67E22",fontFamily:"Georgia,serif"}}>{totMeseOre.toFixed(1)}<span style={{fontSize:14,marginLeft:2}}>h</span></div>
+                        <div style={{fontSize:11,color:"#aaa",marginTop:2}}>{aggregaTotaleM.giorniCompilati>0?`~${(totMeseOre/aggregaTotaleM.giorniCompilati).toFixed(1)}h/giorno`:"—"}</div>
+                      </div>
+                    </div>
+
+                    {/* AZIONI PER GRUPPO */}
+                    {(()=>{
+                      const azioniPerGruppo = {};
+                      Object.entries(aggregaTotaleM.totazioni).forEach(([azId, v])=>{
+                        const meta = nomeAzioneById[azId];
+                        if(!meta) return;
+                        if(!azioniPerGruppo[meta.gruppo]) azioniPerGruppo[meta.gruppo] = [];
+                        azioniPerGruppo[meta.gruppo].push({...v, nome:meta.nome, icona:meta.icona, id:azId});
+                      });
+                      if(Object.keys(azioniPerGruppo).length===0){
+                        return(<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"2rem 1rem",textAlign:"center",marginBottom:"1.5rem"}}>
+                          <p style={{fontSize:13,color:"#888",margin:0}}>Nessuna azione registrata in questo mese.</p>
+                        </div>);
+                      }
+                      return(<>
+                        <h3 style={{margin:"0 0 10px",fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🎯 Azioni del mese</h3>
+                        {GRUPPI_AZIONI.map(gruppo=>{
+                          const voci = azioniPerGruppo[gruppo.id]||[];
+                          if(voci.length===0) return null;
+                          const colorGruppo = gruppo.id==="telefono"?"#2980B9":gruppo.id==="scritto"?"#8E44AD":gruppo.id==="social"?"#E91E63":"#E67E22";
+                          const totGruppoFatto = voci.reduce((s,v)=>s+v.fatto,0);
+                          const totGruppoTarget = voci.reduce((s,v)=>s+v.target,0);
+                          return(<div key={gruppo.id} style={{background:"#fff",border:"0.5px solid #e8e5e0",borderLeft:`4px solid ${colorGruppo}`,borderRadius:10,padding:"0.875rem 1.125rem",marginBottom:"0.75rem"}}>
+                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                              <p style={{margin:0,fontSize:11,color:colorGruppo,textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:800}}>{gruppo.icona} {gruppo.nome}</p>
+                              <p style={{margin:0,fontSize:12,color:"#666",fontWeight:600}}>{totGruppoFatto} / {totGruppoTarget}</p>
+                            </div>
+                            {voci.filter(v=>v.fatto>0||v.target>0).map(v=>{
+                              const perc = v.target>0 ? Math.min(100,Math.round(v.fatto/v.target*100)) : 0;
+                              const clr = v.fatto>=v.target&&v.target>0?"#27AE60":perc>=66?BRAND.oroD:perc>=33?"#E67E22":perc>0?"#E74C3C":"#bbb";
+                              return(<div key={v.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 100px 50px",gap:10,alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                                <p style={{margin:0,fontSize:13,color:BRAND.grigio,fontWeight:500}}>{v.nome}</p>
+                                <p style={{margin:0,fontSize:13,color:"#666",textAlign:"right",fontWeight:600}}>{v.fatto} <span style={{fontSize:11,color:"#aaa"}}>/ {v.target}</span></p>
+                                <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                                  <div style={{height:"100%",width:`${perc}%`,background:clr,borderRadius:3}}/>
+                                </div>
+                                <p style={{margin:0,fontSize:12,color:clr,fontWeight:700,textAlign:"right"}}>{v.target>0?`${perc}%`:"—"}</p>
+                              </div>);
+                            })}
+                          </div>);
+                        })}
+                      </>);
+                    })()}
+
+                    {/* CONSEGUENZE */}
+                    {Object.keys(aggregaTotaleM.totconseguenze).length>0&&(()=>{
+                      const voci = Object.entries(aggregaTotaleM.totconseguenze).filter(([_,v])=>v>0).map(([id,val])=>({...nomeConsById[id], val, id})).filter(x=>x.nome);
+                      if(voci.length===0) return null;
+                      return(<>
+                        <h3 style={{margin:"1.25rem 0 10px",fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>🔄 Conseguenze del mese</h3>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.25rem"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:8}}>
+                            {voci.map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",background:"#FDFBF7",borderRadius:6,borderLeft:`3px solid ${v.clr}`}}>
+                              <span style={{fontSize:13,color:BRAND.grigio,fontWeight:500}}>{v.icona} {v.nome}</span>
+                              <strong style={{fontSize:16,color:v.clr,fontWeight:700}}>{v.val}</strong>
+                            </div>))}
+                          </div>
+                        </div>
+                      </>);
+                    })()}
+
+                    {/* DISTRIBUZIONE TEMPO */}
+                    {Object.keys(aggregaTotaleM.tottempo).length>0&&(()=>{
+                      const voci = Object.entries(aggregaTotaleM.tottempo).filter(([_,v])=>v>0).map(([id,val])=>({...nomeTempoById[id], val, id})).filter(x=>x.nome);
+                      if(voci.length===0) return null;
+                      const totOreM = voci.reduce((s,v)=>s+v.val,0);
+                      return(<>
+                        <h3 style={{margin:"1.25rem 0 10px",fontSize:15,fontWeight:700,color:BRAND.grigio,fontFamily:"Georgia,serif"}}>⏱️ Distribuzione tempo del mese ({totOreM.toFixed(1)}h)</h3>
+                        <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"0.875rem 1.25rem",marginBottom:"1.25rem"}}>
+                          {voci.map(v=>{
+                            const perc = Math.round(v.val/totOreM*100);
+                            return(<div key={v.id} style={{display:"grid",gridTemplateColumns:"160px 1fr 80px",gap:10,alignItems:"center",padding:"7px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+                              <p style={{margin:0,fontSize:13,color:BRAND.grigio,fontWeight:500}}>{v.nome}</p>
+                              <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:v.clr,borderRadius:4}}/>
+                              </div>
+                              <p style={{margin:0,fontSize:13,color:v.clr,fontWeight:700,textAlign:"right"}}>{v.val.toFixed(1)}h <span style={{fontSize:10,color:"#aaa",fontWeight:500}}>({perc}%)</span></p>
+                            </div>);
+                          })}
+                        </div>
+                      </>);
+                    })()}
+
+                    {/* ROUTINE PROFESSIONALI */}
+                    {aggregaTotaleM.routineTot>0&&(()=>{
+                      const percR = Math.round(aggregaTotaleM.routineCompl/aggregaTotaleM.routineTot*100);
+                      return(<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:8}}>
+                          <p style={{margin:0,fontSize:13,color:BRAND.grigio,fontWeight:600}}>📌 Routine professionali completate</p>
+                          <strong style={{fontSize:18,color:percR>=70?"#27AE60":percR>=40?BRAND.oroD:"#E67E22",fontWeight:700,fontFamily:"Georgia,serif"}}>{aggregaTotaleM.routineCompl} / {aggregaTotaleM.routineTot} <span style={{fontSize:13,color:"#888",fontWeight:500}}>({percR}%)</span></strong>
+                        </div>
+                        <div style={{height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${percR}%`,background:percR>=70?"#27AE60":percR>=40?BRAND.oroD:"#E67E22",borderRadius:4,transition:"width .4s"}}/>
+                        </div>
+                      </div>);
+                    })()}
+
+                  </>);
+                })()}
+
+                {/* ── OBIETTIVI ── */}
+                {opSubTab==="obiettivi"&&(<>
+                  <div style={{display:"flex",gap:8,marginBottom:"1.25rem",alignItems:"center",flexWrap:"wrap"}}>
+                    <input type="month" style={S.sel} value={opMeseSel} onChange={e=>setOpMeseSel(e.target.value)}/>
+                    {canViewAll&&<select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      <option value="Tutti">Tutti gli agenti</option>
+                      {agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>}
+                  </div>
+                  {(()=>{
+                    const agId=isBroker?(Number(opAgenteSel==="Tutti"?agenti[0]?.id:opAgenteSel)||agenti[0]?.id):myAgentId;
+                    const ag=agenti.find(a=>a.id===agId);
+                    if(!ag) return null;
+                    const obDati=getObiettivi(agId,opMeseSel);
+                    const ob=obDati.proposti||{};
+                    // Suggerimento dal mese precedente: se l'agente non ha ancora compilato gli obiettivi del mese corrente,
+                    // mostra come placeholder i valori del mese precedente
+                    const meseObPrec=(()=>{
+                      const [y,m]=opMeseSel.split("-").map(Number);
+                      const prevDate=new Date(y,m-2,1); // m-1-1 perché Date conta i mesi da 0
+                      return `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,"0")}`;
+                    })();
+                    const obPrec=(getObiettivi(agId,meseObPrec).proposti)||{};
+                    const isMeseVuoto=Object.keys(ob).filter(k=>Number(ob[k])>0).length===0;
+                    const haObPrec=Object.keys(obPrec).filter(k=>Number(obPrec[k])>0).length>0;
+                    const rep=calcReport(agId,opMeseSel);
+                    const upd=(k,v)=>salvaObiettivi(agId,opMeseSel,{...obDati,proposti:{...ob,[k]:Number(v)}});
+
+                    const vociOb=[
+                      {k:"chiamate",    lbl:"Chiamate",           sub:"a settimana", clr:"#185FA5", icon:"📞", val:rep.chiamate},
+                      {k:"appuntamenti",lbl:"Appuntamenti acq.",   sub:"al mese",     clr:"#633806", icon:"🤝", val:rep.appuntamenti},
+                      {k:"acquisizioni",lbl:"Acquisizioni",        sub:"al mese",     clr:"#533AB7", icon:"🏠", val:rep.acquisizioni},
+                      {k:"oh",          lbl:"Open House",          sub:"al mese",     clr:"#D85A30", icon:"🚪", val:rep.ohNum},
+                      {k:"propPresentate",lbl:"Proposte",          sub:"al mese",     clr:"#27AE60", icon:"📝", val:rep.propPresentate},
+                      {k:"immVisitati", lbl:"Immobili visitati",   sub:"a settimana", clr:"#085041", icon:"👁",  val:rep.immVisitati},
+                      {k:"oreTel",      lbl:"Ore telefono",        sub:"a settimana", clr:"#0F6E56", icon:"⏱",  val:rep.oreTel},
+                      {k:"postSocial",  lbl:"Post social",         sub:"a settimana", clr:"#3C3489", icon:"📱", val:rep.postSocial},
+                    ];
+
+                    return(<>
+                      {/* Header agente */}
+                      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:"1.5rem",padding:"1rem 1.25rem",background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0"}}>
+                        <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:"#fff",flexShrink:0}}>{ag.nome.charAt(0)}</div>
+                        <div>
+                          <h3 style={{fontSize:16,fontWeight:600,margin:"0 0 2px",color:"#2C2C2C"}}>{ag.nome} {ag.cognome}</h3>
+                          <p style={{fontSize:12,color:"#888",margin:0}}>Obiettivi personali · {opMeseSel} · {canViewAll?"imposta obiettivi per l'agente":"modifica i tuoi obiettivi"}</p>
+                        </div>
+                      </div>
+
+                      {/* Banner suggerimento mese precedente */}
+                      {isMeseVuoto&&haObPrec&&(!isBroker||opAgenteSel===String(myAgentId)||opAgenteSel==="Tutti")&&<div style={{background:"#FDFBF7",border:`1px solid ${BRAND.oro}55`,borderLeft:`4px solid ${BRAND.oro}`,borderRadius:8,padding:"10px 14px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                        <span style={{fontSize:20}}>💡</span>
+                        <div style={{flex:1,minWidth:200}}>
+                          <p style={{margin:0,fontSize:13,fontWeight:600,color:BRAND.grigio}}>Non hai ancora impostato gli obiettivi del mese</p>
+                          <p style={{margin:"2px 0 0",fontSize:12,color:"#888"}}>Suggerimento: usa i valori del mese scorso ({meseObPrec}) come base di partenza.</p>
+                        </div>
+                        <button onClick={()=>{
+                          if(window.confirm(`Copiare gli obiettivi di ${meseObPrec} come obiettivi di ${opMeseSel}?\\n\\nPotrai modificarli liberamente dopo.`)){
+                            salvaObiettivi(agId,opMeseSel,{...obDati,proposti:{...obPrec}});
+                          }
+                        }} style={{...S.btn,fontSize:12,padding:"6px 14px",background:BRAND.oro,color:"#fff",border:"none",fontWeight:600}}>📋 Usa valori {meseObPrec}</button>
+                      </div>}
+
+                      {/* Griglia obiettivi — visuale ad alto impatto */}
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12,marginBottom:"1.5rem"}}>
+                        {vociOb.map(({k,lbl,sub,clr,icon,val})=>{
+                          const target=Number(ob[k]||0);
+                          const perc=target>0?Math.min(100,Math.round(val/target*100)):0;
+                          const raggiunto=target>0&&val>=target;
+                          return(<div key={k} style={{background:"#fff",borderRadius:12,border:`0.5px solid ${clr}33`,padding:"1rem",borderTop:`3px solid ${clr}`,position:"relative",overflow:"hidden"}}>
+                            {raggiunto&&<div style={{position:"absolute",top:8,right:8,fontSize:16}}>🎉</div>}
+                            <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
+                            <div style={{fontSize:11,color:"#888",fontWeight:500,marginBottom:2,textTransform:"uppercase",letterSpacing:"0.06em"}}>{lbl}</div>
+                            <div style={{fontSize:11,color:"#bbb",marginBottom:10}}>{sub}</div>
+                            {/* Input obiettivo — modificabile da tutti */}
+                            <input type="number" min="0"
+                              style={{width:"100%",fontSize:28,fontWeight:700,color:clr,border:"none",borderBottom:`2px solid ${clr}44`,background:"transparent",padding:"4px 0",textAlign:"center",outline:"none",marginBottom:8}}
+                              value={ob[k]||""} placeholder={obPrec[k]>0?String(obPrec[k]):"0"}
+                              onChange={e=>upd(k,e.target.value)}/>
+                            {/* Suggerimento dal mese precedente se vuoto */}
+                            {!ob[k]&&obPrec[k]>0&&<div style={{fontSize:10,color:BRAND.oroD,textAlign:"center",marginTop:-4,marginBottom:6,fontStyle:"italic"}}>💡 mese scorso: {obPrec[k]}</div>}
+                            {/* Realizzato nel mese */}
+                            {val>0&&<div style={{fontSize:11,color:"#888",textAlign:"center",marginBottom:6}}>Realizzato: <strong style={{color:clr}}>{val}</strong></div>}
+                            {/* Barra progresso */}
+                            {target>0&&(<>
+                              <div style={{height:5,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}>
+                                <div style={{height:"100%",width:`${perc}%`,background:raggiunto?"#27AE60":clr,borderRadius:3,transition:"width 0.5s"}}/>
+                              </div>
+                              <div style={{fontSize:10,color:raggiunto?"#27AE60":"#aaa",textAlign:"center",marginTop:4,fontWeight:raggiunto?600:400}}>
+                                {raggiunto?"✓ Obiettivo raggiunto":`${perc}% · mancano ${target-val}`}
+                              </div>
+                            </>)}
+                          </div>);
+                        })}
+                      </div>
+
+                      {/* Box riepilogo mese */}
+                      {Object.keys(ob).length>0&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem",marginBottom:"1.25rem"}}>
+                        <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Riepilogo avanzamento — {opMeseSel}</p>
+                        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                          {(()=>{
+                            const raggiunti=vociOb.filter(v=>Number(ob[v.k]||0)>0&&v.val>=Number(ob[v.k]||0)).length;
+                            const totConOb=vociOb.filter(v=>Number(ob[v.k]||0)>0).length;
+                            const percTot=totConOb>0?Math.round(raggiunti/totConOb*100):0;
+                            return(<>
+                              <div style={{flex:1,minWidth:120}}>
+                                <div style={{fontSize:32,fontWeight:700,color:percTot>=80?"#27AE60":percTot>=50?"#D4AC0D":"#E74C3C"}}>{percTot}%</div>
+                                <div style={{fontSize:12,color:"#888"}}>obiettivi raggiunti</div>
+                                <div style={{fontSize:11,color:"#aaa"}}>{raggiunti}/{totConOb} voci completate</div>
+                              </div>
+                              <div style={{flex:3}}>
+                                {vociOb.filter(v=>Number(ob[v.k]||0)>0).map(({k,lbl,clr,val,icon})=>{
+                                  const t=Number(ob[k]||0);
+                                  const p=Math.min(100,Math.round(val/t*100));
+                                  return(<div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                                    <span style={{fontSize:12,width:120,flexShrink:0,color:"#555"}}>{icon} {lbl}</span>
+                                    <div style={{flex:1,height:8,background:"#f0f0f0",borderRadius:4,overflow:"hidden"}}>
+                                      <div style={{height:"100%",width:`${p}%`,background:val>=t?"#27AE60":clr,borderRadius:4}}/>
+                                    </div>
+                                    <span style={{fontSize:11,color:val>=t?"#27AE60":"#aaa",width:60,textAlign:"right",flexShrink:0}}>{val}/{t}</span>
+                                  </div>);
+                                })}
+                              </div>
+                            </>);
+                          })()}
+                        </div>
+                      </div>)}
+
+                      {/* Vista team broker */}
+                      {canViewAll&&(<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",padding:"1rem 1.25rem"}}>
+                        <p style={{fontSize:11,fontWeight:600,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 12px"}}>Obiettivi team — {opMeseSel}</p>
+                        <div style={{overflowX:"auto"}}>
+                          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:500}}>
+                            <thead><tr style={{background:"#fafaf8"}}>
+                              {["Agente","📞","🤝","🏠","🚪","📝","% media"].map(h=><th key={h} style={{...S.th,fontSize:11,textAlign:"center"}}>{h}</th>)}
+                            </tr></thead>
+                            <tbody>{agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false).map(a=>{
+                              const od=getObiettivi(a.id,opMeseSel).proposti||{};
+                              const r=calcReport(a.id,opMeseSel);
+                              const coppie=[[od.chiamate,r.chiamate],[od.appuntamenti,r.appuntamenti],[od.acquisizioni,r.acquisizioni],[od.oh,r.ohNum],[od.propPresentate,r.propPresentate]];
+                              const percs=coppie.filter(([t])=>t>0).map(([t,v])=>Math.min(100,Math.round((v||0)/t*100)));
+                              const avgPerc=percs.length>0?Math.round(percs.reduce((s,p)=>s+p,0)/percs.length):null;
+                              return(<tr key={a.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                                <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:22,height:22,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff"}}>{a.nome.charAt(0)}</div>{a.nome} {a.cognome}</div></td>
+                                {coppie.map(([t,v],i)=>(
+                                  <td key={i} style={{...S.tdC,color:t>0&&v>=t?"#27AE60":t>0?"#555":"#ccc"}}>
+                                    {t>0?`${v||0}/${t}`:"—"}
+                                  </td>
+                                ))}
+                                <td style={{...S.tdC,fontWeight:600,color:avgPerc>=80?"#27AE60":avgPerc>=50?"#D4AC0D":avgPerc!==null?"#E74C3C":"#ccc"}}>
+                                  {avgPerc!==null?`${avgPerc}%`:"—"}
+                                </td>
+                              </tr>);
+                            })}</tbody>
+                          </table>
+                        </div>
+                      </div>)}
+                    </>);
+                  })()}
+                </>)}
+              </div>}
+
+              {opMainTab==="piano"&&(()=>{
+                const agentiProd2=agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
+                const annoPiano=new Date().getFullYear();
+                const oggi4=todayStr();
+                const dal4=`${annoPiano}-01-01`;
+                const transV2=venduti.filter(v=>Number(v.provvVenditore||0)>0);
+                const transA2=venduti.filter(v=>Number(v.provvAcquirente||0)>0);
+                const mediaV2=transV2.length>0?transV2.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/transV2.length:0;
+                const mediaA2=transA2.length>0?transA2.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/transA2.length:0;
+                const provvMediaReale=Math.round((mediaV2+mediaA2)/2)||8000;
+                const CONV=0.65; const APPT=0.40;
+                const sCard2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
+                const sLbl2={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"};
+                const clrP=(p)=>p>=100?"#27AE60":p>=70?"#E67E22":"#E74C3C";
+
+                // Vista agenzia: somma obiettivi e YTD di tutti gli agenti
+                const vistaTotale=isBroker&&opAgenteSel==="Tutti";
+
+                // Dati per agente singolo
+                const agIdPiano=isBroker&&!vistaTotale?(Number(opAgenteSel)||agenti.find(a=>a.profilo==="Broker")?.id||agentiProd2[0]?.id):myAgentId;
+                const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
+                const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
+                const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0):Number(obAnnPiano.fatturato||0);
+                const provvCustom=Number(obAnnPiano.provvMedia||0)||provvMediaReale;
+
+                // Calcoli piano (per agente singolo o totale)
+                const transazNec=provvCustom>0?Math.ceil(obFattPiano/provvCustom):0;
+                const immobiliVend=Math.ceil(transazNec/2);
+                const acquisizioniNec=Math.ceil(immobiliVend/CONV);
+                const acquisizioniMese=Math.ceil(acquisizioniNec/12);
+                const apptSett=Math.ceil(acquisizioniNec/APPT/52);
+                const apptMese=Math.ceil(acquisizioniNec/APPT/12);
+
+                // YTD
+                const calcFattYTD=(agId)=>venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId||Number(v.agenteAcquirente)===agId)&&dc>=dal4&&dc<=oggi4;}).reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agId)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agId)p+=Number(v.provvAcquirente||0);return s+p;},0);
+                const calcAcqYTD=(agId)=>incarichi.filter(i=>Number(i.agenteListing)===agId&&i.dataInizio>=dal4&&i.dataInizio<=oggi4).length;
+                const calcTransYTD=(agId)=>venduti.filter(v=>{const dc=dataCompAgenzia(v);return(Number(v.agenteListing)===agId||Number(v.agenteAcquirente)===agId)&&dc>=dal4&&dc<=oggi4;}).length;
+
+                const fattYTD4=vistaTotale?agentiProd2.reduce((s,a)=>s+calcFattYTD(a.id),0):calcFattYTD(agIdPiano);
+                const acqYTD4=vistaTotale?agentiProd2.reduce((s,a)=>s+calcAcqYTD(a.id),0):calcAcqYTD(agIdPiano);
+                const transYTD4=vistaTotale?agentiProd2.reduce((s,a)=>s+calcTransYTD(a.id),0):calcTransYTD(agIdPiano);
+
+                const meseCorr=new Date().getMonth()+1;
+                const proiezioneFineAnno=meseCorr>0?Math.round(fattYTD4/meseCorr*12):0;
+                const percF4=obFattPiano>0?Math.min(100,Math.round(fattYTD4/obFattPiano*100)):null;
+                const percA4=acquisizioniNec>0?Math.min(100,Math.round(acqYTD4/acquisizioniNec*100)):null;
+                const percT4=transazNec>0?Math.min(100,Math.round(transYTD4/transazNec*100)):null;
+                const revisioni=vistaTotale?[]:(obAnnPiano.revisioni||[]);
+
+                return(<div>
+                  {/* Selettore broker */}
+                  {canViewAll&&<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1.25rem",padding:"10px 14px",background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
+                    <span style={{fontSize:12,color:"#888",flexShrink:0}}>Piano di:</span>
+                    <select style={S.sel} value={opAgenteSel} onChange={e=>setOpAgenteSel(e.target.value)}>
+                      <option value="Tutti">🏢 Tutta l'agenzia</option>
+                      {agentiProd2.map(a=><option key={a.id} value={a.id}>{a.nome} {a.cognome}</option>)}
+                    </select>
+                    {!vistaTotale&&<>
+                      <div style={{width:36,height:36,borderRadius:"50%",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff",flexShrink:0}}>{agPiano.nome?.charAt(0)||"?"}</div>
+                      <div><div style={{fontSize:13,fontWeight:600}}>{agPiano.nome} {agPiano.cognome}</div><div style={{fontSize:11,color:"#888"}}>{agPiano.profilo}</div></div>
+                    </>}
+                    {vistaTotale&&<div style={{fontSize:13,fontWeight:600,color:BRAND.oroD}}>Visione totale agenzia — somma obiettivi agenti</div>}
+                  </div>}
+
+                  {/* Vista totale agenzia — tabella agenti */}
+                  {vistaTotale&&obFattPiano>0&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Obiettivi per agente — {annoPiano}</p>
+                    <div style={{...sCard2,marginBottom:"1.25rem",overflow:"hidden",padding:0}}>
+                      <table style={{width:"100%",borderCollapse:"collapse"}}>
+                        <thead><tr style={{background:"#fafaf8"}}>
+                          {["Agente","Obiettivo","Fatturato YTD","% raggiunto","Acquisizioni","Transazioni"].map(h=>(
+                            <th key={h} style={{padding:"8px 14px",fontSize:11,fontWeight:600,color:"#888",textAlign:h==="Agente"?"left":"right",borderBottom:"1px solid #eee"}}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {agentiProd2.map((ag,idx)=>{
+                            const ob=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+                            const fYTD=calcFattYTD(ag.id);
+                            const aYTD=calcAcqYTD(ag.id);
+                            const tYTD=calcTransYTD(ag.id);
+                            const perc=ob>0?Math.min(100,Math.round(fYTD/ob*100)):null;
+                            const AVBG=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE","#F1EFE8"];
+                            const AVCL=["#412402","#0C447C","#3C3489","#173404","#444441"];
+                            return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
+                              <td style={{padding:"10px 14px"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                  <div style={{width:28,height:28,borderRadius:"50%",background:AVBG[idx%5],display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:AVCL[idx%5]}}>{ag.nome.charAt(0)}</div>
+                                  <span style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</span>
+                                </div>
+                              </td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",color:ob>0?BRAND.oroD:"#bbb",fontWeight:ob>0?600:400}}>{ob>0?"€ "+fmt(ob):"—"}</td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",color:fYTD>0?"#085041":"#bbb",fontWeight:fYTD>0?500:400}}>{fYTD>0?"€ "+fmt(fYTD):"—"}</td>
+                              <td style={{padding:"10px 14px",textAlign:"right"}}>
+                                {perc!=null?<span style={{fontSize:12,fontWeight:600,color:clrP(perc),background:clrP(perc)+"15",padding:"2px 8px",borderRadius:6}}>{perc}%</span>:<span style={{color:"#bbb",fontSize:12}}>—</span>}
+                              </td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right"}}>{aYTD||"—"}</td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right"}}>{tYTD||"—"}</td>
+                            </tr>);
+                          })}
+                          {/* Riga totale */}
+                          <tr style={{background:"#FFFBF0",borderTop:"2px solid #f0e8d0"}}>
+                            <td style={{padding:"10px 14px",fontSize:12,fontWeight:700,color:BRAND.oroD}}>TOTALE AGENZIA</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:BRAND.oroD}}>€ {fmt(obFattPiano)}</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:"#085041"}}>€ {fmt(fattYTD4)}</td>
+                            <td style={{padding:"10px 14px",textAlign:"right"}}>
+                              {percF4!=null?<span style={{fontSize:13,fontWeight:700,color:clrP(percF4),background:clrP(percF4)+"15",padding:"2px 10px",borderRadius:6}}>{percF4}%</span>:<span style={{color:"#bbb"}}>—</span>}
+                            </td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700}}>{acqYTD4||"—"}</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700}}>{transYTD4||"—"}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>}
+
+                  {/* Input obiettivi — solo agente singolo */}
+                  {!vistaTotale&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Imposta obiettivo</p>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:"1.25rem"}}>
+                      <div style={{...sCard2,borderTop:`3px solid ${BRAND.oroD}`}}>
+                        <p style={sLbl2}>Obiettivo fatturato annuale</p>
+                        <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
+                          <span style={{fontSize:18,color:"#aaa"}}>€</span>
+                          <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:BRAND.oroD,outline:"none",fontFamily:"inherit",width:"100%"}}
+                            value={obFattPiano||""} placeholder="200000"
+                            onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:Number(e.target.value)}}))}/>
+                        </div>
+                        {obFattPiano>0&&<p style={{fontSize:12,color:BRAND.oroD,margin:0}}>= € {fmt(Math.round(obFattPiano/12))} / mese</p>}
+                      </div>
+                      <div style={{...sCard2,borderTop:"3px solid #854F0B"}}>
+                        <p style={sLbl2}>Provv. media Càsa Immobiliare</p>
+                        <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
+                          <span style={{fontSize:18,color:"#aaa"}}>€</span>
+                          <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:"#633806",outline:"none",fontFamily:"inherit",width:"100%"}}
+                            value={provvCustom||""} placeholder={String(provvMediaReale)}
+                            onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),provvMedia:Number(e.target.value)}}))}/>
+                        </div>
+                        <p style={{fontSize:12,color:"#888",margin:0}}>media reale agenzia: <strong style={{color:"#633806"}}>€ {fmt(provvMediaReale)}</strong></p>
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Piano derivato */}
+                  {(obFattPiano>0||!vistaTotale)&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>{vistaTotale?"Piano agenzia — derivato dalla somma obiettivi":"Piano derivato automaticamente"}</p>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                      {[
+                        ["Transazioni necessarie",transazNec,BRAND.oroD,"ogni imm. = 2 transaz."],
+                        ["Immobili da vendere",immobiliVend,"#27AE60","rogiti ÷ 2"],
+                        ["Acquisizioni necessarie",acquisizioniNec,"#185FA5",acquisizioniMese+"/mese · conv. 65%"],
+                        ["Appt. acq. / settimana",apptSett,"#8E44AD",apptMese+"/mese · conv. 40%"],
+                      ].map(([lbl,val,clr,note])=>(
+                        <div key={lbl} style={{...sCard2,borderTop:`3px solid ${clr}`,textAlign:"center"}}>
+                          <p style={sLbl2}>{lbl}</p>
+                          <p style={{fontSize:40,fontWeight:700,color:clr,margin:"4px 0 2px",lineHeight:1}}>{val||"—"}</p>
+                          <p style={{fontSize:11,color:"#888",margin:0}}>{note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </>}
+
+                  {/* Dove sei oggi */}
+                  {(obFattPiano>0||!vistaTotale)&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:"#27AE60",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Dove sei oggi — {annoPiano}</p>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(3,1fr)",gap:10,marginBottom:"1rem"}}>
+                      {[
+                        ["💰 Fatturato YTD","€ "+fmt(fattYTD4),percF4,"#0F6E56","€ "+fmt(obFattPiano)],
+                        ["🏠 Acquisizioni YTD",acqYTD4,percA4,"#185FA5",acquisizioniNec+" necessarie"],
+                        ["📋 Transazioni YTD",transYTD4,percT4,"#8E44AD",transazNec+" necessarie"],
+                      ].map(([lbl,val,perc,clr,obj])=>(
+                        <div key={lbl} style={sCard2}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                            <p style={{...sLbl2,margin:0}}>{lbl}</p>
+                            {perc!=null&&<span style={{fontSize:12,fontWeight:700,color:clrP(perc),background:clrP(perc)+"15",padding:"2px 8px",borderRadius:6}}>{perc}%</span>}
+                          </div>
+                          <p style={{fontSize:26,fontWeight:700,color:clr,margin:"2px 0 6px"}}>{val}</p>
+                          <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden",marginBottom:4}}>
+                            <div style={{height:"100%",width:(perc||0)+"%",background:perc>=100?"#27AE60":perc>=70?"#E67E22":clr,borderRadius:3,transition:"width .4s"}}/>
+                          </div>
+                          <p style={{fontSize:11,color:"#aaa",margin:0}}>obj: {obj}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{...sCard2,display:"flex",alignItems:"center",gap:12,marginBottom:"1.25rem",borderLeft:`4px solid ${obFattPiano<=0?"#aaa":proiezioneFineAnno>=obFattPiano?"#27AE60":"#E67E22"}`}}>
+                      <span style={{fontSize:28}}>{obFattPiano<=0?"💡":proiezioneFineAnno>=obFattPiano?"🎉":"📅"}</span>
+                      <div>
+                        {obFattPiano<=0
+                          ?<p style={{fontSize:14,fontWeight:600,color:"#888",margin:"0 0 2px"}}>Imposta un obiettivo annuale per vedere la proiezione</p>
+                          :proiezioneFineAnno>=obFattPiano
+                            ?<p style={{fontSize:14,fontWeight:600,color:"#27AE60",margin:"0 0 2px"}}>A questo ritmo supererai l'obiettivo — proiezione € {fmt(proiezioneFineAnno)}</p>
+                            :<p style={{fontSize:14,fontWeight:600,color:"#2c2c2c",margin:"0 0 2px"}}>A questo ritmo chiuderai a € {fmt(proiezioneFineAnno)} — mancano € {fmt(Math.max(0,obFattPiano-proiezioneFineAnno))}</p>
+                        }
+                        {obFattPiano>0&&obFattPiano>proiezioneFineAnno&&<p style={{fontSize:12,color:"#888",margin:0}}>Accelera di +€ {fmt(Math.round((obFattPiano-fattYTD4)/Math.max(1,12-meseCorr)))} / mese nei prossimi {12-meseCorr} mesi</p>}
+                      </div>
+                    </div>
+                  </>}
+
+                  {/* Revisioni — solo agente singolo */}
+                  {!vistaTotale&&<>
+                    <p style={{fontSize:11,fontWeight:600,color:"#8E44AD",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Revisioni obiettivo</p>
+                    <div style={sCard2}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:revisioni.length>0?"1rem":0,flexWrap:"wrap",gap:8}}>
+                        <span style={{fontSize:12,color:"#888"}}>{revisioni.length===0?"Nessuna revisione registrata":`${revisioni.length} revisione${revisioni.length>1?"i":""} · ultima è quella attiva`}</span>
+                        {!isReadOnly&&<button onClick={()=>{
+                          const motivo=prompt("Motivo della revisione:");
+                          if(!motivo) return;
+                          const nuovoOb=Number(prompt("Nuovo obiettivo fatturato €:"));
+                          if(!nuovoOb||isNaN(nuovoOb)||nuovoOb<=0){alert("Inserisci un importo valido.");return;}
+                          // Snapshot dei nuovi calcoli (basati sui parametri attuali)
+                          const provvMediaPiano=Number(obAnnPiano.provvMedia)||5386;
+                          const trans=Math.ceil(nuovoOb/provvMediaPiano);
+                          const imm=Math.ceil(trans/2);
+                          const acquis=Math.ceil(imm/0.65);
+                          const appt=Math.ceil((acquis/12)/0.40);
+                          const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb,calc:{trans,imm,acquis,appt}};
+                          setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:nuovoOb,revisioni:[...(prev[agIdPiano]?.revisioni||[]),rev]}}));
+                        }} style={{...S.btnP,fontSize:11,padding:"4px 14px"}}>+ Revisiona</button>}
+                      </div>
+                      {revisioni.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {revisioni.map((r,i)=>{
+                          const isUltima=i===revisioni.length-1;
+                          return(
+                          <div key={i} style={{padding:"12px 14px",borderRadius:8,background:isUltima?"#FDFBF7":"#fafaf8",border:`0.5px solid ${isUltima?BRAND.oro+"66":"#eee"}`,position:"relative"}}>
+                            {/* Riga superiore: motivo + variazione + cancellazione */}
+                            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:r.calc?8:0}}>
+                              <div style={{width:10,height:10,borderRadius:"50%",background:r.nuovo>r.vecchio?"#27AE60":"#E67E22",flexShrink:0}}/>
+                              <div style={{flex:1}}>
+                                <div style={{fontSize:13,fontWeight:500,color:BRAND.grigio}}>{r.motivo}{isUltima&&<span style={{fontSize:9,color:"#fff",marginLeft:8,padding:"1px 8px",borderRadius:4,background:BRAND.oro,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:700,verticalAlign:"middle"}}>ATTIVA</span>}</div>
+                                <div style={{fontSize:11,color:"#888",marginTop:2}}>{fmtD(r.data)} · da € {fmt(r.vecchio)} → <strong style={{color:BRAND.grigio}}>€ {fmt(r.nuovo)}</strong> {r.nuovo>r.vecchio?<span style={{color:"#27AE60"}}>↑</span>:<span style={{color:"#E67E22"}}>↓</span>}</div>
+                              </div>
+                              {!isReadOnly&&<button onClick={()=>{
+                                if(!window.confirm(`Eliminare questa revisione?\\n\\nMotivo: ${r.motivo}\\nData: ${fmtD(r.data)}\\n\\nSe è l'ultima revisione, il fatturato tornerà al valore precedente.`)) return;
+                                setObiettivoAgente(prev=>{
+                                  const cur = prev[agIdPiano]||{};
+                                  const nuoveRev = (cur.revisioni||[]).filter((_,idx)=>idx!==i);
+                                  // Se elimino l'ULTIMA revisione, il fatturato torna al valore "vecchio" della revisione eliminata
+                                  // Se invece elimino una in mezzo, il fatturato resta quello dell'ultima rimanente
+                                  let nuovoFatt = cur.fatturato;
+                                  if(i===(cur.revisioni||[]).length-1){
+                                    // Era l'ultima → uso il "nuovo" dell'ultima rimanente, o il "vecchio" di questa se era l'unica
+                                    nuovoFatt = nuoveRev.length>0 ? nuoveRev[nuoveRev.length-1].nuovo : r.vecchio;
+                                  }
+                                  return {...prev,[agIdPiano]:{...cur,fatturato:nuovoFatt,revisioni:nuoveRev}};
+                                });
+                              }} title="Elimina questa revisione" style={{background:"transparent",border:"0.5px solid #ddd",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#E74C3C",fontSize:13,fontWeight:600,flexShrink:0}}>✕</button>}
+                            </div>
+                            {/* Dettaglio nuovi calcoli (se presenti) */}
+                            {r.calc&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:6,marginTop:8,paddingTop:8,borderTop:`0.5px dashed ${isUltima?BRAND.oro+"44":"#ddd"}`}}>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.trans}</strong>Transazioni</div>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.imm}</strong>Immobili</div>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.acquis}</strong>Acquisizioni</div>
+                              <div style={{fontSize:10,color:"#888"}}><strong style={{color:BRAND.grigio,fontSize:13,display:"block",fontFamily:"Georgia,serif"}}>{r.calc.appt}</strong>Appt/sett</div>
+                            </div>}
+                          </div>);
+                        })}
+                      </div>}
+                    </div>
+                  </>}
+                </div>);
+              })()}
+            </div>
             );
           })()}
+
           {/* GESTIONE PRATICHE */}
           {tab==="Gestione Pratiche"&&(()=>{
             const isErica = myAgentId===5;
@@ -7741,12 +9301,8 @@ export default function App() {
               const gg=Object.entries(opAg).filter(([d])=>d&&d>=d1&&d<=d2);
               const sumOp=k=>gg.reduce((s,[,g])=>s+Number(g[k]||0),0);
               const sumCt=k=>gg.reduce((s,[,g])=>s+Number((g.chiamate_tipi||{})[k]||0),0);
-              // NUOVO: somma chiamate vecchio sistema + contatti nuovo sistema
-              const chVecchio=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
-              const chTot=chVecchio+sumOp("contatti");
-              // NUOVO: volantini da nuovo sistema (numero diretto) + vecchio (count attImm)
-              const volantVecchio=gg.reduce((s,[,g])=>s+((g.attImm||[]).filter(x=>x.lettAMV||x.lettOH).length),0);
-              const volant=volantVecchio+sumOp("volantini");
+              const chTot=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
+              const volant=gg.reduce((s,[,g])=>s+((g.attImm||[]).filter(x=>x.lettAMV||x.lettOH).length),0);
               switch(metr){
                 case "acquisizioni": return incP.length;
                 case "fatturato": return vendP.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===agIdN)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===agIdN)p+=Number(v.provvAcquirente||0);return s+p;},0);
@@ -7756,14 +9312,11 @@ export default function App() {
                 case "chiamate_freddo": return sumCt("freddo");
                 case "oh": return sumOp("ohNum");
                 case "proposte": return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;
-                case "appuntamenti": return sumOp("appuntamenti")+sumOp("apptAcq"); // vecchio + nuovo
+                case "appuntamenti": return sumOp("appuntamenti");
                 case "immVisitati": return sumOp("immVisitati");
-                case "postSocial": return sumOp("postSocial")+sumOp("videoSocial"); // include video
+                case "postSocial": return sumOp("postSocial");
                 case "volantini": return volant;
                 case "oreTel": return sumOp("oreTel");
-                case "valutazioni": return sumOp("valutazioni");
-                case "incarichi_segnati": return sumOp("incarichi");
-                case "zona": return sumOp("zona");
                 default: return 0;
               }
             };
