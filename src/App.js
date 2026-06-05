@@ -1588,7 +1588,7 @@ export default function App() {
   const propFiltrate=useMemo(()=>proposte.filter(p=>{
     if(p.categoria!==subProp) return false;
     // Agente vede solo le proprie proposte
-    if(!canViewAll&&!isBackOffice&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId) return false;
+    if(!canViewAll&&!isBackOffice&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId&&Number(p.buyerListing)!==myAgentId&&Number(p.buyer)!==myAgentId) return false;
     if(fPropStato!=="Tutti"&&p.stato!==fPropStato) return false;
     if(fPropAnno!=="Tutti"&&getAnno(p.dataStato)!==fPropAnno) return false;
     if(fPropMese!=="Tutti"&&getMese(p.dataStato)!==fPropMese) return false;
@@ -1603,7 +1603,7 @@ export default function App() {
   const vendFiltrati=useMemo(()=>venduti.filter(v=>{
     if(v.categoria!==subVend) return false;
     // Agente vede solo i propri venduti
-    if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
+    if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId&&Number(v.buyerListing)!==myAgentId&&Number(v.buyer)!==myAgentId) return false;
     const stato=calcolaStatoIncasso(v);
     if(fVendStato!=="Tutti"&&stato!==fVendStato) return false;
     if(fVendAnno!=="Tutti"&&getAnno(dataCompAgenzia(v))!==fVendAnno) return false;
@@ -2521,7 +2521,7 @@ export default function App() {
                 const ch=gg.reduce((s,[,g])=>{const ct=g.chiamate_tipi||{};return s+Object.values(ct).reduce((a,v)=>a+Number(v||0),0);},0);
                 switch(metr){case "acquisizioni":return incP.length;case "fatturato":return vendP.reduce((s,v)=>s+Number(v.provvVenditore||0)+Number(v.provvAcquirente||0),0);case "chiamate":return ch;case "oh":return gg.reduce((s,[,g])=>s+(g.ohImmobili||[]).length,0);case "proposte":return proposte.filter(p=>(p.agenteListing===agId||p.agenteAcquirente===agId)&&(p.dataStato||"")>=d1&&(p.dataStato||"")<=d2).length;default:return 0;}
               };
-              const myRog=venduti.filter(v=>{if(!v.dataAtto||(v.agenteListing!==myAgentId&&v.agenteAcquirente!==myAgentId))return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
+              const myRog=venduti.filter(v=>{if(!v.dataAtto||(v.agenteListing!==myAgentId&&v.agenteAcquirente!==myAgentId&&Number(v.buyerListing)!==myAgentId&&Number(v.buyer)!==myAgentId))return false;const d=toD(v.dataAtto);return d>=oggiD&&d<=tra30;}).sort((a,b)=>a.dataAtto.localeCompare(b.dataAtto));
               const myAl=incarichi.filter(i=>!i.archiviato&&i.agenteListing===myAgentId).map(i=>({inc:i,al:getAlertFasi(pratiche,i.id)})).filter(x=>x.al.length>0);
               return(<div style={{marginTop:"1rem"}}>
                   {/* MIRINO agente */}
@@ -9562,7 +9562,7 @@ export default function App() {
               const pA=Number(v.provvAcquirente||0);
               if(pV===0&&pA===0) return false; // escludi provv €0
               // Agente vede solo le proprie pratiche
-              if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId) return false;
+              if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId&&Number(v.buyerListing)!==myAgentId&&Number(v.buyer)!==myAgentId) return false;
               if(statAnno!=="Tutti"&&getAnno(dataRifVend(v))!==statAnno) return false;
               return true;
             });
