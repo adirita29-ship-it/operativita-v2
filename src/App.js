@@ -4216,6 +4216,161 @@ export default function App() {
                     </div>
                   </div>
                 )}
+
+                {/* SEZIONE: ANCORA DA INCASSARE — indipendente dal periodo */}
+                {(()=>{
+                  const oggiD2 = new Date(); oggiD2.setHours(0,0,0,0);
+                  // Costruisco le righe residuo per ciascun venduto della categoria attuale
+                  const righe = [];
+                  vendCat.forEach(v=>{
+                    const stato = calcolaStatoIncasso(v);
+                    if(stato==="Incassato") return;
+                    const provV = Number(v.provvVenditore||0);
+                    const provA = Number(v.provvAcquirente||0);
+                    const incV = calcolaIncassatoV(v);
+                    const incA = calcolaIncassatoA(v);
+                    const resV = Math.max(0, provV-incV);
+                    const resA = Math.max(0, provA-incA);
+                    // Calcolo % agenti su V e A (per calcolare quota agenzia residua)
+                    let percAgV=0, percAgA=0;
+                    if(v.agenteListing) percAgV += Number(v.percListing||0);
+                    if(v.buyerListing && v.buyerListing!==v.agenteListing) percAgV += Number(v.percBuyerListing||0);
+                    if(v.agenteAcquirente) percAgA += Number(v.percAcquirente||0);
+                    if(v.buyer && v.buyer!==v.agenteAcquirente) percAgA += Number(v.percBuyer||0);
+                    const scadenza = v.scadenzaIncasso || "";
+                    let giorni = null, urgenza = "verde";
+                    if(scadenza){
+                      const dSc = new Date(scadenza); dSc.setHours(0,0,0,0);
+                      giorni = Math.floor((dSc-oggiD2)/(1000*60*60*24));
+                      if(giorni<0) urgenza = "rosso";
+                      else if(giorni<=7) urgenza = "arancio";
+                    } else {
+                      urgenza = "neutro";
+                    }
+                    if(resV>0){
+                      righe.push({v,lato:"V",provv:provV,incassato:incV,residuo:resV,quotaAg:resV*(1-percAgV/100),scadenza,giorni,urgenza});
+                    }
+                    if(resA>0){
+                      righe.push({v,lato:"A",provv:provA,incassato:incA,residuo:resA,quotaAg:resA*(1-percAgA/100),scadenza,giorni,urgenza});
+                    }
+                  });
+                  // Ordinamento: rosso → arancio → verde (per scadenza vicina) → neutro
+                  const ordUrg = {rosso:0,arancio:1,verde:2,neutro:3};
+                  righe.sort((a,b)=>{
+                    if(ordUrg[a.urgenza]!==ordUrg[b.urgenza]) return ordUrg[a.urgenza]-ordUrg[b.urgenza];
+                    // dentro stesso colore: per giorni (più vicini in cima)
+                    if(a.giorni===null&&b.giorni===null) return 0;
+                    if(a.giorni===null) return 1;
+                    if(b.giorni===null) return -1;
+                    return a.giorni-b.giorni;
+                  });
+                  const totResiduo = righe.reduce((s,r)=>s+r.residuo,0);
+                  const totQuotaAgRes = righe.reduce((s,r)=>s+r.quotaAg,0);
+                  const nPratiche = new Set(righe.map(r=>r.v.id)).size;
+                  // Riepiloghi colori
+                  const rosse = righe.filter(r=>r.urgenza==="rosso");
+                  const arancio = righe.filter(r=>r.urgenza==="arancio");
+                  const verdi = righe.filter(r=>r.urgenza==="verde"||r.urgenza==="neutro");
+                  const totRosse = rosse.reduce((s,r)=>s+r.residuo,0);
+                  const totArancio = arancio.reduce((s,r)=>s+r.residuo,0);
+                  const totVerdi = verdi.reduce((s,r)=>s+r.residuo,0);
+                  const fmtScad = (g,urg) => {
+                    if(g===null) return "";
+                    if(urg==="rosso") return `Scaduto da ${Math.abs(g)} gg`;
+                    if(g===0) return "Oggi";
+                    if(g===1) return "Domani";
+                    return `Fra ${g} giorni`;
+                  };
+                  const emojiUrg = u => u==="rosso"?"🔴":u==="arancio"?"🟠":u==="verde"?"🟢":"⚪";
+                  const bgUrg = u => u==="rosso"?"#FDECEA":u==="arancio"?"#FFFAF3":"transparent";
+                  const colUrg = u => u==="rosso"?"#A32D2D":u==="arancio"?"#993C1D":u==="verde"?"#0F6E56":"#555";
+
+                  if(righe.length===0) return null;
+
+                  return(<div style={{marginTop:24}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:500,color:"#E67E22"}}>💸 Ancora da incassare</div>
+                        <div style={{fontSize:11,color:"#aaa",marginTop:2}}>Pratiche con provvigione residua — indipendente dal filtro periodo</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:18,fontWeight:500,color:"#E67E22"}}>€ {fmt(totResiduo)}</div>
+                        <div style={{fontSize:11,color:"#888",marginTop:1}}>su {nPratiche} pratich{nPratiche===1?"a":"e"} · di cui quota ag.: <span style={{color:"#1D9E75",fontWeight:500}}>€ {fmt(Math.round(totQuotaAgRes))}</span></div>
+                      </div>
+                    </div>
+
+                    {/* Card riepilogo scadenze */}
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                      <div style={{background:rosse.length>0?"#FDECEA":"#fafaf8",padding:"10px 12px",borderRadius:8,borderLeft:`3px solid ${rosse.length>0?"#E74C3C":"#ddd"}`}}>
+                        <div style={{fontSize:10,color:rosse.length>0?"#A32D2D":"#aaa",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>🔴 Scaduti</div>
+                        <div style={{fontSize:14,fontWeight:500,color:rosse.length>0?"#A32D2D":"#aaa"}}>{rosse.length} {rosse.length===1?"pratica":"pratiche"} · € {fmt(totRosse)}</div>
+                      </div>
+                      <div style={{background:arancio.length>0?"#FEF0E0":"#fafaf8",padding:"10px 12px",borderRadius:8,borderLeft:`3px solid ${arancio.length>0?"#E67E22":"#ddd"}`}}>
+                        <div style={{fontSize:10,color:arancio.length>0?"#993C1D":"#aaa",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>🟠 Entro 7 giorni</div>
+                        <div style={{fontSize:14,fontWeight:500,color:arancio.length>0?"#993C1D":"#aaa"}}>{arancio.length} {arancio.length===1?"pratica":"pratiche"} · € {fmt(totArancio)}</div>
+                      </div>
+                      <div style={{background:verdi.length>0?"#E9F7EF":"#fafaf8",padding:"10px 12px",borderRadius:8,borderLeft:`3px solid ${verdi.length>0?"#1D9E75":"#ddd"}`}}>
+                        <div style={{fontSize:10,color:verdi.length>0?"#0F6E56":"#aaa",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>🟢 Oltre 7gg / senza scadenza</div>
+                        <div style={{fontSize:14,fontWeight:500,color:verdi.length>0?"#0F6E56":"#aaa"}}>{verdi.length} {verdi.length===1?"pratica":"pratiche"} · € {fmt(totVerdi)}</div>
+                      </div>
+                    </div>
+
+                    {/* Tabella Da incassare */}
+                    <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:12,overflow:"hidden"}}>
+                      <div style={{overflowX:"auto"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:isMobile?720:"100%"}}>
+                          <thead>
+                            <tr style={{background:"#fafaf8",borderBottom:"0.5px solid #e8e5e0"}}>
+                              <th style={{textAlign:"center",padding:"10px 8px",fontWeight:500,color:"#888",fontSize:11,width:40}}></th>
+                              <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Pratica</th>
+                              <th style={{textAlign:"center",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Lato</th>
+                              <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Provv. tot.</th>
+                              <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Già inc.</th>
+                              <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Residuo</th>
+                              <th style={{textAlign:"right",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Quota ag.</th>
+                              <th style={{textAlign:"left",padding:"10px 12px",fontWeight:500,color:"#888",fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>Scadenza</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {righe.map((r,i)=>(
+                              <tr key={i} style={{background:bgUrg(r.urgenza),borderBottom:"0.5px solid #f5f3ed"}}>
+                                <td style={{padding:"10px 8px",textAlign:"center"}}>{emojiUrg(r.urgenza)}</td>
+                                <td style={{padding:"10px 12px"}}>
+                                  <div style={{fontWeight:500,color:"#2C2C2C"}}>{r.v.nominativoVenditore} · {r.v.nomeAcquirente}</div>
+                                  <div style={{fontSize:10,color:"#aaa"}}>{r.v.comuneImmobile} — {r.v.indirizzoImmobile}</div>
+                                </td>
+                                <td style={{padding:"10px 12px",textAlign:"center"}}>
+                                  <span style={{fontSize:10,padding:"2px 7px",borderRadius:3,background:r.lato==="V"?"#EAF1F8":"#F4EAF5",color:r.lato==="V"?"#2980B9":"#8E44AD",fontWeight:500}}>{r.lato}</span>
+                                </td>
+                                <td style={{padding:"10px 12px",textAlign:"right",color:"#555"}}>€ {fmt(r.provv)}</td>
+                                <td style={{padding:"10px 12px",textAlign:"right",color:"#888"}}>€ {fmt(r.incassato)}</td>
+                                <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:colUrg(r.urgenza)}}>€ {fmt(r.residuo)}</td>
+                                <td style={{padding:"10px 12px",textAlign:"right",color:"#1D9E75"}}>€ {fmt(Math.round(r.quotaAg))}</td>
+                                <td style={{padding:"10px 12px"}}>
+                                  {r.scadenza?(<>
+                                    <div style={{fontSize:11,color:colUrg(r.urgenza),fontWeight:r.urgenza!=="verde"?500:400}}>{fmtD(r.scadenza)}</div>
+                                    <div style={{fontSize:10,color:colUrg(r.urgenza)}}>{fmtScad(r.giorni,r.urgenza)}</div>
+                                  </>):(<>
+                                    <div style={{fontSize:11,color:"#aaa",fontStyle:"italic"}}>—</div>
+                                    <div style={{fontSize:10,color:"#aaa"}}>senza scadenza</div>
+                                  </>)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{background:"#fafaf8",borderTop:"1px solid #e8e5e0"}}>
+                              <td colSpan={5} style={{padding:"10px 12px",fontWeight:500,color:"#2C2C2C"}}>TOTALE ({nPratiche} pratich{nPratiche===1?"a":"e"})</td>
+                              <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:"#E67E22"}}>€ {fmt(totResiduo)}</td>
+                              <td style={{padding:"10px 12px",textAlign:"right",fontWeight:600,color:"#1D9E75"}}>€ {fmt(Math.round(totQuotaAgRes))}</td>
+                              <td></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  </div>);
+                })()}
               </div>);
             })()}
           </div>)}
