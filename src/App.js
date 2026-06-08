@@ -9323,26 +9323,35 @@ export default function App() {
 
                 {/* RIEPILOGO LE TUE QUOTE — 3 numeri chiave */}
                 {(()=>{
-                  // Hai incassato = somma quote pratiche con prospetto pagato
-                  // Pronto per te = somma quote sbloccate (cliente ha pagato) e non ancora fatturate
-                  // In attesa cliente = il resto (cliente non ha pagato totalmente)
-                  let totIncassato=0, totPronto=0, totAttesa=0;
+                  // Costruisco lo stesso elenco di righe (V e A separate) usato dalla tabella
+                  const righeRep = [];
                   pratFiltrate.forEach(v=>{
-                    let q=0;
-                    if(Number(v.agenteListing)===myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                    if(Number(v.agenteAcquirente)===myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                    if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-                    if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-                    const pp=(prospetti||[]).find(p=>p.agenteId===myAgentId&&p.statoFlow==="pagato"&&(p.righe||[]).some(r=>r.venditoId===v.id));
-                    if(pp){ totIncassato+=q; return; }
-                    // Calcolo % cliente pagato sui lati dove agente ha ruolo
-                    let provLatoTot=0, incLatoTot=0;
-                    if(Number(v.agenteListing)===myAgentId||Number(v.buyerListing)===myAgentId){provLatoTot+=Number(v.provvVenditore||0);incLatoTot+=calcolaIncassatoV(v);}
-                    if(Number(v.agenteAcquirente)===myAgentId||Number(v.buyer)===myAgentId){provLatoTot+=Number(v.provvAcquirente||0);incLatoTot+=calcolaIncassatoA(v);}
-                    const pct = provLatoTot>0 ? incLatoTot/provLatoTot : 0;
-                    const fatturabile = q * pct;
+                    if(Number(v.agenteListing)===myAgentId){
+                      const q=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                      if(q>0) righeRep.push({v,lato:"V",ruoloKey:"listing",quota:q});
+                    } else if(Number(v.buyerListing)===myAgentId){
+                      const q=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                      if(q>0) righeRep.push({v,lato:"V",ruoloKey:"buyerListing",quota:q});
+                    }
+                    if(Number(v.agenteAcquirente)===myAgentId){
+                      const q=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                      if(q>0) righeRep.push({v,lato:"A",ruoloKey:"acquirente",quota:q});
+                    } else if(Number(v.buyer)===myAgentId){
+                      const q=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                      if(q>0) righeRep.push({v,lato:"A",ruoloKey:"buyer",quota:q});
+                    }
+                  });
+                  let totIncassato=0, totPronto=0, totAttesa=0;
+                  righeRep.forEach(r=>{
+                    const pp=(prospetti||[]).find(p=>p.agenteId===myAgentId&&p.statoFlow==="pagato"&&(p.righe||[]).some(rr=>rr.venditoId===r.v.id&&rr.ruolo===r.ruoloKey));
+                    if(pp){ totIncassato+=r.quota; return; }
+                    // % cliente pagato SUL LATO della riga
+                    const provLato = r.lato==="V" ? Number(r.v.provvVenditore||0) : Number(r.v.provvAcquirente||0);
+                    const incLato = r.lato==="V" ? calcolaIncassatoV(r.v) : calcolaIncassatoA(r.v);
+                    const pct = provLato>0 ? incLato/provLato : 0;
+                    const fatturabile = r.quota * pct;
                     totPronto += fatturabile;
-                    totAttesa += (q - fatturabile);
+                    totAttesa += (r.quota - fatturabile);
                   });
                   const totQuota = totIncassato + totPronto + totAttesa;
                   return(<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderLeft:`3px solid ${BRAND.oro}`,borderRadius:8,padding:"14px 18px",marginBottom:14}}>
@@ -9361,7 +9370,7 @@ export default function App() {
                         <div style={{fontSize:22,fontWeight:600,color:"#666"}}>€ {fmt(Math.round(totAttesa))}</div>
                       </div>
                       <div style={{marginLeft:"auto",textAlign:"right"}}>
-                        <div style={{fontSize:11,color:"#aaa"}}>Totale {annoSel} · {pratFiltrate.length} pratich{pratFiltrate.length===1?"a":"e"}</div>
+                        <div style={{fontSize:11,color:"#aaa"}}>Totale {annoSel} · {righeRep.length} riga{righeRep.length===1?"":"e"}</div>
                         <div style={{fontSize:16,fontWeight:500,color:"#2C2C2C"}}>€ {fmt(Math.round(totQuota))}</div>
                       </div>
                     </div>
@@ -9386,87 +9395,110 @@ export default function App() {
                   {showMioTabella&&<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:780}}>
                     <thead><tr style={{background:"#fafaf8"}}>{["Ruolo","Data","Immobile","Quota agente","Incassata","Da incassare","Note"].map(h=><th key={h} style={{...S.th,fontSize:11,textAlign:h==="Quota agente"||h==="Incassata"||h==="Da incassare"?"right":"left"}}>{h}</th>)}</tr></thead>
                     <tbody>
-                      {pratFiltrate.length===0&&<tr><td colSpan={7} style={{padding:"2rem",textAlign:"center",color:"#bbb"}}>Nessuna pratica nel periodo</td></tr>}
-                      {pratFiltrate.map((v,idx)=>{
-                        const ruolo=ruoloInV(v);
-                        // Calcolo quota agente totale (somma di tutti i ruoli)
-                        const qAg=(()=>{let q=0;if(Number(v.agenteListing)===myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;if(Number(v.agenteAcquirente)===myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;return q;})();
-                        const qBuy=(()=>{let q=0;if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;return q;})();
-                        const quotaTotale = qAg + qBuy;
-                        // Incassata = quanto l'agente ha DAVVERO preso (dai prospetti pagati)
-                        const prospettoPagato = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="pagato" && (p.righe||[]).some(r=>r.venditoId===v.id));
-                        const prospettoFatturato = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="fatturato" && (p.righe||[]).some(r=>r.venditoId===v.id));
-                        const prospettoBozza = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="bozza" && (p.righe||[]).some(r=>r.venditoId===v.id));
-                        const incassata = prospettoPagato ? quotaTotale : 0;
-                        const daIncassare = Math.max(0, quotaTotale - incassata);
-                        // Calcolo % cliente pagato (proporzionalmente per lato dove l'agente ha un ruolo)
-                        let provLatoTot = 0, incLatoTot = 0;
-                        if(Number(v.agenteListing)===myAgentId || Number(v.buyerListing)===myAgentId){
-                          provLatoTot += Number(v.provvVenditore||0);
-                          incLatoTot += calcolaIncassatoV(v);
-                        }
-                        if(Number(v.agenteAcquirente)===myAgentId || Number(v.buyer)===myAgentId){
-                          provLatoTot += Number(v.provvAcquirente||0);
-                          incLatoTot += calcolaIncassatoA(v);
-                        }
-                        const pctCliente = provLatoTot>0 ? incLatoTot/provLatoTot : 0;
-                        const quotaFatturabile = Math.round(quotaTotale * pctCliente);
-                        // Calcolo nota automatica
-                        let nota = {testo:"",sotto:"",clr:"#888",bold:false,evidenzia:false};
-                        if(prospettoPagato){
-                          nota = {testo:"✅ Quota incassata",sotto:prospettoPagato.numero?`prospetto ${prospettoPagato.numero}`:"",clr:"#1D9E75",bold:true,evidenzia:false};
-                        } else if(prospettoFatturato){
-                          nota = {testo:`✉ Fattura emessa (${prospettoFatturato.numero||""})`,sotto:"attendi bonifico dall'agenzia",clr:"#2980B9",bold:true,evidenzia:false};
-                        } else if(prospettoBozza){
-                          nota = {testo:`📋 In prospetto bozza (${prospettoBozza.numero||""})`,sotto:"in attesa di emissione fattura",clr:"#0C447C",bold:true,evidenzia:true};
-                        } else if(pctCliente>=1){
-                          nota = {testo:"💰 Cliente ha pagato per intero",sotto:"la tua quota è pronta da fatturare",clr:"#A8863A",bold:true,evidenzia:true};
-                        } else if(pctCliente>0){
-                          const pct = Math.round(pctCliente*100);
-                          nota = {testo:`⏳ Cliente ha pagato il ${pct}%`,sotto:`€ ${fmt(quotaFatturabile)} fatturabili · resto in attesa`,clr:"#A8863A",bold:false,evidenzia:true};
-                        } else {
-                          nota = {testo:"⏳ Cliente non ha ancora pagato",sotto:"",clr:"#888",bold:false,evidenzia:false};
-                        }
-                        return(<tr key={v.id} style={{background:nota.evidenzia?"#FDFBF7":(idx%2===0?"#fff":"#fafafa")}}>
-                          <td style={S.td}><span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:`${colRuolo[ruolo]||"#eee"}22`,color:colRuolo[ruolo]||"#666",fontWeight:600,border:`0.5px solid ${colRuolo[ruolo]||"#ccc"}44`}}>{ruolo}</span></td>
-                          <td style={{...S.td,color:"#888",whiteSpace:"nowrap"}}>{fmtD(dataCompAgenzia(v))}</td>
-                          <td style={S.td}>
-                            <div><strong>{v.comuneImmobile}</strong> — {v.indirizzoImmobile}</div>
-                            <div style={{fontSize:10,color:"#aaa",marginTop:1}}>{v.nominativoVenditore||"—"} → {v.nomeAcquirente||"—"}</div>
-                          </td>
-                          <td style={{...S.td,textAlign:"right",fontWeight:500,color:"#2C2C2C"}}>€ {fmt(Math.round(quotaTotale))}</td>
-                          <td style={{...S.td,textAlign:"right",fontWeight:600,color:incassata>0?"#1D9E75":"#ccc"}}>{incassata>0?`€ ${fmt(Math.round(incassata))}`:"€ 0"}</td>
-                          <td style={{...S.td,textAlign:"right",fontWeight:600,color:daIncassare>0?"#E67E22":"#ccc"}}>{daIncassare>0?`€ ${fmt(Math.round(daIncassare))}`:"—"}</td>
-                          <td style={S.td}>
-                            <div style={{color:nota.clr,fontWeight:nota.bold?600:500}}>{nota.testo}</div>
-                            {nota.sotto&&<div style={{fontSize:10,color:"#888",marginTop:2}}>{nota.sotto}</div>}
-                          </td>
-                        </tr>);
-                      })}
+                      {(()=>{
+                        // Costruisco righe separate per ruolo (V e A indipendenti)
+                        // Stesso approccio di Fatture Agenti → Quote Maturate
+                        const righeTabella = [];
+                        pratFiltrate.forEach(v=>{
+                          // LATO V: agenteListing OPPURE buyerListing
+                          if(Number(v.agenteListing)===myAgentId){
+                            const quota = Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                            if(quota>0) righeTabella.push({v,lato:"V",ruolo:"Listing",ruoloKey:"listing",quota});
+                          } else if(Number(v.buyerListing)===myAgentId){
+                            const quota = Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                            if(quota>0) righeTabella.push({v,lato:"V",ruolo:"Buyer L",ruoloKey:"buyerListing",quota});
+                          }
+                          // LATO A: agenteAcquirente OPPURE buyer
+                          if(Number(v.agenteAcquirente)===myAgentId){
+                            const quota = Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                            if(quota>0) righeTabella.push({v,lato:"A",ruolo:"Acquirente",ruoloKey:"acquirente",quota});
+                          } else if(Number(v.buyer)===myAgentId){
+                            const quota = Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                            if(quota>0) righeTabella.push({v,lato:"A",ruolo:"Buyer",ruoloKey:"buyer",quota});
+                          }
+                        });
+                        if(righeTabella.length===0) return <tr><td colSpan={7} style={{padding:"2rem",textAlign:"center",color:"#bbb"}}>Nessuna pratica nel periodo</td></tr>;
+                        return righeTabella.map((r,idx)=>{
+                          const {v,lato,ruolo,ruoloKey,quota} = r;
+                          // Incassata = quota se prospetto pagato che contiene questa riga (venditoId + ruolo)
+                          const prospettoPagato = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="pagato" && (p.righe||[]).some(rr=>rr.venditoId===v.id && rr.ruolo===ruoloKey));
+                          const prospettoFatturato = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="fatturato" && (p.righe||[]).some(rr=>rr.venditoId===v.id && rr.ruolo===ruoloKey));
+                          const prospettoBozza = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="bozza" && (p.righe||[]).some(rr=>rr.venditoId===v.id && rr.ruolo===ruoloKey));
+                          const incassata = prospettoPagato ? quota : 0;
+                          const daIncassare = Math.max(0, quota - incassata);
+                          // % cliente pagato SOLO del SUO lato
+                          const provLato = lato==="V" ? Number(v.provvVenditore||0) : Number(v.provvAcquirente||0);
+                          const incLato = lato==="V" ? calcolaIncassatoV(v) : calcolaIncassatoA(v);
+                          const pctCliente = provLato>0 ? incLato/provLato : 0;
+                          const quotaFatturabile = Math.round(quota * pctCliente);
+                          // Nota automatica
+                          let nota = {testo:"",sotto:"",clr:"#888",bold:false,evidenzia:false};
+                          if(prospettoPagato){
+                            nota = {testo:"✅ Quota incassata",sotto:prospettoPagato.numero?`prospetto ${prospettoPagato.numero}`:"",clr:"#1D9E75",bold:true,evidenzia:false};
+                          } else if(prospettoFatturato){
+                            nota = {testo:`✉ Fattura emessa (${prospettoFatturato.numero||""})`,sotto:"attendi bonifico dall'agenzia",clr:"#2980B9",bold:true,evidenzia:false};
+                          } else if(prospettoBozza){
+                            nota = {testo:`📋 In prospetto bozza (${prospettoBozza.numero||""})`,sotto:"in attesa di emissione fattura",clr:"#0C447C",bold:true,evidenzia:true};
+                          } else if(pctCliente>=1){
+                            nota = {testo:"💰 Cliente ha pagato per intero",sotto:"la tua quota è pronta da fatturare",clr:"#A8863A",bold:true,evidenzia:true};
+                          } else if(pctCliente>0){
+                            const pct = Math.round(pctCliente*100);
+                            nota = {testo:`⏳ Cliente ha pagato il ${pct}%`,sotto:`€ ${fmt(quotaFatturabile)} fatturabili · resto in attesa`,clr:"#A8863A",bold:false,evidenzia:true};
+                          } else {
+                            nota = {testo:"⏳ Cliente non ha ancora pagato",sotto:"",clr:"#888",bold:false,evidenzia:false};
+                          }
+                          // Badge ruolo con colore + indicazione lato
+                          const colRuoloLato = lato==="V" ? "#2980B9" : "#8E44AD";
+                          const bgRuoloLato = lato==="V" ? "#EAF1F8" : "#F4EAF5";
+                          return(<tr key={`${v.id}_${ruoloKey}`} style={{background:nota.evidenzia?"#FDFBF7":(idx%2===0?"#fff":"#fafafa")}}>
+                            <td style={S.td}>
+                              <span style={{fontSize:11,padding:"2px 8px",borderRadius:4,background:bgRuoloLato,color:colRuoloLato,fontWeight:600,border:`0.5px solid ${colRuoloLato}33`}}>{ruolo}</span>
+                              <span style={{fontSize:9,marginLeft:5,color:"#aaa"}}>lato {lato}</span>
+                            </td>
+                            <td style={{...S.td,color:"#888",whiteSpace:"nowrap"}}>{fmtD(dataCompAgenzia(v))}</td>
+                            <td style={S.td}>
+                              <div><strong>{v.comuneImmobile}</strong> — {v.indirizzoImmobile}</div>
+                              <div style={{fontSize:10,color:"#aaa",marginTop:1}}>{lato==="V"?(v.nominativoVenditore||"—"):(v.nomeAcquirente||"—")}</div>
+                            </td>
+                            <td style={{...S.td,textAlign:"right",fontWeight:500,color:"#2C2C2C"}}>€ {fmt(Math.round(quota))}</td>
+                            <td style={{...S.td,textAlign:"right",fontWeight:600,color:incassata>0?"#1D9E75":"#ccc"}}>{incassata>0?`€ ${fmt(Math.round(incassata))}`:"€ 0"}</td>
+                            <td style={{...S.td,textAlign:"right",fontWeight:600,color:daIncassare>0?"#E67E22":"#ccc"}}>{daIncassare>0?`€ ${fmt(Math.round(daIncassare))}`:"—"}</td>
+                            <td style={S.td}>
+                              <div style={{color:nota.clr,fontWeight:nota.bold?600:500}}>{nota.testo}</div>
+                              {nota.sotto&&<div style={{fontSize:10,color:"#888",marginTop:2}}>{nota.sotto}</div>}
+                            </td>
+                          </tr>);
+                        });
+                      })()}
                     </tbody>
-                    {pratFiltrate.length>0&&(()=>{
-                      // Totali nuova tabella
-                      const totQuota = pratFiltrate.reduce((s,v)=>{
-                        let q=0;
-                        if(Number(v.agenteListing)===myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                        if(Number(v.agenteAcquirente)===myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                        if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-                        if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-                        return s+q;
-                      },0);
-                      const totIncassata = pratFiltrate.reduce((s,v)=>{
-                        const pp = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="pagato" && (p.righe||[]).some(r=>r.venditoId===v.id));
-                        if(!pp) return s;
-                        let q=0;
-                        if(Number(v.agenteListing)===myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
-                        if(Number(v.agenteAcquirente)===myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
-                        if(Number(v.buyerListing)===myAgentId&&Number(v.agenteListing)!==myAgentId)q+=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
-                        if(Number(v.buyer)===myAgentId&&Number(v.agenteAcquirente)!==myAgentId)q+=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
-                        return s+q;
+                    {(()=>{
+                      // Calcolo totali su tutte le righe (stesso meccanismo)
+                      const righeTab = [];
+                      pratFiltrate.forEach(v=>{
+                        if(Number(v.agenteListing)===myAgentId){
+                          const q=Number(v.provvVenditore||0)*Number(v.percListing||0)/100;
+                          if(q>0) righeTab.push({v,ruoloKey:"listing",quota:q});
+                        } else if(Number(v.buyerListing)===myAgentId){
+                          const q=Number(v.provvVenditore||0)*Number(v.percBuyerListing||0)/100;
+                          if(q>0) righeTab.push({v,ruoloKey:"buyerListing",quota:q});
+                        }
+                        if(Number(v.agenteAcquirente)===myAgentId){
+                          const q=Number(v.provvAcquirente||0)*Number(v.percAcquirente||0)/100;
+                          if(q>0) righeTab.push({v,ruoloKey:"acquirente",quota:q});
+                        } else if(Number(v.buyer)===myAgentId){
+                          const q=Number(v.provvAcquirente||0)*Number(v.percBuyer||0)/100;
+                          if(q>0) righeTab.push({v,ruoloKey:"buyer",quota:q});
+                        }
+                      });
+                      if(righeTab.length===0) return null;
+                      const totQuota = righeTab.reduce((s,r)=>s+r.quota,0);
+                      const totIncassata = righeTab.reduce((s,r)=>{
+                        const pp = (prospetti||[]).find(p=>p.agenteId===myAgentId&&p.statoFlow==="pagato"&&(p.righe||[]).some(rr=>rr.venditoId===r.v.id&&rr.ruolo===r.ruoloKey));
+                        return s + (pp?r.quota:0);
                       },0);
                       const totDaIncassare = Math.max(0, totQuota - totIncassata);
                       return(<tfoot><tr style={{background:BRAND.beige,fontWeight:600,fontSize:12}}>
-                        <td colSpan={3} style={{padding:"10px 12px"}}>TOTALE ({pratFiltrate.length})</td>
+                        <td colSpan={3} style={{padding:"10px 12px"}}>TOTALE ({righeTab.length} righ{righeTab.length===1?"a":"e"})</td>
                         <td style={{padding:"10px 12px",textAlign:"right",color:"#2C2C2C"}}>€ {fmt(Math.round(totQuota))}</td>
                         <td style={{padding:"10px 12px",textAlign:"right",color:"#1D9E75"}}>€ {fmt(Math.round(totIncassata))}</td>
                         <td style={{padding:"10px 12px",textAlign:"right",color:"#E67E22"}}>€ {fmt(Math.round(totDaIncassare))}</td>
