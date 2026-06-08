@@ -3605,19 +3605,20 @@ export default function App() {
                   if(i.archiviato)return false;
                   if(i.categoria!==subInc)return false;
                   if(!canViewAll&&myAgentId&&i.agenteListing!==myAgentId)return false;
+                  if((isBroker||isBackOffice)&&fIncAg!=="Tutti"&&i.agenteListing!==Number(fIncAg))return false;
                   return ["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i));
                 }).reduce((s,i)=>s+Number(i.provvPrevista||0),0);
                 if(portafoglio<=0) return null;
                 return(<div style={{...S.cntBox(BRAND.oroD),background:"#FAEEDA",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:150}}>
                   <span style={{fontSize:18,fontWeight:700,color:BRAND.oroD}}>€ {fmtN(portafoglio)}</span>
                   <span style={{fontSize:11,color:"#854F0B",fontWeight:500}}>💰 Portafoglio attivo</span>
-                  <span style={{fontSize:9.5,color:"#aaa"}}>provv. prevista totale</span>
+                  <span style={{fontSize:9.5,color:"#aaa"}}>provv. prevista totale{(isBroker||isBackOffice)&&fIncAg!=="Tutti"?" agente":""}</span>
                 </div>);
               })()}
               <div style={{...S.cntBox(BRAND.oroD),marginLeft:"auto",borderTop:`3px solid ${BRAND.oroD}`,borderLeft:"none",minWidth:110}}>
-                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente&&(isBroker||isBackOffice||!myAgentId||i.agenteListing===myAgentId)).length}</span>
+                <span style={{fontSize:22,fontWeight:700,color:BRAND.oroD}}>{incarichi.filter(i=>i.categoria===subInc&&!i.archiviato&&getAnno(i.dataInizio)===annoCorrente&&(isBroker||isBackOffice||!myAgentId||i.agenteListing===myAgentId)&&(!(isBroker||isBackOffice)||fIncAg==="Tutti"||i.agenteListing===Number(fIncAg))).length}</span>
                 <span style={{fontSize:11,color:BRAND.oroD,fontWeight:500}}>Acquisiti {annoCorrente}</span>
-                <span style={{fontSize:10,color:"#aaa"}}>{(isBroker||isBackOffice)?"totali agenzia":"tuoi anno corrente"}</span>
+                <span style={{fontSize:10,color:"#aaa"}}>{(isBroker||isBackOffice)?(fIncAg!=="Tutti"?"dell'agente":"totali agenzia"):"tuoi anno corrente"}</span>
               </div>
             </div>
             <div style={{background:"transparent",borderRadius:10,overflow:"auto",maxHeight:"70vh"}}>
