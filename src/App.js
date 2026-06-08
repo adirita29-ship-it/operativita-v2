@@ -1218,6 +1218,7 @@ export default function App() {
   const [showSospesiAg,setShowSospesiAg]=useState(false);
   const [mioRepAnno,setMioRepAnno]=useState(annoCorrente);
   const [mioRepMese,setMioRepMese]=useState("Tutti");
+  const [mioRepStato,setMioRepStato]=useState("tutti"); // tutti / incassate / parziali / daincassare
   const [showMioTabella,setShowMioTabella]=useState(true);
   const [mioFatAnno,setMioFatAnno]=useState(annoCorrente);
   const [mioFatMese,setMioFatMese]=useState("Tutti");
@@ -9385,6 +9386,12 @@ export default function App() {
                       <p style={{margin:"3px 0 0",fontSize:11,color:"#888"}}>tutte le pratiche dove hai avuto un ruolo</p>
                     </div>
                     <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      {showMioTabella&&<select style={{...S.sel,fontSize:12,padding:"4px 10px"}} value={mioRepStato} onChange={e=>{setMioRepStato(e.target.value);e.stopPropagation();}} onClick={e=>e.stopPropagation()}>
+                        <option value="tutti">Tutti gli stati</option>
+                        <option value="incassate">✅ Incassate</option>
+                        <option value="parziali">⏳ Parziali</option>
+                        <option value="daincassare">💰 Da incassare</option>
+                      </select>}
                       {showMioTabella&&mesiMio.length>1&&<select style={{...S.sel,fontSize:12,padding:"4px 10px"}} value={mioRepMese} onChange={e=>{setMioRepMese(e.target.value);e.stopPropagation();}} onClick={e=>e.stopPropagation()}>
                         <option value="Tutti">Tutti i mesi</option>
                         {mesiMio.map(m=><option key={m} value={m}>{fmtMese(m)}</option>)}
@@ -9417,8 +9424,24 @@ export default function App() {
                             if(quota>0) righeTabella.push({v,lato:"A",ruolo:"Buyer",ruoloKey:"buyer",quota});
                           }
                         });
-                        if(righeTabella.length===0) return <tr><td colSpan={7} style={{padding:"2rem",textAlign:"center",color:"#bbb"}}>Nessuna pratica nel periodo</td></tr>;
-                        return righeTabella.map((r,idx)=>{
+                        // APPLICA FILTRO STATO
+                        const righeFiltrate = righeTabella.filter(r=>{
+                          if(mioRepStato==="tutti") return true;
+                          const prospettoPagato = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="pagato" && (p.righe||[]).some(rr=>rr.venditoId===r.v.id && rr.ruolo===r.ruoloKey));
+                          const incassata = prospettoPagato ? r.quota : 0;
+                          if(mioRepStato==="incassate") return incassata>=r.quota && r.quota>0;
+                          if(mioRepStato==="parziali") return incassata>0 && incassata<r.quota;
+                          if(mioRepStato==="daincassare") return incassata<r.quota;
+                          return true;
+                        });
+                        if(righeFiltrate.length===0){
+                          const msg = mioRepStato==="tutti" ? "Nessuna pratica nel periodo" :
+                                      mioRepStato==="incassate" ? "Nessuna quota incassata integralmente in questo periodo" :
+                                      mioRepStato==="parziali" ? "Nessuna quota parzialmente incassata in questo periodo" :
+                                      "Nessuna quota da incassare in questo periodo";
+                          return <tr><td colSpan={7} style={{padding:"2rem",textAlign:"center",color:"#bbb"}}>{msg}</td></tr>;
+                        }
+                        return righeFiltrate.map((r,idx)=>{
                           const {v,lato,ruolo,ruoloKey,quota} = r;
                           // Incassata = quota se prospetto pagato che contiene questa riga (venditoId + ruolo)
                           const prospettoPagato = (prospetti||[]).find(p=>p.agenteId===myAgentId && p.statoFlow==="pagato" && (p.righe||[]).some(rr=>rr.venditoId===v.id && rr.ruolo===ruoloKey));
@@ -9490,15 +9513,25 @@ export default function App() {
                           if(q>0) righeTab.push({v,ruoloKey:"buyer",quota:q});
                         }
                       });
-                      if(righeTab.length===0) return null;
-                      const totQuota = righeTab.reduce((s,r)=>s+r.quota,0);
-                      const totIncassata = righeTab.reduce((s,r)=>{
+                      // Applica filtro stato anche ai totali
+                      const righeTabFilt = righeTab.filter(r=>{
+                        if(mioRepStato==="tutti") return true;
+                        const pp = (prospetti||[]).find(p=>p.agenteId===myAgentId&&p.statoFlow==="pagato"&&(p.righe||[]).some(rr=>rr.venditoId===r.v.id&&rr.ruolo===r.ruoloKey));
+                        const inc = pp?r.quota:0;
+                        if(mioRepStato==="incassate") return inc>=r.quota && r.quota>0;
+                        if(mioRepStato==="parziali") return inc>0 && inc<r.quota;
+                        if(mioRepStato==="daincassare") return inc<r.quota;
+                        return true;
+                      });
+                      if(righeTabFilt.length===0) return null;
+                      const totQuota = righeTabFilt.reduce((s,r)=>s+r.quota,0);
+                      const totIncassata = righeTabFilt.reduce((s,r)=>{
                         const pp = (prospetti||[]).find(p=>p.agenteId===myAgentId&&p.statoFlow==="pagato"&&(p.righe||[]).some(rr=>rr.venditoId===r.v.id&&rr.ruolo===r.ruoloKey));
                         return s + (pp?r.quota:0);
                       },0);
                       const totDaIncassare = Math.max(0, totQuota - totIncassata);
                       return(<tfoot><tr style={{background:BRAND.beige,fontWeight:600,fontSize:12}}>
-                        <td colSpan={3} style={{padding:"10px 12px"}}>TOTALE ({righeTab.length} righ{righeTab.length===1?"a":"e"})</td>
+                        <td colSpan={3} style={{padding:"10px 12px"}}>TOTALE ({righeTabFilt.length} righ{righeTabFilt.length===1?"a":"e"})</td>
                         <td style={{padding:"10px 12px",textAlign:"right",color:"#2C2C2C"}}>€ {fmt(Math.round(totQuota))}</td>
                         <td style={{padding:"10px 12px",textAlign:"right",color:"#1D9E75"}}>€ {fmt(Math.round(totIncassata))}</td>
                         <td style={{padding:"10px 12px",textAlign:"right",color:"#E67E22"}}>€ {fmt(Math.round(totDaIncassare))}</td>
