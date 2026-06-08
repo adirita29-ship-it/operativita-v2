@@ -12410,7 +12410,7 @@ export default function App() {
         const newStato = newIncassatoLato>=provLato ? "Incassato" : newIncassatoLato>0 ? "Parziale" : "Da incassare";
         return(
           <div data-modal="true" style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setPagamentoModale(null);}}>
-            <div style={{...S.card,maxWidth:560,width:"95%",padding:0,overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+            <div style={{...S.modal,maxWidth:560,width:"95%",padding:0,overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
               {/* Header */}
               <div style={{padding:"14px 20px",background:`linear-gradient(135deg, ${coloreLight} 0%, #fff 100%)`,borderBottom:"0.5px solid #e8e5e0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                 <div>
