@@ -1131,6 +1131,14 @@ export default function App() {
   const [subInc,setSubInc]=useState("vendita"); const [subProp,setSubProp]=useState("vendita"); const [subVend,setSubVend]=useState("vendita");
   const [vendViewMode,setVendViewMode]=useState("pratiche"); // 'pratiche' o 'incassi'
   const [incassiPeriodo,setIncassiPeriodo]=useState("settimana"); // 'oggi','settimana','mese','mese_scorso','custom'
+  // Modale pagamento (apertura cliccando una riga in vista Incassi)
+  // Per "nuovo": {mode:"new", venduto, lato:"V"|"A"}
+  // Per "modifica": {mode:"edit", venduto, lato:"V"|"A", rata:"acc1"|"acc2"|"saldo"}
+  const [pagamentoModale,setPagamentoModale]=useState(null);
+  const [pmImporto,setPmImporto]=useState("");
+  const [pmData,setPmData]=useState("");
+  const [pmNote,setPmNote]=useState("");
+  const [pmRata,setPmRata]=useState("acc1");
   const [incassiDal,setIncassiDal]=useState(""); const [incassiAl,setIncassiAl]=useState("");
   const [dashIncassiPeriodo,setDashIncassiPeriodo]=useState("settimana"); // per mini-box Dashboard
   const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti"); const [fIncMirino,setFIncMirino]=useState(false);
@@ -1865,6 +1873,71 @@ export default function App() {
   };
 
   const salvaVend=()=>{ if(isReadOnly){alert("Sola lettura");return;}if(!showGestVend)return;const u={...showGestVend,...formVend};u.statoIncasso=calcolaStatoIncasso(u);setVenduti(venduti.map(v=>v.id===showGestVend.id?u:v));setShowGestVend(null);};
+  // === MODALE INCASSO (vista Incassi → Nuovo / Modifica pagamento) ===
+  // Apre il modale precompilando i campi (per modifica) o vuoto (per nuovo)
+  const apriModaleIncasso=(venduto,lato,rata)=>{
+    if(rata){ // MODIFICA pagamento esistente
+      const importoField = `${rata}${lato}`; // es. acc1V, saldoA
+      const dataField = `data${rata.charAt(0).toUpperCase()+rata.slice(1)}${lato}`;
+      const noteField = `note${rata.charAt(0).toUpperCase()+rata.slice(1)}${lato}`;
+      setPmImporto(String(Number(venduto[importoField]||0)));
+      setPmData(venduto[dataField]||todayStr());
+      setPmNote(venduto[noteField]||"");
+      setPmRata(rata);
+      setPagamentoModale({mode:"edit",venduto,lato,rata});
+    } else { // NUOVO pagamento — proponi la prima rata libera
+      let rataLibera = "acc1";
+      const acc1F = `acc1${lato}`, acc2F = `acc2${lato}`, saldoF = `saldo${lato}`;
+      if(Number(venduto[acc1F]||0)>0&&Number(venduto[acc2F]||0)===0) rataLibera = "acc2";
+      else if(Number(venduto[acc1F]||0)>0&&Number(venduto[acc2F]||0)>0) rataLibera = "saldo";
+      setPmImporto("");
+      setPmData(todayStr());
+      setPmNote("");
+      setPmRata(rataLibera);
+      setPagamentoModale({mode:"new",venduto,lato});
+    }
+  };
+  // Salva (nuovo o modifica)
+  const salvaIncassoModale=()=>{
+    if(isReadOnly){alert("Modalità sola lettura");return;}
+    if(!pagamentoModale) return;
+    const {venduto,lato} = pagamentoModale;
+    const rata = pmRata;
+    const importo = Number(pmImporto||0);
+    if(importo<=0){alert("Inserisci un importo maggiore di 0");return;}
+    if(!pmData){alert("Inserisci la data del pagamento");return;}
+    const importoField = `${rata}${lato}`;
+    const dataField = `data${rata.charAt(0).toUpperCase()+rata.slice(1)}${lato}`;
+    const noteField = `note${rata.charAt(0).toUpperCase()+rata.slice(1)}${lato}`;
+    const aggiornato = {
+      ...venduto,
+      [importoField]: importo,
+      [dataField]: pmData,
+      [noteField]: pmNote||""
+    };
+    aggiornato.statoIncasso = calcolaStatoIncasso(aggiornato);
+    setVenduti(venduti.map(v=>v.id===venduto.id?aggiornato:v));
+    setPagamentoModale(null);
+  };
+  // Elimina pagamento (solo in modalità modifica)
+  const eliminaIncassoModale=()=>{
+    if(isReadOnly){alert("Modalità sola lettura");return;}
+    if(!pagamentoModale||pagamentoModale.mode!=="edit") return;
+    if(!window.confirm("Eliminare definitivamente questo pagamento?")) return;
+    const {venduto,lato,rata} = pagamentoModale;
+    const importoField = `${rata}${lato}`;
+    const dataField = `data${rata.charAt(0).toUpperCase()+rata.slice(1)}${lato}`;
+    const noteField = `note${rata.charAt(0).toUpperCase()+rata.slice(1)}${lato}`;
+    const aggiornato = {
+      ...venduto,
+      [importoField]: 0,
+      [dataField]: "",
+      [noteField]: ""
+    };
+    aggiornato.statoIncasso = calcolaStatoIncasso(aggiornato);
+    setVenduti(venduti.map(v=>v.id===venduto.id?aggiornato:v));
+    setPagamentoModale(null);
+  };
   const salvaPagamento=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}if(!showPagamento)return;setPagamentiFatture({...pagamentiFatture,[showPagamento.key]:{...formPagamento,importoPagato:Number(formPagamento.importoPagato||0)}});setShowPagamento(null);};
   const esporta=()=>{const b=new Blob([JSON.stringify({agenti,incarichi,proposte,venduti,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,archiviati},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`gestionale_${todayStr()}.json`;a.click();URL.revokeObjectURL(u);};
   const importa=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.agenti)setAgenti(d.agenti);if(d.incarichi)setIncarichi(d.incarichi);if(d.proposte)setProposte(d.proposte);if(d.venduti)setVenduti(d.venduti);if(d.fonti)setFonti(d.fonti);if(d.tipologie)setTipologie(d.tipologie);if(d.vincoli)setVincoli(d.vincoli);if(d.tipiNeg)setTipiNeg(d.tipiNeg);if(d.pagamentiFatture)setPagamentiFatture(d.pagamentiFatture);if(d.archiviati)setArchiviati(d.archiviati);alert("Importato!");}catch{alert("File non valido.");}};r.readAsText(f);e.target.value="";};
@@ -4189,7 +4262,7 @@ export default function App() {
                         </thead>
                         <tbody>
                           {pagPeriodo.map((p,i)=>(
-                            <tr key={i} style={{borderBottom:"0.5px solid #f5f3ed"}}>
+                            <tr key={i} onClick={()=>canEditPratiche&&apriModaleIncasso(p.venduto,p.lato,p.tipo)} title={canEditPratiche?"Clicca per modificare il pagamento":""} style={{borderBottom:"0.5px solid #f5f3ed",cursor:canEditPratiche?"pointer":"default",transition:"background .15s"}} onMouseEnter={e=>{if(canEditPratiche)e.currentTarget.style.background="#fafaf8"}} onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                               <td style={{padding:"10px 12px",color:"#555"}}>{fmtD(p.data)}</td>
                               <td style={{padding:"10px 12px"}}>
                                 <div style={{fontWeight:500,color:"#2C2C2C"}}>{p.lato==="V"?p.venduto.nominativoVenditore:p.venduto.nomeAcquirente}</div>
@@ -4333,7 +4406,7 @@ export default function App() {
                           </thead>
                           <tbody>
                             {righe.map((r,i)=>(
-                              <tr key={i} style={{background:bgUrg(r.urgenza),borderBottom:"0.5px solid #f5f3ed"}}>
+                              <tr key={i} onClick={()=>canEditPratiche&&apriModaleIncasso(r.v,r.lato)} title={canEditPratiche?"Clicca per registrare un nuovo incasso":""} style={{background:bgUrg(r.urgenza),borderBottom:"0.5px solid #f5f3ed",cursor:canEditPratiche?"pointer":"default",transition:"filter .15s"}} onMouseEnter={e=>{if(canEditPratiche)e.currentTarget.style.filter="brightness(0.97)"}} onMouseLeave={e=>{e.currentTarget.style.filter="none"}}>
                                 <td style={{padding:"10px 8px",textAlign:"center"}}>{emojiUrg(r.urgenza)}</td>
                                 <td style={{padding:"10px 12px"}}>
                                   <div style={{fontWeight:500,color:"#2C2C2C"}}>{r.lato==="V"?r.v.nominativoVenditore:r.v.nomeAcquirente}</div>
@@ -12316,6 +12389,117 @@ export default function App() {
           <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1rem"}}><button style={S.btn} onClick={()=>setShowPagamento(null)}>Annulla</button><button style={S.btnP} onClick={salvaPagamento}>Salva</button></div>
         </div>
       </div>)}
+
+      {/* MODALE INCASSO — Nuovo / Modifica pagamento dalla vista Incassi */}
+      {pagamentoModale&&(()=>{
+        const {mode,venduto,lato,rata} = pagamentoModale;
+        const isNew = mode==="new";
+        const provLato = lato==="V" ? Number(venduto.provvVenditore||0) : Number(venduto.provvAcquirente||0);
+        const incassatoLato = lato==="V" ? calcolaIncassatoV(venduto) : calcolaIncassatoA(venduto);
+        // In modalità modifica: il già incassato da scontare include l'importo originale di QUESTA rata
+        const importoField = `${pmRata}${lato}`;
+        const importoOriginale = isNew ? 0 : Number(venduto[importoField]||0);
+        const residuoDisponibile = Math.max(0, provLato - incassatoLato + importoOriginale - Number(pmImporto||0));
+        const cliente = lato==="V" ? venduto.nominativoVenditore : venduto.nomeAcquirente;
+        const colore = isNew ? "#1D9E75" : BRAND.oroD;
+        const coloreLight = isNew ? "#E9F7EF" : "#F0E8DC";
+        const importoMax = Math.max(0, provLato - incassatoLato + importoOriginale);
+        // Feedback dinamico stato dopo modifica
+        const importoNum = Number(pmImporto||0);
+        const newIncassatoLato = incassatoLato - importoOriginale + importoNum;
+        const newStato = newIncassatoLato>=provLato ? "Incassato" : newIncassatoLato>0 ? "Parziale" : "Da incassare";
+        return(
+          <div data-modal="true" style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setPagamentoModale(null);}}>
+            <div style={{...S.card,maxWidth:560,width:"95%",padding:0,overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+              {/* Header */}
+              <div style={{padding:"14px 20px",background:`linear-gradient(135deg, ${coloreLight} 0%, #fff 100%)`,borderBottom:"0.5px solid #e8e5e0",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontSize:11,color:colore,textTransform:"uppercase",letterSpacing:".08em",fontWeight:600,marginBottom:2}}>{isNew?"💰 Registra incasso":"✏️ Modifica pagamento"}</div>
+                  <div style={{fontSize:16,fontWeight:500,color:"#2C2C2C"}}>{cliente}</div>
+                  <div style={{fontSize:11,color:"#888",marginTop:2}}>{venduto.comuneImmobile} — {venduto.indirizzoImmobile}</div>
+                </div>
+                <button onClick={()=>setPagamentoModale(null)} style={{background:"transparent",border:"none",color:"#aaa",cursor:"pointer",fontSize:20,lineHeight:1,padding:"4px 8px"}}>✕</button>
+              </div>
+              {/* Pannello riepilogo */}
+              <div style={{padding:"12px 20px",background:"#fafaf8",borderBottom:"0.5px solid #e8e5e0"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                  <div>
+                    <div style={{fontSize:9,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Lato</div>
+                    <span style={{fontSize:12,padding:"2px 8px",borderRadius:3,background:lato==="V"?"#EAF1F8":"#F4EAF5",color:lato==="V"?"#2980B9":"#8E44AD",fontWeight:600}}>{lato} — {lato==="V"?"Venditore":"Acquirente"}</span>
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Provv. totale</div>
+                    <div style={{fontSize:14,fontWeight:500,color:"#2C2C2C"}}>€ {fmt(provLato)}</div>
+                  </div>
+                  <div>
+                    <div style={{fontSize:9,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Già incassato</div>
+                    <div style={{fontSize:14,fontWeight:500,color:"#888"}}>€ {fmt(incassatoLato)}</div>
+                  </div>
+                </div>
+                <div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid #e8e5e0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontSize:12,color:"#555"}}>{isNew?"Residuo da incassare:":"Residuo dopo questa modifica:"}</div>
+                  <div style={{fontSize:18,fontWeight:600,color:residuoDisponibile<=0?"#1D9E75":"#E67E22"}}>€ {fmt(residuoDisponibile)}</div>
+                </div>
+              </div>
+              {/* Form */}
+              <div style={{padding:"18px 20px"}}>
+                {/* Tipo rata (solo se NUOVO) */}
+                {isNew&&<div style={{marginBottom:14}}>
+                  <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",fontWeight:500,marginBottom:6}}>Tipo rata</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {[{v:"acc1",l:"Acconto 1"},{v:"acc2",l:"Acconto 2"},{v:"saldo",l:"Saldo"}].map(t=>(
+                      <button key={t.v} onClick={()=>setPmRata(t.v)} style={{flex:1,padding:"8px 12px",background:pmRata===t.v?colore:"#fff",border:`0.5px solid ${pmRata===t.v?colore:"#e0ddd5"}`,color:pmRata===t.v?"#fff":"#555",borderRadius:6,fontSize:12,fontWeight:pmRata===t.v?500:400,cursor:"pointer"}}>{t.l}</button>
+                    ))}
+                  </div>
+                </div>}
+                {!isNew&&<div style={{marginBottom:14,padding:"8px 12px",background:"#fafaf8",borderRadius:6}}>
+                  <div style={{fontSize:11,color:"#888"}}>Stai modificando: <strong style={{color:"#2C2C2C"}}>{pmRata==="acc1"?"Acconto 1":pmRata==="acc2"?"Acconto 2":"Saldo"}</strong></div>
+                </div>}
+                {/* Importo + Data */}
+                <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:10,marginBottom:14}}>
+                  <div>
+                    <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",fontWeight:500,marginBottom:6}}>Importo</div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 12px",background:"#fff",border:`1px solid ${colore}`,borderRadius:6}}>
+                      <span style={{fontSize:16,color:"#aaa"}}>€</span>
+                      <input type="number" min="0" step="0.01" value={pmImporto} onChange={e=>setPmImporto(e.target.value)} placeholder="0,00"
+                        style={{fontSize:18,fontWeight:600,border:"none",outline:"none",background:"transparent",color:colore,width:"100%",fontFamily:"inherit"}} autoFocus/>
+                    </div>
+                    {/* Bottoni rapidi solo per nuovo */}
+                    {isNew&&importoMax>0&&<div style={{display:"flex",gap:4,marginTop:6,flexWrap:"wrap"}}>
+                      {importoMax>=1000&&<button onClick={()=>setPmImporto("1000")} style={{fontSize:10,padding:"2px 8px",background:"#fafaf8",border:"0.5px solid #e0ddd5",borderRadius:4,cursor:"pointer",color:"#555"}}>€ 1.000</button>}
+                      {importoMax>=2000&&<button onClick={()=>setPmImporto("2000")} style={{fontSize:10,padding:"2px 8px",background:"#fafaf8",border:"0.5px solid #e0ddd5",borderRadius:4,cursor:"pointer",color:"#555"}}>€ 2.000</button>}
+                      <button onClick={()=>setPmImporto(String(Math.round(importoMax/2)))} style={{fontSize:10,padding:"2px 8px",background:"#fafaf8",border:"0.5px solid #e0ddd5",borderRadius:4,cursor:"pointer",color:"#555"}}>50%</button>
+                      <button onClick={()=>setPmImporto(String(importoMax))} style={{fontSize:10,padding:"2px 8px",background:"#fafaf8",border:`0.5px solid ${colore}`,borderRadius:4,cursor:"pointer",color:colore,fontWeight:500}}>Tutto (€ {fmt(importoMax)})</button>
+                    </div>}
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",fontWeight:500,marginBottom:6}}>Data</div>
+                    <input type="date" value={pmData} onChange={e=>setPmData(e.target.value)} style={{width:"100%",padding:"8px 10px",fontSize:13,border:"1px solid #e0ddd5",borderRadius:6,fontFamily:"inherit",color:"#2C2C2C",boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                {/* Note */}
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:".06em",fontWeight:500,marginBottom:6}}>Note (opzionale)</div>
+                  <input type="text" value={pmNote} onChange={e=>setPmNote(e.target.value)} placeholder="Es. Bonifico, contanti, assegno..."
+                    style={{width:"100%",padding:"8px 10px",fontSize:12,border:"1px solid #e0ddd5",borderRadius:6,fontFamily:"inherit",color:"#2C2C2C",boxSizing:"border-box"}}/>
+                </div>
+                {/* Feedback stato dopo modifica */}
+                {importoNum>0&&<div style={{padding:"8px 12px",background:newStato==="Incassato"?"#E9F7EF":"#FFFAF3",borderRadius:6,fontSize:11,color:newStato==="Incassato"?"#0F6E56":"#993C1D"}}>
+                  ℹ️ Dopo questo {isNew?"incasso":"aggiornamento"}, il lato <strong>{lato}</strong> sarà a stato <strong>{newStato}</strong>{newStato!=="Incassato"&&<> con un residuo di <strong>€ {fmt(residuoDisponibile)}</strong></>}.
+                </div>}
+              </div>
+              {/* Footer */}
+              <div style={{padding:"12px 20px",background:"#fafaf8",borderTop:"0.5px solid #e8e5e0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                {!isNew&&!isReadOnly?<button onClick={eliminaIncassoModale} style={{background:"transparent",border:"0.5px solid #E74C3C",color:"#E74C3C",padding:"6px 12px",borderRadius:6,fontSize:11,cursor:"pointer"}}>🗑 Elimina pagamento</button>:<div/>}
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setPagamentoModale(null)} style={{background:"transparent",border:"0.5px solid #e0ddd5",color:"#888",padding:"8px 16px",borderRadius:6,fontSize:12,cursor:"pointer"}}>Annulla</button>
+                  <button onClick={salvaIncassoModale} disabled={!Number(pmImporto)||isReadOnly} style={{background:colore,color:"#fff",border:"none",padding:"8px 20px",borderRadius:6,fontSize:13,fontWeight:500,cursor:(!Number(pmImporto)||isReadOnly)?"not-allowed":"pointer",opacity:(!Number(pmImporto)||isReadOnly)?0.5:1}}>{isNew?`✓ Registra incasso${importoNum>0?` di € ${fmt(importoNum)}`:""}`:"✓ Salva modifiche"}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
