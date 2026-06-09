@@ -1255,6 +1255,45 @@ export default function App() {
     })));
   },[dbLoaded]);
 
+  // CSS GLOBALE PER STAMPA - nasconde tutto tranne le aree marcate data-print="true"
+  // Risolve: 1) header app/sidebar nella stampa  2) stampa doppia/2 pagine indesiderate
+  useEffect(()=>{
+    const styleId = "gest-print-styles";
+    if(document.getElementById(styleId)) return;
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+      @media print {
+        @page { size: A4; margin: 12mm; }
+        html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+        body * { visibility: hidden !important; }
+        [data-print="true"], [data-print="true"] * { visibility: visible !important; }
+        [data-print="true"] {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #fff !important;
+          box-shadow: none !important;
+          border: none !important;
+        }
+        /* Nascondi pulsanti dentro l'area stampabile (es. Stampa/Chiudi) */
+        [data-print="true"] [data-noprint="true"],
+        [data-print="true"] button {
+          display: none !important;
+        }
+        /* Page break controlli */
+        .print-page-break { page-break-before: always; }
+        .print-no-break { page-break-inside: avoid; }
+      }
+    `;
+    document.head.appendChild(style);
+    return ()=>{ const el=document.getElementById(styleId); if(el) el.remove(); };
+  },[]);
+
     useEffect(()=>{
     caricaDB().then(data=>{
       if(data&&Object.keys(data).length>0){
@@ -5116,7 +5155,7 @@ export default function App() {
                         <button onClick={()=>setStampaProspetto(null)} style={{...S.btn,fontSize:12,padding:"6px 14px"}}>Chiudi</button>
                       </div>
                     </div>
-                    <div style={{background:"#fff",border:`1px solid ${BRAND.oro}`,borderRadius:10,padding:"2rem",color:BRAND.grigio}} id="stampa-prospetto-area">
+                    <div data-print="true" style={{background:"#fff",border:`1px solid ${BRAND.oro}`,borderRadius:10,padding:"2rem",color:BRAND.grigio}} id="stampa-prospetto-area">
                     {/* ════════════════════ BRANCH: STAMPA PROSPETTO SINGOLO ════════════════════ */}
                     {isProspettoSingolo&&<>
                       {/* Intestazione */}
