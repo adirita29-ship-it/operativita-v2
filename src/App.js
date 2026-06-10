@@ -1569,7 +1569,10 @@ export default function App() {
 
     const initRealtime=async()=>{
       try{
-        const {createClient}=await import("https://esm.sh/@supabase/supabase-js@2");
+        // Hack: avvolgere import() in una Function() lo nasconde dall'analisi webpack/CRA
+        // (altrimenti CRA rifiuta gli import() dinamici di moduli esterni via URL)
+        const dynamicImport = new Function("u","return import(u)");
+        const {createClient}=await dynamicImport("https://esm.sh/@supabase/supabase-js@2");
         supaClient=createClient(SUPA_URL,SUPA_KEY);
         channel=supaClient
           .channel("gestionale_sync")
@@ -12524,7 +12527,39 @@ export default function App() {
               {(!formAgente.email||!formAgente.password)&&<p style={{fontSize:11,color:"#aaa",margin:"6px 0 0"}}>Senza email e password l'agente non può accedere al gestionale.</p>}
             </div>
           </>)}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false,inReport:["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente")?formAgente.inReport!==false:false}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id,inReport:["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente")?formAgente.inReport!==false:false}:a));setShowAgente(null);}}>Salva</button></div>
+
+          {/* Permessi accesso app (Modulistica / Gestionale / Operatività) — modificabili solo da Broker e Erica */}
+          {formAgente.profilo!=="Broker"&&(isBroker||isBackOffice)&&(()=>{
+            // Default: se permessi mancano, considera abilitato (true)
+            const perm = formAgente.permessi || {modulistica:true,gestionale:true,operativita:true};
+            const setPerm = (k,v) => setFormAgente({...formAgente,permessi:{...perm,[k]:v}});
+            return(<div style={{borderTop:"0.5px solid #eee",paddingTop:12,marginTop:4,marginBottom:10}}>
+              <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"}}>🔐 Permessi accesso app</p>
+              <p style={{fontSize:11,color:"#888",margin:"0 0 10px"}}>Quali app può aprire questo agente. Spegnere un permesso impedisce l'accesso all'app corrispondente.</p>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:8}}>
+                {[
+                  {k:"gestionale",lbl:"🏠 Gestionale",desc:"questa app"},
+                  {k:"modulistica",lbl:"📋 Modulistica",desc:"app moduli e contratti"},
+                  {k:"operativita",lbl:"📅 Operatività",desc:"agenda e attività"}
+                ].map(p=>(
+                  <label key={p.k} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",border:`0.5px solid ${perm[p.k]!==false?BRAND.oro:"#ddd"}`,borderRadius:6,background:perm[p.k]!==false?"#FDFBF7":"#fafaf8",cursor:"pointer"}}>
+                    <input type="checkbox" checked={perm[p.k]!==false} onChange={e=>setPerm(p.k,e.target.checked)} style={{marginTop:2}}/>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:600,color:perm[p.k]!==false?"#2C2C2C":"#888"}}>{p.lbl}</div>
+                      <div style={{fontSize:10,color:"#aaa",marginTop:1}}>{p.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>);
+          })()}
+          {/* Broker: i permessi sono SEMPRE tutti attivi e non modificabili */}
+          {formAgente.profilo==="Broker"&&(isBroker||isBackOffice)&&(<div style={{borderTop:"0.5px solid #eee",paddingTop:12,marginTop:4,marginBottom:10}}>
+            <p style={{fontSize:11,fontWeight:600,color:BRAND.oroD,textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"}}>🔐 Permessi accesso app</p>
+            <p style={{fontSize:11,color:"#888",margin:0}}>👑 Il Broker ha sempre accesso a tutte le app (Gestionale, Modulistica, Operatività).</p>
+          </div>)}
+
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1.25rem"}}><button style={S.btn} onClick={()=>setShowAgente(null)}>Annulla</button><button style={S.btnP} onClick={()=>{if(!formAgente.nome||!formAgente.cognome)return;const isNewBroker=formAgente.profilo==="Broker";const permessiSalva = isNewBroker?{modulistica:true,gestionale:true,operativita:true}:(formAgente.permessi||{modulistica:true,gestionale:true,operativita:true});if(showAgente==="new")setAgenti([...agenti,{...formAgente,id:Date.now(),attivo:formAgente.attivo!==false,inReport:["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente")?formAgente.inReport!==false:false,permessi:permessiSalva}]);else setAgenti(agenti.map(a=>a.id===showAgente.id?{...formAgente,id:a.id,inReport:["Broker","Consulente","Collaboratore"].includes(formAgente.profilo||"Consulente")?formAgente.inReport!==false:false,permessi:permessiSalva}:a));setShowAgente(null);}}>Salva</button></div>
         </div>
       </div>)}
 
