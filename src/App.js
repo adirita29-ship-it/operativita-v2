@@ -11986,33 +11986,33 @@ export default function App() {
                       Totale previsionale: <strong>€ {fmt(GRCAT[tipo].tot)}</strong>
                     </span>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 120px 84px 100px 34px",gap:0,padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 110px 70px 108px 44px",gap:0,padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
                     {["Categoria","Totale annuo","Stima/mese","Tipo",""].map((h,i)=>(
                       <div key={i} style={{fontSize:10,fontWeight:600,color:"#888",textAlign:i===1||i===2?"right":i===3?"center":"left"}}>{h}</div>
                     ))}
                   </div>
                   {cats.map(cat=>(
-                    <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 84px 100px 34px",gap:0,padding:"9px 14px",borderBottom:"0.5px solid #f5f5f5",alignItems:"center"}}>
+                    <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 70px 108px 44px",gap:0,padding:"9px 14px",borderBottom:"0.5px solid #f5f5f5",alignItems:"center"}}>
                       {catCostiEditId===cat.id
                         ?<input autoFocus style={{...S.inp,margin:0,fontSize:12}} value={cat.nome} onChange={e=>updCat(cat.id,"nome",e.target.value)} onBlur={()=>setCatCostiEditId(null)}/>
                         :<div style={{fontSize:13,fontWeight:500,cursor:"pointer"}} onDoubleClick={()=>setCatCostiEditId(cat.id)}>{cat.nome}</div>
                       }
                       <div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                         <span style={{fontSize:12,color:"#888"}}>€</span>
-                        <input type="number" min="0" style={{width:84,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:GRCAT[tipo].col}}
+                        <input type="number" min="0" style={{width:74,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:GRCAT[tipo].col}}
                           value={cat.totaleAnno||""} placeholder="0"
                           onChange={e=>updCat(cat.id,"totaleAnno",Number(e.target.value))}/>
                       </div>
                       <div style={{fontSize:12,color:"#aaa",textAlign:"right"}}>~ € {fmt(Math.round(Number(cat.totaleAnno||0)/12))}</div>
-                      <div style={{display:"flex",justifyContent:"center"}}>
+                      <div style={{display:"flex",justifyContent:"center",minWidth:0,padding:"0 6px"}}>
                         <select value={cat.tipo||"fisso"} onChange={e=>updCat(cat.id,"tipo",e.target.value)} title="Sposta tra Fissi, Variabili e Finanziamenti"
-                          style={{fontSize:11,border:"0.5px solid #e8e5e0",borderRadius:6,padding:"3px 4px",fontFamily:"inherit",cursor:"pointer",color:GRCAT[cat.tipo||"fisso"]?.col||"#185FA5",fontWeight:600,background:"#fff"}}>
+                          style={{fontSize:11,border:"0.5px solid #e8e5e0",borderRadius:6,padding:"3px 4px",fontFamily:"inherit",cursor:"pointer",color:GRCAT[cat.tipo||"fisso"]?.col||"#185FA5",fontWeight:600,background:"#fff",width:"100%",minWidth:0,maxWidth:"100%",boxSizing:"border-box"}}>
                           <option value="fisso">📌 Fisso</option>
                           <option value="variabile">📊 Variabile</option>
                           <option value="finanziamento">🏦 Finanziamento</option>
                         </select>
                       </div>
-                      <button onClick={()=>delCat(cat)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
+                      <button onClick={()=>delCat(cat)} title="Elimina categoria" style={{justifySelf:"center",width:28,height:28,borderRadius:7,border:"0.5px solid #f0d8d8",background:"#fdf2f2",cursor:"pointer",fontSize:14,color:"#C0392B",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0}}>🗑</button>
                     </div>
                   ))}
                   {cats.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12,fontStyle:"italic"}}>Nessuna categoria {tipo}. Aggiungi con il bottone in basso.</div>}
