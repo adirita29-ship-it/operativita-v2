@@ -989,6 +989,7 @@ export default function App() {
   const [formNuovaCatAg,setFormNuovaCatAg]=useState(null);
   const [costiAnno,setCostiAnno]=useState(annoCorrente);
   const [costiSubTab,setCostiSubTab]=useState("anno"); // "anno" = vista anno singolo, "confronto" = confronto anni
+  const [costiVista,setCostiVista]=useState("riepilogo"); // "riepilogo" | "fisso" | "variabile" | "finanziamento"
   const [costiAnnoAg,setCostiAnnoAg]=useState("2025"); // anno separato per agente
   const [obiettivoFatturato,setObiettivoFatturato]=useState(_ls?.obiettivoFatturato||0);
   const [obiettivoQuotaAgenzia,setObiettivoQuotaAgenzia]=useState(_ls?.obiettivoQuotaAgenzia||0);
@@ -5970,6 +5971,20 @@ export default function App() {
             const apriRipeti=(sp,cat)=>setFormSpesa({data:meseSuccessivo(sp.data),descrizione:sp.descrizione||"",importo:String(sp.importo||""),catId:cat.id,note:sp.note||""});
             const ANNI_C=[...new Set([...catCosti.map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
             const sC2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
+            // === SOTTO-PAGINE COSTI: gruppi + totali per gruppo ===
+            const GRUPPI=[
+              {key:"fisso",label:"Fisse",icona:"📌",colore:"#185FA5"},
+              {key:"variabile",label:"Variabili",icona:"📊",colore:"#E67E22"},
+              {key:"finanziamento",label:"Finanziamenti",icona:"🏦",colore:"#0F6E56"},
+            ];
+            const gruppoTot=(key)=>{
+              const cats=catAnnoC.filter(c=>c.tipo===key);
+              const prev=cats.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+              const speso=cats.reduce((s,c)=>s+speseByCat(c.id).reduce((a,x)=>a+Number(x.importo||0),0),0);
+              const nSpese=cats.reduce((s,c)=>s+speseByCat(c.id).length,0);
+              return {cats,prev,speso,nSpese,rimanente:Math.max(0,prev-speso),perc:prev>0?Math.min(100,Math.round(speso/prev*100)):null};
+            };
+            const gruppoAttivo=GRUPPI.find(g=>g.key===costiVista);
             return(<div style={S.sec}>
               {isReadOnly&&<div style={{background:"#EAF4FB",border:"0.5px solid #2980B944",borderRadius:8,padding:"8px 14px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#0C447C"}}>
                 👁 <strong>Sola lettura</strong> — puoi vedere i dati ma non modificarli
@@ -6028,7 +6043,7 @@ export default function App() {
                     <div style={{background:accentBg,borderBottom:"0.5px solid "+accentBd,padding:"14px 18px",display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
                       <div>
                         <div style={{fontSize:15,fontWeight:600,color:accentTx}}>{isEdit?"✏️ Modifica spesa":"+ Nuova spesa"}</div>
-                        <div style={{fontSize:12,color:accentTx,opacity:.85,marginTop:2}}>{catSel?(catSel.tipo==="fisso"?"📌 Fisse":"📊 Variabili")+" · "+catSel.nome:"Anno "+annoC}</div>
+                        <div style={{fontSize:12,color:accentTx,opacity:.85,marginTop:2}}>{catSel?((GRUPPI.find(g=>g.key===catSel.tipo)||{icona:"",label:""}).icona+" "+(GRUPPI.find(g=>g.key===catSel.tipo)||{label:catSel.tipo}).label)+" · "+catSel.nome:"Anno "+annoC}</div>
                       </div>
                       <button onClick={()=>setFormSpesa(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#999",lineHeight:1}}>✕</button>
                     </div>
@@ -6050,6 +6065,7 @@ export default function App() {
                             <option value="">Seleziona...</option>
                             <option value="fisso">📌 Fisso</option>
                             <option value="variabile">📊 Variabile</option>
+                            <option value="finanziamento">🏦 Finanziamento</option>
                           </select>
                         </div>
                         <div><label style={S.lbl}>Categoria</label>
@@ -6070,22 +6086,54 @@ export default function App() {
                 </div>);
               })()}
 
-              {/* Categorie con spese */}
-              <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
+              {/* === NAVIGAZIONE SOTTO-PAGINE COSTI === */}
+              <div style={{display:"flex",gap:6,marginBottom:"1.25rem",flexWrap:"wrap"}}>
+                {[{key:"riepilogo",label:"Riepilogo",icona:"📊",colore:"#633806"},...GRUPPI].map(g=>{
+                  const att=costiVista===g.key;
+                  return(<button key={g.key} onClick={()=>setCostiVista(g.key)} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:13,padding:"7px 16px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontWeight:att?600:500,border:`0.5px solid ${att?g.colore:"#e0ddd5"}`,background:att?g.colore:"#fff",color:att?"#fff":"#888"}}>{g.icona} {g.label}</button>);
+                })}
+              </div>
+
+              {/* === PAGINA RIEPILOGO (cruscotto per gruppo) === */}
+              {costiVista==="riepilogo"&&<div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:"1.5rem"}}>
+                {GRUPPI.map(g=>{
+                  const t=gruppoTot(g.key);
+                  return(<div key={g.key} style={{background:"#fff",border:"0.5px solid #e8e5e0",borderLeft:`4px solid ${g.colore}`,borderRadius:"0 10px 10px 0",padding:"14px 16px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:t.cats.length>0?8:0,flexWrap:"wrap",gap:8}}>
+                      <span style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:15,fontWeight:600,color:g.colore}}>{g.icona} {g.label}</span>
+                        <span style={{fontSize:11,color:"#aaa"}}>{t.cats.length>0?`· ${t.cats.length} categorie · ${t.nSpese} spese`:"· nessuna categoria"}</span>
+                      </span>
+                      <button onClick={()=>setCostiVista(g.key)} style={{fontSize:12,color:g.colore,border:`0.5px solid ${g.colore}55`,background:"#fff",padding:"5px 12px",borderRadius:7,cursor:"pointer",fontFamily:"inherit"}}>Gestisci ›</button>
+                    </div>
+                    {t.cats.length>0?<>
+                      <div style={{display:"flex",gap:20,flexWrap:"wrap",fontSize:12,marginBottom:7}}>
+                        <span style={{color:"#888"}}>Prev <strong style={{color:"#633806"}}>€ {fmt(Math.round(t.prev))}</strong></span>
+                        <span style={{color:"#888"}}>Speso <strong style={{color:"#E67E22"}}>€ {fmt(Math.round(t.speso))}</strong></span>
+                        <span style={{color:"#888"}}>Rimanente <strong style={{color:"#27AE60"}}>€ {fmt(Math.round(t.rimanente))}</strong></span>
+                        {t.perc!=null&&<span style={{color:g.colore,marginLeft:"auto",fontWeight:600}}>{t.perc}%</span>}
+                      </div>
+                      <div style={{height:6,background:"#f0f0f0",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",width:(t.perc||0)+"%",background:g.colore,borderRadius:3}}/></div>
+                    </>:<div style={{fontSize:12,color:"#bbb"}}>Aggiungi categorie in Impostazioni → Categorie Costi (tipo “{g.label}”).</div>}
+                  </div>);
+                })}
+              </div>}
+
+              {/* === PAGINA GRUPPO (lista categorie del gruppo attivo) === */}
+              {costiVista!=="riepilogo"&&<div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
                 <div style={{padding:"12px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:4,height:18,borderRadius:2,background:"#E74C3C"}}/>
-                  <span style={{fontSize:13,fontWeight:600,color:"#E74C3C"}}>Spese per categoria</span>
-                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{speseAnnoC.length} spese inserite</span>
+                  <div style={{width:4,height:18,borderRadius:2,background:gruppoAttivo?.colore||"#E74C3C"}}/>
+                  <span style={{fontSize:13,fontWeight:600,color:gruppoAttivo?.colore||"#E74C3C"}}>{gruppoAttivo?.icona} {gruppoAttivo?.label} — spese per categoria</span>
+                  <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>{gruppoTot(costiVista).nSpese} spese</span>
                 </div>
-                {catAnnoC.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria configurata per {annoC}.<br/>Vai in Impostazioni → Categorie Costi.</div>}
-                {["fisso","variabile"].map(tipo=>{
+                {gruppoTot(costiVista).cats.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:12}}>Nessuna categoria “{gruppoAttivo?.label}” per {annoC}.<br/>Aggiungila in Impostazioni → Categorie Costi.</div>}
+                {[costiVista].map(tipo=>{
                   const cats=catAnnoC.filter(c=>c.tipo===tipo);
                   if(cats.length===0) return null;
                   const totTipo=cats.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
                   const spasTipo=cats.reduce((s,c)=>s+speseByCat(c.id).reduce((a,x)=>a+Number(x.importo||0),0),0);
                   return(<div key={tipo}>
-                    <div style={{padding:"7px 16px",background:tipo==="fisso"?"#E6F1FB22":"#EEEDFE22",borderBottom:"0.5px solid #eee",display:"flex",alignItems:"center",gap:8}}>
-                      <span style={{fontSize:10,fontWeight:700,color:tipo==="fisso"?"#185FA5":"#533AB7",textTransform:"uppercase",letterSpacing:".08em"}}>{tipo==="fisso"?"📌 Fissi":"📊 Variabili"}</span>
+                    <div style={{padding:"7px 16px",background:"#fafaf8",borderBottom:"0.5px solid #eee",display:"flex",alignItems:"center",gap:8}}>
                       <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>Prev: € {fmt(Math.round(totTipo))} · Speso: € {fmt(Math.round(spasTipo))}</span>
                     </div>
                     {cats.map(cat=>{
@@ -6140,16 +6188,17 @@ export default function App() {
                     })}
                   </div>);
                 })}
-                {/* Totale */}
+                {/* Totale gruppo */}
+                {(()=>{const tg=gruppoTot(costiVista);return(
                 <div style={{background:"#FFFBF0",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"2px solid #f0e8d0"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:"#633806"}}>TOTALE {annoC}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:"#633806"}}>TOTALE {gruppoAttivo?.label} {annoC}</span>
                   <div style={{display:"flex",gap:24}}>
-                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Previsionale</div><div style={{fontSize:14,fontWeight:700,color:"#633806"}}>€ {fmt(Math.round(totPrev))}</div></div>
-                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Speso YTD</div><div style={{fontSize:14,fontWeight:700,color:"#E67E22"}}>€ {fmt(Math.round(totSpeso))}</div></div>
-                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Rimanente</div><div style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>€ {fmt(Math.max(0,Math.round(totPrev-totSpeso)))}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Previsionale</div><div style={{fontSize:14,fontWeight:700,color:"#633806"}}>€ {fmt(Math.round(tg.prev))}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Speso</div><div style={{fontSize:14,fontWeight:700,color:"#E67E22"}}>€ {fmt(Math.round(tg.speso))}</div></div>
+                    <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#aaa"}}>Rimanente</div><div style={{fontSize:14,fontWeight:700,color:"#27AE60"}}>€ {fmt(Math.round(tg.rimanente))}</div></div>
                   </div>
-                </div>
-              </div>
+                </div>);})()}
+              </div>}
               </>}
 
               {/* ===== SUB-TAB CONFRONTO ANNI ===== */}
@@ -11888,8 +11937,11 @@ export default function App() {
               const catAnno=catCosti.filter(c=>c.anno===annoNum);
               const catFisse=catAnno.filter(c=>c.tipo==="fisso");
               const catVar=catAnno.filter(c=>c.tipo==="variabile");
+              const catFin=catAnno.filter(c=>c.tipo==="finanziamento");
               const totFissi=catFisse.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
               const totVar=catVar.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+              const totFin=catFin.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
+              const GRCAT={fisso:{lbl:"📌 Costi Fissi",col:"#185FA5",tot:totFissi},variabile:{lbl:"📊 Costi Variabili",col:"#533AB7",tot:totVar},finanziamento:{lbl:"🏦 Finanziamenti",col:"#0F6E56",tot:totFin}};
               const anniDisp=[...new Set(catCosti.map(c=>c.anno))].sort((a,b)=>b-a);
               const annoCorrente2=new Date().getFullYear();
               const copiaAnnoSucc=()=>{
@@ -11925,13 +11977,13 @@ export default function App() {
               };
               const renderCatList=(cats,tipo)=>(
                 <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.25rem"}}>
-                  <div style={{padding:"10px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8,background:tipo==="fisso"?"#E6F1FB22":"#EEEDFE22"}}>
-                    <div style={{width:4,height:16,borderRadius:2,background:tipo==="fisso"?"#185FA5":"#533AB7"}}/>
-                    <span style={{fontSize:12,fontWeight:700,color:tipo==="fisso"?"#185FA5":"#533AB7",textTransform:"uppercase",letterSpacing:".08em"}}>
-                      {tipo==="fisso"?"📌 Costi Fissi":"📊 Costi Variabili"}
+                  <div style={{padding:"10px 16px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:8,background:"#fafaf8"}}>
+                    <div style={{width:4,height:16,borderRadius:2,background:GRCAT[tipo].col}}/>
+                    <span style={{fontSize:12,fontWeight:700,color:GRCAT[tipo].col,textTransform:"uppercase",letterSpacing:".08em"}}>
+                      {GRCAT[tipo].lbl}
                     </span>
                     <span style={{fontSize:11,color:"#aaa",marginLeft:"auto"}}>
-                      Totale previsionale: <strong>€ {fmt(tipo==="fisso"?totFissi:totVar)}</strong>
+                      Totale previsionale: <strong>€ {fmt(GRCAT[tipo].tot)}</strong>
                     </span>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 120px 84px 100px 34px",gap:0,padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
@@ -11947,16 +11999,17 @@ export default function App() {
                       }
                       <div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                         <span style={{fontSize:12,color:"#888"}}>€</span>
-                        <input type="number" min="0" style={{width:84,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:tipo==="fisso"?"#185FA5":"#533AB7"}}
+                        <input type="number" min="0" style={{width:84,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:GRCAT[tipo].col}}
                           value={cat.totaleAnno||""} placeholder="0"
                           onChange={e=>updCat(cat.id,"totaleAnno",Number(e.target.value))}/>
                       </div>
                       <div style={{fontSize:12,color:"#aaa",textAlign:"right"}}>~ € {fmt(Math.round(Number(cat.totaleAnno||0)/12))}</div>
                       <div style={{display:"flex",justifyContent:"center"}}>
-                        <select value={cat.tipo||"fisso"} onChange={e=>updCat(cat.id,"tipo",e.target.value)} title="Sposta tra Fissi e Variabili"
-                          style={{fontSize:11,border:"0.5px solid #e8e5e0",borderRadius:6,padding:"3px 4px",fontFamily:"inherit",cursor:"pointer",color:cat.tipo==="fisso"?"#185FA5":"#533AB7",fontWeight:600,background:"#fff"}}>
+                        <select value={cat.tipo||"fisso"} onChange={e=>updCat(cat.id,"tipo",e.target.value)} title="Sposta tra Fissi, Variabili e Finanziamenti"
+                          style={{fontSize:11,border:"0.5px solid #e8e5e0",borderRadius:6,padding:"3px 4px",fontFamily:"inherit",cursor:"pointer",color:GRCAT[cat.tipo||"fisso"]?.col||"#185FA5",fontWeight:600,background:"#fff"}}>
                           <option value="fisso">📌 Fisso</option>
                           <option value="variabile">📊 Variabile</option>
+                          <option value="finanziamento">🏦 Finanziamento</option>
                         </select>
                       </div>
                       <button onClick={()=>delCat(cat)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
@@ -11985,11 +12038,11 @@ export default function App() {
                 </div>
 
                 {/* Totale generale */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:"1.5rem"}}>
-                  {[["📌 Totale fissi",totFissi,"#185FA5"],["📊 Totale variabili",totVar,"#533AB7"],["💰 Totale generale",totFissi+totVar,"#633806"]].map(([lbl,val,clr])=>(
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.5rem"}}>
+                  {[["📌 Fissi",totFissi,"#185FA5"],["📊 Variabili",totVar,"#533AB7"],["🏦 Finanziamenti",totFin,"#0F6E56"],["💰 Generale",totFissi+totVar+totFin,"#633806"]].map(([lbl,val,clr])=>(
                     <div key={lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"1rem",textAlign:"center",borderTop:`3px solid ${clr}`}}>
                       <div style={{fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{lbl}</div>
-                      <div style={{fontSize:22,fontWeight:700,color:clr}}>€ {fmt(Math.round(val))}</div>
+                      <div style={{fontSize:20,fontWeight:700,color:clr}}>€ {fmt(Math.round(val))}</div>
                       <div style={{fontSize:10,color:"#aaa",marginTop:4}}>~ € {fmt(Math.round(val/12))} / mese</div>
                     </div>
                   ))}
@@ -12012,6 +12065,7 @@ export default function App() {
                       <select style={S.inp} value={formNuovaCat.tipo} onChange={e=>setFormNuovaCat({...formNuovaCat,tipo:e.target.value})}>
                         <option value="fisso">Fisso</option>
                         <option value="variabile">Variabile</option>
+                        <option value="finanziamento">Finanziamento</option>
                       </select>
                     </div>
                     <div style={{display:"flex",gap:6}}>
@@ -12023,8 +12077,9 @@ export default function App() {
 
                 {renderCatList(catFisse,"fisso")}
                 {renderCatList(catVar,"variabile")}
+                {renderCatList(catFin,"finanziamento")}
                 <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
-                  <strong>💡 Come funziona</strong> — Modifica i totali annui in questa pagina. Usa "📥 Usa {annoNum} come base {annoNum+1}" per copiare il previsionale nell\'anno successivo. Sposta una categoria tra Fissi e Variabili dal menu <strong>Tipo</strong>. Le spese reali le inserisci nel tab Costi.
+                  <strong>💡 Come funziona</strong> — Modifica i totali annui in questa pagina. Usa "📥 Usa {annoNum} come base {annoNum+1}" per copiare il previsionale nell\'anno successivo. Sposta una categoria tra Fissi, Variabili e Finanziamenti dal menu <strong>Tipo</strong>. Le spese reali le inserisci nel tab Costi.
                 </div>
 
                 {/* Modale eliminazione sicura: solo se la categoria ha spese registrate quest'anno */}
