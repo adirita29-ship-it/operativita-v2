@@ -982,6 +982,7 @@ export default function App() {
   const [impCostiTipo,setImpCostiTipo]=useState("fisso");
   const [formNuovaCat,setFormNuovaCat]=useState(null);
   const [catCostiEditId,setCatCostiEditId]=useState(null);
+  const [delCatTarget,setDelCatTarget]=useState(null); // categoria in attesa di conferma eliminazione (se ha spese)
   const [formSpesa,setFormSpesa]=useState(null);
   const [costiCatExpand,setCostiCatExpand]=useState({});
   const [showGestCat,setShowGestCat]=useState(false);
@@ -11900,7 +11901,22 @@ export default function App() {
                 setImpCostiAnno(String(nextAnno));
               };
               const updCat=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
-              const delCat=(id)=>{if(window.confirm("Eliminare questa categoria?"))setCatCosti(prev=>prev.filter(c=>c.id!==id));};
+              const delCatRaw=(id)=>setCatCosti(prev=>prev.filter(c=>c.id!==id));
+              const speseDiCat=(id)=>(speseCosti[String(annoNum)]||[]).filter(s=>s.catId===id);
+              // Eliminazione: se la categoria ha spese registrate quest'anno apre il modale di scelta, altrimenti conferma semplice
+              const delCat=(cat)=>{
+                const sp=speseDiCat(cat.id);
+                if(sp.length===0){ if(window.confirm("Eliminare la categoria \""+(cat.nome||"")+"\" per il "+annoNum+"?")) delCatRaw(cat.id); }
+                else setDelCatTarget(cat);
+              };
+              // Sposta una categoria tra Fissi e Variabili (un clic, mantiene spese e storico)
+              const spostaTipo=(cat)=>{ updCat(cat.id,"tipo",cat.tipo==="fisso"?"variabile":"fisso"); setDelCatTarget(null); };
+              // Elimina la categoria E le sue spese dell'anno (mantiene i totali coerenti)
+              const eliminaConSpese=(cat)=>{
+                delCatRaw(cat.id);
+                setSpeseCosti(prev=>({...prev,[String(annoNum)]:(prev[String(annoNum)]||[]).filter(s=>s.catId!==cat.id)}));
+                setDelCatTarget(null);
+              };
               const addCat=()=>{
                 if(!formNuovaCat?.nome?.trim())return;
                 const newId="lx_"+Date.now();
@@ -11918,25 +11934,32 @@ export default function App() {
                       Totale previsionale: <strong>€ {fmt(tipo==="fisso"?totFissi:totVar)}</strong>
                     </span>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 40px",gap:0,padding:"7px 14px",background:"#fafal8",borderBottom:"1px solid #eee"}}>
-                    {["Categoria","Totale annuo","Stima/mese",""].map((h,i)=>(
-                      <div key={i} style={{fontSize:10,fontWeight:600,color:"#888",textAlign:i===1||i===2?"right":"left"}}>{h}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 120px 84px 100px 34px",gap:0,padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
+                    {["Categoria","Totale annuo","Stima/mese","Tipo",""].map((h,i)=>(
+                      <div key={i} style={{fontSize:10,fontWeight:600,color:"#888",textAlign:i===1||i===2?"right":i===3?"center":"left"}}>{h}</div>
                     ))}
                   </div>
                   {cats.map(cat=>(
-                    <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 130px 110px 40px",gap:0,padding:"9px 14px",borderBottom:"0.5px solid #f5f5f5",alignItems:"center"}}>
+                    <div key={cat.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 84px 100px 34px",gap:0,padding:"9px 14px",borderBottom:"0.5px solid #f5f5f5",alignItems:"center"}}>
                       {catCostiEditId===cat.id
                         ?<input autoFocus style={{...S.inp,margin:0,fontSize:12}} value={cat.nome} onChange={e=>updCat(cat.id,"nome",e.target.value)} onBlur={()=>setCatCostiEditId(null)}/>
                         :<div style={{fontSize:13,fontWeight:500,cursor:"pointer"}} onDoubleClick={()=>setCatCostiEditId(cat.id)}>{cat.nome}</div>
                       }
                       <div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"flex-end"}}>
                         <span style={{fontSize:12,color:"#888"}}>€</span>
-                        <input type="number" min="0" style={{width:90,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:tipo==="fisso"?"#185FA5":"#533AB7"}}
+                        <input type="number" min="0" style={{width:84,textAlign:"right",fontSize:13,fontWeight:600,border:"0.5px solid #e8e5e0",borderRadius:5,padding:"3px 6px",fontFamily:"inherit",color:tipo==="fisso"?"#185FA5":"#533AB7"}}
                           value={cat.totaleAnno||""} placeholder="0"
                           onChange={e=>updCat(cat.id,"totaleAnno",Number(e.target.value))}/>
                       </div>
                       <div style={{fontSize:12,color:"#aaa",textAlign:"right"}}>~ € {fmt(Math.round(Number(cat.totaleAnno||0)/12))}</div>
-                      <button onClick={()=>delCat(cat.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
+                      <div style={{display:"flex",justifyContent:"center"}}>
+                        <select value={cat.tipo||"fisso"} onChange={e=>updCat(cat.id,"tipo",e.target.value)} title="Sposta tra Fissi e Variabili"
+                          style={{fontSize:11,border:"0.5px solid #e8e5e0",borderRadius:6,padding:"3px 4px",fontFamily:"inherit",cursor:"pointer",color:cat.tipo==="fisso"?"#185FA5":"#533AB7",fontWeight:600,background:"#fff"}}>
+                          <option value="fisso">📌 Fisso</option>
+                          <option value="variabile">📊 Variabile</option>
+                        </select>
+                      </div>
+                      <button onClick={()=>delCat(cat)} style={{background:"none",border:"none",cursor:"pointer",fontSize:15,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>
                     </div>
                   ))}
                   {cats.length===0&&<div style={{padding:"1.5rem",textAlign:"center",color:"#bbb",fontSize:12,fontStyle:"italic"}}>Nessuna categoria {tipo}. Aggiungi con il bottone in basso.</div>}
@@ -12001,8 +12024,31 @@ export default function App() {
                 {renderCatList(catFisse,"fisso")}
                 {renderCatList(catVar,"variabile")}
                 <div style={{background:"#FDF6EC",borderLeft:"3px solid #A8863A",borderRadius:"0 8px 8px 0",padding:"10px 14px",fontSize:12,color:"#633806"}}>
-                  <strong>💡 Come funziona</strong> — Modifica i totali annui in questa pagina. Usa "📥 Usa {annoNum} come base {annoNum+1}" per copiare il previsionale nell\'anno successivo. Le spese reali le inserisci nel tab Costi.
+                  <strong>💡 Come funziona</strong> — Modifica i totali annui in questa pagina. Usa "📥 Usa {annoNum} come base {annoNum+1}" per copiare il previsionale nell\'anno successivo. Sposta una categoria tra Fissi e Variabili dal menu <strong>Tipo</strong>. Le spese reali le inserisci nel tab Costi.
                 </div>
+
+                {/* Modale eliminazione sicura: solo se la categoria ha spese registrate quest'anno */}
+                {delCatTarget&&(()=>{
+                  const spDel=speseDiCat(delCatTarget.id);
+                  const totDel=spDel.reduce((s,x)=>s+Number(x.importo||0),0);
+                  const versoTipo=delCatTarget.tipo==="fisso"?"Variabili":"Fissi";
+                  return(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setDelCatTarget(null)}>
+                    <div style={{...S.modal,width:"min(96vw,440px)"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:15,fontWeight:600,color:"#A32D2D",marginBottom:10}}>⚠️ Attenzione</div>
+                      <div style={{fontSize:13,color:"#2C2C2C",lineHeight:1.6,marginBottom:6}}>
+                        La categoria <strong>"{delCatTarget.nome}"</strong> ha <strong>{spDel.length} {spDel.length===1?"spesa registrata":"spese registrate"}</strong> per € {fmt(Math.round(totDel))} nel {annoNum}.
+                      </div>
+                      <div style={{fontSize:12,color:"#888",lineHeight:1.6,marginBottom:16}}>
+                        Se la <strong>sposti in {versoTipo}</strong> mantieni tutto. Se la <strong>elimini comunque</strong>, verranno cancellate anche le sue {spDel.length} spese del {annoNum}.
+                      </div>
+                      <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+                        <button onClick={()=>setDelCatTarget(null)} style={{...S.btn,fontSize:12}}>Annulla</button>
+                        <button onClick={()=>spostaTipo(delCatTarget)} style={{...S.btn,fontSize:12,background:"#FDF6EC",border:"0.5px solid #ECD6AD",color:"#A8863A"}}>↔ Sposta in {versoTipo}</button>
+                        <button onClick={()=>eliminaConSpese(delCatTarget)} style={{...S.btn,fontSize:12,background:"#A32D2D",border:"0.5px solid #A32D2D",color:"#fff"}}>🗑 Elimina comunque</button>
+                      </div>
+                    </div>
+                  </div>);
+                })()}
               </div>);
             })()}
             {impSezione==="fasi"&&isBroker&&(()=>{const fasi=fasiConfig||FASI;const RUOLI=["agente","erica","broker","entrambi","tutti"];const RLB={agente:"Agente",erica:"Erica RT",broker:"Broker",entrambi:"Ag+Erica",tutti:"Tutti"};const fi=Math.min(impFaseSel,fasi.length-1);const fo=fasi[fi]||fasi[0];const updAz=(ai,upd)=>setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.map((a,j)=>j!==ai?a:{...a,...upd})}));const delAz=(ai)=>setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:f.azioni.filter((_,j)=>j!==ai)}));const mvAz=(ai,d)=>{const nf=fasi.map((f,i)=>{if(i!==fi)return f;const az=[...f.azioni];[az[ai],az[ai+d]]=[az[ai+d],az[ai]];return{...f,azioni:az};});setFasiConfig(nf);};const addAz=()=>{if(!formNuovaAzione.lbl.trim())return;setFasiConfig(fasi.map((f,i)=>i!==fi?f:{...f,azioni:[...f.azioni,{k:"az_"+Date.now(),...formNuovaAzione}]}));setFormNuovaAzione({lbl:"",ruolo:"agente",alert:false});};return(<div><div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}><span style={{fontSize:12,color:"#888"}}>{fasi.length} fasi · {fasi.reduce((s,f)=>s+f.azioni.length,0)} azioni</span>{fasiConfig&&<button style={{...S.btn,fontSize:11,color:"#E74C3C"}} onClick={()=>{if(window.confirm("Ripristinare default?"))setFasiConfig(null);}}>↺ Default</button>}</div><div style={{display:"flex",gap:4,marginBottom:12,flexWrap:"wrap"}}>{fasi.map((f,i)=>(
