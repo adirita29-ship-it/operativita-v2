@@ -1569,10 +1569,7 @@ export default function App() {
 
     const initRealtime=async()=>{
       try{
-        // Hack: avvolgere import() in una Function() lo nasconde dall'analisi webpack/CRA
-        // (altrimenti CRA rifiuta gli import() dinamici di moduli esterni via URL)
-        const dynamicImport = new Function("u","return import(u)");
-        const {createClient}=await dynamicImport("https://esm.sh/@supabase/supabase-js@2");
+        const {createClient}=await import("https://esm.sh/@supabase/supabase-js@2");
         supaClient=createClient(SUPA_URL,SUPA_KEY);
         channel=supaClient
           .channel("gestionale_sync")
@@ -5942,8 +5939,34 @@ export default function App() {
               setSpeseCosti(prev=>({...prev,[annoC]:[...(prev[annoC]||[]),{id,...sp}]}));
               setFormSpesa(null);
             };
+            const updateSpesa=(id,sp)=>{
+              if(isReadOnly) return;
+              setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).map(s=>s.id===id?{...s,...sp}:s)}));
+              setFormSpesa(null);
+            };
+            // Salvataggio unico: se formSpesa.id esiste -> modifica, altrimenti -> nuovo
+            const saveSpesa=()=>{
+              if(!formSpesa) return;
+              if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId){ alert("Compila descrizione, importo e categoria"); return; }
+              const payload={data:formSpesa.data,descrizione:formSpesa.descrizione,importo:formSpesa.importo,catId:formSpesa.catId,note:formSpesa.note||""};
+              if(formSpesa.id) updateSpesa(formSpesa.id,payload); else addSpesa(payload);
+            };
             const delSpesa=(id)=>{ if(isReadOnly) return; setSpeseCosti(prev=>({...prev,[annoC]:(prev[annoC]||[]).filter(s=>s.id!==id)})); };
+            const delSpesaConfirm=(sp)=>{ if(isReadOnly) return; if(window.confirm("Eliminare la spesa \""+(sp.descrizione||"")+"\" da € "+fmt(Number(sp.importo||0))+"?")) delSpesa(sp.id); };
             const speseByCat=(catId)=>speseAnnoC.filter(s=>s.catId===catId);
+            // Data spostata di +1 mese (gestisce mesi di lunghezza diversa)
+            const meseSuccessivo=(dataStr)=>{
+              if(!dataStr) return oggi6;
+              const d=new Date(dataStr); if(isNaN(d)) return oggi6;
+              const giorno=d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+1);
+              const ultimo=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+              d.setDate(Math.min(giorno,ultimo));
+              return d.toISOString().slice(0,10);
+            };
+            // Apre il form per modificare una spesa esistente
+            const apriModifica=(sp,cat)=>setFormSpesa({id:sp.id,data:sp.data||oggi6,descrizione:sp.descrizione||"",importo:String(sp.importo||""),catId:cat.id,note:sp.note||""});
+            // Apre il form in nuova spesa ripetendo una spesa esistente al mese successivo
+            const apriRipeti=(sp,cat)=>setFormSpesa({data:meseSuccessivo(sp.data),descrizione:sp.descrizione||"",importo:String(sp.importo||""),catId:cat.id,note:sp.note||""});
             const ANNI_C=[...new Set([...catCosti.map(c=>String(c.anno)),annoCorrente])].sort((a,b)=>b-a);
             const sC2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"14px 16px"};
             return(<div style={S.sec}>
@@ -5992,32 +6015,59 @@ export default function App() {
               </div>
 
               {/* Form aggiungi spesa */}
-              {formSpesa&&<div style={{...sC2,border:"1px solid #A8863A",marginBottom:"1.5rem"}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#633806",marginBottom:12}}>+ Nuova spesa — {annoC}</div>
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 110px 110px 150px",gap:10,marginBottom:10}}>
-                  <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
-                  <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione} placeholder="es. Bolletta maggio" onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
-                  <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
-                  <div><label style={S.lbl}>Tipologia</label>
-                    <select style={S.inp} value={formSpesa.tipo||""} onChange={e=>setFormSpesa({...formSpesa,tipo:e.target.value,catId:""})}>
-                      <option value="">Seleziona...</option>
-                      <option value="fisso">📌 Fisso</option>
-                      <option value="variabile">📊 Variabile</option>
-                    </select>
+              {formSpesa&&(()=>{
+                const catSel=catAnnoC.find(c=>String(c.id)===String(formSpesa.catId));
+                const isEdit=!!formSpesa.id;
+                const ultima=catSel?speseByCat(catSel.id).slice().sort((a,b)=>(b.data||"").localeCompare(a.data||""))[0]:null;
+                const prevMensile=catSel&&Number(catSel.totaleAnno||0)>0?Math.round(Number(catSel.totaleAnno)/12):0;
+                const MESI=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+                const accent=isEdit?"#A8863A":"#27AE60", accentBg=isEdit?"#FDF6EC":"#F0F8F0", accentBd=isEdit?"#C9A96E":"#CFE4CF", accentTx=isEdit?"#633806":"#1E6B2E";
+                return(<div style={S.overlay} onClick={e=>e.target===e.currentTarget&&setFormSpesa(null)}>
+                  <div style={{...S.modal,width:"min(96vw,460px)",padding:0,overflow:"hidden"}}>
+                    <div style={{background:accentBg,borderBottom:"0.5px solid "+accentBd,padding:"14px 18px",display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
+                      <div>
+                        <div style={{fontSize:15,fontWeight:600,color:accentTx}}>{isEdit?"✏️ Modifica spesa":"+ Nuova spesa"}</div>
+                        <div style={{fontSize:12,color:accentTx,opacity:.85,marginTop:2}}>{catSel?(catSel.tipo==="fisso"?"📌 Fisse":"📊 Variabili")+" · "+catSel.nome:"Anno "+annoC}</div>
+                      </div>
+                      <button onClick={()=>setFormSpesa(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:"#999",lineHeight:1}}>✕</button>
+                    </div>
+                    <div style={{padding:"16px 18px"}}>
+                      {!isEdit&&catSel&&(ultima||prevMensile>0)&&<>
+                        <div style={{fontSize:11,color:"#999",marginBottom:7}}>Scorciatoie</div>
+                        <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+                          {ultima&&<button onClick={()=>setFormSpesa(f=>({...f,descrizione:ultima.descrizione||"",importo:String(ultima.importo||""),data:meseSuccessivo(ultima.data),note:ultima.note||""}))} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"#A8863A",background:"#FDF6EC",border:"0.5px solid #ECD6AD",padding:"7px 12px",borderRadius:8,cursor:"pointer",fontFamily:"inherit"}}>🔁 Ripeti ultimo · € {fmt(Number(ultima.importo||0))}</button>}
+                          {prevMensile>0&&<button onClick={()=>{const m=new Date(formSpesa.data||oggi6);const lbl=isNaN(m)?"":MESI[m.getMonth()];setFormSpesa(f=>({...f,importo:String(prevMensile),descrizione:f.descrizione||(catSel.nome+(lbl?" "+lbl:""))}));}} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"#185FA5",background:"#EEF4FC",border:"0.5px solid #C9DCF2",padding:"7px 12px",borderRadius:8,cursor:"pointer",fontFamily:"inherit"}}>📅 Usa previsionale · € {fmt(prevMensile)}/mese</button>}
+                        </div>
+                      </>}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                        <div><label style={S.lbl}>Data</label><input type="date" style={S.inp} value={formSpesa.data} onChange={e=>setFormSpesa({...formSpesa,data:e.target.value})}/></div>
+                        <div><label style={S.lbl}>Importo (€)</label><input type="number" min="0" style={S.inp} value={formSpesa.importo} placeholder="0" onChange={e=>setFormSpesa({...formSpesa,importo:e.target.value})}/></div>
+                      </div>
+                      {!catSel&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                        <div><label style={S.lbl}>Tipologia</label>
+                          <select style={S.inp} value={formSpesa.tipo||""} onChange={e=>setFormSpesa({...formSpesa,tipo:e.target.value,catId:""})}>
+                            <option value="">Seleziona...</option>
+                            <option value="fisso">📌 Fisso</option>
+                            <option value="variabile">📊 Variabile</option>
+                          </select>
+                        </div>
+                        <div><label style={S.lbl}>Categoria</label>
+                          <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})} disabled={!formSpesa.tipo}>
+                            <option value="">{!formSpesa.tipo?"Prima scegli tipologia":"Seleziona..."}</option>
+                            {formSpesa.tipo&&catCosti.filter(c=>c.tipo===formSpesa.tipo&&!c.agentId).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                          </select>
+                        </div>
+                      </div>}
+                      <div><label style={S.lbl}>Descrizione</label><input style={S.inp} value={formSpesa.descrizione} placeholder="es. Canone giugno" onChange={e=>setFormSpesa({...formSpesa,descrizione:e.target.value})}/></div>
+                      <div style={{marginTop:12}}><label style={S.lbl}>Note (opzionale)</label><input style={S.inp} value={formSpesa.note||""} placeholder="Annotazioni..." onChange={e=>setFormSpesa({...formSpesa,note:e.target.value})}/></div>
+                    </div>
+                    <div style={{borderTop:"0.5px solid #eee",padding:"12px 18px",display:"flex",justifyContent:"flex-end",gap:8}}>
+                      <button onClick={()=>setFormSpesa(null)} style={{...S.btn,fontSize:13}}>Annulla</button>
+                      <button onClick={saveSpesa} style={{...S.btnP,fontSize:13,padding:"8px 20px",background:accent,borderColor:accent}}>💾 {isEdit?"Salva modifiche":"Salva spesa"}</button>
+                    </div>
                   </div>
-                  <div><label style={S.lbl}>Categoria</label>
-                    <select style={S.inp} value={formSpesa.catId} onChange={e=>setFormSpesa({...formSpesa,catId:e.target.value})} disabled={!formSpesa.tipo}>
-                      <option value="">{!formSpesa.tipo?"Prima scegli tipologia":"Seleziona..."}</option>
-                      {formSpesa.tipo&&catCosti.filter(c=>c.tipo===formSpesa.tipo&&!c.agentId).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div style={{marginBottom:10}}><label style={S.lbl}>Note (opzionale)</label><input style={S.inp} value={formSpesa.note||""} placeholder="Annotazioni..." onChange={e=>setFormSpesa({...formSpesa,note:e.target.value})}/></div>
-                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                  <button onClick={()=>setFormSpesa(null)} style={{...S.btn,fontSize:12}}>Annulla</button>
-                  <button onClick={()=>{if(!formSpesa.descrizione||!formSpesa.importo||!formSpesa.catId)return alert("Compila descrizione, importo, tipologia e categoria");addSpesa(formSpesa);}} style={{...S.btnP,fontSize:12,padding:"7px 18px"}}>💾 Salva spesa</button>
-                </div>
-              </div>}
+                </div>);
+              })()}
 
               {/* Categorie con spese */}
               <div style={{background:"#fff",borderRadius:12,border:"0.5px solid #e8e5e0",overflow:"hidden",marginBottom:"1.5rem"}}>
@@ -6073,24 +6123,9 @@ export default function App() {
                                 {sp.note&&<div style={{fontSize:11,color:"#aaa"}}>{sp.note}</div>}
                               </div>
                               <div style={{fontSize:14,fontWeight:700,color:"#E74C3C",flexShrink:0}}>€ {fmt(Number(sp.importo||0))}</div>
-                              {!isReadOnly&&idx===0&&<button onClick={()=>{
-                                // Duplica: calcolo data = stesso giorno del mese successivo
-                                let dataNuova=oggi6;
-                                if(sp.data){
-                                  const d=new Date(sp.data);
-                                  if(!isNaN(d)){
-                                    const giorno=d.getDate();
-                                    d.setDate(1); // evita problemi con mesi di lunghezza diversa
-                                    d.setMonth(d.getMonth()+1);
-                                    // riprovo a impostare il giorno; se il mese ha meno giorni, JS lo limita
-                                    const ultimoGiorno=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
-                                    d.setDate(Math.min(giorno,ultimoGiorno));
-                                    dataNuova=d.toISOString().slice(0,10);
-                                  }
-                                }
-                                setFormSpesa({data:dataNuova,descrizione:sp.descrizione||"",importo:String(sp.importo||""),catId:cat.id,note:sp.note||""});
-                              }} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#A8863A",padding:"0 4px"}} title={`Duplica per il mese successivo (${sp.data?fmtD(sp.data).slice(0,5):""})`}>📋</button>}
-                              {!isReadOnly&&<button onClick={()=>delSpesa(sp.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>}
+                              {!isReadOnly&&<button onClick={()=>apriModifica(sp,cat)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#185FA5",padding:"0 4px"}} title="Modifica">✏️</button>}
+                              {!isReadOnly&&<button onClick={()=>apriRipeti(sp,cat)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#A8863A",padding:"0 4px"}} title={`Ripeti al mese successivo (${sp.data?fmtD(sp.data).slice(0,5):""})`}>🔁</button>}
+                              {!isReadOnly&&<button onClick={()=>delSpesaConfirm(sp)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#ddd",padding:"0 4px"}} title="Elimina">🗑</button>}
                             </div>
                           ))}
                           {!isReadOnly&&<div style={{padding:"8px 16px 8px 40px"}}>
