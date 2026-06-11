@@ -11934,7 +11934,7 @@ export default function App() {
 
             {impSezione==="costi"&&(isBroker||isBackOffice)&&(()=>{
               const annoNum=Number(impCostiAnno);
-              const catAnno=catCosti.filter(c=>c.anno===annoNum);
+              const catAnno=catCosti.filter(c=>c.anno===annoNum&&!c.agentId);
               const catFisse=catAnno.filter(c=>c.tipo==="fisso");
               const catVar=catAnno.filter(c=>c.tipo==="variabile");
               const catFin=catAnno.filter(c=>c.tipo==="finanziamento");
@@ -11942,15 +11942,27 @@ export default function App() {
               const totVar=catVar.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
               const totFin=catFin.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
               const GRCAT={fisso:{lbl:"📌 Costi Fissi",col:"#185FA5",tot:totFissi},variabile:{lbl:"📊 Costi Variabili",col:"#533AB7",tot:totVar},finanziamento:{lbl:"🏦 Finanziamenti",col:"#0F6E56",tot:totFin}};
-              const anniDisp=[...new Set(catCosti.map(c=>c.anno))].sort((a,b)=>b-a);
+              const anniDisp=[...new Set([...catCosti.filter(c=>!c.agentId).map(c=>c.anno),Number(annoCorrente)])].sort((a,b)=>b-a);
               const annoCorrente2=new Date().getFullYear();
               const copiaAnnoSucc=()=>{
                 const nextAnno=annoNum+1;
-                const existing=catCosti.filter(c=>c.anno===nextAnno);
+                const existing=catCosti.filter(c=>c.anno===nextAnno&&!c.agentId);
                 if(existing.length>0){if(!window.confirm(`Esistono già ${existing.length} categorie per ${nextAnno}. Sovrascrivere?`))return;}
                 const nuove=catAnno.map(c=>({...c,id:c.id+"_"+nextAnno,anno:nextAnno}));
-                setCatCosti(prev=>[...prev.filter(c=>c.anno!==nextAnno),...nuove]);
+                setCatCosti(prev=>[...prev.filter(c=>!(c.anno===nextAnno&&!c.agentId)),...nuove]);
                 setImpCostiAnno(String(nextAnno));
+              };
+              // Anno d'agenzia più recente (≠ da quello selezionato) con categorie configurate
+              const annoConDati=(()=>{
+                const anni=[...new Set(catCosti.filter(c=>!c.agentId).map(c=>Number(c.anno)))].filter(a=>a!==annoNum&&catCosti.some(c=>c.anno===a&&!c.agentId)).sort((a,b)=>b-a);
+                return anni.length>0?anni[0]:null;
+              })();
+              // Importa le categorie d'agenzia da un altro anno nel selezionato
+              const importaDaAnno=(fromAnno)=>{
+                const src=catCosti.filter(c=>c.anno===Number(fromAnno)&&!c.agentId);
+                if(src.length===0) return;
+                const nuove=src.map(c=>({...c,id:c.id+"_imp"+annoNum,anno:annoNum}));
+                setCatCosti(prev=>[...prev.filter(c=>!(c.anno===annoNum&&!c.agentId)),...nuove]);
               };
               const updCat=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
               const delCatRaw=(id)=>setCatCosti(prev=>prev.filter(c=>c.id!==id));
@@ -12036,6 +12048,12 @@ export default function App() {
                     + Nuova categoria
                   </button>
                 </div>
+
+                {/* Banner disallineamento anno: il tab Costi mostra l'anno con dati (fallback), qui è vuoto */}
+                {catAnno.length===0&&annoConDati&&<div style={{background:"#FDF6EC",border:"0.5px solid #E8C97A",borderRadius:8,padding:"12px 16px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <span style={{fontSize:13,color:"#633806",flex:1,minWidth:220,lineHeight:1.5}}>⚠️ Le categorie del <strong>{annoNum}</strong> non sono ancora configurate. Il tab Costi mostra come riferimento quelle del <strong>{annoConDati}</strong>. Importale qui per gestirle nel {annoNum}.</span>
+                  <button onClick={()=>importaDaAnno(annoConDati)} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap"}}>📥 Importa categorie dal {annoConDati}</button>
+                </div>}
 
                 {/* Totale generale */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.5rem"}}>
