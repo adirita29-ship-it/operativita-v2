@@ -1145,6 +1145,7 @@ export default function App() {
   const [incassiDal,setIncassiDal]=useState(""); const [incassiAl,setIncassiAl]=useState("");
   const [dashIncassiPeriodo,setDashIncassiPeriodo]=useState("settimana"); // per mini-box Dashboard
   const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti"); const [fIncMirino,setFIncMirino]=useState(false);
+  const [ordineInc,setOrdineInc]=useState("recenti"); // recenti | vecchi | scadenza | prezzoAlto | prezzoBasso
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
   const [dashAnno,setDashAnno]=useState(annoCorrente);
@@ -1646,7 +1647,7 @@ export default function App() {
   const mesiFat=useMemo(()=>Array.from(new Set(venduti.filter(v=>fatAnno==="Tutti"||getAnno(dataCompAgenzia(v))===fatAnno).map(v=>getMese(dataCompAgenzia(v))).filter(Boolean))).sort().reverse(),[venduti,fatAnno]);
   const mesiReport=useMemo(()=>Array.from(new Set(venduti.filter(v=>reportAnno==="Tutti"||getAnno(dataCompAgenzia(v))===reportAnno).map(v=>getMese(dataCompAgenzia(v))).filter(Boolean))).sort().reverse(),[venduti,reportAnno]);
 
-  const incFiltrati=useMemo(()=>incarichi.filter(i=>{
+  const incFiltrati=useMemo(()=>{const arr=incarichi.filter(i=>{
     if(i.archiviato&&!mostraArchiviati) return false;
     if(i.categoria!==subInc) return false;
     // Agente: se vuole vede tutti, altrimenti solo i suoi
@@ -1665,7 +1666,19 @@ export default function App() {
     // Ricerca testuale (live, multi-parola)
     if(!matchSearch(searchIncarichi, i.comune, i.indirizzo, i.tipologia, i.nominativo, i.note, i.fonte)) return false;
     return true;
-  }),[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,fIncMirino,mirino,mostraArchiviati,isBroker,myAgentId,incVistaTutti,searchIncarichi]);
+  });
+  const cmpData=(x,y,dir)=>{ if(!x&&!y)return 0; if(!x)return 1; if(!y)return -1; return dir==="desc"?y.localeCompare(x):x.localeCompare(y); };
+  arr.sort((a,b)=>{
+    switch(ordineInc){
+      case "vecchi": return cmpData(a.dataInizio,b.dataInizio,"asc");
+      case "scadenza": { if(!a.scadenza&&!b.scadenza)return 0; if(!a.scadenza)return 1; if(!b.scadenza)return -1; return a.scadenza.localeCompare(b.scadenza); }
+      case "prezzoAlto": return Number(b.prezzoRichiesto||0)-Number(a.prezzoRichiesto||0);
+      case "prezzoBasso": return Number(a.prezzoRichiesto||0)-Number(b.prezzoRichiesto||0);
+      default: return cmpData(a.dataInizio,b.dataInizio,"desc"); // recenti (default)
+    }
+  });
+  return arr;
+  },[incarichi,subInc,fIncStato,fIncAnno,fIncMese,fIncAg,fIncMirino,mirino,mostraArchiviati,isBroker,myAgentId,incVistaTutti,searchIncarichi,ordineInc]);
 
   const cntInc=useMemo(()=>{
     const b=incarichi.filter(i=>{
@@ -3644,6 +3657,16 @@ export default function App() {
               </div>}
               <FiltriInc/>
               <SearchBar value={searchIncarichi} onChange={setSearchIncarichi} placeholder="Cerca immobile, cliente, indirizzo..." nResults={incFiltrati.length}/>
+              <div style={{display:"inline-flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
+                <span style={{fontSize:12,color:"#888"}}>Ordina</span>
+                <select value={ordineInc} onChange={e=>setOrdineInc(e.target.value)} title="Ordina gli incarichi" style={{fontSize:12,border:"0.5px solid #e0ddd5",borderRadius:7,padding:"7px 10px",fontFamily:"inherit",cursor:"pointer",color:"#633806",background:"#fff",fontWeight:500}}>
+                  <option value="recenti">🕒 Più recenti</option>
+                  <option value="vecchi">🕒 Meno recenti</option>
+                  <option value="scadenza">⏰ Scadenza più vicina</option>
+                  <option value="prezzoAlto">💰 Prezzo più alto</option>
+                  <option value="prezzoBasso">💰 Prezzo più basso</option>
+                </select>
+              </div>
             </div>
             <div style={S.cnt}>
               {[["Attivi",cntInc.attivi,STATI_INC.Attivo.clr],["Scaduti",cntInc.scaduti,STATI_INC.Scaduto.clr],[subInc==="affitto"?"Locati":"Venduti",cntInc.venduti,STATI_INC.Venduto.clr]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}
