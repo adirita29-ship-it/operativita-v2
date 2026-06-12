@@ -1147,7 +1147,9 @@ export default function App() {
   const [fIncStato,setFIncStato]=useState("Attivo"); const [fIncAnno,setFIncAnno]=useState("Tutti"); const [incVistaTutti,setIncVistaTutti]=useState(false); const [fIncMese,setFIncMese]=useState("Tutti"); const [fIncAg,setFIncAg]=useState("Tutti"); const [fIncMirino,setFIncMirino]=useState(false);
   const [ordineInc,setOrdineInc]=useState("recenti"); // recenti | vecchi | scadenza | prezzoAlto | prezzoBasso
   const [fPropStato,setFPropStato]=useState("Tutti"); const [fPropAnno,setFPropAnno]=useState(annoCorrente); const [fPropMese,setFPropMese]=useState("Tutti"); const [fPropAg,setFPropAg]=useState("Tutti");
+  const [ordineProp,setOrdineProp]=useState("recenti"); // recenti | vecchi | scadenza | prezzoAlto | prezzoBasso
   const [fVendStato,setFVendStato]=useState("Tutti"); const [fVendAnno,setFVendAnno]=useState(annoCorrente); const [fVendAg,setFVendAg]=useState("Tutti");
+  const [ordineVend,setOrdineVend]=useState("recenti"); // recenti | vecchi | scadenzaIncasso | prezzoAlto | prezzoBasso
   const [dashAnno,setDashAnno]=useState(annoCorrente);
   const [reportAnno,setReportAnno]=useState(annoCorrente); const [reportMese,setReportMese]=useState("Tutti");
   const [fatAgente,setFatAgente]=useState(""); const [fatAnno,setFatAnno]=useState(annoCorrente); const [fatMese,setFatMese]=useState("Tutti"); const [fatStatoIncasso,setFatStatoIncasso]=useState("Tutti");
@@ -1694,7 +1696,7 @@ export default function App() {
     return{attivi:b.filter(i=>["Attivo","In trattativa","Accettata con Vincolo"].includes(statoInc(i))).length,scaduti:b.filter(i=>statoInc(i)==="Scaduto").length,venduti:b.filter(i=>statoInc(i)==="Venduto"||statoInc(i)==="Locato").length};
   },[incarichi,subInc,fIncAnno,fIncMese,fIncAg,isBroker,myAgentId]);
 
-  const propFiltrate=useMemo(()=>proposte.filter(p=>{
+  const propFiltrate=useMemo(()=>{const arr=proposte.filter(p=>{
     if(p.categoria!==subProp) return false;
     // Agente vede solo le proprie proposte
     if(!canViewAll&&!isBackOffice&&myAgentId&&Number(p.agenteAcquirente)!==myAgentId&&Number(p.agenteListing)!==myAgentId&&Number(p.buyerListing)!==myAgentId&&Number(p.buyer)!==myAgentId) return false;
@@ -1705,11 +1707,23 @@ export default function App() {
     // Ricerca testuale (live, multi-parola)
     if(!matchSearch(searchProposte, p.comuneImmobile, p.indirizzoImmobile, p.tipologia, p.nominativoVenditore, p.nomeAcquirente, p.noteStato)) return false;
     return true;
-  }),[proposte,subProp,fPropStato,fPropAnno,fPropMese,fPropAg,isBroker,myAgentId,searchProposte]);
+  });
+  const cmpD=(x,y,dir)=>{ if(!x&&!y)return 0; if(!x)return 1; if(!y)return -1; return dir==="desc"?y.localeCompare(x):x.localeCompare(y); };
+  arr.sort((a,b)=>{
+    switch(ordineProp){
+      case "vecchi": return cmpD(a.dataStato,b.dataStato,"asc");
+      case "scadenza": { if(!a.scadenzaProposta&&!b.scadenzaProposta)return 0; if(!a.scadenzaProposta)return 1; if(!b.scadenzaProposta)return -1; return a.scadenzaProposta.localeCompare(b.scadenzaProposta); }
+      case "prezzoAlto": return Number(b.prezzoOfferto||0)-Number(a.prezzoOfferto||0);
+      case "prezzoBasso": return Number(a.prezzoOfferto||0)-Number(b.prezzoOfferto||0);
+      default: return cmpD(a.dataStato,b.dataStato,"desc"); // recenti
+    }
+  });
+  return arr;
+  },[proposte,subProp,fPropStato,fPropAnno,fPropMese,fPropAg,isBroker,myAgentId,searchProposte,ordineProp]);
 
   const cntProp=useMemo(()=>({attesa:propFiltrate.filter(p=>["In attesa","In attesa / Vincolata"].includes(p.stato)).length,vincolo:propFiltrate.filter(p=>p.stato==="Accettata con Vincolo").length,accettate:propFiltrate.filter(p=>p.stato==="Accettata").length,rifiutate:propFiltrate.filter(p=>["Rifiutata","Mancata Chiusura"].includes(p.stato)).length}),[propFiltrate]);
 
-  const vendFiltrati=useMemo(()=>venduti.filter(v=>{
+  const vendFiltrati=useMemo(()=>{const arr=venduti.filter(v=>{
     if(v.categoria!==subVend) return false;
     // Agente vede solo i propri venduti
     if(!canViewAll&&!isBackOffice&&myAgentId&&Number(v.agenteListing)!==myAgentId&&Number(v.agenteAcquirente)!==myAgentId&&Number(v.buyerListing)!==myAgentId&&Number(v.buyer)!==myAgentId) return false;
@@ -1720,7 +1734,19 @@ export default function App() {
     // Ricerca testuale (live, multi-parola)
     if(!matchSearch(searchVenduti, v.comuneImmobile, v.indirizzoImmobile, v.tipologia, v.nominativoVenditore, v.nomeAcquirente, v.note)) return false;
     return true;
-  }),[venduti,subVend,fVendStato,fVendAnno,fVendAg,isBroker,myAgentId,searchVenduti]);
+  });
+  const cmpD=(x,y,dir)=>{ if(!x&&!y)return 0; if(!x)return 1; if(!y)return -1; return dir==="desc"?y.localeCompare(x):x.localeCompare(y); };
+  arr.sort((a,b)=>{
+    switch(ordineVend){
+      case "vecchi": return cmpD(dataCompAgenzia(a),dataCompAgenzia(b),"asc");
+      case "scadenzaIncasso": { if(!a.scadenzaIncasso&&!b.scadenzaIncasso)return 0; if(!a.scadenzaIncasso)return 1; if(!b.scadenzaIncasso)return -1; return a.scadenzaIncasso.localeCompare(b.scadenzaIncasso); }
+      case "prezzoAlto": return Number(b.prezzoVendita||0)-Number(a.prezzoVendita||0);
+      case "prezzoBasso": return Number(a.prezzoVendita||0)-Number(b.prezzoVendita||0);
+      default: return cmpD(dataCompAgenzia(a),dataCompAgenzia(b),"desc"); // recenti
+    }
+  });
+  return arr;
+  },[venduti,subVend,fVendStato,fVendAnno,fVendAg,isBroker,myAgentId,searchVenduti,ordineVend]);
 
   const cntVend=useMemo(()=>({
     daIncassare:vendFiltrati.filter(v=>calcolaStatoIncasso(v)==="Da incassare").length,
@@ -3896,6 +3922,16 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
               <FiltriProp/>
               <SearchBar value={searchProposte} onChange={setSearchProposte} placeholder="Cerca immobile, venditore, acquirente..." nResults={propFiltrate.length}/>
+              <div style={{display:"inline-flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
+                <span style={{fontSize:12,color:"#888"}}>Ordina</span>
+                <select value={ordineProp} onChange={e=>setOrdineProp(e.target.value)} title="Ordina le proposte" style={{fontSize:12,border:"0.5px solid #e0ddd5",borderRadius:7,padding:"7px 10px",fontFamily:"inherit",cursor:"pointer",color:"#633806",background:"#fff",fontWeight:500}}>
+                  <option value="recenti">🕒 Più recenti</option>
+                  <option value="vecchi">🕒 Meno recenti</option>
+                  <option value="scadenza">⏰ Scadenza proposta più vicina</option>
+                  <option value="prezzoAlto">💰 Prezzo offerto più alto</option>
+                  <option value="prezzoBasso">💰 Prezzo offerto più basso</option>
+                </select>
+              </div>
             </div>
             <div style={S.cnt}>{[["In attesa",cntProp.attesa,"#4A90D9"],["Con vincolo",cntProp.vincolo,"#D4AC0D"],["Accettate",cntProp.accettate,"#27AE60"],["Non concluse",cntProp.rifiutate,"#E74C3C"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh",background:"transparent",border:"none"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:"0 8px"}}>
@@ -4089,6 +4125,16 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
               <FiltriVend/>
               <SearchBar value={searchVenduti} onChange={setSearchVenduti} placeholder="Cerca immobile, venditore, acquirente..." nResults={vendFiltrati.length}/>
+              <div style={{display:"inline-flex",alignItems:"center",gap:6,marginLeft:"auto"}}>
+                <span style={{fontSize:12,color:"#888"}}>Ordina</span>
+                <select value={ordineVend} onChange={e=>setOrdineVend(e.target.value)} title="Ordina i venduti" style={{fontSize:12,border:"0.5px solid #e0ddd5",borderRadius:7,padding:"7px 10px",fontFamily:"inherit",cursor:"pointer",color:"#633806",background:"#fff",fontWeight:500}}>
+                  <option value="recenti">🕒 Più recenti</option>
+                  <option value="vecchi">🕒 Meno recenti</option>
+                  <option value="scadenzaIncasso">⏰ Scadenza incasso più vicina</option>
+                  <option value="prezzoAlto">💰 Prezzo più alto</option>
+                  <option value="prezzoBasso">💰 Prezzo più basso</option>
+                </select>
+              </div>
             </div>
             <div style={S.cnt}>{[["Da incassare",cntVend.daIncassare,"#E67E22"],["Parziale",cntVend.parziale,"#D4AC0D"],["Incassato",cntVend.incassato,"#27AE60"]].map(([l,n,c])=>(<div key={l} style={S.cntBox(c)}><span style={{fontSize:24,fontWeight:700,color:c}}>{n}</span><span style={{fontSize:12,color:"#aaa"}}>{l}</span></div>))}</div>
             <div style={{...S.tblWrap,overflow:"auto",maxHeight:"70vh",background:"transparent",border:"none"}}><table style={{...S.tbl,borderCollapse:"separate",borderSpacing:"0 8px"}}>
