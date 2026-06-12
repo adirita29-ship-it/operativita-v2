@@ -1844,7 +1844,13 @@ export default function App() {
 
   const emptyProp=(cat="vendita",inc=null)=>({categoria:cat,tipo:inc?"da_incarico":"collaborazione",incaricoId:inc?inc.id:null,agenteListing:inc?inc.agenteListing:null,percListing:inc?inc.percListing:0,buyerListing:inc?inc.buyerListing:null,percBuyerListing:inc?inc.percBuyerListing:0,comuneImmobile:inc?inc.comune:"",indirizzoImmobile:inc?inc.indirizzo:"",tipologia:inc?inc.tipologia:"",nominativoVenditore:inc?inc.nominativo:"",agenziaEsterna:"",agenteAcquirente:"",percAcquirente:"",percProvvVenditore:"",percProvvAcquirente:"",buyer:"",percBuyer:0,nomeAcquirente:"",prezzoOfferto:"",vincolata:false,tipoVincolo:"",termineSubordine:"",scadenzaProposta:"",provvVenditore:inc?inc.provvPrevista:"",provvAcquirente:"",stato:"In attesa",noteStato:"",dataStato:todayStr(),dataVendita:"",dataAccettazione:"",storico:[{stato:"In attesa",data:nowISO()}],controproposte:[]});
   const salvaProp=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}
-    if(!formProp.comuneImmobile||!formProp.nomeAcquirente)return;
+    if(!formProp.comuneImmobile||!formProp.nomeAcquirente){
+      const mancano=[];
+      if(!formProp.comuneImmobile) mancano.push("Comune");
+      if(!formProp.nomeAcquirente) mancano.push("Nome acquirente");
+      alert("Per salvare la proposta " + (mancano.length>1?"servono":"serve") + ": " + mancano.join(" e ") + ".");
+      return;
+    }
     if(showProp==="edit"){
       // Modifica proposta - aggiorna stato in base a vincolata
       const statoAttuale=formProp.stato;
