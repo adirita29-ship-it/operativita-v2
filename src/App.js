@@ -5935,6 +5935,24 @@ export default function App() {
             const totPrev=catAnnoC.reduce((s,c)=>s+Number(c.totaleAnno||0),0);
             const totSpeso=speseAnnoC.reduce((s,x)=>s+Number(x.importo||0),0);
             const percSpeso=totPrev>0?Math.min(100,Math.round(totSpeso/totPrev*100)):null;
+            // Spese "orfane": catId non corrisponde a nessuna categoria visibile dell'anno
+            // (succede dopo aver materializzato le categorie di un anno con nuovi id — i dati non sono persi)
+            const speseOrfane=speseAnnoC.filter(s=>s.catId&&!catAnnoC.some(c=>String(c.id)===String(s.catId)));
+            const totOrfane=speseOrfane.reduce((s,x)=>s+Number(x.importo||0),0);
+            const ricollegaSpeseOrfane=()=>{
+              if(isReadOnly) return;
+              let ric=0, no=0;
+              const nuove=speseAnnoC.map(s=>{
+                if(!s.catId||catAnnoC.some(c=>String(c.id)===String(s.catId))) return s;
+                // cerco una categoria visibile il cui id derivi da questo (idSorgente + "_" + suffisso)
+                const match=catAnnoC.find(c=>String(c.id).startsWith(String(s.catId)+"_"))
+                  ||catAnnoC.find(c=>String(s.catId).startsWith(String(c.id)+"_"));
+                if(match){ric++;return {...s,catId:match.id};}
+                no++; return s;
+              });
+              setSpeseCosti({...speseCosti,[annoC]:nuove});
+              alert(`${ric} spese ricollegate.`+(no>0?` ${no} non hanno una categoria corrispondente: aprile con ✏️ e riassegnale a mano.`:""));
+            };
             const addSpesa=(sp)=>{
               if(isReadOnly) return;
               const id="sp_"+Date.now();
@@ -6085,6 +6103,12 @@ export default function App() {
                   </div>
                 </div>);
               })()}
+
+              {/* === BANNER RECUPERO SPESE ORFANE === */}
+              {speseOrfane.length>0&&<div style={{background:"#FCEBEB",border:"0.5px solid #E2A0A0",borderRadius:8,padding:"12px 16px",marginBottom:"1.25rem",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <span style={{fontSize:13,color:"#A32D2D",flex:1,minWidth:240,lineHeight:1.5}}>⚠️ Ci sono <strong>{speseOrfane.length} spese</strong> (€ {fmt(Math.round(totOrfane))}) non collegate a una categoria del {annoC}. Non sono perse: si sono scollegate quando le categorie sono state ricreate. Ricollegale con un clic.</span>
+                {!isReadOnly&&<button onClick={ricollegaSpeseOrfane} style={{...S.btnP,fontSize:12,padding:"7px 14px",whiteSpace:"nowrap",background:"#A32D2D",borderColor:"#A32D2D"}}>🔧 Ricollega {speseOrfane.length} spese</button>}
+              </div>}
 
               {/* === NAVIGAZIONE SOTTO-PAGINE COSTI === */}
               <div style={{display:"flex",gap:6,marginBottom:"1.25rem",flexWrap:"wrap"}}>
@@ -11948,8 +11972,11 @@ export default function App() {
                 const nextAnno=annoNum+1;
                 const existing=catCosti.filter(c=>c.anno===nextAnno&&!c.agentId);
                 if(existing.length>0){if(!window.confirm(`Esistono già ${existing.length} categorie per ${nextAnno}. Sovrascrivere?`))return;}
-                const nuove=catAnno.map(c=>({...c,id:c.id+"_"+nextAnno,anno:nextAnno}));
+                const idMap={};
+                const nuove=catAnno.map(c=>{const nid=c.id+"_"+nextAnno;idMap[c.id]=nid;return{...c,id:nid,anno:nextAnno};});
                 setCatCosti(prev=>[...prev.filter(c=>!(c.anno===nextAnno&&!c.agentId)),...nuove]);
+                // Ricollego le spese del nuovo anno che puntavano agli id sorgente
+                setSpeseCosti(prev=>({...prev,[String(nextAnno)]:(prev[String(nextAnno)]||[]).map(s=>idMap[s.catId]?{...s,catId:idMap[s.catId]}:s)}));
                 setImpCostiAnno(String(nextAnno));
               };
               // Anno d'agenzia più recente (≠ da quello selezionato) con categorie configurate
@@ -11957,12 +11984,15 @@ export default function App() {
                 const anni=[...new Set(catCosti.filter(c=>!c.agentId).map(c=>Number(c.anno)))].filter(a=>a!==annoNum&&catCosti.some(c=>c.anno===a&&!c.agentId)).sort((a,b)=>b-a);
                 return anni.length>0?anni[0]:null;
               })();
-              // Importa le categorie d'agenzia da un altro anno nel selezionato
+              // Importa le categorie d'agenzia da un altro anno nel selezionato (ricollega anche le spese)
               const importaDaAnno=(fromAnno)=>{
                 const src=catCosti.filter(c=>c.anno===Number(fromAnno)&&!c.agentId);
                 if(src.length===0) return;
-                const nuove=src.map(c=>({...c,id:c.id+"_imp"+annoNum,anno:annoNum}));
+                const idMap={};
+                const nuove=src.map(c=>{const nid=c.id+"_imp"+annoNum;idMap[c.id]=nid;return{...c,id:nid,anno:annoNum};});
                 setCatCosti(prev=>[...prev.filter(c=>!(c.anno===annoNum&&!c.agentId)),...nuove]);
+                // Ricollego le spese dell'anno che puntavano agli id della sorgente
+                setSpeseCosti(prev=>({...prev,[String(annoNum)]:(prev[String(annoNum)]||[]).map(s=>idMap[s.catId]?{...s,catId:idMap[s.catId]}:s)}));
               };
               const updCat=(id,campo,val)=>setCatCosti(prev=>prev.map(c=>c.id===id?{...c,[campo]:val}:c));
               const delCatRaw=(id)=>setCatCosti(prev=>prev.filter(c=>c.id!==id));
