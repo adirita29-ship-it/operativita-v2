@@ -879,6 +879,19 @@ const FASI=[
   ]},
 ];
 
+// Normalizza 'pratiche' a OGGETTO chiave=incaricoId, preservando le chiavi
+// (recupera anche dati salvati come array o come oggetto "ibrido")
+const normPratiche = (p) => {
+  if(!p) return {};
+  const out={};
+  if(Array.isArray(p)){
+    p.forEach((v,i)=>{ if(v&&typeof v==="object") out[v.incaricoId!=null?v.incaricoId:i]=v; });
+    return out;
+  }
+  Object.entries(p).forEach(([k,v])=>{ if(v&&typeof v==="object") out[v.incaricoId!=null?v.incaricoId:k]=v; });
+  return out;
+};
+
 const getAlertFasi = (pratiche, incId) => {
   const pr=(pratiche||{})[incId]||{fasi:{}};
   const al=[];
@@ -1084,7 +1097,7 @@ export default function App() {
   const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
   const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
   // Gestione Pratiche: {incaricoId: {fasi:{}, checklistA:{}, checklistB:{}, checklistC:{}, note:""}}
-  const [pratiche,setPratiche]=useState(_ls?.pratiche||{});
+  const [pratiche,setPratiche]=useState(normPratiche(_ls?.pratiche));
   const [gpIncSel,setGpIncSel]=useState(null);
   const [gpSubTab,setGpSubTab]=useState("pipeline");
   const [gpFiltroStato,setGpFiltroStato]=useState("Tutti");
@@ -1324,7 +1337,7 @@ export default function App() {
         if(data.oggiDati) setOggiDati(data.oggiDati);
         if(data.volantinaggi) setVolantinaggi(data.volantinaggi);
         if(data.obiettiviOp) setObiettiviOp(data.obiettiviOp);
-        if(data.pratiche) if(data.pratiche) setPratiche(Array.isArray(data.pratiche)?data.pratiche:Object.values(data.pratiche||{}));
+        if(data.pratiche) setPratiche(normPratiche(data.pratiche));
         if(data.pagamentiFatture) setPagamentiFatture(data.pagamentiFatture);
         if(data.prospetti) setProspetti(Array.isArray(data.prospetti)?data.prospetti:[]);
         if(data.ericaTodo) setEricaTodo(Array.isArray(data.ericaTodo)?data.ericaTodo:[]);
@@ -1527,7 +1540,7 @@ export default function App() {
         if(d.venduti) setVenduti(d.venduti);
         if(d.incarichi) setIncarichi(d.incarichi);
         if(d.proposte) setProposte(d.proposte);
-        if(d.pratiche) setPratiche(Array.isArray(d.pratiche)?d.pratiche:Object.values(d.pratiche||{}));
+        if(d.pratiche) setPratiche(normPratiche(d.pratiche));
         if(d.pagamentiFatture) setPagamentiFatture(d.pagamentiFatture);
         if(d.prospetti) setProspetti(Array.isArray(d.prospetti)?d.prospetti:[]);
         if(d.operativita) setOperativita(d.operativita);
@@ -2037,8 +2050,8 @@ export default function App() {
     setPagamentoModale(null);
   };
   const salvaPagamento=()=>{ if(isReadOnly){alert("Modalità sola lettura");return;}if(!showPagamento)return;setPagamentiFatture({...pagamentiFatture,[showPagamento.key]:{...formPagamento,importoPagato:Number(formPagamento.importoPagato||0)}});setShowPagamento(null);};
-  const esporta=()=>{const b=new Blob([JSON.stringify({agenti,incarichi,proposte,venduti,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,archiviati},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`gestionale_${todayStr()}.json`;a.click();URL.revokeObjectURL(u);};
-  const importa=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.agenti)setAgenti(d.agenti);if(d.incarichi)setIncarichi(d.incarichi);if(d.proposte)setProposte(d.proposte);if(d.venduti)setVenduti(d.venduti);if(d.fonti)setFonti(d.fonti);if(d.tipologie)setTipologie(d.tipologie);if(d.vincoli)setVincoli(d.vincoli);if(d.tipiNeg)setTipiNeg(d.tipiNeg);if(d.pagamentiFatture)setPagamentiFatture(d.pagamentiFatture);if(d.archiviati)setArchiviati(d.archiviati);alert("Importato!");}catch{alert("File non valido.");}};r.readAsText(f);e.target.value="";};
+  const esporta=()=>{const b=new Blob([JSON.stringify({agenti,incarichi,proposte,venduti,fonti,tipologie,vincoli,tipiNeg,pagamentiFatture,archiviati,pratiche},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`gestionale_${todayStr()}.json`;a.click();URL.revokeObjectURL(u);};
+  const importa=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(d.agenti)setAgenti(d.agenti);if(d.incarichi)setIncarichi(d.incarichi);if(d.proposte)setProposte(d.proposte);if(d.venduti)setVenduti(d.venduti);if(d.fonti)setFonti(d.fonti);if(d.tipologie)setTipologie(d.tipologie);if(d.vincoli)setVincoli(d.vincoli);if(d.tipiNeg)setTipiNeg(d.tipiNeg);if(d.pagamentiFatture)setPagamentiFatture(d.pagamentiFatture);if(d.archiviati)setArchiviati(d.archiviati);if(d.pratiche)setPratiche(normPratiche(d.pratiche));alert("Importato!");}catch{alert("File non valido.");}};r.readAsText(f);e.target.value="";};
 
   const archiviaInc=(id)=>{
     const inc=incarichi.find(i=>i.id===id);
@@ -9067,12 +9080,12 @@ export default function App() {
               if(azPr.fatto){delete azPr.data;azPr.fatto=false;}
               else{azPr.fatto=true;azPr.data=todayStr();azPr.daChi=utente?.nome||"?";}
               fasePr[azK]=azPr;fasiPr[faseK]=fasePr;
-              if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
+              if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,incaricoId:incId,fasi:fasiPr}});
             };
             const setDataAzione=(incId,faseK,azK,data)=>{
               const pr=getPr(incId);
               const fasiPr={...pr.fasi,[faseK]:{...(pr.fasi[faseK]||{}),[azK]:{...(pr.fasi[faseK]?.[azK]||{}),data}}};
-              if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,fasi:fasiPr}});
+              if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,incaricoId:incId,fasi:fasiPr}});
             };
 
             // Vista SCHEDA pratica singola
