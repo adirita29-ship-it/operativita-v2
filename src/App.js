@@ -9295,13 +9295,15 @@ export default function App() {
                   const azItem=(f,az)=>{
                     const azPr=(pr.fasi[f.k]||{})[az.k]||{};
                     const editable=canEditAgente(inc);
+                    const gateAz=az.k==="fotografo"?fasi.flatMap(ff=>(ff.azioni||[]).map(a=>({fk:ff.k,k:a.k}))).find(x=>x.k==="gateFotografo"):null;
+                    const locked=!!gateAz&&!(pr.fasi[gateAz.fk]||{})[gateAz.k]?.fatto&&!azPr.fatto;
                     return(<div key={az.k}>
-                      <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0"}}>
-                        <div onClick={()=>editable&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?"#1D9E75":az.alert?"#E74C3C":"#cfcabf"}`,background:azPr.fatto?"#1D9E75":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:editable?"pointer":"default",flexShrink:0,marginTop:1}}>{azPr.fatto&&<span style={{fontSize:10,color:"#fff",lineHeight:1}}>✓</span>}</div>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",opacity:locked?0.6:1}}>
+                        <div onClick={()=>editable&&!locked&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?"#1D9E75":locked?"#cfcabf":az.alert?"#E74C3C":"#cfcabf"}`,background:azPr.fatto?"#1D9E75":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:editable&&!locked?"pointer":"default",flexShrink:0,marginTop:1,fontSize:10}}>{azPr.fatto?<span style={{color:"#fff",lineHeight:1}}>✓</span>:locked?<span style={{lineHeight:1}}>🔒</span>:null}</div>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:11.5,color:azPr.fatto?"#9a958c":"#2c2c2c"}}>{az.lbl}</div>
                           <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center",flexWrap:"wrap"}}>
-                            {azPr.fatto?<><input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#1D9E75",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>{azPr.daChi&&<span style={{fontSize:10,color:"#bbb"}}>· {azPr.daChi}</span>}</>:az.alert?<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>:null}
+                            {locked?<span style={{fontSize:10,color:"#b08948"}}>🔒 Sblocca con: ispezioni ipotecarie negative (Fase 2)</span>:azPr.fatto?<><input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#1D9E75",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>{azPr.daChi&&<span style={{fontSize:10,color:"#bbb"}}>· {azPr.daChi}</span>}</>:az.alert?<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>:null}
                           </div>
                         </div>
                       </div>
