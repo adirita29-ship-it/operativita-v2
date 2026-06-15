@@ -9034,7 +9034,9 @@ export default function App() {
             const getCiclo=(incId)=>{const c=getPr(incId).cicloReport;return {intervallo:c?.intervallo||15,log:c?.log||[],dal:c?.dal||null};};
             const prossimoReport=(incId)=>{const inc=incarichi.find(i=>i.id===incId);const c=getCiclo(incId);const ultimo=c.log.length?c.log[c.log.length-1].data:(c.dal||inc?.dataInizio||todayStr());const nextDue=addDays(ultimo,c.intervallo);const oggi=todayStr();const overdue=nextDue<oggi;return {ultimo:c.log.length?ultimo:null,nextDue,overdue,giorniRitardo:overdue?diffDays(oggi,nextDue):0,intervallo:c.intervallo,log:c.log};};
             const rinnovoInc=(inc)=>{if(!inc?.scadenza)return null;const soglia=addDays(inc.scadenza,-45);const oggi=todayStr();return (oggi>=soglia&&oggi<inc.scadenza)?{scadenza:inc.scadenza,soglia,giorni:diffDays(inc.scadenza,oggi)}:null;};
-            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));const inc=incarichi.find(i=>i.id===incId);if(inc&&statoPratica(inc)==="In vendita"){const rp=prossimoReport(incId);if(rp.overdue)al.push({lbl:`Report proprietario in ritardo di ${rp.giorniRitardo} gg`,tipo:"report",alert:true});}return al;};
+            const isMutuoMercato=(inc)=>{const p=proposte.find(p=>p.incaricoId===inc.id&&!p.archiviato&&p.stato==="Accettata con Vincolo");return !!p&&/mutuo/i.test(p.tipoVincolo||"");};
+            const cicloAttivo=(inc)=>statoPratica(inc)==="In vendita"||isMutuoMercato(inc);
+            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));const inc=incarichi.find(i=>i.id===incId);if(inc&&cicloAttivo(inc)){const rp=prossimoReport(incId);if(rp.overdue)al.push({lbl:`Report proprietario in ritardo di ${rp.giorniRitardo} gg`,tipo:"report",alert:true});}return al;};
             const faseCorrente=(incId)=>{const pr=getPr(incId);const f=fasi.find(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return f||fasi[fasi.length-1];};
 
             // Categorie — usa statoInc che è già calcolato correttamente
@@ -9218,7 +9220,8 @@ export default function App() {
                 {/* Ciclo proprietario + promemoria rinnovo */}
                 {(()=>{
                   const st=statoPratica(inc);
-                  const inVendita=st==="In vendita";
+                  const mutuoMkt=isMutuoMercato(inc);
+                  const inVendita=st==="In vendita"||mutuoMkt;
                   const rp=prossimoReport(inc.id);
                   const rinnovo=rinnovoInc(inc);
                   const editable=canEditAgente(inc);
@@ -9227,6 +9230,7 @@ export default function App() {
                     <div style={{border:`1px solid ${inVendita&&rp.overdue?"#E74C3C":"#e8e5e0"}`,borderRadius:12,padding:"10px 14px",background:inVendita?(rp.overdue?"#FDF4F4":"#fff"):"#faf9f6"}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:inVendita?8:0}}>
                         <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>🔄 Ciclo proprietario</span>
+                        {mutuoMkt&&<span style={{fontSize:10,background:"#E6F1FB",color:"#0C447C",padding:"1px 7px",borderRadius:10}}>resta sul mercato · mutuo</span>}
                         {!inVendita&&<span style={{fontSize:11,color:"#888"}}>⏸ In pausa ({st}) — riprende se la proposta viene rifiutata</span>}
                       </div>
                       {inVendita&&<>
@@ -9258,6 +9262,31 @@ export default function App() {
                     {rinnovo&&<div style={{marginTop:8,background:"#FAEEDA",borderRadius:10,padding:"8px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                       <span style={{fontSize:12,color:"#633806"}}>📅 Rinnovo incarico — scade il <b>{fmtD(inc.scadenza)}</b>, fra {rinnovo.giorni} gg</span>
                     </div>}
+                  </div>);
+                })()}
+                {/* Vincolo in corso — letto dalla proposta collegata */}
+                {(()=>{
+                  const propV=proposte.find(p=>p.incaricoId===inc.id&&!p.archiviato&&p.stato==="Accettata con Vincolo"&&(p.vincolata||p.tipoVincolo));
+                  if(!propV)return null;
+                  const tipo=propV.tipoVincolo||"Vincolo";
+                  const isMutuo=/mutuo/i.test(tipo);
+                  const scad=propV.termineSubordine;
+                  const oggi=todayStr();
+                  const giorni=scad?diffDays(scad,oggi):null;
+                  const scaduto=scad&&scad<oggi;
+                  const esito=propV.esitoVincolo||"In attesa";
+                  return(<div style={{marginBottom:14,border:`1px solid ${isMutuo?"#185FA5":"#854F0B"}55`,borderRadius:12,padding:"10px 14px",background:isMutuo?"#F4F8FD":"#FBF6EC"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                      <span style={{fontSize:13,fontWeight:600,color:isMutuo?"#185FA5":"#854F0B"}}>🔓 Vincolo in corso</span>
+                      <span style={{fontSize:10,padding:"1px 8px",borderRadius:10,background:isMutuo?"#E6F1FB":"#FAEEDA",color:isMutuo?"#0C447C":"#854F0B",fontWeight:500}}>{tipo}</span>
+                      <span style={{fontSize:10,padding:"1px 8px",borderRadius:10,background:isMutuo?"#EAF7F0":"#FCEBEB",color:isMutuo?"#1D8A5F":"#A32D2D",fontWeight:500}}>{isMutuo?"Resta sul mercato":"Tolto dal mercato"}</span>
+                    </div>
+                    <div style={{fontSize:12,color:"#888",marginBottom:6,display:"flex",gap:14,flexWrap:"wrap"}}>
+                      {propV.dataAccettazione&&<span>Accettata il <b style={{color:"#2c2c2c"}}>{fmtD(propV.dataAccettazione)}</b></span>}
+                      {scad&&<span style={{color:scaduto?"#A32D2D":"#888"}}>Scadenza vincolo <b>{fmtD(scad)}</b>{scaduto?" · scaduto":giorni!=null?` · fra ${giorni} gg`:""}</span>}
+                      <span>Esito <b style={{color:esito==="Positivo"?"#1D8A5F":"#888"}}>{esito}</b></span>
+                    </div>
+                    <div style={{fontSize:10.5,color:"#aaa"}}>Dati dalla proposta collegata — stato ed esito si gestiscono in Proposte.</div>
                   </div>);
                 })()}
                 {/* Fasi: corrente espansa a due corsie · fatte e future compatte (cliccabili per aprire) */}
