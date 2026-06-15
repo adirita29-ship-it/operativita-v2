@@ -9326,9 +9326,9 @@ export default function App() {
                   if(ml==="erica"&&t.hasEr)return pill("👉 Tocca a te",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl,true);
                   if(ml==="agente"&&t.hasEr)return pill("⏳ Attesa Erica","#f3f1ea","#888");
                   if(ml==="erica"&&t.hasAg)return pill("⏳ Attesa "+(nomAg(inc.agenteListing)||"").split(" ")[0],"#f3f1ea","#888");
-                  if(t.hasAg&&t.hasEr)return pill("⏳ Agente + Erica","#f3f1ea","#777");
-                  if(t.hasAg)return pill("⏳ Aspetta "+(nomAg(inc.agenteListing)||"").split(" ")[0],RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl);
-                  if(t.hasEr)return pill("⏳ Aspetta Erica",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl);
+                  if(t.hasAg&&t.hasEr)return pill("👉 Agente + Erica","#f3f1ea","#777");
+                  if(t.hasAg)return pill("👉 Tocca a "+(nomAg(inc.agenteListing)||"").split(" ")[0],RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl);
+                  if(t.hasEr)return pill("👉 Tocca a Erica",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl);
                   return <span style={{fontSize:11,color:"#aaa"}}>—</span>;
                 };
                 const ordinata=[...incFiltrati].sort((a,b)=>{
@@ -9345,8 +9345,8 @@ export default function App() {
                 return(<div>
                   <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
                     {isBroker?<>
-                      {cardCnt(nAspAg,"Aspetta Agente",RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl)}
-                      {cardCnt(nAspEr,"Aspetta Erica",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl)}
+                      {cardCnt(nAspAg,"Tocca all'Agente",RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl)}
+                      {cardCnt(nAspEr,"Tocca a Erica",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl)}
                       {cardCnt(nAlert,"Con alert","#FCEBEB","#A32D2D")}
                     </>:<>
                       {cardCnt(nTocca,"Tocca a te",RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl)}
@@ -9367,7 +9367,7 @@ export default function App() {
                       return(<div key={inc.id} style={{display:"grid",gridTemplateColumns:cols,padding:"10px 14px",borderBottom:"0.5px solid #f5f5f5",borderLeft:`3px solid ${al.length>0?"#E74C3C":perc===100?"#27AE60":clr}`,cursor:"pointer",alignItems:"center"}} onClick={()=>setGpPraticaSel(inc.id)}>
                         <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}</div></div>
                         <div style={{fontSize:11,color:"#888"}}>{nomAg(inc.agenteListing)}</div>
-                        <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" ").slice(0,2).join(" ")||"—"}</span></div>
+                        <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" & ")[0]||"—"}</span></div>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <div style={{flex:1,height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:perc===100?"#27AE60":clr,borderRadius:2}}/></div>
                           <span style={{fontSize:10,color:"#888",minWidth:26}}>{perc}%</span>
