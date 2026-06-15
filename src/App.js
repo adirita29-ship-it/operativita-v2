@@ -9029,7 +9029,7 @@ export default function App() {
             const fatte=(incId)=>fasi.reduce((s,f)=>s+f.azioni.filter(a=>(getPr(incId).fasi[f.k]||{})[a.k]?.fatto).length,0);
             const percAv=(incId)=>totAzioni>0?Math.round(fatte(incId)/totAzioni*100):0;
             const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));return al;};
-            const faseCorrente=(incId)=>{const pr=getPr(incId);let last=null;fasi.forEach(f=>{if(Object.values(pr.fasi[f.k]||{}).some(a=>a.fatto))last=f;});return last||fasi[0];};
+            const faseCorrente=(incId)=>{const pr=getPr(incId);const f=fasi.find(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return f||fasi[fasi.length-1];};
 
             // Categorie — usa statoInc che è già calcolato correttamente
             const tuttiVendita=incarichi.filter(i=>i.categoria==="vendita"&&!i.archiviato&&canSee2(i));
@@ -9326,9 +9326,9 @@ export default function App() {
                   if(ml==="erica"&&t.hasEr)return pill("👉 Tocca a te",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl,true);
                   if(ml==="agente"&&t.hasEr)return pill("⏳ Attesa Erica","#f3f1ea","#888");
                   if(ml==="erica"&&t.hasAg)return pill("⏳ Attesa "+(nomAg(inc.agenteListing)||"").split(" ")[0],"#f3f1ea","#888");
-                  if(t.hasAg&&t.hasEr)return pill("Agente + Erica","#f3f1ea","#777");
-                  if(t.hasAg)return pill(nomAg(inc.agenteListing),RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl);
-                  if(t.hasEr)return pill("Erica RT",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl);
+                  if(t.hasAg&&t.hasEr)return pill("⏳ Agente + Erica","#f3f1ea","#777");
+                  if(t.hasAg)return pill("⏳ Aspetta "+(nomAg(inc.agenteListing)||"").split(" ")[0],RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl);
+                  if(t.hasEr)return pill("⏳ Aspetta Erica",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl);
                   return <span style={{fontSize:11,color:"#aaa"}}>—</span>;
                 };
                 const ordinata=[...incFiltrati].sort((a,b)=>{
@@ -9338,12 +9338,21 @@ export default function App() {
                 const nTocca=incFiltrati.filter(toccaTe).length;
                 const nAlert=incFiltrati.filter(i=>alertsInc(i.id).length>0).length;
                 const nAttesa=incFiltrati.filter(i=>{const t=turno(i);if(t.done)return false;return !toccaTe(i)&&latoMio(i);}).length;
+                const nAspAg=incFiltrati.filter(i=>{const t=turno(i);return !t.done&&t.hasAg;}).length;
+                const nAspEr=incFiltrati.filter(i=>{const t=turno(i);return !t.done&&t.hasEr;}).length;
                 const cols="2fr 80px 96px 86px 132px 46px";
+                const cardCnt=(n,lbl,bg,cl)=><div style={{flex:1,minWidth:110,background:bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:cl}}>{n}</div><div style={{fontSize:11,color:cl}}>{lbl}</div></div>;
                 return(<div>
                   <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:110,background:RUOLO_CLR.agente.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:RUOLO_CLR.agente.cl}}>{nTocca}</div><div style={{fontSize:11,color:RUOLO_CLR.agente.cl}}>Tocca a te</div></div>
-                    <div style={{flex:1,minWidth:110,background:"#f3f1ea",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:"#777"}}>{nAttesa}</div><div style={{fontSize:11,color:"#888"}}>In attesa di altri</div></div>
-                    <div style={{flex:1,minWidth:110,background:"#FCEBEB",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:"#A32D2D"}}>{nAlert}</div><div style={{fontSize:11,color:"#A32D2D"}}>Con alert</div></div>
+                    {isBroker?<>
+                      {cardCnt(nAspAg,"Aspetta Agente",RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl)}
+                      {cardCnt(nAspEr,"Aspetta Erica",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl)}
+                      {cardCnt(nAlert,"Con alert","#FCEBEB","#A32D2D")}
+                    </>:<>
+                      {cardCnt(nTocca,"Tocca a te",RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl)}
+                      {cardCnt(nAttesa,"In attesa di altri","#f3f1ea","#888")}
+                      {cardCnt(nAlert,"Con alert","#FCEBEB","#A32D2D")}
+                    </>}
                   </div>
                   <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
                     <div style={{display:"grid",gridTemplateColumns:cols,padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
