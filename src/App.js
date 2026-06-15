@@ -9268,7 +9268,7 @@ export default function App() {
                         const perc=percAv(inc.id);
                         return(<div key={inc.id} style={{background:"#fff",borderRadius:8,padding:"8px 10px",marginBottom:6,border:`0.5px solid ${al.length>0?"#E74C3C44":"#e8e5e0"}`,cursor:"pointer",borderLeft:`3px solid ${al.length>0?"#E74C3C":clr}`}} onClick={()=>setGpPraticaSel(inc.id)}>
                           <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{inc.comune} — {inc.indirizzo}</div>
-                          <div style={{fontSize:11,color:"#888",marginBottom:5}}>{inc.nominativo} · {nomAg(inc.agenteListing)}</div>
+                          <div style={{fontSize:11,color:"#888",marginBottom:5,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo} · {nomAg(inc.agenteListing)}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}</div>
                           <div style={{display:"flex",alignItems:"center",gap:6}}>
                             <div style={{flex:1,height:3,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:perc===100?"#27AE60":clr,borderRadius:2}}/></div>
                             <span style={{fontSize:10,color:"#888"}}>{perc}%</span>
