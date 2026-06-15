@@ -9107,6 +9107,42 @@ export default function App() {
               alert(count>0?`${count} pratiche inizializzate.`:"Nessuna pratica da inizializzare.");
             };
 
+            // === MATERIALI Fase 4 → Operatività (riconciliazione automatica) ===
+            const TIPI_MAT=[{k:"cartello",lbl:"Cartello vendesi",op:null},{k:"lettere",lbl:"Lettere",op:"lettere"},{k:"cartoline",lbl:"Cartoline / volantini",op:"volantinaggio"}];
+            const getMat=(incId)=>getPr(incId).materiali||[];
+            const setMat=(incId,arr)=>{ if(!isReadOnly)setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,materiali:arr}}); };
+            const reconcileOp=(agentId,row,nQ,nD,nZona,nTipoVol)=>{
+              const op=row.op; if(!op||!agentId)return;
+              const pQ=Number(row.regQta||0), pD=row.regData;
+              setOggiDati(prev=>{
+                const np={...prev};
+                const ensure=(d)=>{ np[agentId]={...(np[agentId]||{})}; np[agentId][d]={...(np[agentId][d]||{})}; np[agentId][d]={...np[agentId][d],azioni:{...(np[agentId][d].azioni||{})}}; };
+                if(pQ>0&&pD){ ensure(pD); const cur=Number(np[agentId][pD].azioni[op]?.fatto||0); np[agentId][pD].azioni[op]={...(np[agentId][pD].azioni[op]||{}),fatto:Math.max(0,cur-pQ)}; }
+                if(nQ>0&&nD){ ensure(nD); const cur=Number(np[agentId][nD].azioni[op]?.fatto||0); np[agentId][nD].azioni[op]={...(np[agentId][nD].azioni[op]||{}),fatto:cur+nQ}; }
+                return np;
+              });
+              if(op==="volantinaggio"){
+                setVolantinaggi(prev=>{ const f=prev.filter(v=>v.id!=="mat_"+row.id); if(nQ>0&&nD) f.push({id:"mat_"+row.id,agentId,data:nD,tipoVolantino:nTipoVol||"OH",zona:nZona||"",quantita:nQ}); return f; });
+              }
+            };
+            const addMat=(incId,tipoK)=>{ const t=TIPI_MAT.find(x=>x.k===tipoK)||TIPI_MAT[0]; const inc2=incarichi.find(i=>i.id===incId); const row={id:"m"+Date.now(),tipo:t.k,lbl:t.lbl,op:t.op,qtaR:t.k==="cartello"?1:0,qtaD:0,dataD:todayStr(),zona:t.k==="cartoline"?(inc2?.comune||""):"",tipoVol:t.k==="cartoline"?"OH":"",regQta:0,regData:""}; setMat(incId,[...getMat(incId),row]); };
+            const updMat=(incId,matId,patch)=>{
+              const arr=getMat(incId); const row=arr.find(r=>r.id===matId); if(!row)return;
+              const next={...row,...patch};
+              const agentId=incarichi.find(i=>i.id===incId)?.agenteListing;
+              if(row.op&&agentId&&("qtaD"in patch||"dataD"in patch||"zona"in patch||"tipoVol"in patch)){
+                reconcileOp(agentId,row,Number(next.qtaD||0),next.dataD,next.zona,next.tipoVol);
+                next.regQta=Number(next.qtaD||0); next.regData=next.dataD;
+              }
+              setMat(incId,arr.map(r=>r.id===matId?next:r));
+            };
+            const delMat=(incId,matId)=>{
+              const arr=getMat(incId); const row=arr.find(r=>r.id===matId); if(!row)return;
+              const agentId=incarichi.find(i=>i.id===incId)?.agenteListing;
+              if(row.op&&agentId&&Number(row.regQta||0)>0) reconcileOp(agentId,row,0,row.regData,row.zona,row.tipoVol);
+              setMat(incId,arr.filter(r=>r.id!==matId));
+            };
+
             // Vista SCHEDA pratica singola
             if(gpPraticaSel){
               const inc=incAttivi.find(i=>i.id===gpPraticaSel);
@@ -9142,17 +9178,48 @@ export default function App() {
                 {(()=>{
                   const idxCorr=(()=>{const i=fasi.findIndex(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return i<0?fasi.length-1:i;})();
                   const mioLato=inc.agenteListing===myAgentId?"agente":(isErica||isBackOffice)?"erica":null;
+                  const matBlock=(incId,editable)=>{
+                    const rows=getMat(incId);
+                    const opTag=(row)=>row.op==="lettere"?"✉️ Lettere mirate":row.op==="volantinaggio"?"📢 Volantinaggio":null;
+                    const ninp={width:46,fontSize:11,padding:"2px 4px",border:"0.5px solid #ddd",borderRadius:5,fontFamily:"inherit"};
+                    const tinp={fontSize:11,padding:"2px 4px",border:"0.5px solid #ddd",borderRadius:5,fontFamily:"inherit"};
+                    return(<div style={{marginTop:6,marginLeft:26,border:"0.5px solid #e8e5e0",borderRadius:8,padding:"8px 10px",background:"#fff"}}>
+                      <div style={{fontSize:11,fontWeight:500,color:"#777",marginBottom:4}}>📦 Materiali</div>
+                      {rows.length===0&&<div style={{fontSize:10.5,color:"#bbb",marginBottom:2}}>Nessun materiale ancora. Aggiungine sotto.</div>}
+                      {rows.map(row=>{const tag=opTag(row);return(<div key={row.id} style={{borderTop:"0.5px solid #f3f1ea",padding:"6px 0"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{flex:1,fontSize:11.5,fontWeight:500}}>{row.lbl}</span>
+                          {tag&&<span style={{fontSize:9.5,padding:"1px 6px",borderRadius:7,background:"#FAEEDA",color:"#854F0B"}}>{tag}{Number(row.regQta)>0?` +${row.regQta}`:""}</span>}
+                          {editable&&<span onClick={()=>delMat(incId,row.id)} title="Rimuovi" style={{fontSize:12,color:"#c0392b",cursor:"pointer"}}>✕</span>}
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                          <label style={{fontSize:10,color:"#888",display:"flex",alignItems:"center",gap:3}}>Rich.<input type="number" min="0" disabled={!editable} style={ninp} value={row.qtaR??0} onChange={e=>updMat(incId,row.id,{qtaR:Number(e.target.value)})}/></label>
+                          <label style={{fontSize:10,color:"#888",display:"flex",alignItems:"center",gap:3}}>Distr.<input type="number" min="0" disabled={!editable} style={ninp} value={row.qtaD??0} onChange={e=>updMat(incId,row.id,{qtaD:Number(e.target.value)})}/></label>
+                          <input type="date" disabled={!editable} style={tinp} value={row.dataD||""} onChange={e=>updMat(incId,row.id,{dataD:e.target.value})}/>
+                        </div>
+                        {row.tipo==="cartoline"&&<div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                          <label style={{fontSize:10,color:"#888",display:"flex",alignItems:"center",gap:3}}>Zona<input disabled={!editable} style={{...tinp,width:92}} value={row.zona||""} onChange={e=>updMat(incId,row.id,{zona:e.target.value})}/></label>
+                          <label style={{fontSize:10,color:"#888",display:"flex",alignItems:"center",gap:3}}>Tipo<input disabled={!editable} style={{...tinp,width:58}} value={row.tipoVol||""} onChange={e=>updMat(incId,row.id,{tipoVol:e.target.value})}/></label>
+                        </div>}
+                      </div>);})}
+                      {editable&&<div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>{TIPI_MAT.map(t=><button key={t.k} onClick={()=>addMat(incId,t.k)} style={{fontSize:10,padding:"3px 8px",borderRadius:6,border:"0.5px solid #A8863A",background:"#FAEEDA",color:"#854F0B",cursor:"pointer",fontFamily:"inherit"}}>+ {t.lbl}</button>)}</div>}
+                      <div style={{fontSize:9.5,color:"#bbb",marginTop:6}}>Le quantità distribuite confluiscono nell'Operatività dell'agente.</div>
+                    </div>);
+                  };
                   const azItem=(f,az)=>{
                     const azPr=(pr.fasi[f.k]||{})[az.k]||{};
                     const editable=canEditAgente(inc);
-                    return(<div key={az.k} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0"}}>
-                      <div onClick={()=>editable&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?"#1D9E75":az.alert?"#E74C3C":"#cfcabf"}`,background:azPr.fatto?"#1D9E75":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:editable?"pointer":"default",flexShrink:0,marginTop:1}}>{azPr.fatto&&<span style={{fontSize:10,color:"#fff",lineHeight:1}}>✓</span>}</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:11.5,color:azPr.fatto?"#9a958c":"#2c2c2c"}}>{az.lbl}</div>
-                        <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center",flexWrap:"wrap"}}>
-                          {azPr.fatto?<><input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#1D9E75",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>{azPr.daChi&&<span style={{fontSize:10,color:"#bbb"}}>· {azPr.daChi}</span>}</>:az.alert?<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>:null}
+                    return(<div key={az.k}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0"}}>
+                        <div onClick={()=>editable&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?"#1D9E75":az.alert?"#E74C3C":"#cfcabf"}`,background:azPr.fatto?"#1D9E75":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:editable?"pointer":"default",flexShrink:0,marginTop:1}}>{azPr.fatto&&<span style={{fontSize:10,color:"#fff",lineHeight:1}}>✓</span>}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:11.5,color:azPr.fatto?"#9a958c":"#2c2c2c"}}>{az.lbl}</div>
+                          <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center",flexWrap:"wrap"}}>
+                            {azPr.fatto?<><input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#1D9E75",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>{azPr.daChi&&<span style={{fontSize:10,color:"#bbb"}}>· {azPr.daChi}</span>}</>:az.alert?<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>:null}
+                          </div>
                         </div>
                       </div>
+                      {az.k==="materiali"&&matBlock(inc.id,editable)}
                     </div>);
                   };
                   const lane=(f,ruolo,titolo,rclr,attiva)=>{
