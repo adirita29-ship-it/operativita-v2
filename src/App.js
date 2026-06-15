@@ -9080,6 +9080,32 @@ export default function App() {
               if(!isReadOnly)setPratiche({...pratiche,[incId]:{...pr,incaricoId:incId,fasi:fasiPr}});
             };
 
+            // === MIGRAZIONE una tantum: dà per fatte d'ufficio le fasi iniziali in base allo stato ===
+            const faseFinoA=(st)=>st==="Rogitato"||st==="Archiviata"?7:st==="Venduto"?6:st==="In trattativa"?4:st==="In vendita"||st==="Scaduto"?3:0;
+            const daMigrare=tuttiVendita.filter(i=>!getPr(i.id).migrato&&faseFinoA(statoPratica(i))>0);
+            const migraPratiche=()=>{
+              if(isReadOnly)return;
+              if(!window.confirm(`Inizializzo l'avanzamento di ${daMigrare.length} pratiche dando per fatte le fasi iniziali in base allo stato (1-3 in vendita, 1-4 in trattativa, 1-6 venduto, 1-7 rogitato).\n\nÈ una tantum e non tocca le spunte che modifichi dopo. Procedo?`))return;
+              const nuove={...pratiche};
+              let count=0;
+              tuttiVendita.forEach(inc=>{
+                const pr=nuove[inc.id]||{fasi:{}};
+                if(pr.migrato)return;
+                const finoA=faseFinoA(statoPratica(inc));
+                if(finoA===0)return;
+                const fasiPr={...(pr.fasi||{})};
+                fasi.filter(f=>f.fase<=finoA).forEach(f=>{
+                  const fasePr={...(fasiPr[f.k]||{})};
+                  f.azioni.forEach(a=>{ if(!fasePr[a.k]?.fatto) fasePr[a.k]={fatto:true,data:inc.dataInizio||todayStr(),daChi:"migrazione"}; });
+                  fasiPr[f.k]=fasePr;
+                });
+                nuove[inc.id]={...pr,incaricoId:inc.id,fasi:fasiPr,migrato:true};
+                count++;
+              });
+              setPratiche(nuove);
+              alert(count>0?`${count} pratiche inizializzate.`:"Nessuna pratica da inizializzare.");
+            };
+
             // Vista SCHEDA pratica singola
             if(gpPraticaSel){
               const inc=incAttivi.find(i=>i.id===gpPraticaSel);
@@ -9184,6 +9210,7 @@ export default function App() {
                   <button key={v} onClick={()=>setGpFiltroFase(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase===v?clr:"#ddd"}`,background:gpFiltroFase===v?clr+"18":"#fff",color:gpFiltroFase===v?clr:"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:gpFiltroFase===v?500:400}}>{lbl} ({n})</button>
                 ))}
                 <button onClick={()=>setGpFiltroAlert(!gpFiltroAlert)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroAlert?"#E74C3C":"#ddd"}`,background:gpFiltroAlert?"#FCEBEB":"#fff",color:gpFiltroAlert?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>⚠ Alert ({poolBase.filter(i=>alertsInc(i.id).length>0).length})</button>
+                {canEditPratiche&&daMigrare.length>0&&<button onClick={migraPratiche} title="Dà per fatte d'ufficio le fasi iniziali in base allo stato, una tantum" style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:"0.5px solid #A8863A",background:"#FAEEDA",color:"#854F0B",cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>⚙ Inizializza avanzamento ({daMigrare.length})</button>}
                 <div style={{marginLeft:"auto"}}><SearchBar value={searchPratiche} onChange={setSearchPratiche} placeholder="Cerca pratica..." nResults={incFiltrati.length}/></div>
               </div>
 
