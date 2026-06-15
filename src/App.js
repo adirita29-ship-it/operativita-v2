@@ -291,6 +291,15 @@ const SearchBar = React.memo(function SearchBar({value, onChange, placeholder, n
 });
 
 const STATI_INC = { Attivo:{clr:"#27AE60",bg:"#E9F7EF"}, "In trattativa":{clr:"#2980B9",bg:"#E8F1FB"}, "Accettata con Vincolo":{clr:"#D4AC0D",bg:"#FEF9E7"}, Scaduto:{clr:"#E74C3C",bg:"#FDECEA"}, Venduto:{clr:"#C9A96E",bg:"#FDF6EC"}, Locato:{clr:"#8E44AD",bg:"#F5EEF8"} };
+// Stati "pratica" derivati (modello a stati): vedi specifica Gestione Pratiche
+const STATI_PRATICA = {
+  "In vendita":{clr:"#27AE60",bg:"#E9F7EF"},
+  "In trattativa":{clr:"#2980B9",bg:"#E8F1FB"},
+  "Venduto":{clr:"#0E7A52",bg:"#E1F5EE"},
+  "Rogitato":{clr:"#0C447C",bg:"#E6F1FB"},
+  "Archiviata":{clr:"#7A766C",bg:"#F1EFE8"},
+  "Scaduto":{clr:"#E74C3C",bg:"#FDECEA"},
+};
 const STATI_PROP = {
   "In attesa":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa"},
   "In attesa / Vincolata":{clr:"#4A90D9",bg:"#E8F1FB",s:"🔵",label:"In attesa (vincolata)"},
@@ -1649,6 +1658,21 @@ export default function App() {
     if(haAttesa) return "In trattativa";
     if(isScad(i.scadenza)) return "Scaduto";
     return "Attivo";
+  };
+
+  // Stato "pratica" derivato in automatico dai dati esistenti (incarico/proposte/venduti).
+  // Venduto = provvigione maturata (preliminare / proposta accettata senza vincolo);
+  // Rogitato = atto firmato (il venduto collegato ha dataAtto). Vedi specifica §2.
+  const statoPratica=i=>{
+    if(i.archiviato) return "Archiviata";
+    const s=statoInc(i);
+    if(s==="Scaduto") return "Scaduto";
+    if(s==="Venduto"||s==="Locato"){
+      const v=venduti.find(x=>Number(x.incaricoId)===Number(i.id));
+      return (v&&v.dataAtto)?"Rogitato":"Venduto";
+    }
+    if(s==="In trattativa"||s==="Accettata con Vincolo") return "In trattativa";
+    return "In vendita"; // Attivo
   };
 
   // Verifica se un incarico ha proposte bloccanti attive
@@ -9209,7 +9233,7 @@ export default function App() {
                   const prossima=fasi.flatMap(f=>f.azioni.map(a=>({...a,faseK:f.k}))).find(a=>!(getPr(inc.id).fasi[a.faseK]||{})[a.k]?.fatto);
                   const perc=percAv(inc.id);
                   return(<div key={inc.id} style={{display:"grid",gridTemplateColumns:"2fr 80px 100px 100px 100px 60px",padding:"10px 14px",borderBottom:"0.5px solid #f5f5f5",borderLeft:`3px solid ${al.length>0?"#E74C3C":perc===100?"#27AE60":clr}`,cursor:"pointer",alignItems:"center"}} onClick={()=>setGpPraticaSel(inc.id)}>
-                    <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2}}>{inc.nominativo}</div></div>
+                    <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}</div></div>
                     <div style={{fontSize:11,color:"#888"}}>{nomAg(inc.agenteListing)}</div>
                     <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" ").slice(0,2).join(" ")||"—"}</span></div>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
