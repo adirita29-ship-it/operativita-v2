@@ -9306,31 +9306,70 @@ export default function App() {
                 <div style={{marginLeft:"auto"}}><SearchBar value={searchPratiche} onChange={setSearchPratiche} placeholder="Cerca pratica..." nResults={incFiltrati.length}/></div>
               </div>
 
-              {/* VISTA LISTA */}
-              {gpVista==="lista"&&<div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
-                <div style={{display:"grid",gridTemplateColumns:"2fr 80px 100px 100px 100px 60px",padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
-                  {["Immobile / Venditore","Agente","Fase attuale","Avanzamento","Prossima azione","Alert"].map(h=><span key={h} style={{fontSize:11,color:"#888",fontWeight:500}}>{h}</span>)}
-                </div>
-                {incFiltrati.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:13}}>Nessuna pratica trovata</div>}
-                {incFiltrati.map(inc=>{
-                  const al=alertsInc(inc.id);
-                  const fc=faseCorrente(inc.id);
-                  const clr=faseClr(fc?.k);
-                  const prossima=fasi.flatMap(f=>f.azioni.map(a=>({...a,faseK:f.k}))).find(a=>!(getPr(inc.id).fasi[a.faseK]||{})[a.k]?.fatto);
-                  const perc=percAv(inc.id);
-                  return(<div key={inc.id} style={{display:"grid",gridTemplateColumns:"2fr 80px 100px 100px 100px 60px",padding:"10px 14px",borderBottom:"0.5px solid #f5f5f5",borderLeft:`3px solid ${al.length>0?"#E74C3C":perc===100?"#27AE60":clr}`,cursor:"pointer",alignItems:"center"}} onClick={()=>setGpPraticaSel(inc.id)}>
-                    <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}</div></div>
-                    <div style={{fontSize:11,color:"#888"}}>{nomAg(inc.agenteListing)}</div>
-                    <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" ").slice(0,2).join(" ")||"—"}</span></div>
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <div style={{flex:1,height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:perc===100?"#27AE60":clr,borderRadius:2}}/></div>
-                      <span style={{fontSize:10,color:"#888",minWidth:28}}>{perc}%</span>
+              {/* VISTA LISTA — Panoramica */}
+              {gpVista==="lista"&&(()=>{
+                const turno=(inc)=>{
+                  const prr=getPr(inc.id);
+                  const idx=fasi.findIndex(f=>f.azioni.some(a=>!(prr.fasi[f.k]||{})[a.k]?.fatto));
+                  if(idx<0)return{done:true,hasAg:false,hasEr:false};
+                  const pend=fasi[idx].azioni.filter(a=>!(prr.fasi[fasi[idx].k]||{})[a.k]?.fatto);
+                  return{done:false,hasAg:pend.some(a=>["agente","entrambi","tutti","broker"].includes(a.ruolo)),hasEr:pend.some(a=>["erica","entrambi","tutti","broker"].includes(a.ruolo))};
+                };
+                const latoMio=(inc)=>inc.agenteListing===myAgentId?"agente":(isErica||isBackOffice)?"erica":null;
+                const toccaTe=(inc)=>{const t=turno(inc);if(t.done)return false;const ml=latoMio(inc);return(ml==="agente"&&t.hasAg)||(ml==="erica"&&t.hasEr);};
+                const pill=(txt,bg,cl,bold)=><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:bg,color:cl,fontWeight:bold?600:500,whiteSpace:"nowrap"}}>{txt}</span>;
+                const turnoBadge=(inc)=>{
+                  const t=turno(inc);
+                  if(t.done)return pill("✓ Completata","#EAF7F0","#1D8A5F");
+                  const ml=latoMio(inc);
+                  if(ml==="agente"&&t.hasAg)return pill("👉 Tocca a te",RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl,true);
+                  if(ml==="erica"&&t.hasEr)return pill("👉 Tocca a te",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl,true);
+                  if(ml==="agente"&&t.hasEr)return pill("⏳ Attesa Erica","#f3f1ea","#888");
+                  if(ml==="erica"&&t.hasAg)return pill("⏳ Attesa "+(nomAg(inc.agenteListing)||"").split(" ")[0],"#f3f1ea","#888");
+                  if(t.hasAg&&t.hasEr)return pill("Agente + Erica","#f3f1ea","#777");
+                  if(t.hasAg)return pill(nomAg(inc.agenteListing),RUOLO_CLR.agente.bg,RUOLO_CLR.agente.cl);
+                  if(t.hasEr)return pill("Erica RT",RUOLO_CLR.erica.bg,RUOLO_CLR.erica.cl);
+                  return <span style={{fontSize:11,color:"#aaa"}}>—</span>;
+                };
+                const ordinata=[...incFiltrati].sort((a,b)=>{
+                  const al=(alertsInc(a.id).length>0?0:1)-(alertsInc(b.id).length>0?0:1);if(al)return al;
+                  return (toccaTe(a)?0:1)-(toccaTe(b)?0:1);
+                });
+                const nTocca=incFiltrati.filter(toccaTe).length;
+                const nAlert=incFiltrati.filter(i=>alertsInc(i.id).length>0).length;
+                const nAttesa=incFiltrati.filter(i=>{const t=turno(i);if(t.done)return false;return !toccaTe(i)&&latoMio(i);}).length;
+                const cols="2fr 80px 96px 86px 132px 46px";
+                return(<div>
+                  <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:110,background:RUOLO_CLR.agente.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:RUOLO_CLR.agente.cl}}>{nTocca}</div><div style={{fontSize:11,color:RUOLO_CLR.agente.cl}}>Tocca a te</div></div>
+                    <div style={{flex:1,minWidth:110,background:"#f3f1ea",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:"#777"}}>{nAttesa}</div><div style={{fontSize:11,color:"#888"}}>In attesa di altri</div></div>
+                    <div style={{flex:1,minWidth:110,background:"#FCEBEB",borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:18,fontWeight:600,color:"#A32D2D"}}>{nAlert}</div><div style={{fontSize:11,color:"#A32D2D"}}>Con alert</div></div>
+                  </div>
+                  <div style={{background:"#fff",border:"0.5px solid #e8e5e0",borderRadius:10,overflow:"hidden"}}>
+                    <div style={{display:"grid",gridTemplateColumns:cols,padding:"7px 14px",background:"#fafaf8",borderBottom:"1px solid #eee"}}>
+                      {["Immobile / Venditore","Agente","Fase attuale","Avanz.","Tocca a / Attesa","Alert"].map(h=><span key={h} style={{fontSize:11,color:"#888",fontWeight:500}}>{h}</span>)}
                     </div>
-                    <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{prossima?.lbl?.split(" ").slice(0,3).join(" ")||"—"}</div>
-                    <div>{al.length>0?<span style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>{al.length} ⚠</span>:<span style={{fontSize:11,color:"#aaa"}}>—</span>}</div>
-                  </div>);
-                })}
-              </div>}
+                    {ordinata.length===0&&<div style={{padding:"2rem",textAlign:"center",color:"#bbb",fontSize:13}}>Nessuna pratica trovata</div>}
+                    {ordinata.map(inc=>{
+                      const al=alertsInc(inc.id);
+                      const fc=faseCorrente(inc.id);
+                      const clr=faseClr(fc?.k);
+                      const perc=percAv(inc.id);
+                      return(<div key={inc.id} style={{display:"grid",gridTemplateColumns:cols,padding:"10px 14px",borderBottom:"0.5px solid #f5f5f5",borderLeft:`3px solid ${al.length>0?"#E74C3C":perc===100?"#27AE60":clr}`,cursor:"pointer",alignItems:"center"}} onClick={()=>setGpPraticaSel(inc.id)}>
+                        <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}</div></div>
+                        <div style={{fontSize:11,color:"#888"}}>{nomAg(inc.agenteListing)}</div>
+                        <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" ").slice(0,2).join(" ")||"—"}</span></div>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{flex:1,height:4,background:"#f0f0f0",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:perc===100?"#27AE60":clr,borderRadius:2}}/></div>
+                          <span style={{fontSize:10,color:"#888",minWidth:26}}>{perc}%</span>
+                        </div>
+                        <div>{turnoBadge(inc)}</div>
+                        <div>{al.length>0?<span style={{fontSize:11,padding:"2px 7px",borderRadius:10,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>{al.length} ⚠</span>:<span style={{fontSize:11,color:"#aaa"}}>—</span>}</div>
+                      </div>);
+                    })}
+                  </div>
+                </div>);
+              })()}
 
               {/* VISTA KANBAN */}
               {gpVista==="kanban"&&(()=>{
