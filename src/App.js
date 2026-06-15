@@ -803,88 +803,57 @@ function SchedaAgente({agente,venduti,incarichi,prospetti,onClose}) {
 
 // ── FASI GESTIONE PRATICHE (a livello modulo per accesso globale) ──
 const FASI=[
-  {k:"f1",n:"Incarico firmato",fase:1,timing:"Giorno 0",azioni:[
+  {k:"f1",n:"Incarico & documenti",fase:1,timing:"Giorno 0 · cartella a Erica entro 7 gg",azioni:[
     {k:"incFirmato",lbl:"Incarico mediazione firmato (UNAFIAIP)",ruolo:"agente"},
-    {k:"lavagna",lbl:"Annotazione lavagna ufficio",ruolo:"agente"},
-    {k:"gestim",lbl:"Inserimento su GESTIM",ruolo:"agente"},
-    {k:"vendilo",lbl:"Aggiornamento VENDILO",ruolo:"agente"},
-    {k:"consegnaErica",lbl:"Consegna documenti a Erica",ruolo:"agente"},
+    {k:"docVenditore",lbl:"Documenti venditore ritirati (anagrafici, provenienza)",ruolo:"agente"},
+    {k:"visuraCat",lbl:"Visura catastale storica",ruolo:"agente",alert:true},
+    {k:"cartellaErica",lbl:"Cartella consegnata a Erica (entro 7 gg)",ruolo:"agente",alert:true},
   ]},
-  {k:"f2",n:"Attivazione pratica",fase:2,timing:"Entro 48h",azioni:[
-    {k:"numPratica",lbl:"N° pratica generato su GESTIM",ruolo:"erica"},
-    {k:"fascicolo",lbl:"Fascicolo cartaceo + 8 sottocartelle",ruolo:"erica"},
-    {k:"cartellaNav",lbl:"Cartella NAS creata",ruolo:"erica"},
-    {k:"visuraCat",lbl:"Visura catastale storica",ruolo:"erica",alert:true},
-    {k:"visuraIpo",lbl:"Visura ipotecaria su immobile e proprietari",ruolo:"erica",alert:true},
-    {k:"mailPropr",lbl:"Mail al proprietario + lista documenti mancanti",ruolo:"erica"},
-    {k:"checkDoc",lbl:"Checklist documentale aperta (vedi A)",ruolo:"erica"},
+  {k:"f2",n:"Attivazione pratica",fase:2,timing:"Alla ricezione della cartella",azioni:[
+    {k:"verificaDoc",lbl:"Verifica documenti + richiesta mancanti ai venditori",ruolo:"erica"},
+    {k:"visuraIpo",lbl:"Ispezioni ipotecarie",ruolo:"erica",alert:true},
+    {k:"archivioOneDrive",lbl:"Posizione Archivio + cartella OneDrive",ruolo:"erica"},
+    {k:"gateFotografo",lbl:"Ipotecarie negative → sblocca fotografo",ruolo:"erica",alert:true},
   ]},
-  {k:"f3",n:"Lancio commerciale",fase:3,timing:"Entro 5 gg",azioni:[
-    {k:"fotografo",lbl:"Sopralluogo fotografo concordato",ruolo:"agente"},
-    {k:"schedaGestim",lbl:"Scheda immobile compilata su GESTIM",ruolo:"agente"},
-    {k:"pubblicazione",lbl:"Pubblicazione completa su portali",ruolo:"erica"},
-    {k:"cartello",lbl:"Cartello VENDESI preparato e affisso",ruolo:"entrambi"},
-    {k:"mailLink",lbl:"Mail ringraziamento + link annuncio",ruolo:"erica"},
-    {k:"letteraZona",lbl:"Lettera dedicata per zona preparata",ruolo:"erica"},
+  {k:"f3",n:"Preparazione annuncio",fase:3,timing:"Due corsie",azioni:[
+    {k:"precaricaGestim",lbl:"Precarica immobile su Gestim",ruolo:"agente"},
+    {k:"fotografo",lbl:"Incarica fotografo",ruolo:"agente"},
+    {k:"fotoTesto",lbl:"Carica foto + testo annuncio",ruolo:"agente"},
+    {k:"okPubblica",lbl:"Ok alla pubblicazione",ruolo:"agente"},
+    {k:"schedeGeom",lbl:"Schede rasterizzate dal geometra",ruolo:"erica"},
+    {k:"schedeRender",lbl:"Schede arredate (TotaleRender)",ruolo:"erica"},
+    {k:"pubblica",lbl:"Pubblica su sito + portali",ruolo:"erica"},
   ]},
-  {k:"f4",n:"Prima visita / Open House",fase:4,timing:"Entro 15 gg",azioni:[
-    {k:"cartelloOH",lbl:"Cartello Open House preparato",ruolo:"erica"},
-    {k:"brochure",lbl:"Brochure immobile per slot preparata",ruolo:"erica"},
-    {k:"prequalifica",lbl:"Prequalifica telefonica interessati",ruolo:"agente"},
+  {k:"f4",n:"Open House & lancio",fase:4,timing:"Report al proprietario ogni 15 gg",azioni:[
+    {k:"sceltaOH",lbl:"Scelta percorso: con / senza Open House",ruolo:"agente"},
+    {k:"materiali",lbl:"Richiesta materiali (cartello, lettere, cartoline + quantità)",ruolo:"agente"},
+    {k:"ica",lbl:"Richiesta ICA affissione cartello (se Varese)",ruolo:"erica"},
+    {k:"prepMateriali",lbl:"Materiali preparati",ruolo:"erica"},
     {k:"ohEseguito",lbl:"Open House eseguito",ruolo:"agente"},
-    {k:"feedback",lbl:"Feedback da ogni visitatore raccolto (entro 24h)",ruolo:"agente"},
-    {k:"followUp",lbl:"Follow-up profili interessati (entro 48h)",ruolo:"agente"},
-    {k:"aggGestim",lbl:"GESTIM aggiornato con nominativi e feedback",ruolo:"erica"},
+    {k:"feedback",lbl:"Feedback visitatori raccolti",ruolo:"agente"},
+    {k:"report15",lbl:"Report al proprietario (a 15 gg)",ruolo:"agente",alert:true},
   ]},
-  {k:"f5",n:"Proposta ricevuta",fase:5,timing:"Stesso giorno",azioni:[
-    {k:"propCompilata",lbl:"Proposta compilata (UNAFIAIP mod. 14)",ruolo:"agente",alert:true},
-    {k:"copieCI",lbl:"Copie CI/CF proponente + fotocopia assegno",ruolo:"agente"},
-    {k:"lavagnaProp",lbl:"Lavagna aggiornata sezione Proposte",ruolo:"agente"},
-    {k:"gestimProp",lbl:"Proposta inserita su GESTIM (entro 2h)",ruolo:"agente",alert:true},
-    {k:"vendiloProp",lbl:"VENDILO spostato in 'In Proposta' (entro 2h)",ruolo:"agente"},
-    {k:"notificaErica",lbl:"Notifica WhatsApp a Erica",ruolo:"agente"},
-    {k:"assegnoDeposito",lbl:"Assegno caparra consegnato a Erica/Broker",ruolo:"agente",alert:true},
-    {k:"appAccettazione",lbl:"Appuntamento accettazione fissato (entro 48h)",ruolo:"agente"},
+  {k:"f5",n:"Trattativa & accettazione",fase:5,timing:"Lo stato cambia all'accettazione",azioni:[
+    {k:"propRicevuta",lbl:"Proposta ricevuta e inserita",ruolo:"agente"},
+    {k:"accettazione",lbl:"Accettazione (con/senza vincolo) registrata",ruolo:"agente",alert:true},
   ]},
-  {k:"f6",n:"Proposta accettata",fase:6,timing:"Entro 48h",azioni:[
-    {k:"firmaProp",lbl:"Proposta firmata per accettazione",ruolo:"agente"},
-    {k:"datePrelim",lbl:"2 date possibili per preliminare concordate",ruolo:"agente"},
-    {k:"visuraPrePrelim",lbl:"Visura ipotecaria aggiornata (giorno prima prelim.)",ruolo:"erica",alert:true},
-    {k:"cartellaRogito",lbl:"Cartella 'Da Rogitare' NAS aperta",ruolo:"erica"},
-    {k:"contattoMutuo",lbl:"Contatto broker/banca per mutuo avviato",ruolo:"agente"},
+  {k:"f6",n:"Preliminare",fase:6,timing:"= Venduto · provvigione maturata",azioni:[
+    {k:"caparra",lbl:"Caparra consegnata/incassata al venditore",ruolo:"agente"},
+    {k:"antiriciclaggio",lbl:"Antiriciclaggio acquirente",ruolo:"erica",alert:true},
+    {k:"proforma",lbl:"Fatture pro forma predisposte",ruolo:"erica"},
+    {k:"visurePrelim",lbl:"Visure ipotecarie aggiornate",ruolo:"erica",alert:true},
+    {k:"agenda",lbl:"Agenda preliminare + conferma parti",ruolo:"agente"},
+    {k:"copieAssegni",lbl:"Copia degli assegni",ruolo:"agente"},
+    {k:"registrazione",lbl:"Registrazione preliminare",ruolo:"erica",alert:true},
   ]},
-  {k:"f7",n:"Preliminare firmato",fase:7,timing:"Data concordata",azioni:[
-    {k:"bozzaPrelim",lbl:"Bozza preliminare preparata da Erica",ruolo:"erica",alert:true},
-    {k:"invioParti",lbl:"Bozza inviata alle parti (almeno 48h prima)",ruolo:"erica",alert:true},
-    {k:"antiricicl",lbl:"Antiriciclaggio completato PRIMA della firma",ruolo:"erica",alert:true},
-    {k:"firmaEseguita",lbl:"Firma preliminare eseguita",ruolo:"entrambi"},
-    {k:"copieAssegni",lbl:"Fotocopia tutti gli assegni",ruolo:"erica"},
-    {k:"regold",lbl:"Registrazione Regold (entro 30 gg dalla firma)",ruolo:"erica",alert:true},
-    {k:"fatturaPrelim",lbl:"Fatture provvigioni emesse (entro 48h)",ruolo:"erica"},
-  ]},
-  {k:"f8",n:"Dal prelim. al rogito",fase:8,timing:"Monitoraggio costante",azioni:[
-    {k:"docBanca",lbl:"Documentazione inviata alla banca (entro 48h)",ruolo:"erica"},
-    {k:"monitorMutuo",lbl:"Iter mutuo monitorato settimanalmente",ruolo:"entrambi"},
-    {k:"contNotaio",lbl:"Contatti con notaio — invio documenti",ruolo:"erica",alert:true},
-    {k:"docNotaio7gg",lbl:"Documenti al notaio (almeno 7 gg prima rogito)",ruolo:"erica",alert:true},
-    {k:"checkFinale",lbl:"Check finale 1 gg prima con agente e Broker",ruolo:"erica"},
-  ]},
-  {k:"f9",n:"Il rogito",fase:9,timing:"Giorno rogito",azioni:[
-    {k:"presenzaRogito",lbl:"Agente presente al rogito con pratica completa",ruolo:"agente"},
-    {k:"giftAcquirente",lbl:"Pacchetto gift consegnato all'acquirente",ruolo:"agente"},
-    {k:"recensioni",lbl:"Recensioni richieste alle parti",ruolo:"agente"},
-    {k:"notificaStipula",lbl:"Comunicazione stipula avvenuta a Erica",ruolo:"agente"},
-    {k:"aggGestimVend",lbl:"GESTIM aggiornato come 'Venduto'",ruolo:"erica"},
-    {k:"portaliVend",lbl:"Portali aggiornati 'Venduto' (entro 24h)",ruolo:"erica",alert:true},
-  ]},
-  {k:"f10",n:"Post rogito",fase:10,timing:"Entro 48h",azioni:[
-    {k:"cartelloVend",lbl:"Cartello VENDUTO affisso",ruolo:"erica"},
-    {k:"fattureFinali",lbl:"Fatture definitive emesse (entro 48h)",ruolo:"erica"},
-    {k:"archiviazioneNas",lbl:"Pratica archiviata su NAS",ruolo:"erica"},
-    {k:"lettCongratul",lbl:"Lettera congratulazioni al venditore inviata",ruolo:"agente"},
-    {k:"lettBenvenuto",lbl:"Lettera benvenuto all'acquirente inviata",ruolo:"agente"},
-    {k:"cartolineZona",lbl:"Cartoline 'Appena Venduto' distribuite in zona",ruolo:"agente"},
-    {k:"recensioneGoogle",lbl:"Recensione Google richiesta (entro 7 gg)",ruolo:"agente",alert:true},
+  {k:"f7",n:"Rogito & post",fase:7,timing:"Atto → Rogitato → archiviazione",azioni:[
+    {k:"confronto",lbl:"Confronto Agente↔Erica pre-predisposizione",ruolo:"entrambi"},
+    {k:"notaio",lbl:"Interfaccia notaio + invio documenti",ruolo:"erica",alert:true},
+    {k:"conteggi",lbl:"Conteggi estintivi banche",ruolo:"erica"},
+    {k:"cofanetto",lbl:"Cofanetto acquirente preparato",ruolo:"erica"},
+    {k:"rogito",lbl:"Atto firmato (Rogitato)",ruolo:"entrambi"},
+    {k:"recensione",lbl:"Recensione richiesta alle parti",ruolo:"erica"},
+    {k:"archivia",lbl:"Archiviazione (OneDrive + cartaceo)",ruolo:"erica"},
   ]},
 ];
 
@@ -9073,10 +9042,9 @@ export default function App() {
               if(gpCategoria!=="attive"&&gpAnno!=="Tutti"&&(i.dataInizio||"").slice(0,4)!==gpAnno)return false;
               if(gpFiltroFase!=="Tutte"){
                 const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);
-                if(gpFiltroFase==="acq"&&fi>=3)return false;
-                if(gpFiltroFase==="prop"&&(fi<3||fi>=7))return false;
-                if(gpFiltroFase==="rogito"&&(fi<7||fi>=9))return false;
-                if(gpFiltroFase==="post"&&fi<9)return false;
+                if(gpFiltroFase==="acq"&&fi>=4)return false;
+                if(gpFiltroFase==="prop"&&(fi<4||fi>=6))return false;
+                if(gpFiltroFase==="rogito"&&fi<6)return false;
               }
               if(gpFiltroAlert&&alertsInc(i.id).length===0)return false;
               // Ricerca testuale (live, multi-parola)
@@ -9088,9 +9056,9 @@ export default function App() {
             const faseClr=(k)=>{
               const f=fasi.find(f=>f.k===k);
               if(!f)return"#888";
-              if(f.fase<=3)return"#185FA5";
-              if(f.fase<=6)return"#854F0B";
-              if(f.fase<=8)return"#533AB7";
+              if(f.fase<=2)return"#185FA5";
+              if(f.fase<=4)return"#854F0B";
+              if(f.fase<=6)return"#533AB7";
               return"#3B6D11";
             };
             const RUOLO_CLR={agente:{bg:"#EEEDFE",cl:"#3C3489"},erica:{bg:"#E1F5EE",cl:"#085041"},broker:{bg:"#E6F1FB",cl:"#0C447C"},entrambi:{bg:"#FAEEDA",cl:"#633806"},tutti:{bg:"#EAF3DE",cl:"#3B6D11"}};
@@ -9209,10 +9177,9 @@ export default function App() {
               <div style={{display:"flex",gap:6,marginBottom:"1rem",flexWrap:"wrap",alignItems:"center"}}>
                 {[
                   ["Tutte","Tutte","#185FA5",poolBase.length],
-                  ["acq","Acquisizione","#185FA5",poolBase.filter(i=>fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k)<3).length],
-                  ["prop","Proposta / Prelim.","#854F0B",poolBase.filter(i=>{const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);return fi>=3&&fi<7;}).length],
-                  ["rogito","Rogito","#533AB7",poolBase.filter(i=>{const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);return fi>=7&&fi<9;}).length],
-                  ["post","Post rogito","#3B6D11",poolBase.filter(i=>fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k)>=9).length],
+                  ["acq","Acquisizione","#185FA5",poolBase.filter(i=>fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k)<4).length],
+                  ["prop","Proposta / Prelim.","#854F0B",poolBase.filter(i=>{const fi=fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k);return fi>=4&&fi<6;}).length],
+                  ["rogito","Rogito & post","#533AB7",poolBase.filter(i=>fasi.findIndex(f=>f.k===faseCorrente(i.id)?.k)>=6).length],
                 ].map(([v,lbl,clr,n])=>(
                   <button key={v} onClick={()=>setGpFiltroFase(v)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroFase===v?clr:"#ddd"}`,background:gpFiltroFase===v?clr+"18":"#fff",color:gpFiltroFase===v?clr:"#888",cursor:"pointer",fontFamily:"inherit",fontWeight:gpFiltroFase===v?500:400}}>{lbl} ({n})</button>
                 ))}
@@ -9249,10 +9216,10 @@ export default function App() {
               {/* VISTA KANBAN */}
               {gpVista==="kanban"&&(()=>{
                 const gruppi=[
-                  {lbl:"Fase 1-3",clr:"#185FA5",ks:fasi.filter(f=>f.fase<=3).map(f=>f.k)},
-                  {lbl:"Fase 4-6",clr:"#854F0B",ks:fasi.filter(f=>f.fase>3&&f.fase<=6).map(f=>f.k)},
-                  {lbl:"Fase 7-8",clr:"#533AB7",ks:fasi.filter(f=>f.fase>6&&f.fase<=8).map(f=>f.k)},
-                  {lbl:"Fase 9-10",clr:"#3B6D11",ks:fasi.filter(f=>f.fase>8).map(f=>f.k)},
+                  {lbl:"Incarico & avvio (1-2)",clr:"#185FA5",ks:fasi.filter(f=>f.fase<=2).map(f=>f.k)},
+                  {lbl:"Annuncio & lancio (3-4)",clr:"#854F0B",ks:fasi.filter(f=>f.fase>2&&f.fase<=4).map(f=>f.k)},
+                  {lbl:"Trattativa & prelim. (5-6)",clr:"#533AB7",ks:fasi.filter(f=>f.fase>4&&f.fase<=6).map(f=>f.k)},
+                  {lbl:"Rogito & post (7)",clr:"#3B6D11",ks:fasi.filter(f=>f.fase>6).map(f=>f.k)},
                 ];
                 return(<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10}}>
                   {gruppi.map(({lbl,clr,ks})=>{
