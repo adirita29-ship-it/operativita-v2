@@ -1084,6 +1084,7 @@ export default function App() {
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
   const [gpFasiOpen,setGpFasiOpen]=useState({});
+  const [reportForm,setReportForm]=useState(null);
   const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
@@ -9028,7 +9029,12 @@ export default function App() {
             const totAzioni=fasi.reduce((s,f)=>s+f.azioni.length,0);
             const fatte=(incId)=>fasi.reduce((s,f)=>s+f.azioni.filter(a=>(getPr(incId).fasi[f.k]||{})[a.k]?.fatto).length,0);
             const percAv=(incId)=>totAzioni>0?Math.round(fatte(incId)/totAzioni*100):0;
-            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));return al;};
+            const addDays=(s,n)=>{const d=new Date(s+"T00:00:00");d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);};
+            const diffDays=(a,b)=>Math.round((new Date(a+"T00:00:00")-new Date(b+"T00:00:00"))/86400000);
+            const getCiclo=(incId)=>{const c=getPr(incId).cicloReport;return {intervallo:c?.intervallo||15,log:c?.log||[],dal:c?.dal||null};};
+            const prossimoReport=(incId)=>{const inc=incarichi.find(i=>i.id===incId);const c=getCiclo(incId);const ultimo=c.log.length?c.log[c.log.length-1].data:(c.dal||inc?.dataInizio||todayStr());const nextDue=addDays(ultimo,c.intervallo);const oggi=todayStr();const overdue=nextDue<oggi;return {ultimo:c.log.length?ultimo:null,nextDue,overdue,giorniRitardo:overdue?diffDays(oggi,nextDue):0,intervallo:c.intervallo,log:c.log};};
+            const rinnovoInc=(inc)=>{if(!inc?.scadenza)return null;const soglia=addDays(inc.scadenza,-45);const oggi=todayStr();return (oggi>=soglia&&oggi<inc.scadenza)?{scadenza:inc.scadenza,soglia,giorni:diffDays(inc.scadenza,oggi)}:null;};
+            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));const inc=incarichi.find(i=>i.id===incId);if(inc&&statoPratica(inc)==="In vendita"){const rp=prossimoReport(incId);if(rp.overdue)al.push({lbl:`Report proprietario in ritardo di ${rp.giorniRitardo} gg`,tipo:"report",alert:true});}return al;};
             const faseCorrente=(incId)=>{const pr=getPr(incId);const f=fasi.find(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return f||fasi[fasi.length-1];};
 
             // Categorie — usa statoInc che è già calcolato correttamente
@@ -9107,6 +9113,17 @@ export default function App() {
               alert(count>0?`${count} pratiche inizializzate.`:"Nessuna pratica da inizializzare.");
             };
 
+            // === Avvio cicli report DA OGGI (una tantum) per le pratiche esistenti senza report ===
+            const daAvviare=tuttiVendita.filter(i=>{const c=getCiclo(i.id);return !c.dal&&!c.log.length&&statoPratica(i)==="In vendita";});
+            const avviaCicli=()=>{
+              if(isReadOnly)return;
+              if(!window.confirm(`Avvio il ciclo report DA OGGI su ${daAvviare.length} pratiche in vendita senza report. Da qui il conteggio dei 15 (o 7) giorni parte da oggi, così non risultano già in ritardo. Procedo?`))return;
+              const nuove={...pratiche}; const oggi=todayStr();
+              daAvviare.forEach(i=>{const pr=nuove[i.id]||{};const c=pr.cicloReport||{};nuove[i.id]={...pr,incaricoId:i.id,cicloReport:{intervallo:c.intervallo||15,log:c.log||[],dal:oggi}};});
+              setPratiche(nuove);
+              alert(`Cicli avviati da oggi su ${daAvviare.length} pratiche.`);
+            };
+
             // === MATERIALI Fase 4 → Operatività (riconciliazione automatica) ===
             const TIPI_MAT=[{k:"cartello",lbl:"Cartello vendesi",op:null},{k:"lettere",lbl:"Lettere",op:"lettere"},{k:"cartoline",lbl:"Cartoline / volantini",op:"volantinaggio"}];
             const getMat=(incId)=>getPr(incId).materiali||[];
@@ -9143,6 +9160,30 @@ export default function App() {
               setMat(incId,arr.filter(r=>r.id!==matId));
             };
 
+            // === CICLO REPORT proprietario: registra/rimuovi + feed Operatività ===
+            const setIntervallo=(incId,n)=>{ if(isReadOnly)return; const c=getCiclo(incId); setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,cicloReport:{...c,intervallo:n}}}); };
+            const feedReportOp=(agentId,data,ribasso,segno)=>{
+              if(!agentId||!data)return;
+              setOggiDati(prev=>{
+                const np={...prev}; np[agentId]={...(np[agentId]||{})}; np[agentId][data]={...(np[agentId][data]||{}),conseguenze:{...((np[agentId][data]||{}).conseguenze||{})}};
+                const cs=np[agentId][data].conseguenze;
+                cs.report_prop=Math.max(0,Number(cs.report_prop||0)+segno); if(!cs.report_prop)delete cs.report_prop;
+                if(Number(ribasso||0)>0){ cs.ribassi=Math.max(0,Number(cs.ribassi||0)+segno); if(!cs.ribassi)delete cs.ribassi; }
+                return np;
+              });
+            };
+            const registraReport=(incId,ribasso,note)=>{
+              if(isReadOnly)return; const c=getCiclo(incId); const inc=incarichi.find(i=>i.id===incId); const data=todayStr();
+              const entry={id:"r"+Date.now(),data,ribasso:Number(ribasso||0),note:note||""};
+              setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,cicloReport:{...c,log:[...c.log,entry]}}});
+              feedReportOp(inc?.agenteListing,data,entry.ribasso,+1);
+            };
+            const rimuoviReport=(incId,rid)=>{
+              if(isReadOnly)return; const c=getCiclo(incId); const inc=incarichi.find(i=>i.id===incId); const entry=c.log.find(e=>e.id===rid); if(!entry)return;
+              setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,cicloReport:{...c,log:c.log.filter(e=>e.id!==rid)}}});
+              feedReportOp(inc?.agenteListing,entry.data,entry.ribasso,-1);
+            };
+
             // Vista SCHEDA pratica singola
             if(gpPraticaSel){
               const inc=incAttivi.find(i=>i.id===gpPraticaSel);
@@ -9174,6 +9215,51 @@ export default function App() {
                     </React.Fragment>);
                   })}
                 </div>
+                {/* Ciclo proprietario + promemoria rinnovo */}
+                {(()=>{
+                  const st=statoPratica(inc);
+                  const inVendita=st==="In vendita";
+                  const rp=prossimoReport(inc.id);
+                  const rinnovo=rinnovoInc(inc);
+                  const editable=canEditAgente(inc);
+                  const formAperto=reportForm&&reportForm.incId===inc.id;
+                  return(<div style={{marginBottom:14}}>
+                    <div style={{border:`1px solid ${inVendita&&rp.overdue?"#E74C3C":"#e8e5e0"}`,borderRadius:12,padding:"10px 14px",background:inVendita?(rp.overdue?"#FDF4F4":"#fff"):"#faf9f6"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:inVendita?8:0}}>
+                        <span style={{fontSize:13,fontWeight:600,color:"#0F6E56"}}>🔄 Ciclo proprietario</span>
+                        {!inVendita&&<span style={{fontSize:11,color:"#888"}}>⏸ In pausa ({st}) — riprende se la proposta viene rifiutata</span>}
+                      </div>
+                      {inVendita&&<>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                          <span style={{fontSize:12,color:"#888"}}>Cadenza</span>
+                          {[15,7].map(n=><button key={n} disabled={!editable} onClick={()=>setIntervallo(inc.id,n)} style={{fontSize:11,padding:"3px 10px",borderRadius:8,border:`0.5px solid ${rp.intervallo===n?"#854F0B":"#ddd"}`,background:rp.intervallo===n?"#854F0B":"#fff",color:rp.intervallo===n?"#fff":"#888",cursor:editable?"pointer":"default",fontFamily:"inherit",fontWeight:rp.intervallo===n?600:400}}>ogni {n} gg</button>)}
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:14,fontSize:12,marginBottom:8,flexWrap:"wrap"}}>
+                          <span style={{color:"#888"}}>Ultimo report <b style={{color:"#2c2c2c"}}>{rp.ultimo?fmtD(rp.ultimo):"mai"}</b></span>
+                          <span style={{color:rp.overdue?"#A32D2D":"#888"}}>Prossimo <b>{fmtD(rp.nextDue)}{rp.overdue?` · in ritardo di ${rp.giorniRitardo} gg`:""}</b></span>
+                        </div>
+                        {editable&&!formAperto&&<button onClick={()=>setReportForm({incId:inc.id,ribasso:"",note:""})} style={{...S.btn,fontSize:12,padding:"5px 12px",borderColor:"#854F0B",color:"#854F0B"}}>+ Registra report + ribasso</button>}
+                        {formAperto&&<div style={{marginTop:4,padding:"8px 10px",border:"0.5px solid #E8C97A",borderRadius:8,background:"#FFFCF6",display:"flex",flexDirection:"column",gap:6}}>
+                          <div style={{fontSize:11,color:"#854F0B",fontWeight:500}}>Report del {fmtD(todayStr())}</div>
+                          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                            <label style={{fontSize:11,color:"#888",display:"flex",alignItems:"center",gap:4}}>Ribasso €<input type="number" min="0" value={reportForm.ribasso} onChange={e=>setReportForm({...reportForm,ribasso:e.target.value})} style={{width:90,fontSize:11,padding:"3px 5px",border:"0.5px solid #ddd",borderRadius:5,fontFamily:"inherit"}} placeholder="0"/></label>
+                            <input value={reportForm.note} onChange={e=>setReportForm({...reportForm,note:e.target.value})} placeholder="Nota (facoltativa)" style={{flex:1,minWidth:140,fontSize:11,padding:"3px 6px",border:"0.5px solid #ddd",borderRadius:5,fontFamily:"inherit"}}/>
+                          </div>
+                          <div style={{display:"flex",gap:6}}>
+                            <button onClick={()=>{registraReport(inc.id,reportForm.ribasso,reportForm.note);setReportForm(null);}} style={{...S.btn,fontSize:11,padding:"4px 12px",background:"#854F0B",color:"#fff",border:"none"}}>Salva report</button>
+                            <button onClick={()=>setReportForm(null)} style={{...S.btn,fontSize:11,padding:"4px 12px"}}>Annulla</button>
+                          </div>
+                        </div>}
+                        {rp.log.length>0&&<div style={{marginTop:8,display:"flex",flexDirection:"column",gap:3}}>
+                          {[...rp.log].reverse().map(e=><div key={e.id} style={{fontSize:11,color:"#999",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{fmtD(e.data)}</span>{e.ribasso>0&&<span style={{color:"#854F0B"}}>ribasso −€ {fmtN(e.ribasso)}</span>}{e.note&&<span style={{fontStyle:"italic"}}>“{e.note}”</span>}{editable&&<span onClick={()=>rimuoviReport(inc.id,e.id)} title="Rimuovi" style={{color:"#c0392b",cursor:"pointer"}}>✕</span>}</div>)}
+                        </div>}
+                      </>}
+                    </div>
+                    {rinnovo&&<div style={{marginTop:8,background:"#FAEEDA",borderRadius:10,padding:"8px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:12,color:"#633806"}}>📅 Rinnovo incarico — scade il <b>{fmtD(inc.scadenza)}</b>, fra {rinnovo.giorni} gg</span>
+                    </div>}
+                  </div>);
+                })()}
                 {/* Fasi: corrente espansa a due corsie · fatte e future compatte (cliccabili per aprire) */}
                 {(()=>{
                   const idxCorr=(()=>{const i=fasi.findIndex(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return i<0?fasi.length-1:i;})();
@@ -9303,6 +9389,7 @@ export default function App() {
                 ))}
                 <button onClick={()=>setGpFiltroAlert(!gpFiltroAlert)} style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:`0.5px solid ${gpFiltroAlert?"#E74C3C":"#ddd"}`,background:gpFiltroAlert?"#FCEBEB":"#fff",color:gpFiltroAlert?"#A32D2D":"#888",cursor:"pointer",fontFamily:"inherit"}}>⚠ Alert ({poolBase.filter(i=>alertsInc(i.id).length>0).length})</button>
                 {canEditPratiche&&daMigrare.length>0&&<button onClick={migraPratiche} title="Dà per fatte d'ufficio le fasi iniziali in base allo stato, una tantum" style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:"0.5px solid #A8863A",background:"#FAEEDA",color:"#854F0B",cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>⚙ Inizializza avanzamento ({daMigrare.length})</button>}
+                {canEditPratiche&&daAvviare.length>0&&<button onClick={avviaCicli} title="Fa partire il ciclo report da oggi sulle pratiche esistenti, una tantum" style={{padding:"4px 12px",fontSize:11,borderRadius:16,border:"0.5px solid #0F6E56",background:"#E1F5EE",color:"#0F6E56",cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>🔄 Avvia cicli da oggi ({daAvviare.length})</button>}
                 <div style={{marginLeft:"auto"}}><SearchBar value={searchPratiche} onChange={setSearchPratiche} placeholder="Cerca pratica..." nResults={incFiltrati.length}/></div>
               </div>
 
@@ -9365,7 +9452,7 @@ export default function App() {
                       const clr=faseClr(fc?.k);
                       const perc=percAv(inc.id);
                       return(<div key={inc.id} style={{display:"grid",gridTemplateColumns:cols,padding:"10px 14px",borderBottom:"0.5px solid #f5f5f5",borderLeft:`3px solid ${al.length>0?"#E74C3C":perc===100?"#27AE60":clr}`,cursor:"pointer",alignItems:"center"}} onClick={()=>setGpPraticaSel(inc.id)}>
-                        <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}</div></div>
+                        <div><div style={{fontSize:13,fontWeight:500}}>{inc.comune} — {inc.indirizzo}</div><div style={{fontSize:11,color:"#888",marginTop:2,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{inc.nominativo}</span>{(()=>{const sp=statoPratica(inc);const c=STATI_PRATICA[sp]||{clr:"#888",bg:"#eee"};return<span title="Stato pratica derivato in automatico" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:c.bg,color:c.clr,fontWeight:500}}>{sp}</span>;})()}{rinnovoInc(inc)&&<span title="Rinnovo incarico vicino" style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:"#FAEEDA",color:"#854F0B",fontWeight:500}}>📅 Rinnovo</span>}</div></div>
                         <div style={{fontSize:11,color:"#888"}}>{nomAg(inc.agenteListing)}</div>
                         <div><span style={{fontSize:11,padding:"2px 8px",borderRadius:10,background:clr+"18",color:clr,fontWeight:500}}>{fc?.n?.split(" & ")[0]||"—"}</span></div>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
