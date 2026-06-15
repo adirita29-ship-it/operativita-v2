@@ -1083,6 +1083,7 @@ export default function App() {
   const [gpFiltroFase,setGpFiltroFase]=useState("Tutte");
   const [gpFiltroAlert,setGpFiltroAlert]=useState(false);
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
+  const [gpFasiOpen,setGpFasiOpen]=useState({});
   const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
@@ -9137,41 +9138,65 @@ export default function App() {
                     </React.Fragment>);
                   })}
                 </div>
-                {/* Fasi con azioni */}
-                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10}}>
-                  {fasi.map(f=>{
+                {/* Fasi: corrente espansa a due corsie · fatte e future compatte (cliccabili per aprire) */}
+                {(()=>{
+                  const idxCorr=(()=>{const i=fasi.findIndex(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return i<0?fasi.length-1:i;})();
+                  const mioLato=inc.agenteListing===myAgentId?"agente":(isErica||isBackOffice)?"erica":null;
+                  const azItem=(f,az)=>{
+                    const azPr=(pr.fasi[f.k]||{})[az.k]||{};
+                    const editable=canEditAgente(inc);
+                    return(<div key={az.k} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0"}}>
+                      <div onClick={()=>editable&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?"#1D9E75":az.alert?"#E74C3C":"#cfcabf"}`,background:azPr.fatto?"#1D9E75":"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:editable?"pointer":"default",flexShrink:0,marginTop:1}}>{azPr.fatto&&<span style={{fontSize:10,color:"#fff",lineHeight:1}}>✓</span>}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11.5,color:azPr.fatto?"#9a958c":"#2c2c2c"}}>{az.lbl}</div>
+                        <div style={{display:"flex",gap:6,marginTop:2,alignItems:"center",flexWrap:"wrap"}}>
+                          {azPr.fatto?<><input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#1D9E75",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>{azPr.daChi&&<span style={{fontSize:10,color:"#bbb"}}>· {azPr.daChi}</span>}</>:az.alert?<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>:null}
+                        </div>
+                      </div>
+                    </div>);
+                  };
+                  const lane=(f,ruolo,titolo,rclr,attiva)=>{
+                    const azioni=f.azioni.filter(a=>a.ruolo===ruolo);
+                    return(<div style={{minWidth:0,border:`${attiva?"2px":"0.5px"} solid ${attiva?rclr.cl:"#e8e5e0"}`,borderRadius:10,padding:"9px 12px",background:attiva?rclr.bg+"66":"#fff"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:11,padding:"2px 9px",borderRadius:10,background:rclr.bg,color:rclr.cl,fontWeight:500}}>{titolo}</span>
+                        {attiva&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:rclr.cl,color:"#fff",fontWeight:500}}>Tocca a te</span>}
+                      </div>
+                      {azioni.length>0?azioni.map(az=>azItem(f,az)):<div style={{fontSize:11,color:"#bbb"}}>—</div>}
+                    </div>);
+                  };
+                  return fasi.map((f,fi)=>{
                     const clr=faseClr(f.k);
                     const fatte2=f.azioni.filter(a=>(pr.fasi[f.k]||{})[a.k]?.fatto).length;
-                    const perc=f.azioni.length>0?Math.round(fatte2/f.azioni.length*100):0;
-                    return(<div key={f.k} style={{background:"#fff",borderRadius:10,border:`0.5px solid ${clr}44`,overflow:"hidden"}}>
-                      <div style={{background:clr+"18",padding:"8px 12px",display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:600,color:clr}}>{f.n}</div>
-                          <div style={{height:3,background:"#f0f0f0",borderRadius:2,marginTop:4,overflow:"hidden"}}><div style={{height:"100%",width:`${perc}%`,background:clr,borderRadius:2}}/></div>
+                    const espansa=fi===idxCorr||gpFasiOpen[f.k];
+                    if(espansa){
+                      const shAz=f.azioni.filter(a=>!["agente","erica"].includes(a.ruolo));
+                      return(<div key={f.k} style={{marginBottom:12,border:`2px solid ${clr}`,borderRadius:12,padding:"12px 14px",background:clr+"0d"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                          <span style={{fontSize:13,fontWeight:600,color:clr}}>{fi+1}. {f.n}</span>
+                          {f.timing&&<span style={{fontSize:11,color:"#999"}}>· {f.timing}</span>}
+                          {fi===idxCorr&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:clr+"22",color:clr,fontWeight:500}}>fase corrente</span>}
+                          <span style={{marginLeft:"auto",fontSize:11,color:clr,fontWeight:500}}>{fatte2}/{f.azioni.length}</span>
+                          {fi!==idxCorr&&<button onClick={()=>setGpFasiOpen(o=>({...o,[f.k]:false}))} style={{...S.btn,fontSize:10,padding:"2px 8px"}}>chiudi</button>}
                         </div>
-                        <span style={{fontSize:11,color:clr,fontWeight:500}}>{fatte2}/{f.azioni.length}</span>
-                      </div>
-                      {f.azioni.map(az=>{
-                        const azPr=(pr.fasi[f.k]||{})[az.k]||{};
-                        const rclr=RUOLO_CLR[az.ruolo]||RUOLO_CLR.agente;
-                        return(<div key={az.k} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 12px",borderBottom:"0.5px solid #f5f5f5",opacity:canEditAgente(inc)?1:0.7}}>
-                          <div onClick={()=>canEditAgente(inc)&&toggleAzione(inc.id,f.k,az.k)} style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${azPr.fatto?clr:"#ddd"}`,background:azPr.fatto?clr:"transparent",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,marginTop:1}}>
-                            {azPr.fatto&&<span style={{fontSize:10,color:"#fff",lineHeight:1}}>✓</span>}
-                          </div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:11,color:azPr.fatto?"#888":"#2c2c2c",textDecoration:azPr.fatto?"line-through":"none"}}>{az.lbl}</div>
-                            <div style={{display:"flex",gap:5,marginTop:3,alignItems:"center",flexWrap:"wrap"}}>
-                              <span style={{fontSize:10,padding:"1px 6px",borderRadius:8,background:rclr.bg,color:rclr.cl,fontWeight:500}}>{az.ruolo==="agente"?"Agente":az.ruolo==="erica"?"Erica RT":az.ruolo==="broker"?"Broker":az.ruolo==="entrambi"?"Ag+Erica":"Tutti"}</span>
-                              {azPr.fatto&&<input type="date" style={{fontSize:10,border:"none",background:"transparent",color:"#27AE60",cursor:"pointer",padding:0,fontFamily:"inherit"}} value={azPr.data||""} onChange={e=>setDataAzione(inc.id,f.k,az.k,e.target.value)}/>}
-                              {azPr.fatto&&azPr.daChi&&azPr.daChi!==az.ruolo&&<span style={{fontSize:10,color:"#aaa",fontStyle:"italic"}}>da {azPr.daChi}</span>}
-                              {!azPr.fatto&&az.alert&&<span style={{fontSize:10,color:"#E74C3C"}}>⚠ alert</span>}
-                            </div>
-                          </div>
-                        </div>);
-                      })}
+                        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                          {lane(f,"agente","Agente",RUOLO_CLR.agente,mioLato==="agente")}
+                          {lane(f,"erica","Erica RT",RUOLO_CLR.erica,mioLato==="erica")}
+                        </div>
+                        {shAz.length>0&&<div style={{marginTop:10,border:"0.5px solid #e8e5e0",borderRadius:10,padding:"9px 12px"}}><div style={{fontSize:11,color:"#888",marginBottom:4,fontWeight:500}}>Insieme</div>{shAz.map(az=>azItem(f,az))}</div>}
+                      </div>);
+                    }
+                    const passata=fi<idxCorr;
+                    const ultimaData=f.azioni.map(a=>(pr.fasi[f.k]||{})[a.k]?.data).filter(Boolean).sort().slice(-1)[0];
+                    const chi=[...new Set(f.azioni.map(a=>(pr.fasi[f.k]||{})[a.k]?.daChi).filter(Boolean))].join(", ");
+                    return(<div key={f.k} onClick={()=>setGpFasiOpen(o=>({...o,[f.k]:true}))} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 13px",marginBottom:8,border:"0.5px solid #e8e5e0",borderRadius:10,cursor:"pointer",background:"#fff"}}>
+                      <div style={{width:20,height:20,borderRadius:"50%",background:passata?(fatte2===f.azioni.length?"#1D9E75":"#E0A200"):"#e8e5e0",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{passata&&fatte2===f.azioni.length&&<span style={{fontSize:11,color:"#fff"}}>✓</span>}</div>
+                      <span style={{fontSize:12.5,fontWeight:500,color:passata?"#555":"#aaa",flex:1}}>{fi+1}. {f.n}</span>
+                      <span style={{fontSize:11,color:"#aaa"}}>{passata?`${fatte2}/${f.azioni.length}${chi?" · "+chi:""}${ultimaData?" · "+ultimaData:""}`:`da iniziare · ${f.azioni.length} azioni`}</span>
+                      <span style={{fontSize:13,color:"#ccc"}}>▾</span>
                     </div>);
-                  })}
-                </div>
+                  });
+                })()}
               </div>);
             }
 
