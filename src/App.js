@@ -9038,12 +9038,15 @@ export default function App() {
             const isMutuoMercato=(inc)=>{const p=proposte.find(p=>p.incaricoId===inc.id&&!p.archiviato&&p.stato==="Accettata con Vincolo");return !!p&&/mutuo/i.test(p.tipoVincolo||"");};
             const cicloAttivo=(inc)=>statoPratica(inc)==="In vendita"||isMutuoMercato(inc);
             const PROVEN={compravendita:"Compravendita",donazione:"Donazione",divisione:"Divisione",permuta:"Permuta",successione:"Successione",decreto:"Decreto di Trasferimento (Tribunale)",assegnazione:"Atto di Assegnazione"};
-            const getDoc=(incId)=>{const d=getPr(incId).documenti||{};return {flags:{tipo:d.flags?.tipo||"fabbricato",giuridica:!!d.flags?.giuridica,condominio:!!d.flags?.condominio,locato:!!d.flags?.locato,provenienza:d.flags?.provenienza||"compravendita"},stato:d.stato||{}};};
+            const PROVEN_SHORT={compravendita:"Compravendita",donazione:"Donazione",divisione:"Divisione",permuta:"Permuta",successione:"Successione",decreto:"Decreto Trib.",assegnazione:"Assegnazione"};
+            const getDoc=(incId)=>{const d=getPr(incId).documenti||{};const prov=Array.isArray(d.flags?.provenienze)?d.flags.provenienze:(d.flags?.provenienza?[d.flags.provenienza]:["compravendita"]);return {flags:{tipo:d.flags?.tipo||"fabbricato",giuridica:!!d.flags?.giuridica,condominio:!!d.flags?.condominio,locato:!!d.flags?.locato,provenienze:prov},stato:d.stato||{}};};
             const docList=(f)=>{const L=[];
               if(f.giuridica){L.push({k:"ci_legale",lbl:"CI + CF del legale rappresentante"});L.push({k:"visura",lbl:"Visura camerale"});L.push({k:"titolari",lbl:"Titolari effettivi"});}
               else L.push({k:"ci_propr",lbl:"CI + CF di tutti i proprietari"});
-              L.push({k:"provenienza",lbl:"Atto di provenienza"+(f.provenienza?` (${PROVEN[f.provenienza]})`:"")});
-              if(f.tipo==="fabbricato"){L.push({k:"urb_cat",lbl:"Documentazione urbanistica e catastale"});L.push({k:"ape",lbl:"APE — Attestato Prestazione Energetica"});if(f.locato)L.push({k:"locazione",lbl:"Contratto di locazione"});}
+              const prov=f.provenienze||[];
+              if(prov.length)prov.forEach(p=>L.push({k:"prov_"+p,lbl:"Atto di provenienza — "+PROVEN[p]}));
+              else L.push({k:"provenienza",lbl:"Atto di provenienza (da specificare)"});
+              if(f.tipo==="fabbricato"){L.push({k:"urb_cat",lbl:"Documentazione urbanistica e catastale"});L.push({k:"accesso_atti",lbl:"Incarico al tecnico per accesso agli atti"});L.push({k:"ape",lbl:"APE — Attestato Prestazione Energetica"});if(f.locato)L.push({k:"locazione",lbl:"Contratto di locazione"});}
               if(f.tipo==="terreno")L.push({k:"cdu",lbl:"CDU — Certificato di Destinazione Urbanistica"});
               if(f.condominio){L.push({k:"verbali",lbl:"Ultimi due verbali di assemblea"});L.push({k:"cons_prev",lbl:"Consuntivo e preventivo condominiale"});}
               return L;};
@@ -9328,6 +9331,7 @@ export default function App() {
                   const mancanti=list.filter(x=>{const s=d.stato[x.k]||{};return s.stato==="mancante"&&!s.ricevuto;}).length;
                   const seg=(active,lbl,onClick,clr)=><button onClick={editable?onClick:undefined} style={{fontSize:11,padding:"3px 9px",borderRadius:7,border:`0.5px solid ${active?clr:"#ddd"}`,background:active?clr:"#fff",color:active?"#fff":"#888",cursor:editable?"pointer":"default",fontFamily:"inherit",fontWeight:active?600:400}}>{lbl}</button>;
                   const f=d.flags;
+                  const tp=(k)=>{const cur=f.provenienze||[];setDocFlags(inc.id,{provenienze:cur.includes(k)?cur.filter(x=>x!==k):[...cur,k]});};
                   const dinp={fontSize:10.5,border:"0.5px solid #ddd",borderRadius:5,padding:"2px 4px",fontFamily:"inherit"};
                   const sep=<span style={{width:1,height:18,background:"#e0ddd5"}}/>;
                   return(<div style={{marginBottom:14,border:"1px solid #e8e5e0",borderRadius:12,overflow:"hidden"}}>
@@ -9338,20 +9342,21 @@ export default function App() {
                       <span style={{marginLeft:"auto",fontSize:13,color:"#ccc"}}>{gpDocOpen?"▴":"▾"}</span>
                     </div>
                     {gpDocOpen&&<div style={{padding:"0 14px 12px"}}>
-                      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",padding:"8px",background:"#faf9f6",borderRadius:8,marginBottom:10}}>
-                        {seg(f.tipo==="fabbricato","Fabbricato",()=>setDocFlags(inc.id,{tipo:"fabbricato"}),"#854F0B")}
-                        {seg(f.tipo==="terreno","Terreno",()=>setDocFlags(inc.id,{tipo:"terreno"}),"#854F0B")}
-                        {sep}
-                        {seg(!f.giuridica,"Persona fisica",()=>setDocFlags(inc.id,{giuridica:false}),"#3C3489")}
-                        {seg(f.giuridica,"Giuridica",()=>setDocFlags(inc.id,{giuridica:true}),"#3C3489")}
-                        {sep}
-                        {seg(f.condominio,"Condominio",()=>setDocFlags(inc.id,{condominio:!f.condominio}),"#085041")}
-                        {f.tipo==="fabbricato"&&seg(f.locato,"Locato",()=>setDocFlags(inc.id,{locato:!f.locato}),"#085041")}
-                        {sep}
-                        <span style={{fontSize:11,color:"#888"}}>Provenienza</span>
-                        <select disabled={!editable} value={f.provenienza} onChange={e=>setDocFlags(inc.id,{provenienza:e.target.value})} style={{fontSize:11,padding:"3px 6px",border:"0.5px solid #ddd",borderRadius:7,fontFamily:"inherit",background:"#fff"}}>
-                          {Object.entries(PROVEN).map(([k,v])=><option key={k} value={k}>{v}</option>)}
-                        </select>
+                      <div style={{display:"flex",flexDirection:"column",gap:8,padding:"8px",background:"#faf9f6",borderRadius:8,marginBottom:10}}>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                          {seg(f.tipo==="fabbricato","Fabbricato",()=>setDocFlags(inc.id,{tipo:"fabbricato"}),"#854F0B")}
+                          {seg(f.tipo==="terreno","Terreno",()=>setDocFlags(inc.id,{tipo:"terreno"}),"#854F0B")}
+                          {sep}
+                          {seg(!f.giuridica,"Persona fisica",()=>setDocFlags(inc.id,{giuridica:false}),"#3C3489")}
+                          {seg(f.giuridica,"Giuridica",()=>setDocFlags(inc.id,{giuridica:true}),"#3C3489")}
+                          {sep}
+                          {seg(f.condominio,"Condominio",()=>setDocFlags(inc.id,{condominio:!f.condominio}),"#085041")}
+                          {f.tipo==="fabbricato"&&seg(f.locato,"Locato",()=>setDocFlags(inc.id,{locato:!f.locato}),"#085041")}
+                        </div>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",borderTop:"0.5px solid #ece9e1",paddingTop:8}}>
+                          <span style={{fontSize:11,color:"#888"}}>Provenienza <span style={{color:"#bbb"}}>(più scelte)</span></span>
+                          {Object.entries(PROVEN_SHORT).map(([k,v])=><button key={k} onClick={editable?()=>tp(k):undefined} style={{fontSize:11,padding:"3px 9px",borderRadius:7,border:`0.5px solid ${(f.provenienze||[]).includes(k)?"#854F0B":"#ddd"}`,background:(f.provenienze||[]).includes(k)?"#854F0B":"#fff",color:(f.provenienze||[]).includes(k)?"#fff":"#888",cursor:editable?"pointer":"default",fontFamily:"inherit",fontWeight:(f.provenienze||[]).includes(k)?600:400}}>{v}</button>)}
+                        </div>
                       </div>
                       {list.map(doc=>{
                         const s=d.stato[doc.k]||{};
