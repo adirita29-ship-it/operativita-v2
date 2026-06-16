@@ -997,7 +997,7 @@ export default function App() {
   const [formNuovaSpesa,setFormNuovaSpesa]=useState({data:todayStr(),importo:"",desc:""});
   const [fonti,setFonti]=useState(_ls?.fonti||["CP/CDI","Zona","Privati","Agenzia Esterna","Passaparola"]);
   const [tipologie,setTipologie]=useState(_ls?.tipologie||["Monolocale","Bilocale","Trilocale","Quadrilocale","Villa","Casa singola","Porzione","Appartamento","Terreno edificabile","Negozio","Ufficio"]);
-  const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Successione","Permuta","Altro"]);
+  const [vincoli,setVincoli]=useState(_ls?.vincoli||["Mutuo","Sanatoria","Urbanistico/difformità","Successione","Permuta","Altro"]);
   const [tipiNeg,setTipiNeg]=useState(_ls?.tipiNeg||["Mutuo negato","Pratica rifiutata","Rinuncia acquirente","Problemi catastali","Altro"]);
   const [tipiVolantino,setTipiVolantino]=useState(_ls?.tipiVolantino||["Lettera acquisizione zona","Lettera OH","Volantino Venduto","Flyer immobile","Lettera AMV"]);
   const [tipiSviluppo,setTipiSviluppo]=useState(_ls?.tipiSviluppo||["Riunione","Corso","Programmazione settimana","Formazione online","One-to-one con broker","Altro"]);
@@ -1944,7 +1944,7 @@ export default function App() {
     }
     // Vincolo NEGATIVO: la proposta decade (Mancata Chiusura), l'incarico torna Attivo libero
     if(ns==="Accettata con Vincolo"&&formStatoProp.esitoVincolo==="Negativo"){
-      const updNeg={...upd,stato:"Mancata Chiusura",noteStato:(formStatoProp.noteStato||"")+" [Vincolo non avverato]",storico:[...(p.storico||[]),{stato:"Mancata Chiusura",data:nowISO(),note:"Vincolo "+(p.tipoVincolo||"")+" non avverato"}]};
+      const updNeg={...upd,stato:"Mancata Chiusura",esitoVincolo:"Negativo",dataEsitoVincolo:formStatoProp.dataEsitoVincolo||todayStr(),restituzione:{pending:true,assegni:false,comunicato:false,mutuo:/mutuo/i.test(p.tipoVincolo||"")},noteStato:(formStatoProp.noteStato||"")+" [Vincolo non avverato]",storico:[...(p.storico||[]),{stato:"Mancata Chiusura",data:nowISO(),note:"Vincolo "+(p.tipoVincolo||"")+" non avverato"}]};
       setProposte(proposte.map(x=>x.id===p.id?updNeg:x));
       // L'incarico torna Attivo (lo stato è comunque calcolato automaticamente da statoInc, ma resetto il flag esplicito)
       if(p.incaricoId)setIncarichi(incarichi.map(i=>i.id===p.incaricoId&&(i.stato==="Venduto"||i.stato==="Locato")?{...i,stato:"Attivo"}:i));
@@ -9289,6 +9289,22 @@ export default function App() {
                     <div style={{fontSize:10.5,color:"#aaa"}}>Dati dalla proposta collegata — stato ed esito si gestiscono in Proposte.</div>
                   </div>);
                 })()}
+                {/* Promemoria post-vincolo negativo: restituzione assegni + comunicazione parti */}
+                {(()=>{
+                  const propN=proposte.find(p=>p.incaricoId===inc.id&&!p.archiviato&&p.restituzione?.pending);
+                  if(!propN)return null;
+                  const r=propN.restituzione;
+                  const setR=(patch)=>{ if(isReadOnly)return; const nr={...r,...patch}; if((!nr.mutuo||nr.assegni)&&nr.comunicato) nr.pending=false; setProposte(proposte.map(x=>x.id===propN.id?{...x,restituzione:nr}:x)); };
+                  const Item=(done,lbl,onClick)=>(<div onClick={onClick} style={{display:"flex",alignItems:"center",gap:8,cursor:isReadOnly?"default":"pointer",padding:"3px 0"}}>
+                    <div style={{width:17,height:17,borderRadius:"50%",border:`2px solid ${done?"#1D9E75":"#E24B4A"}`,background:done?"#1D9E75":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:9,color:"#fff"}}>{done?"✓":""}</div>
+                    <span style={{fontSize:12,color:done?"#1D8A5F":"#791F1F",textDecoration:done?"line-through":"none"}}>{lbl}</span>
+                  </div>);
+                  return(<div style={{marginBottom:14,background:"#FCEBEB",borderRadius:12,padding:"10px 14px"}}>
+                    <div style={{fontSize:12,fontWeight:600,color:"#A32D2D",marginBottom:6}}>⚠ Post-vincolo negativo — pratica tornata In vendita</div>
+                    {r.mutuo&&Item(r.assegni,"Restituire gli assegni",()=>setR({assegni:!r.assegni}))}
+                    {Item(r.comunicato,"Comunicare l'esito alle parti",()=>setR({comunicato:!r.comunicato}))}
+                  </div>);
+                })()}
                 {/* Fasi: corrente espansa a due corsie · fatte e future compatte (cliccabili per aprire) */}
                 {(()=>{
                   const idxCorr=(()=>{const i=fasi.findIndex(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return i<0?fasi.length-1:i;})();
@@ -12877,6 +12893,7 @@ export default function App() {
               <select style={{...S.inp,maxWidth:300}} value={formStatoProp.esitoVincolo||""} onChange={e=>setFormStatoProp({...formStatoProp,esitoVincolo:e.target.value})}>
                 <option value="">In attesa</option>
                 <option value="Positivo">Positivo — va in Venduti</option>
+                <option value="Negativo">Negativo — torna In vendita</option>
               </select>
             </div>
             {formStatoProp.esitoVincolo==="Positivo"&&(
@@ -12885,7 +12902,7 @@ export default function App() {
                 <input style={{...S.inp,maxWidth:200}} type="date" value={formStatoProp.dataEsitoVincolo||""} onChange={e=>setFormStatoProp({...formStatoProp,dataEsitoVincolo:e.target.value})}/>
               </div>
             )}
-            <p style={{fontSize:11,color:"#aaa",margin:"8px 0 0"}}>In caso di esito negativo, gestire manualmente cambiando lo stato in Rifiutata o Mancata Chiusura.</p>
+            <p style={{fontSize:11,color:"#aaa",margin:"8px 0 0"}}>Esito Negativo: la proposta passa a "Mancata Chiusura" e la pratica torna automaticamente In vendita; nella scheda comparirà il promemoria per restituire gli assegni e comunicare alle parti.</p>
           </div>)}
           <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:"1rem"}}>
             <button style={S.btn} onClick={()=>setShowGestProp(null)}>Annulla</button>
