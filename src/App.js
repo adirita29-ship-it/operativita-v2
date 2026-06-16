@@ -1085,6 +1085,7 @@ export default function App() {
   const [gpPraticaSel,setGpPraticaSel]=useState(null);
   const [gpFasiOpen,setGpFasiOpen]=useState({});
   const [reportForm,setReportForm]=useState(null);
+  const [gpDocOpen,setGpDocOpen]=useState(false);
   const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
@@ -9036,7 +9037,18 @@ export default function App() {
             const rinnovoInc=(inc)=>{if(!inc?.scadenza)return null;const soglia=addDays(inc.scadenza,-45);const oggi=todayStr();return (oggi>=soglia&&oggi<inc.scadenza)?{scadenza:inc.scadenza,soglia,giorni:diffDays(inc.scadenza,oggi)}:null;};
             const isMutuoMercato=(inc)=>{const p=proposte.find(p=>p.incaricoId===inc.id&&!p.archiviato&&p.stato==="Accettata con Vincolo");return !!p&&/mutuo/i.test(p.tipoVincolo||"");};
             const cicloAttivo=(inc)=>statoPratica(inc)==="In vendita"||isMutuoMercato(inc);
-            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));const inc=incarichi.find(i=>i.id===incId);if(inc&&cicloAttivo(inc)){const rp=prossimoReport(incId);if(rp.overdue)al.push({lbl:`Report proprietario in ritardo di ${rp.giorniRitardo} gg`,tipo:"report",alert:true});}return al;};
+            const PROVEN={compravendita:"Compravendita",donazione:"Donazione",divisione:"Divisione",permuta:"Permuta",successione:"Successione",decreto:"Decreto di Trasferimento (Tribunale)",assegnazione:"Atto di Assegnazione"};
+            const getDoc=(incId)=>{const d=getPr(incId).documenti||{};return {flags:{tipo:d.flags?.tipo||"fabbricato",giuridica:!!d.flags?.giuridica,condominio:!!d.flags?.condominio,locato:!!d.flags?.locato,provenienza:d.flags?.provenienza||"compravendita"},stato:d.stato||{}};};
+            const docList=(f)=>{const L=[];
+              if(f.giuridica){L.push({k:"ci_legale",lbl:"CI + CF del legale rappresentante"});L.push({k:"visura",lbl:"Visura camerale"});L.push({k:"titolari",lbl:"Titolari effettivi"});}
+              else L.push({k:"ci_propr",lbl:"CI + CF di tutti i proprietari"});
+              L.push({k:"provenienza",lbl:"Atto di provenienza"+(f.provenienza?` (${PROVEN[f.provenienza]})`:"")});
+              if(f.tipo==="fabbricato"){L.push({k:"urb_cat",lbl:"Documentazione urbanistica e catastale"});L.push({k:"ape",lbl:"APE — Attestato Prestazione Energetica"});if(f.locato)L.push({k:"locazione",lbl:"Contratto di locazione"});}
+              if(f.tipo==="terreno")L.push({k:"cdu",lbl:"CDU — Certificato di Destinazione Urbanistica"});
+              if(f.condominio){L.push({k:"verbali",lbl:"Ultimi due verbali di assemblea"});L.push({k:"cons_prev",lbl:"Consuntivo e preventivo condominiale"});}
+              return L;};
+            const docMancanti=(incId)=>{const d=getDoc(incId);return docList(d.flags).filter(x=>{const s=d.stato[x.k]||{};return s.stato==="mancante"&&!s.ricevuto;}).length;};
+            const alertsInc=(incId)=>{const al=[];fasi.forEach(f=>f.azioni.filter(a=>a.alert).forEach(a=>{if(!(getPr(incId).fasi[f.k]||{})[a.k]?.fatto)al.push(a);}));const inc=incarichi.find(i=>i.id===incId);if(inc&&cicloAttivo(inc)){const rp=prossimoReport(incId);if(rp.overdue)al.push({lbl:`Report proprietario in ritardo di ${rp.giorniRitardo} gg`,tipo:"report",alert:true});}const nd=incId?docMancanti(incId):0;const stp=inc?statoPratica(inc):"";if(nd>0&&stp!=="Rogitato"&&stp!=="Archiviata")al.push({lbl:`${nd} document${nd===1?"o":"i"} mancant${nd===1?"e":"i"}`,tipo:"doc",alert:true});return al;};
             const faseCorrente=(incId)=>{const pr=getPr(incId);const f=fasi.find(f=>f.azioni.some(a=>!(pr.fasi[f.k]||{})[a.k]?.fatto));return f||fasi[fasi.length-1];};
 
             // Categorie — usa statoInc che è già calcolato correttamente
@@ -9185,6 +9197,8 @@ export default function App() {
               setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,cicloReport:{...c,log:c.log.filter(e=>e.id!==rid)}}});
               feedReportOp(inc?.agenteListing,entry.data,entry.ribasso,-1);
             };
+            const setDocFlags=(incId,patch)=>{ if(isReadOnly)return; const d=getDoc(incId); setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,documenti:{...d,flags:{...d.flags,...patch}}}}); };
+            const setDocStato=(incId,k,patch)=>{ if(isReadOnly)return; const d=getDoc(incId); const cur=d.stato[k]||{}; setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,documenti:{...d,stato:{...d.stato,[k]:{...cur,...patch}}}}}); };
 
             // Vista SCHEDA pratica singola
             if(gpPraticaSel){
@@ -9303,6 +9317,59 @@ export default function App() {
                     <div style={{fontSize:12,fontWeight:600,color:"#A32D2D",marginBottom:6}}>⚠ Post-vincolo negativo — pratica tornata In vendita</div>
                     {r.mutuo&&Item(r.assegni,"Restituire gli assegni",()=>setR({assegni:!r.assegni}))}
                     {Item(r.comunicato,"Comunicare l'esito alle parti",()=>setR({comunicato:!r.comunicato}))}
+                  </div>);
+                })()}
+                {/* Modulo documenti — lista generata dagli interruttori */}
+                {(()=>{
+                  const d=getDoc(inc.id);
+                  const list=docList(d.flags);
+                  const editable=canEditAgente(inc);
+                  const presenti=list.filter(x=>(d.stato[x.k]||{}).stato==="presente").length;
+                  const mancanti=list.filter(x=>{const s=d.stato[x.k]||{};return s.stato==="mancante"&&!s.ricevuto;}).length;
+                  const seg=(active,lbl,onClick,clr)=><button onClick={editable?onClick:undefined} style={{fontSize:11,padding:"3px 9px",borderRadius:7,border:`0.5px solid ${active?clr:"#ddd"}`,background:active?clr:"#fff",color:active?"#fff":"#888",cursor:editable?"pointer":"default",fontFamily:"inherit",fontWeight:active?600:400}}>{lbl}</button>;
+                  const f=d.flags;
+                  const dinp={fontSize:10.5,border:"0.5px solid #ddd",borderRadius:5,padding:"2px 4px",fontFamily:"inherit"};
+                  const sep=<span style={{width:1,height:18,background:"#e0ddd5"}}/>;
+                  return(<div style={{marginBottom:14,border:"1px solid #e8e5e0",borderRadius:12,overflow:"hidden"}}>
+                    <div onClick={()=>setGpDocOpen(!gpDocOpen)} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",cursor:"pointer",background:"#fff"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#854F0B"}}>📄 Documenti</span>
+                      <span style={{fontSize:11,color:"#888"}}>{presenti}/{list.length} presenti{mancanti>0?` · ${mancanti} mancanti`:""}</span>
+                      {mancanti>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:10,background:"#FCEBEB",color:"#A32D2D",fontWeight:500}}>{mancanti} ⚠</span>}
+                      <span style={{marginLeft:"auto",fontSize:13,color:"#ccc"}}>{gpDocOpen?"▴":"▾"}</span>
+                    </div>
+                    {gpDocOpen&&<div style={{padding:"0 14px 12px"}}>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",padding:"8px",background:"#faf9f6",borderRadius:8,marginBottom:10}}>
+                        {seg(f.tipo==="fabbricato","Fabbricato",()=>setDocFlags(inc.id,{tipo:"fabbricato"}),"#854F0B")}
+                        {seg(f.tipo==="terreno","Terreno",()=>setDocFlags(inc.id,{tipo:"terreno"}),"#854F0B")}
+                        {sep}
+                        {seg(!f.giuridica,"Persona fisica",()=>setDocFlags(inc.id,{giuridica:false}),"#3C3489")}
+                        {seg(f.giuridica,"Giuridica",()=>setDocFlags(inc.id,{giuridica:true}),"#3C3489")}
+                        {sep}
+                        {seg(f.condominio,"Condominio",()=>setDocFlags(inc.id,{condominio:!f.condominio}),"#085041")}
+                        {f.tipo==="fabbricato"&&seg(f.locato,"Locato",()=>setDocFlags(inc.id,{locato:!f.locato}),"#085041")}
+                        {sep}
+                        <span style={{fontSize:11,color:"#888"}}>Provenienza</span>
+                        <select disabled={!editable} value={f.provenienza} onChange={e=>setDocFlags(inc.id,{provenienza:e.target.value})} style={{fontSize:11,padding:"3px 6px",border:"0.5px solid #ddd",borderRadius:7,fontFamily:"inherit",background:"#fff"}}>
+                          {Object.entries(PROVEN).map(([k,v])=><option key={k} value={k}>{v}</option>)}
+                        </select>
+                      </div>
+                      {list.map(doc=>{
+                        const s=d.stato[doc.k]||{};
+                        return(<div key={doc.k} style={{padding:"8px 0",borderTop:"0.5px solid #f3f1ea"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <span style={{flex:1,fontSize:12.5,color:s.stato==="presente"?"#1D8A5F":"#2c2c2c"}}>{doc.lbl}</span>
+                            {editable?<div style={{display:"flex",gap:5}}>
+                              <button onClick={()=>setDocStato(inc.id,doc.k,{stato:s.stato==="presente"?"":"presente"})} style={{fontSize:10.5,padding:"2px 9px",borderRadius:8,border:`0.5px solid ${s.stato==="presente"?"#1D8A5F":"#ddd"}`,background:s.stato==="presente"?"#1D8A5F":"#fff",color:s.stato==="presente"?"#fff":"#999",cursor:"pointer",fontFamily:"inherit"}}>Presente</button>
+                              <button onClick={()=>setDocStato(inc.id,doc.k,{stato:s.stato==="mancante"?"":"mancante"})} style={{fontSize:10.5,padding:"2px 9px",borderRadius:8,border:`0.5px solid ${s.stato==="mancante"?"#C0392B":"#ddd"}`,background:s.stato==="mancante"?"#C0392B":"#fff",color:s.stato==="mancante"?"#fff":"#999",cursor:"pointer",fontFamily:"inherit"}}>Mancante</button>
+                            </div>:<span style={{fontSize:10.5,color:s.stato==="presente"?"#1D8A5F":s.stato==="mancante"?"#A32D2D":"#bbb"}}>{s.stato==="presente"?"Presente":s.stato==="mancante"?"Mancante":"—"}</span>}
+                          </div>
+                          {s.stato==="mancante"&&<div style={{display:"flex",gap:14,margin:"6px 0 0 0",fontSize:10.5,color:"#888",flexWrap:"wrap"}}>
+                            <label style={{display:"flex",alignItems:"center",gap:4}}>Richiesto<input type="date" disabled={!editable} style={dinp} value={s.richiesto||""} onChange={e=>setDocStato(inc.id,doc.k,{richiesto:e.target.value})}/></label>
+                            <label style={{display:"flex",alignItems:"center",gap:4}}>Ricevuto<input type="date" disabled={!editable} style={dinp} value={s.ricevuto||""} onChange={e=>setDocStato(inc.id,doc.k,{ricevuto:e.target.value})}/></label>
+                          </div>}
+                        </div>);
+                      })}
+                    </div>}
                   </div>);
                 })()}
                 {/* Fasi: corrente espansa a due corsie · fatte e future compatte (cliccabili per aprire) */}
