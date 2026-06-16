@@ -1086,6 +1086,7 @@ export default function App() {
   const [gpFasiOpen,setGpFasiOpen]=useState({});
   const [reportForm,setReportForm]=useState(null);
   const [gpDocOpen,setGpDocOpen]=useState(false);
+  const [gpRefOpen,setGpRefOpen]=useState(false);
   const [gpAnno,setGpAnno]=useState("Tutti");
   const [gpCategoria,setGpCategoria]=useState("attive");
   const [rowOpen,setRowOpen]=useState(null);
@@ -9202,6 +9203,9 @@ export default function App() {
             };
             const setDocFlags=(incId,patch)=>{ if(isReadOnly)return; const d=getDoc(incId); setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,documenti:{...d,flags:{...d.flags,...patch}}}}); };
             const setDocStato=(incId,k,patch)=>{ if(isReadOnly)return; const d=getDoc(incId); const cur=d.stato[k]||{}; setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,documenti:{...d,stato:{...d.stato,[k]:{...cur,...patch}}}}}); };
+            const getRef=(incId)=>{const r=getPr(incId).referenti||{};return {flags:{mutuoDaEstinguere:!!r.flags?.mutuoDaEstinguere,mutuoAcquirente:!!r.flags?.mutuoAcquirente},dati:r.dati||{}};};
+            const setRefFlag=(incId,patch)=>{ if(isReadOnly)return; const r=getRef(incId); setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,referenti:{...r,flags:{...r.flags,...patch}}}}); };
+            const setRefDato=(incId,key,patch)=>{ if(isReadOnly)return; const r=getRef(incId); const cur=r.dati[key]||{}; setPratiche({...pratiche,[incId]:{...getPr(incId),incaricoId:incId,referenti:{...r,dati:{...r.dati,[key]:{...cur,...patch}}}}}); };
 
             // Vista SCHEDA pratica singola
             if(gpPraticaSel){
@@ -9374,6 +9378,53 @@ export default function App() {
                           </div>}
                         </div>);
                       })}
+                    </div>}
+                  </div>);
+                })()}
+                {/* Referenti pratica — schede condizionali */}
+                {(()=>{
+                  const r=getRef(inc.id);
+                  const editable=canEditAgente(inc);
+                  const mutAcq=isMutuoMercato(inc)||r.flags.mutuoAcquirente;
+                  const inp={fontSize:11.5,border:"0.5px solid #ddd",borderRadius:6,padding:"4px 6px",fontFamily:"inherit",width:"100%",boxSizing:"border-box"};
+                  const seg=(active,lbl,onClick,clr)=><button onClick={editable?onClick:undefined} style={{fontSize:11,padding:"3px 9px",borderRadius:7,border:`0.5px solid ${active?clr:"#ddd"}`,background:active?clr:"#fff",color:active?"#fff":"#888",cursor:editable?"pointer":"default",fontFamily:"inherit",fontWeight:active?600:400}}>{lbl}</button>;
+                  const card=(key,icon,titolo,clr,sub,bg,bdr)=>{
+                    const v=r.dati[key]||{};
+                    return(<div key={key} style={{border:`0.5px solid ${bdr||"#e3e0d9"}`,background:bg||"#fff",borderRadius:10,padding:10}}>
+                      <div style={{fontSize:12,fontWeight:600,color:clr,marginBottom:sub?2:7}}>{icon} {titolo}</div>
+                      {sub&&<div style={{fontSize:10,color:clr,opacity:.75,marginBottom:7}}>{sub}</div>}
+                      <div style={{display:"flex",flexDirection:"column",gap:5}}>
+                        <input disabled={!editable} placeholder="Ente / nome" style={inp} value={v.ente||""} onChange={e=>setRefDato(inc.id,key,{ente:e.target.value})}/>
+                        <input disabled={!editable} placeholder="Referente" style={inp} value={v.ref||""} onChange={e=>setRefDato(inc.id,key,{ref:e.target.value})}/>
+                        <div style={{display:"flex",gap:5}}>
+                          <input disabled={!editable} placeholder="Telefono" style={inp} value={v.tel||""} onChange={e=>setRefDato(inc.id,key,{tel:e.target.value})}/>
+                          <input disabled={!editable} placeholder="Email" style={inp} value={v.email||""} onChange={e=>setRefDato(inc.id,key,{email:e.target.value})}/>
+                        </div>
+                        <input disabled={!editable} placeholder="Note" style={inp} value={v.note||""} onChange={e=>setRefDato(inc.id,key,{note:e.target.value})}/>
+                      </div>
+                    </div>);
+                  };
+                  const visibili=["notaio","tecnico",...(r.flags.mutuoDaEstinguere?["bancaVend"]:[]),...(mutAcq?["bancaAcq"]:[])];
+                  const compilate=visibili.filter(k=>{const v=r.dati[k]||{};return v.ente||v.ref||v.tel||v.email;}).length;
+                  return(<div style={{marginBottom:14,border:"1px solid #e8e5e0",borderRadius:12,overflow:"hidden"}}>
+                    <div onClick={()=>setGpRefOpen(!gpRefOpen)} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",cursor:"pointer",background:"#fff"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"#0C447C"}}>👥 Referenti</span>
+                      <span style={{fontSize:11,color:"#888"}}>{compilate}/{visibili.length} compilate</span>
+                      <span style={{marginLeft:"auto",fontSize:13,color:"#ccc"}}>{gpRefOpen?"▴":"▾"}</span>
+                    </div>
+                    {gpRefOpen&&<div style={{padding:"0 14px 12px"}}>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",padding:"8px",background:"#faf9f6",borderRadius:8,marginBottom:10}}>
+                        {seg(r.flags.mutuoDaEstinguere,"Mutuo da estinguere (venditore)",()=>setRefFlag(inc.id,{mutuoDaEstinguere:!r.flags.mutuoDaEstinguere}),"#854F0B")}
+                        {isMutuoMercato(inc)
+                          ? <span style={{fontSize:11,padding:"3px 9px",borderRadius:7,background:"#0C447C",color:"#fff"}}>Mutuo acquirente · auto da Proposte</span>
+                          : seg(r.flags.mutuoAcquirente,"Mutuo acquirente",()=>setRefFlag(inc.id,{mutuoAcquirente:!r.flags.mutuoAcquirente}),"#0C447C")}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+                        {card("notaio","⚖️","Notaio","#0C447C")}
+                        {card("tecnico","📐","Tecnico / geometra","#085041")}
+                        {r.flags.mutuoDaEstinguere&&card("bancaVend","🏦","Banca venditore","#854F0B","mutuo da estinguere","#FBF6EA","#E3C98A")}
+                        {mutAcq&&card("bancaAcq","🏦","Banca / mediatore acquirente","#0C447C","vincolo mutuo · allegato A","#EDF3FA","#B8CCE4")}
+                      </div>
                     </div>}
                   </div>);
                 })()}
