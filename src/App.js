@@ -20,10 +20,162 @@ const EMAILJS_TEMPLATE_REPORT = "template_32n4gky";
 const SUPA_URL = "https://ungozmmhdfbdctrhdoth.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZ296bW1oZGZiZGN0cmhkb3RoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMzc1MjMsImV4cCI6MjA5MzYxMzUyM30.1i3cuKIP6gGdPr4H0nnIDNWUR5RcxdXG-dvKdjcSZ1g";
 
+// ════════════════════════════════════════════════════════════════════════════
+// SESSIONE CONDIVISA CON HUB CÀSA
+// Il cookie sta sul dominio padre .casaimmobiliarevarese.it, quindi hub,
+// gestionale, modulistica e operatività leggono la stessa sessione.
+// Questo blocco è identico in tutte le app: non modificarlo in una sola.
+// ════════════════════════════════════════════════════════════════════════════
+const COOKIE_SESS = "casa_sess";
+const DOMINIO_PADRE = ".casaimmobiliarevarese.it";
+const URL_HUB = "https://hub.casaimmobiliarevarese.it";
+
+function scriviCookieSess(valore, giorni){
+  const scad = new Date(Date.now() + giorni*864e5).toUTCString();
+  document.cookie = `${COOKIE_SESS}=${encodeURIComponent(valore)}; expires=${scad}; path=/; domain=${DOMINIO_PADRE}; SameSite=Lax; Secure`;
+}
+function leggiCookieSess(){
+  for(const p of document.cookie.split(";")){
+    const [k,...resto] = p.trim().split("=");
+    if(k === COOKIE_SESS){ try{ return decodeURIComponent(resto.join("=")); }catch{ return null; } }
+  }
+  return null;
+}
+function cancellaCookieSess(){
+  document.cookie = `${COOKIE_SESS}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${DOMINIO_PADRE}`;
+}
+// Fuori dal dominio reale (anteprima .netlify.app) il cookie di dominio viene
+// rifiutato: si ripiega su localStorage, senza condivisione fra le app.
+function salvaSessione(s){
+  const testo = JSON.stringify(s);
+  try{
+    scriviCookieSess(testo, 30);
+    if(leggiCookieSess()){ try{ localStorage.removeItem(COOKIE_SESS); }catch{} return true; }
+  }catch{}
+  try{ localStorage.setItem(COOKIE_SESS, testo); }catch{}
+  return false;
+}
+function leggiSessione(){
+  const c = leggiCookieSess();
+  if(c){ try{ return JSON.parse(c); }catch{} }
+  try{ const v = localStorage.getItem(COOKIE_SESS); return v ? JSON.parse(v) : null; }catch{ return null; }
+}
+function cancellaSessione(){
+  cancellaCookieSess();
+  try{ localStorage.removeItem(COOKIE_SESS); }catch{}
+  TOKEN_ATTIVO = null;
+}
+
+// Token corrente: tutte le chiamate al database lo usano al posto della chiave
+// anonima. Finché è nullo si ricade sulla chiave anon (compatibilità).
+let TOKEN_ATTIVO = null;
+function tokenAttivo(){ return TOKEN_ATTIVO; }
+function authHeaders(){
+  const t = TOKEN_ATTIVO || SUPA_KEY;
+  return {"apikey": SUPA_KEY, "Authorization": `Bearer ${t}`};
+}
+
+async function autentica(email, password){
+  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=password`, {
+    method:"POST",
+    headers:{ apikey:SUPA_KEY, "Content-Type":"application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error_description || j.msg || j.message || "credenziali");
+  return j;
+}
+async function rinnovaSessione(refresh_token){
+  const r = await fetch(`${SUPA_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method:"POST",
+    headers:{ apikey:SUPA_KEY, "Content-Type":"application/json" },
+    body: JSON.stringify({ refresh_token }),
+  });
+  if(!r.ok) throw new Error("refresh");
+  return r.json();
+}
+async function chiudiSessioneServer(token){
+  try{
+    await fetch(`${SUPA_URL}/auth/v1/logout`, {
+      method:"POST",
+      headers:{ apikey:SUPA_KEY, Authorization:`Bearer ${token}` },
+    });
+  }catch{}
+}
+function impacchettaSessione(auth){
+  return {
+    token: auth.access_token,
+    refresh: auth.refresh_token,
+    scade: Date.now() + (auth.expires_in || 3600) * 1000,
+    email: (auth.user && auth.user.email) || "",
+  };
+}
+// Restituisce una sessione valida (rinnovata se serve) o null.
+async function sessioneValida(){
+  const s = leggiSessione();
+  if(!s || !s.refresh) return null;
+  if(s.scade && s.scade > Date.now() + 60000){ TOKEN_ATTIVO = s.token; return s; }
+  try{
+    const auth = await rinnovaSessione(s.refresh);
+    const nuova = impacchettaSessione(auth);
+    salvaSessione(nuova);
+    TOKEN_ATTIVO = nuova.token;
+    return nuova;
+  }catch{
+    cancellaSessione();
+    return null;
+  }
+}
+
+// ── Dall'anagrafica agenti all'utente dell'app ─────────────────────────────
+function trovaAgentePerEmail(data, email){
+  const arr = (data && Array.isArray(data.agenti)) ? data.agenti : INIT_AGENTI;
+  const e = (email||"").trim().toLowerCase();
+  return arr.find(a => a.email && (""+a.email).trim().toLowerCase() === e) || null;
+}
+function utenteDaAgente(ag){
+  const ruolo = ag.profilo==="Broker" ? "Broker"
+              : ag.profilo==="Back Office" ? "BackOffice"
+              : ag.profilo==="Coach" ? "Coach" : "Agente";
+  return {
+    id: ag.id, nome: `${ag.nome} ${ag.cognome}`, ruolo, agentId: ag.id,
+    profilo: ag.profilo, coachTarget: ag.coachTarget||"agenzia",
+    email: (""+(ag.email||"")).trim(),
+    permessi: ag.permessi || {},
+  };
+}
+
+// ── Striscia fissa in alto, identica in tutte le app ───────────────────────
+const APP_SORELLE = [
+  { k:"gestionale",  nome:"Gestionale",  icona:"📊", url:"https://gestionale.casaimmobiliarevarese.it" },
+  { k:"modulistica", nome:"Modulistica", icona:"📄", url:"https://modulistica.casaimmobiliarevarese.it" },
+];
+function BarraApp({permessi, onEsci}){
+  const p = permessi || {};
+  const altre = APP_SORELLE.filter(a => p[a.k]);
+  const link = { fontSize:11, color:"#888", textDecoration:"none", padding:"3px 9px",
+                 borderRadius:6, border:"0.5px solid #e0ddd8", whiteSpace:"nowrap" };
+  const nudo = { fontSize:11, color:"#aaa", textDecoration:"none", padding:"3px 9px", whiteSpace:"nowrap" };
+  return (
+    <div style={{background:"#fff", borderBottom:"0.5px solid #e8e5e0", height:36, flexShrink:0,
+                 display:"flex", alignItems:"center", justifyContent:"flex-end", gap:6, padding:"0 14px"}}>
+      {altre.map(a=>(
+        <a key={a.k} href={a.url} title={`Vai a ${a.nome}`} style={link}>{a.icona} {a.nome}</a>
+      ))}
+      <a href={URL_HUB} title="Torna all'Hub" style={nudo}>⌂ Hub</a>
+      <span style={{width:1,height:16,background:"#e8e5e0",margin:"0 2px"}}/>
+      <button onClick={onEsci} title="Esci da tutte le app"
+        style={{fontSize:11,color:"#c0392b",padding:"3px 9px",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+        Esci
+      </button>
+    </div>
+  );
+}
+
 const supaFetch = async (method, body=null) => {
   const opts = {
     method,
-    headers: {"Content-Type":"application/json","apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Prefer":"return=representation"},
+    headers: {...authHeaders(),"Content-Type":"application/json","Prefer":"return=representation"},
   };
   if(body) opts.body = JSON.stringify(body);
   const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main`, opts);
@@ -34,7 +186,7 @@ const supaFetch = async (method, body=null) => {
 const caricaDB = async () => {
   try {
     const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
-      {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+      {headers:authHeaders()});
     const rows = await res.json();
     return rows?.[0]?.data || null;
   } catch(e){ return null; }
@@ -57,7 +209,7 @@ const salvaDBCosti = async (catCosti, speseCosti) => {
   try {
     // Leggi prima il record attuale
     const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`, {
-      headers: {"apikey": SUPA_KEY, "Authorization": `Bearer ${SUPA_KEY}`}
+      headers: authHeaders()
     });
     const rows = await res.json();
     const current = rows?.[0]?.data || {};
@@ -400,7 +552,7 @@ const VOCI_COSTO_AGENTE_DEFAULT = [
 const mkCostiAgente = () => VOCI_COSTO_AGENTE_DEFAULT.map((v,i)=>({id:i+1,voce:v.voce,tipo:v.tipo||"variabile",prevMensile:0,frequenza:"mensile",spese:[]}));
 
 const INIT_AGENTI = [
-  {id:1,nome:"Antonello",cognome:"Di Rita",profilo:"Broker",tipo:"Interno",percListing:0,percAcquirente:0,email:"adirita@casaimmobiliarevarese.it",password:"Dalmata1518",attivo:true},
+  {id:1,nome:"Antonello",cognome:"Di Rita",profilo:"Broker",tipo:"Interno",percListing:0,percAcquirente:0,email:"adirita@casaimmobiliarevarese.it",attivo:true},
   {id:2,nome:"Luca",cognome:"Pagliara",profilo:"Consulente",tipo:"Interno",percListing:40,percAcquirente:40,email:"",password:"",attivo:true},
   {id:3,nome:"Riccardo",cognome:"Di Rita",profilo:"Collaboratore",tipo:"Interno",percListing:20,percAcquirente:20,email:"",password:"",attivo:true},
   {id:4,nome:"Fabio",cognome:"Portinaro",profilo:"Collaboratore",tipo:"Interno",percListing:40,percAcquirente:40,email:"",password:"",attivo:true},
@@ -529,33 +681,34 @@ const STATI_BLOCCANTI = ["In attesa","Controproposta","In attesa / Vincolata","A
 
 function LoginPage({onLogin}) {
   const [em,setEm]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState(""); const [load,setLoad]=useState(false);
-  const go=()=>{
-    setLoad(true);
-    setTimeout(async()=>{
-      try {
-        const data = await caricaDB();
-        // Merge agenti DB con INIT_AGENTI per recuperare email/password se mancanti nel DB
-        const agentiRaw = data?.agenti || INIT_AGENTI;
-        const agentiDB = agentiRaw.map(a=>{
-          const def = INIT_AGENTI.find(d=>d.id===a.id);
-          return {
-            ...a,
-            email: a.email || def?.email || "",
-            password: a.password || def?.password || "",
-            attivo: a.attivo !== undefined ? a.attivo : true,
-          };
-        });
-        const emTrim = em.trim().toLowerCase();
-        const ag = agentiDB.find(a=>a.email&&a.email.trim().toLowerCase()===emTrim&&a.password&&a.password===pw);
-        if(ag){
-          if(ag.attivo===false){setErr("Account disabilitato. Contatta il responsabile.");setLoad(false);return;}
-          const ruolo=ag.profilo==="Broker"?"Broker":ag.profilo==="Back Office"?"BackOffice":ag.profilo==="Coach"?"Coach":"Agente";
-          onLogin({id:ag.id,nome:`${ag.nome} ${ag.cognome}`,ruolo,agentId:ag.id,profilo:ag.profilo,coachTarget:ag.coachTarget||"agenzia"});
-        } else {
-          setErr("Credenziali non corrette.");setLoad(false);
-        }
-      } catch(e){setErr("Errore di connessione.");setLoad(false);}
-    },600);
+  const go=async()=>{
+    setErr(""); setLoad(true);
+    const emTrim = em.trim().toLowerCase();
+
+    let auth;
+    try { auth = await autentica(emTrim, pw); }
+    catch { setErr("Email o password non corretti."); setLoad(false); return; }
+
+    const sess = impacchettaSessione(auth);
+    salvaSessione(sess);
+    TOKEN_ATTIVO = sess.token;
+
+    let data = null;
+    try { data = await caricaDB(); }
+    catch { setErr("Errore di connessione."); setLoad(false); return; }
+
+    const ag = trovaAgentePerEmail(data, emTrim);
+    if(!ag){
+      cancellaSessione();
+      setErr("Nessuna scheda agente collegata a questa email. Avvisa il broker.");
+      setLoad(false); return;
+    }
+    if(ag.attivo===false){
+      cancellaSessione();
+      setErr("Account disabilitato. Contatta il responsabile.");
+      setLoad(false); return;
+    }
+    onLogin(utenteDaAgente(ag));
   };
   return(
     <div style={{minHeight:"100vh",background:`linear-gradient(135deg,${BRAND.oro},#A8863A)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"2rem"}}>
@@ -971,9 +1124,33 @@ const sendEmail = async (templateId, params) => {
 
 export default function App() {
   const isMobile=useIsMobile();
-  const [utente,setUtente]=useState(()=>{try{const u=sessionStorage.getItem("casa_utente");return u?JSON.parse(u):null;}catch(e){return null;}});
-  const handleLogin=(u)=>{try{sessionStorage.setItem("casa_utente",JSON.stringify(u));}catch(e){}setUtente(u);};
-  const handleLogout=()=>{try{sessionStorage.removeItem("casa_utente");}catch(e){}setUtente(null);};
+  const [utente,setUtente]=useState(null);
+  const [sessionePronta,setSessionePronta]=useState(false);
+  const handleLogin=(u)=>{setUtente(u);};
+  const handleLogout=()=>{
+    const s=leggiSessione();
+    cancellaSessione();
+    setUtente(null);
+    if(s&&s.token) chiudiSessioneServer(s.token);
+  };
+  // All'avvio riprende la sessione lasciata dall'Hub o da un'altra app.
+  useEffect(()=>{
+    let vivo=true;
+    (async()=>{
+      const s=await sessioneValida();
+      if(!vivo) return;
+      if(!s){ setSessionePronta(true); return; }
+      try{
+        const data=await caricaDB();
+        const ag=trovaAgentePerEmail(data,s.email);
+        if(!vivo) return;
+        if(ag && ag.attivo!==false) setUtente(utenteDaAgente(ag));
+        else cancellaSessione();
+      }catch(e){}
+      if(vivo) setSessionePronta(true);
+    })();
+    return()=>{ vivo=false; };
+  },[]);
   // Funzione "Salva ora" — forza un salvataggio immediato bypassando il debounce.
   // Usata dal bottone "💾 Salva ora" in TAB Oggi come rete di sicurezza per evitare perdita dati.
   const salvaOraManualeRef = useRef(null);
@@ -983,13 +1160,6 @@ export default function App() {
   // Carica da localStorage se disponibile, altrimenti usa dati iniziali
   const _ls = caricaLS();
   // Default tab: gli agenti aprono direttamente "Operatività" (sub-tab Oggi); broker/back office/coach aprono "Dashboard"
-  // Il ruolo va letto dall'utente loggato in sessionStorage (chiave "casa_utente")
-  const _ruoloIniziale = (()=>{
-    try{
-      const u=sessionStorage.getItem("casa_utente");
-      return u?JSON.parse(u)?.ruolo:null;
-    }catch(e){return null;}
-  })();
   const _tabIniziale = "Operatività"; // App Operatività: tutti entrano direttamente qui
   const [tab,setTab]=useState(_tabIniziale);
   const [dbLoaded,setDbLoaded]=useState(false);
@@ -1588,7 +1758,7 @@ export default function App() {
       if(document.querySelector('[data-modal="true"]')) return;
       try{
         const res=await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
-          {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+          {headers:authHeaders()});
         if(!res.ok) return;
         const rows=await res.json();
         const d=rows?.[0]?.data;
@@ -1646,6 +1816,7 @@ export default function App() {
         const _imp=new Function("u","return import(u)");
         const {createClient}=await _imp("https://esm.sh/@supabase/supabase-js@2");
         supaClient=createClient(SUPA_URL,SUPA_KEY);
+        try{ const _tk=tokenAttivo(); if(_tk&&supaClient.realtime&&supaClient.realtime.setAuth) supaClient.realtime.setAuth(_tk); }catch(e){}
         channel=supaClient
           .channel("gestionale_sync")
           .on("postgres_changes",{event:"UPDATE",schema:"public",table:"gestionale_data"},
@@ -2167,6 +2338,11 @@ export default function App() {
     setFormNuovaSpesa({data:todayStr(),importo:"",desc:""});
   };
 
+  if(!sessionePronta) return(
+    <div style={{minHeight:"100vh",background:BRAND.beige,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{fontSize:32,fontWeight:700,color:BRAND.oroD,fontFamily:"Georgia,serif"}}>c<span style={{color:BRAND.oro}}>a</span>sa</div>
+    </div>
+  );
   if(!utente) return <LoginPage onLogin={handleLogin}/>;
   if(!dbLoaded) return(
     <div style={{minHeight:"100vh",background:BRAND.beige,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
@@ -2281,6 +2457,7 @@ export default function App() {
         <Sidebar tab={tab} setTab={v=>{setTab(v);setShowMobileMenu(false);}} utente={utente} onEsporta={esporta} onImporta={importa} importRef={importRef}/>
       </div>}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <BarraApp permessi={utente?.permessi} onEsci={handleLogout}/>
         <div style={{background:"#fff",borderBottom:"0.5px solid #e8e5e0",padding:isMobile?"0.6rem 1rem":"0.875rem 1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             {isMobile&&<button onClick={()=>setShowMobileMenu(true)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:BRAND.grigio,padding:"0 8px 0 0",lineHeight:1}}>☰</button>}
@@ -2290,7 +2467,6 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             {dbSaving&&<span style={{fontSize:11,color:"#aaa",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:BRAND.oro,display:"inline-block",animation:"pulse 1s infinite"}}></span>Salvataggio...</span>}
             {!dbSaving&&dbLoaded&&<span style={{fontSize:11,color:"#27AE60"}}>✓ Sincronizzato</span>}
-            <button style={{...S.btn,color:"#c0392b",fontSize:12}} onClick={handleLogout}>Esci</button>
           </div>
         </div>
         <div style={{flex:1,overflowY:"auto"}}>
@@ -4874,7 +5050,7 @@ export default function App() {
               let prospettiFreschi = prospetti;
               try{
                 const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
-                  {headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});
+                  {headers:authHeaders()});
                 if(res.ok){
                   const rows = await res.json();
                   const dbProspetti = rows?.[0]?.data?.prospetti;
@@ -5591,7 +5767,7 @@ export default function App() {
                 </div></td>
               </tr>);})}</tbody>
             </table></div>
-            <p style={{fontSize:11,color:"#aaa",marginTop:8}}>💡 La password è visibile solo in modifica. Gli agenti bloccati non possono accedere ma i loro dati restano invariati.</p>
+            <p style={{fontSize:11,color:"#aaa",marginTop:8}}>💡 Le password qui elencate non sono piu quelle di accesso: con l&apos;accesso unico le credenziali si gestiscono in Supabase. Gli agenti bloccati non possono accedere ma i loro dati restano invariati.</p>
             <div style={{marginTop:14,padding:"10px 14px",background:"#fafaf8",borderRadius:8,fontSize:11,color:"#666",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
               <strong style={{color:"#555"}}>Legenda attività:</strong>
               <span style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:9,height:9,borderRadius:"50%",background:"#27AE60"}}/> Attivo (entra e lavora)</span>
