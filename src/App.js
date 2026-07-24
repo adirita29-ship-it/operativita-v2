@@ -4163,12 +4163,25 @@ export default function App() {
                 const annoPiano=new Date().getFullYear();
                 const oggi4=todayStr();
                 const dal4=`${annoPiano}-01-01`;
-                const transV2=venduti.filter(v=>Number(v.provvVenditore||0)>0);
-                const transA2=venduti.filter(v=>Number(v.provvAcquirente||0)>0);
+                const vendConcl2=venduti.filter(v=>v.categoria==="vendita");
+                const transV2=vendConcl2.filter(v=>Number(v.provvVenditore||0)>0);
+                const transA2=vendConcl2.filter(v=>Number(v.provvAcquirente||0)>0);
                 const mediaV2=transV2.length>0?transV2.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/transV2.length:0;
                 const mediaA2=transA2.length>0?transA2.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/transA2.length:0;
-                const provvMediaReale=Math.round((mediaV2+mediaA2)/2)||8000;
-                const CONV=0.65; const APPT=0.40;
+                // Media PESATA sul mix reale venditore/acquirente
+                const totTrans2=transV2.length+transA2.length;
+                const provvMediaReale=totTrans2>0
+                  ? Math.round((mediaV2*transV2.length + mediaA2*transA2.length)/totTrans2)
+                  : 8000;
+                const immobiliVenduti2=vendConcl2.length;
+                const ratioTransImm=immobiliVenduti2>0?(totTrans2/immobiliVenduti2):2;
+                const CONV=(()=>{
+                  const inc=incarichi.filter(i=>i.categoria==="vendita"&&(i.dataInizio||"").slice(0,4)===String(annoPiano-1));
+                  if(inc.length<5) return 0.65;
+                  const c=inc.filter(i=>vendConcl2.some(v=>v.incaricoId===i.id)).length/inc.length;
+                  return Math.min(0.95,Math.max(0.30,c));
+                })();
+                const APPT=0.40;
                 const sCard2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
                 const sLbl2={fontSize:11,color:"#888",textTransform:"uppercase",letterSpacing:"0.08em",margin:"0 0 4px"};
                 const clrP=(p)=>p>=100?"#27AE60":p>=70?"#E67E22":"#E74C3C";
@@ -4185,7 +4198,7 @@ export default function App() {
 
                 // Calcoli piano (per agente singolo o totale)
                 const transazNec=provvCustom>0?Math.ceil(obFattPiano/provvCustom):0;
-                const immobiliVend=Math.ceil(transazNec/2);
+                const immobiliVend=Math.ceil(transazNec/ratioTransImm);
                 const acquisizioniNec=Math.ceil(immobiliVend/CONV);
                 const acquisizioniMese=Math.ceil(acquisizioniNec/12);
                 const apptSett=Math.ceil(acquisizioniNec/APPT/52);
@@ -4305,9 +4318,9 @@ export default function App() {
                     <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>{vistaTotale?"Piano agenzia — derivato dalla somma obiettivi":"Piano derivato automaticamente"}</p>
                     <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
                       {[
-                        ["Transazioni necessarie",transazNec,BRAND.oroD,"ogni imm. = 2 transaz."],
-                        ["Immobili da vendere",immobiliVend,"#27AE60","rogiti ÷ 2"],
-                        ["Acquisizioni necessarie",acquisizioniNec,"#185FA5",acquisizioniMese+"/mese · conv. 65%"],
+                        ["Transazioni necessarie",transazNec,BRAND.oroD,`media pesata € ${fmt(provvMediaReale)}`],
+                        ["Immobili da vendere",immobiliVend,"#27AE60",`${(totTrans2/Math.max(1,immobiliVenduti2)).toFixed(2)} transaz. per immobile`],
+                        ["Acquisizioni necessarie",acquisizioniNec,"#185FA5",acquisizioniMese+"/mese · conv. "+Math.round(CONV*100)+"%"],
                         ["Appt. acq. / settimana",apptSett,"#8E44AD",apptMese+"/mese · conv. 40%"],
                       ].map(([lbl,val,clr,note])=>(
                         <div key={lbl} style={{...sCard2,borderTop:`3px solid ${clr}`,textAlign:"center"}}>
