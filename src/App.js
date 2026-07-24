@@ -304,6 +304,8 @@ const STATI_NOT = [
   { k:"nuova",        lbl:"Nuova",        clr:"#7F8C8D" },
   { k:"contattare",   lbl:"Da contattare",clr:"#E67E22" },
   { k:"appuntamento", lbl:"Appuntamento", clr:"#2980B9" },
+  { k:"valutata",     lbl:"Valutata",     clr:"#16A085" },
+  { k:"followup",     lbl:"Follow-up",    clr:"#8E44AD" },
   { k:"incarico",     lbl:"Incarico",     clr:"#27AE60" },
   { k:"persa",        lbl:"Persa",        clr:"#C0392B" },
 ];
@@ -4402,6 +4404,32 @@ export default function App() {
                 </div>
               )}
 
+              {(()=>{
+                const tot = vis.length;
+                const settimana = vis.filter(n=>n.createdAt && (Date.now()-n.createdAt) < 7*864e5).length;
+                const conIncarico = vis.filter(n=>n.stato==="incarico").length;
+                const tasso = tot ? Math.round(conIncarico/tot*1000)/10 : 0;
+                const riquadri = [
+                  {lbl:"TOTALI",         val:tot,             clr:"#2980B9", icona:"📣"},
+                  {lbl:"QUESTA SETTIMANA",val:settimana,      clr:"#8E44AD", icona:"🆕"},
+                  {lbl:"TASSO CONVERSIONE",val:tasso+"%",     clr:"#27AE60", icona:"✓"},
+                  {lbl:"DA RICHIAMARE",  val:daRichiamare.length, clr:"#E67E22", icona:"🔔"},
+                ];
+                return (
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1rem"}}>
+                    {riquadri.map(r=>(
+                      <div key={r.lbl} style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",borderLeft:`3px solid ${r.clr}`,padding:"12px 14px",display:"flex",alignItems:"center",gap:11}}>
+                        <div style={{width:34,height:34,borderRadius:8,background:`${r.clr}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{r.icona}</div>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontSize:10,color:"#aaa",letterSpacing:"0.05em",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.lbl}</div>
+                          <div style={{fontSize:21,fontWeight:600,color:"#2C2C2C",lineHeight:1.2}}>{r.val}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
               <div style={S.fRow}>
                 <input placeholder="Cerca nome, telefono, indirizzo…" value={qNot} onChange={e=>setQNot(e.target.value)}
                   style={{...S.sel,minWidth:220,flex:isMobile?"1 1 100%":"0 1 260px"}}/>
@@ -4429,7 +4457,7 @@ export default function App() {
                 {STATI_NOT.map(st=>{
                   const lista = perStato(st.k);
                   return (
-                    <div key={st.k} style={{minWidth:250,width:250,flexShrink:0,background:"#fafaf8",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
+                    <div key={st.k} style={{minWidth:228,width:228,flexShrink:0,background:"#fafaf8",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
                       <div style={{padding:"9px 12px",borderBottom:`2px solid ${st.clr}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <span style={{fontSize:12,fontWeight:600,color:st.clr,textTransform:"uppercase",letterSpacing:"0.04em"}}>{st.lbl}</span>
                         <span style={{fontSize:12,color:"#aaa"}}>{lista.length}</span>
