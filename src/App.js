@@ -202,6 +202,21 @@ const caricaLibSupabase = () => new Promise((ok, ko) => {
   document.head.appendChild(s);
 });
 
+// Notizie che hanno già generato un incarico in Modulistica.
+// Serve solo a colorare la colonna "Incarico": nessuna scrittura.
+const caricaNotizieConIncarico = async () => {
+  const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
+    {headers:authHeaders()});
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const rows = await res.json();
+  const data = rows?.[0]?.data || {};
+  const daMod  = (data.modulistica && Array.isArray(data.modulistica.incarichi)) ? data.modulistica.incarichi : [];
+  const daGest = Array.isArray(data.incarichi) ? data.incarichi : [];
+  const ids = new Set();
+  [...daMod, ...daGest].forEach(i=>{ if(i && i.notiziaId!=null && i.notiziaId!=="") ids.add(String(i.notiziaId)); });
+  return ids;
+};
+
 const caricaDB = async () => {
   const res = await fetch(`${SUPA_URL}/rest/v1/gestionale_data?id=eq.main&select=data`,
     {headers:authHeaders()});
@@ -1417,6 +1432,7 @@ export default function App() {
   const [vistaNot,setVistaNot]=useState(isMobile?"lista":"kanban");
   const [faseNot,setFaseNot]=useState("contattare");
   const [chiediMotivo,setChiediMotivo]=useState(null);
+  const [notizieConIncarico,setNotizieConIncarico]=useState(()=>new Set());
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [showFormSfida,setShowFormSfida]=useState(false);
   const [warSubTab,setWarSubTab]=useState("performance");
@@ -1614,6 +1630,15 @@ export default function App() {
   },[]);
 
     useEffect(()=>{
+    if(!sessionePronta) return;
+    let vivo=true;
+    caricaNotizieConIncarico()
+      .then(s=>{ if(vivo) setNotizieConIncarico(s); })
+      .catch(e=>console.warn("Collegamento notizie-incarichi non letto:", e));
+    return ()=>{ vivo=false; };
+  },[sessionePronta]);
+
+  useEffect(()=>{
     if(!sessionePronta) return; // senza token la lettura verrebbe rifiutata
     caricaDB().then(data=>{
       if(data&&Object.keys(data).length>0){
@@ -4411,7 +4436,12 @@ export default function App() {
               }
               return true;
             });
-            const perStato = k => vis.filter(n=>(n.stato||"nuova")===k);
+            // Una notizia sta in "Incarico" se lo stato lo dice oppure se in
+            // Modulistica esiste un incarico che la richiama.
+            const haIncarico = n => n.stato==="incarico" || notizieConIncarico.has(String(n.id));
+            const perStato = k => k==="incarico"
+              ? vis.filter(haIncarico)
+              : vis.filter(n=>!haIncarico(n) && (n.stato||"nuova")===k);
             const oggiISO = new Date().toISOString().slice(0,10);
             const daRichiamare = vis.filter(n=>n.dataRichiamata && n.dataRichiamata<=oggiISO && n.stato!=="persa" && n.stato!=="incarico");
             const nomeAg = id => { const a=agenti.find(x=>String(x.id)===String(id)); return a?`${a.nome} ${a.cognome||""}`.trim():""; };
@@ -4561,6 +4591,7 @@ export default function App() {
                               {scaduta&&<div style={{fontSize:11,color:"#E67E22",marginTop:6}}>🔔 Da richiamare il {n.dataRichiamata.split("-").reverse().join("/")}</div>}
                               {st.k==="persa"&&n.motivoPersa&&<div style={{fontSize:11,color:"#C0392B",marginTop:6}}>{n.motivoPersa}</div>}
                               {st.k==="followup"&&n.motivoFollowup&&<div style={{fontSize:11,color:"#8E44AD",marginTop:6}}>{n.motivoFollowup}</div>}
+                              {st.k==="incarico"&&notizieConIncarico.has(String(n.id))&&<div style={{fontSize:11,color:"#27AE60",marginTop:6}}>📄 Incarico creato in Modulistica</div>}
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,gap:6}}>
                                 <span style={{fontSize:10,color:"#bbb",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nomeAg(n.agenteId)}</span>
                                 <select value={st.k} onChange={e=>cambiaStato(n,e.target.value)}
@@ -4616,6 +4647,7 @@ export default function App() {
                             {contatti&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{contatti}</div>}
                             {faseNot==="persa"&&n.motivoPersa&&<div style={{fontSize:11,color:"#C0392B",marginTop:3}}>{n.motivoPersa}</div>}
                             {faseNot==="followup"&&n.motivoFollowup&&<div style={{fontSize:11,color:"#8E44AD",marginTop:3}}>{n.motivoFollowup}</div>}
+                            {faseNot==="incarico"&&notizieConIncarico.has(String(n.id))&&<div style={{fontSize:11,color:"#27AE60",marginTop:3}}>📄 Incarico creato in Modulistica</div>}
                           </div>
                           {n.operazione&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#EAF2FB",color:"#2980B9",whiteSpace:"nowrap"}}>{n.operazione}</span>}
                           {!!n.valore&&<span style={{fontSize:12,color:"#27AE60",whiteSpace:"nowrap"}}>€ {Number(n.valore).toLocaleString("it-IT")}</span>}
