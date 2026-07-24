@@ -328,6 +328,7 @@ const STATI_NOT = [
   { k:"nuova",        lbl:"Nuova",        clr:"#7F8C8D" },
   { k:"contattare",   lbl:"Da contattare",clr:"#E67E22" },
   { k:"appuntamento", lbl:"Appuntamento", clr:"#2980B9" },
+  { k:"davalutare",   lbl:"Da valutare",  clr:"#D4AC0D" },
   { k:"valutata",     lbl:"Valutata",     clr:"#16A085" },
   { k:"followup",     lbl:"Follow-up",    clr:"#8E44AD" },
   { k:"incarico",     lbl:"Incarico",     clr:"#27AE60" },
@@ -336,11 +337,22 @@ const STATI_NOT = [
 const PRIORITA_NOT = { alta:{lbl:"Alta",clr:"#C0392B"}, media:{lbl:"Media",clr:"#E67E22"}, bassa:{lbl:"Bassa",clr:"#95A5A6"} };
 const OPERAZIONI_NOT = ["Vendita","Locazione"];
 const MOTIVI_PERSA = ["Ha scelto altra agenzia","Vende da privato","Non vende più","Prezzo fuori mercato","Non risponde","Altro"];
+// Perché non si è arrivati alla valutazione / perché la notizia resta in sospeso
+const MOTIVI_FOLLOWUP = [
+  "Non vende adesso, ci ripensa",
+  "Aspetta un momento migliore di mercato",
+  "Deve decidere con i familiari",
+  "Immobile occupato o affittato",
+  "Successione o pratiche da sistemare",
+  "Non risponde, da riprovare",
+  "Prezzo atteso troppo alto",
+  "Altro",
+];
 const NOTIZIA_VUOTA = {
   titolo:"", nome:"", cognome:"", cellulare:"", telefono:"", email:"",
   tipologia:"", operazione:"Vendita", indirizzo:"", comune:"", zona:"",
   mq:"", locali:"", piano:"", valore:"", fonte:"", dettaglioFonte:"",
-  priorita:"media", stato:"nuova", motivoPersa:"", agenteId:"",
+  priorita:"media", stato:"nuova", motivoPersa:"", motivoFollowup:"", agenteId:"",
   dataContatto:"", dataRichiamata:"", linkAnnuncio:"", note:"",
 };
 // Titolo automatico quando non compilato a mano
@@ -1402,6 +1414,9 @@ export default function App() {
   const [fNotAgente,setFNotAgente]=useState("tutti");
   const [fNotFonte,setFNotFonte]=useState("tutte");
   const [fNotPrio,setFNotPrio]=useState("tutte");
+  const [vistaNot,setVistaNot]=useState(isMobile?"lista":"kanban");
+  const [faseNot,setFaseNot]=useState("contattare");
+  const [chiediMotivo,setChiediMotivo]=useState(null);
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [showFormSfida,setShowFormSfida]=useState(false);
   const [warSubTab,setWarSubTab]=useState("performance");
@@ -4411,8 +4426,25 @@ export default function App() {
               }
               setFormNot(null);
             };
+            const applicaStato = (id,nuovo,extra={}) => {
+              setNotizie(notizie.map(x=>x.id===id?{
+                ...x, stato:nuovo,
+                ...(nuovo!=="persa"    ? {motivoPersa:""}    : {}),
+                ...(nuovo!=="followup" ? {motivoFollowup:""} : {}),
+                ...extra, updatedAt:Date.now(),
+              }:x));
+            };
             const cambiaStato = (n,nuovo) => {
-              setNotizie(notizie.map(x=>x.id===n.id?{...x,stato:nuovo,...(nuovo!=="persa"?{motivoPersa:""}:{}),updatedAt:Date.now()}:x));
+              // Follow-up e Persa richiedono di dire perché
+              if(nuovo==="followup"||nuovo==="persa"){
+                setChiediMotivo({
+                  id:n.id, titolo:titoloNotizia(n), stato:nuovo,
+                  motivo:"", note:"",
+                  dataRichiamata: nuovo==="followup" ? (n.dataRichiamata||"") : "",
+                });
+                return;
+              }
+              applicaStato(n.id,nuovo);
             };
 
             return (
@@ -4485,12 +4517,23 @@ export default function App() {
                 )}
               </div>
 
+              <div style={{display:"flex",justifyContent:"flex-end",gap:6,marginBottom:10}}>
+                {[["kanban","▦ Colonne"],["lista","☰ Elenco"]].map(([k,lbl])=>(
+                  <button key={k} onClick={()=>setVistaNot(k)}
+                    style={{fontSize:12,padding:"5px 11px",borderRadius:7,cursor:"pointer",fontFamily:"inherit",
+                            border:vistaNot===k?`1px solid ${BRAND.oro}`:"0.5px solid #e0ddd8",
+                            background:vistaNot===k?BRAND.beige:"#fff",
+                            color:vistaNot===k?BRAND.oroD:"#888"}}>{lbl}</button>
+                ))}
+              </div>
+
               {/* Colonne dell'iter */}
+              {vistaNot==="kanban"&&(
               <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,alignItems:"flex-start"}}>
                 {STATI_NOT.map(st=>{
                   const lista = perStato(st.k);
                   return (
-                    <div key={st.k} style={{minWidth:228,width:228,flexShrink:0,background:"#fafaf8",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
+                    <div key={st.k} style={{minWidth:214,width:214,flexShrink:0,background:"#fafaf8",borderRadius:10,border:"0.5px solid #e8e5e0"}}>
                       <div style={{padding:"9px 12px",borderBottom:`2px solid ${st.clr}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <span style={{fontSize:12,fontWeight:600,color:st.clr,textTransform:"uppercase",letterSpacing:"0.04em"}}>{st.lbl}</span>
                         <span style={{fontSize:12,color:"#aaa"}}>{lista.length}</span>
@@ -4517,6 +4560,7 @@ export default function App() {
                               </div>
                               {scaduta&&<div style={{fontSize:11,color:"#E67E22",marginTop:6}}>🔔 Da richiamare il {n.dataRichiamata.split("-").reverse().join("/")}</div>}
                               {st.k==="persa"&&n.motivoPersa&&<div style={{fontSize:11,color:"#C0392B",marginTop:6}}>{n.motivoPersa}</div>}
+                              {st.k==="followup"&&n.motivoFollowup&&<div style={{fontSize:11,color:"#8E44AD",marginTop:6}}>{n.motivoFollowup}</div>}
                               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,gap:6}}>
                                 <span style={{fontSize:10,color:"#bbb",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nomeAg(n.agenteId)}</span>
                                 <select value={st.k} onChange={e=>cambiaStato(n,e.target.value)}
@@ -4532,6 +4576,117 @@ export default function App() {
                   );
                 })}
               </div>
+              )}
+
+              {/* Vista a elenco: barra delle fasi, poi le notizie della fase scelta */}
+              {vistaNot==="lista"&&(()=>{
+                const lista = perStato(faseNot);
+                const fase = STATI_NOT.find(s=>s.k===faseNot) || STATI_NOT[0];
+                return (
+                <div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+                    {STATI_NOT.map(s=>{
+                      const n = perStato(s.k).length;
+                      const sel = s.k===faseNot;
+                      return (
+                        <button key={s.k} onClick={()=>setFaseNot(s.k)}
+                          style={{padding:"7px 12px",borderRadius:8,textAlign:"center",minWidth:78,cursor:"pointer",fontFamily:"inherit",
+                                  border:sel?`2px solid ${s.clr}`:"0.5px solid #e8e5e0",
+                                  background:sel?`${s.clr}12`:"#fff"}}>
+                          <div style={{fontSize:10,color:s.clr,letterSpacing:"0.03em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{s.lbl}</div>
+                          <div style={{fontSize:17,fontWeight:600,color:"#2C2C2C"}}>{n}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",overflow:"hidden"}}>
+                    {lista.length===0&&<div style={{fontSize:13,color:"#bbb",textAlign:"center",padding:"26px 0"}}>Nessuna notizia in “{fase.lbl}”</div>}
+                    {lista.map((n,idx)=>{
+                      const pr = PRIORITA_NOT[n.priorita]||PRIORITA_NOT.media;
+                      const scaduta = n.dataRichiamata && n.dataRichiamata<=oggiISO && faseNot!=="persa" && faseNot!=="incarico";
+                      const contatti = [`${n.nome||""} ${n.cognome||""}`.trim(), n.cellulare, n.fonte].filter(Boolean).join(" · ");
+                      return (
+                        <div key={n.id} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 13px",
+                                                borderBottom:idx<lista.length-1?"0.5px solid #f0eeea":"none",
+                                                flexWrap:isMobile?"wrap":"nowrap"}}>
+                          <span title={`Priorità ${pr.lbl}`} style={{width:8,height:8,borderRadius:"50%",background:pr.clr,flexShrink:0}}/>
+                          <div style={{flex:1,minWidth:isMobile?"70%":0,cursor:"pointer"}} onClick={()=>setFormNot({...n})}>
+                            <div style={{fontSize:13,fontWeight:500,color:"#2C2C2C"}}>{titoloNotizia(n)}</div>
+                            {contatti&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{contatti}</div>}
+                            {faseNot==="persa"&&n.motivoPersa&&<div style={{fontSize:11,color:"#C0392B",marginTop:3}}>{n.motivoPersa}</div>}
+                            {faseNot==="followup"&&n.motivoFollowup&&<div style={{fontSize:11,color:"#8E44AD",marginTop:3}}>{n.motivoFollowup}</div>}
+                          </div>
+                          {n.operazione&&<span style={{fontSize:11,padding:"2px 7px",borderRadius:4,background:"#EAF2FB",color:"#2980B9",whiteSpace:"nowrap"}}>{n.operazione}</span>}
+                          {!!n.valore&&<span style={{fontSize:12,color:"#27AE60",whiteSpace:"nowrap"}}>€ {Number(n.valore).toLocaleString("it-IT")}</span>}
+                          <span style={{fontSize:11,whiteSpace:"nowrap",color:scaduta?"#E67E22":"#ccc"}}>
+                            {n.dataRichiamata ? (scaduta?"🔔 ":"")+n.dataRichiamata.split("-").reverse().slice(0,2).join("/") : "—"}
+                          </span>
+                          <span style={{fontSize:11,color:"#bbb",whiteSpace:"nowrap",maxWidth:110,overflow:"hidden",textOverflow:"ellipsis"}}>{nomeAg(n.agenteId)}</span>
+                          <select value={faseNot} onChange={e=>cambiaStato(n,e.target.value)}
+                            style={{fontSize:11,padding:"3px 5px",borderRadius:5,border:"0.5px solid #ddd",background:"#fff",color:"#888",cursor:"pointer"}}>
+                            {STATI_NOT.map(s=><option key={s.k} value={s.k}>{s.lbl}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                );
+              })()}
+
+              {/* Motivazione richiesta allo spostamento in Follow-up o Persa */}
+              {chiediMotivo&&(()=>{
+                const versoFollow = chiediMotivo.stato==="followup";
+                const elenco = versoFollow ? MOTIVI_FOLLOWUP : MOTIVI_PERSA;
+                return (
+                <div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setChiediMotivo(null);}}>
+                  <div style={{...S.modal,width:"min(94vw,440px)"}}>
+                    <h3 style={{fontSize:15,fontWeight:600,margin:"0 0 4px"}}>
+                      {versoFollow?"Sposta in Follow-up":"Segna come persa"}
+                    </h3>
+                    <p style={{fontSize:12,color:"#aaa",margin:"0 0 14px"}}>{chiediMotivo.titolo}</p>
+
+                    <label style={S.lbl}>{versoFollow?"Perché non si procede adesso":"Motivo della perdita"}</label>
+                    <select style={S.inp} value={chiediMotivo.motivo}
+                      onChange={e=>setChiediMotivo({...chiediMotivo,motivo:e.target.value})}>
+                      <option value="">— scegli —</option>
+                      {elenco.map(m=><option key={m} value={m}>{m}</option>)}
+                    </select>
+
+                    {versoFollow&&(
+                      <div style={{marginTop:10}}>
+                        <label style={S.lbl}>Quando risentirlo</label>
+                        <input style={S.inp} type="date" value={chiediMotivo.dataRichiamata}
+                          onChange={e=>setChiediMotivo({...chiediMotivo,dataRichiamata:e.target.value})}/>
+                      </div>
+                    )}
+
+                    <div style={{marginTop:10,marginBottom:14}}>
+                      <label style={S.lbl}>Note <span style={{color:"#ccc"}}>(facoltative)</span></label>
+                      <textarea style={{...S.inp,minHeight:60,resize:"vertical",fontFamily:"inherit"}}
+                        value={chiediMotivo.note} onChange={e=>setChiediMotivo({...chiediMotivo,note:e.target.value})}/>
+                    </div>
+
+                    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                      <button style={S.btn} onClick={()=>setChiediMotivo(null)}>Annulla</button>
+                      <button style={{...S.btnP,opacity:chiediMotivo.motivo?1:0.45,cursor:chiediMotivo.motivo?"pointer":"default"}}
+                        onClick={()=>{
+                          if(!chiediMotivo.motivo) return;
+                          const nuoveNote = chiediMotivo.note.trim();
+                          applicaStato(chiediMotivo.id, chiediMotivo.stato, {
+                            ...(versoFollow
+                                ? {motivoFollowup:chiediMotivo.motivo, dataRichiamata:chiediMotivo.dataRichiamata}
+                                : {motivoPersa:chiediMotivo.motivo}),
+                            ...(nuoveNote ? {note:nuoveNote} : {}),
+                          });
+                          setChiediMotivo(null);
+                        }}>Conferma</button>
+                    </div>
+                  </div>
+                </div>
+                );
+              })()}
 
               {/* Scheda notizia */}
               {formNot&&(
@@ -4638,10 +4793,19 @@ export default function App() {
                       </div>
                       {formNot.stato==="persa"&&(
                         <div>
-                          <label style={S.lbl}>Motivo</label>
+                          <label style={S.lbl}>Motivo della perdita</label>
                           <select style={S.inp} value={formNot.motivoPersa} onChange={e=>setFormNot({...formNot,motivoPersa:e.target.value})}>
                             <option value="">—</option>
                             {MOTIVI_PERSA.map(m=><option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      {formNot.stato==="followup"&&(
+                        <div>
+                          <label style={S.lbl}>Perché non si procede</label>
+                          <select style={S.inp} value={formNot.motivoFollowup||""} onChange={e=>setFormNot({...formNot,motivoFollowup:e.target.value})}>
+                            <option value="">—</option>
+                            {MOTIVI_FOLLOWUP.map(m=><option key={m} value={m}>{m}</option>)}
                           </select>
                         </div>
                       )}
