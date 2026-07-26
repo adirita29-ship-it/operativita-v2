@@ -338,6 +338,33 @@ const salvaDBMerge = async (data) => {
 
 const BRAND = {oro:"#C9A96E",oroD:"#A8863A",grigio:"#4A4A4A",beige:"#F2F0EB"};
 
+// ── Business plan per agente e per anno ────────────────────────────────────
+// Struttura nuova: obiettivoAgente[idAgente][anno] = {fatturato, stato, ...}
+// La vecchia (obiettivoAgente[idAgente] = {fatturato}) viene migrata sotto
+// l'anno 2026 al caricamento, senza perdere nulla. Sono obiettivi-bersaglio,
+// non fatturati reali (quelli stanno nei venduti e non si toccano).
+const ANNO_MIGRAZIONE = 2026;
+function migraObiettivi(ob){
+  if(!ob || typeof ob!=="object") return {};
+  const out = {};
+  for(const [idAg, val] of Object.entries(ob)){
+    if(!val || typeof val!=="object"){ out[idAg]=val; continue; }
+    // Se ha già chiavi-anno (es. "2026"), è già migrato: lo lascio com'è.
+    const chiaviAnno = Object.keys(val).filter(k=>/^\d{4}$/.test(k));
+    if(chiaviAnno.length>0){ out[idAg]=val; continue; }
+    // Altrimenti è la struttura vecchia piatta → sposto sotto ANNO_MIGRAZIONE,
+    // marcandolo "approvato" perché era già un obiettivo in uso.
+    out[idAg] = { [ANNO_MIGRAZIONE]: { ...val, stato: val.stato || "approvato" } };
+  }
+  return out;
+}
+// Legge l'obiettivo di un agente per un anno. Ritorna sempre un oggetto.
+function obDi(ob, idAg, anno){
+  const perAg = ob && ob[idAg];
+  if(!perAg) return {};
+  return perAg[anno] || {};
+}
+
 // ── Notizie: colonne dell'iter e priorità ─────────────────────────────────
 const STATI_NOT = [
   { k:"nuova",        lbl:"Nuova",        clr:"#7F8C8D" },
@@ -1397,6 +1424,14 @@ export default function App() {
   const [opDataSel,setOpDataSel]=useState(todayStr());
   const [opMeseSel,setOpMeseSel]=useState(annoCorrente+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
   const [opAgenteSel,setOpAgenteSel]=useState("Tutti");
+  const [annoPiano,setAnnoPiano]=useState(new Date().getFullYear());
+  const scriviOb=(agId, mut)=>{
+    setObiettivoAgente(prev=>{
+      const perAg = prev[agId] || {};
+      const corrente = perAg[annoPiano] || {};
+      return {...prev, [agId]: {...perAg, [annoPiano]: mut(corrente)}};
+    });
+  };
   // Gestione Pratiche: {incaricoId: {fasi:{}, checklistA:{}, checklistB:{}, checklistC:{}, note:""}}
   const [pratiche,setPratiche]=useState(normPratiche(_ls?.pratiche));
   const [gpIncSel,setGpIncSel]=useState(null);
@@ -1576,7 +1611,7 @@ export default function App() {
   const [costiAgenteAnno,setCostiAgenteAnno]=useState(annoCorrente);
   const [modalCostoVoceAg,setModalCostoVoceAg]=useState(null);
   const [formNuovaSpesaAg,setFormNuovaSpesaAg]=useState({data:todayStr(),importo:"",desc:""});
-  const [obiettivoAgente,setObiettivoAgente]=useState(_ls?.obiettivoAgente||{});
+  const [obiettivoAgente,setObiettivoAgente]=useState(migraObiettivi(_ls?.obiettivoAgente||{}));
   const importRef=useRef();
   const [showMobileMenu,setShowMobileMenu]=useState(false);
 
@@ -1692,7 +1727,7 @@ export default function App() {
         if(data.oneToOne) setOneToOne(data.oneToOne);
         if(data.sfide) setSfide(data.sfide);
         if(data.notizie) setNotizie(data.notizie);
-        if(data.obiettivoAgente) setObiettivoAgente(data.obiettivoAgente);
+        if(data.obiettivoAgente) setObiettivoAgente(migraObiettivi(data.obiettivoAgente));
         if(data.eventi) setEventi(Array.isArray(data.eventi)?data.eventi:[]);
         if(data.tipiEvento) setTipiEvento(Array.isArray(data.tipiEvento)?data.tipiEvento:["Corso","Evento","Cena","Conferenza","Aperitivo","Altro"]);
         if(data.tracciamento) setTracciamento(data.tracciamento);
@@ -1890,7 +1925,7 @@ export default function App() {
         if(d.oneToOne) setOneToOne(d.oneToOne);
         if(d.fasiConfig) setFasiConfig(d.fasiConfig);
         if(d.mirino) setMirino(d.mirino);
-        if(d.obiettivoAgente) setObiettivoAgente(d.obiettivoAgente);
+        if(d.obiettivoAgente) setObiettivoAgente(migraObiettivi(d.obiettivoAgente));
         // Campi aggiuntivi sincronizzati per evitare perdita dati su modifiche concorrenti
         if(d.ericaTodo) setEricaTodo(d.ericaTodo);
         if(d.agenteTodo) setAgenteTodo(d.agenteTodo);
@@ -4160,7 +4195,6 @@ export default function App() {
 
               {opMainTab==="piano"&&(()=>{
                 const agentiProd2=agenti.filter(a=>["Broker","Consulente","Collaboratore"].includes(a.profilo)&&a.inReport!==false);
-                const annoPiano=new Date().getFullYear();
                 const oggi4=todayStr();
                 const dal4=`${annoPiano}-01-01`;
                 // Ultimi 12 mesi mobili, per le medie: più stabile dell'anno solare a inizio anno.
@@ -4233,8 +4267,8 @@ export default function App() {
                 // Dati per agente singolo
                 const agIdPiano=isBroker&&!vistaTotale?(Number(opAgenteSel)||agenti.find(a=>a.profilo==="Broker")?.id||agentiProd2[0]?.id):myAgentId;
                 const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
-                const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
-                const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0):Number(obAnnPiano.fatturato||0);
+                const obAnnPiano=obDi(obiettivoAgente,agIdPiano,annoPiano);
+                const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>{const o=obDi(obiettivoAgente,a.id,annoPiano);return s+(o.stato==="approvato"?Number(o.fatturato||0):0);},0):Number(obAnnPiano.fatturato||0);
                 const provvCustom=Number(obAnnPiano.provvMedia||0)||provvMediaReale;
                 // Percentuale impostata a mano (0-100) oppure quella calcolata.
                 const convCustom=(Number(obAnnPiano.convManuale)>0)?(Number(obAnnPiano.convManuale)/100):convCalc.v;
@@ -4339,7 +4373,7 @@ export default function App() {
                           <span style={{fontSize:18,color:"#aaa"}}>€</span>
                           <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:BRAND.oroD,outline:"none",fontFamily:"inherit",width:"100%"}}
                             value={obFattPiano||""} placeholder="200000"
-                            onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:Number(e.target.value)}}))}/>
+                            onChange={e=>scriviOb(agIdPiano, c=>({...c,fatturato:Number(e.target.value)}))}/>
                         </div>
                         {obFattPiano>0&&<p style={{fontSize:12,color:BRAND.oroD,margin:0}}>= € {fmt(Math.round(obFattPiano/12))} / mese</p>}
                       </div>
@@ -4349,7 +4383,7 @@ export default function App() {
                           <span style={{fontSize:18,color:"#aaa"}}>€</span>
                           <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:"#633806",outline:"none",fontFamily:"inherit",width:"100%"}}
                             value={provvCustom||""} placeholder={String(provvMediaReale)}
-                            onChange={e=>setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),provvMedia:Number(e.target.value)}}))}/>
+                            onChange={e=>scriviOb(agIdPiano, c=>({...c,provvMedia:Number(e.target.value)}))}/>
                         </div>
                         <p style={{fontSize:12,color:"#888",margin:0}}>media reale agenzia: <strong style={{color:"#633806"}}>€ {fmt(provvMediaReale)}</strong></p>
                       </div>
@@ -4358,7 +4392,7 @@ export default function App() {
                         <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
                           <input type="number" min="1" max="100" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:"#185FA5",outline:"none",fontFamily:"Georgia,serif",width:90}}
                             value={Number(obAnnPiano.convManuale)>0?obAnnPiano.convManuale:""} placeholder={String(Math.round(convCalc.v*100))}
-                            onChange={e=>{const val=Math.max(0,Math.min(100,Number(e.target.value)));setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),convManuale:val||0}}));}}/>
+                            onChange={e=>{const val=Math.max(0,Math.min(100,Number(e.target.value)));scriviOb(agIdPiano, c=>({...c,convManuale:val||0}));}}/>
                           <span style={{fontSize:18,color:"#aaa"}}>%</span>
                         </div>
                         {convCalc.incompleta
@@ -4481,7 +4515,7 @@ export default function App() {
                           const acquis=Math.ceil(imm/0.65);
                           const appt=Math.ceil((acquis/12)/0.40);
                           const rev={data:oggi4,motivo,vecchio:obFattPiano,nuovo:nuovoOb,calc:{trans,imm,acquis,appt}};
-                          setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),fatturato:nuovoOb,revisioni:[...(prev[agIdPiano]?.revisioni||[]),rev]}}));
+                          scriviOb(agIdPiano, c=>({...c,fatturato:nuovoOb,revisioni:[...(c.revisioni||[]),rev]}));
                         }} style={{...S.btnP,fontSize:11,padding:"4px 14px"}}>+ Revisiona</button>}
                       </div>
                       {revisioni.length>0&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -4498,8 +4532,7 @@ export default function App() {
                               </div>
                               {!isReadOnly&&<button onClick={()=>{
                                 if(!window.confirm(`Eliminare questa revisione?\\n\\nMotivo: ${r.motivo}\\nData: ${fmtD(r.data)}\\n\\nSe è l'ultima revisione, il fatturato tornerà al valore precedente.`)) return;
-                                setObiettivoAgente(prev=>{
-                                  const cur = prev[agIdPiano]||{};
+                                scriviOb(agIdPiano, cur=>{
                                   const nuoveRev = (cur.revisioni||[]).filter((_,idx)=>idx!==i);
                                   // Se elimino l'ULTIMA revisione, il fatturato torna al valore "vecchio" della revisione eliminata
                                   // Se invece elimino una in mezzo, il fatturato resta quello dell'ultima rimanente
@@ -4508,7 +4541,7 @@ export default function App() {
                                     // Era l'ultima → uso il "nuovo" dell'ultima rimanente, o il "vecchio" di questa se era l'unica
                                     nuovoFatt = nuoveRev.length>0 ? nuoveRev[nuoveRev.length-1].nuovo : r.vecchio;
                                   }
-                                  return {...prev,[agIdPiano]:{...cur,fatturato:nuovoFatt,revisioni:nuoveRev}};
+                                  return {...cur,fatturato:nuovoFatt,revisioni:nuoveRev};
                                 });
                               }} title="Elimina questa revisione" style={{background:"transparent",border:"0.5px solid #ddd",borderRadius:6,padding:"3px 8px",cursor:"pointer",color:"#E74C3C",fontSize:13,fontWeight:600,flexShrink:0}}>✕</button>}
                             </div>
