@@ -4163,6 +4163,43 @@ export default function App() {
                 const annoPiano=new Date().getFullYear();
                 const oggi4=todayStr();
                 const dal4=`${annoPiano}-01-01`;
+                // Ultimi 12 mesi mobili, per le medie: più stabile dell'anno solare a inizio anno.
+                const dal12=(()=>{const d=new Date();d.setFullYear(d.getFullYear()-1);return d.toISOString().slice(0,10);})();
+
+                // Soglie sotto cui i dati personali non bastano per un piano proprio.
+                const SOGLIA_FATT=50000, SOGLIA_ACQ=10;
+
+                // Medie di un agente (agId) o dell'intera agenzia (agId=null).
+                // Un solo motore per entrambe le colonne, così la logica non si duplica.
+                const medieDi=(agId)=>{
+                  const vsel=venduti.filter(v=>{
+                    if(v.categoria!=="vendita") return false;
+                    if(agId==null) return true;
+                    return Number(v.agenteListing)===agId||Number(v.agenteAcquirente)===agId;
+                  });
+                  const provvDi=v=> agId==null
+                    ? Number(v.provvVenditore||0)+Number(v.provvAcquirente||0)
+                    : (Number(v.agenteListing)===agId?Number(v.provvVenditore||0):0)
+                     +(Number(v.agenteAcquirente)===agId?Number(v.provvAcquirente||0):0);
+                  const tV=vsel.filter(v=>agId==null?Number(v.provvVenditore||0)>0:(Number(v.agenteListing)===agId&&Number(v.provvVenditore||0)>0));
+                  const tA=vsel.filter(v=>agId==null?Number(v.provvAcquirente||0)>0:(Number(v.agenteAcquirente)===agId&&Number(v.provvAcquirente||0)>0));
+                  const mV=tV.length?tV.reduce((s,v)=>s+Number(v.provvVenditore||0),0)/tV.length:0;
+                  const mA=tA.length?tA.reduce((s,v)=>s+Number(v.provvAcquirente||0),0)/tA.length:0;
+                  const tot=tV.length+tA.length;
+                  const provv=tot?Math.round((mV*tV.length+mA*tA.length)/tot):0;
+                  const nImm=vsel.length;
+                  const ratio=nImm?tot/nImm:2;
+                  // Conversione: incarichi dell'annata precedente e quanti venduti
+                  const incPrec=incarichi.filter(i=>i.categoria==="vendita"&&(i.dataInizio||"").slice(0,4)===String(annoPiano-1)&&(agId==null||Number(i.agenteListing)===agId));
+                  const convBase=incPrec.length;
+                  const conv=convBase>=5?Math.min(0.95,Math.max(0.30,incPrec.filter(i=>vsel.some(v=>v.incaricoId===i.id)).length/convBase)):0.65;
+                  // Fatturato e acquisizioni ultimi 12 mesi, per le soglie
+                  const fatt12=venduti.filter(v=>{const dc=dataCompAgenzia(v);return v.categoria==="vendita"&&(agId==null||Number(v.agenteListing)===agId||Number(v.agenteAcquirente)===agId)&&dc>=dal12&&dc<=oggi4;}).reduce((s,v)=>s+provvDi(v),0);
+                  const acq12=incarichi.filter(i=>i.categoria==="vendita"&&(agId==null||Number(i.agenteListing)===agId)&&(i.dataInizio||"")>=dal12&&(i.dataInizio||"")<=oggi4).length;
+                  return {provv,ratio,conv,convBase,nVend:nImm,fatt12,acq12,
+                          affidabile: fatt12>=SOGLIA_FATT&&acq12>=SOGLIA_ACQ};
+                };
+
                 const vendConcl2=venduti.filter(v=>v.categoria==="vendita");
                 const transV2=vendConcl2.filter(v=>Number(v.provvVenditore||0)>0);
                 const transA2=vendConcl2.filter(v=>Number(v.provvAcquirente||0)>0);
@@ -4333,8 +4370,8 @@ export default function App() {
 
                   {/* Piano derivato */}
                   {(obFattPiano>0||!vistaTotale)&&<>
-                    <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>{vistaTotale?"Piano agenzia — derivato dalla somma obiettivi":"Piano derivato automaticamente"}</p>
-                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                    <p style={{fontSize:11,fontWeight:600,color:"#185FA5",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>{vistaTotale?"Piano agenzia — derivato dalla somma obiettivi":"Piano derivato — medie d'agenzia"}</p>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:vistaTotale?"1.25rem":"0.75rem"}}>
                       {[
                         ["Transazioni necessarie",transazNec,BRAND.oroD,`media pesata € ${fmt(provvMediaReale)}`],
                         ["Immobili da vendere",immobiliVend,"#27AE60",`${(totTrans2/Math.max(1,immobiliVenduti2)).toFixed(2)} transaz. per immobile`],
@@ -4348,6 +4385,46 @@ export default function App() {
                         </div>
                       ))}
                     </div>
+
+                    {!vistaTotale&&(()=>{
+                      const mia=medieDi(agIdPiano);
+                      if(!mia.affidabile){
+                        return (
+                          <div style={{background:"#F4F8FC",border:"1px dashed #A9C7E8",borderRadius:10,padding:"12px 15px",marginBottom:"1.25rem"}}>
+                            <p style={{fontSize:12,color:"#185FA5",margin:0,lineHeight:1.5}}>
+                              📊 <strong>Piano personale non ancora disponibile.</strong> Servono almeno € {fmt(50000)} di fatturato e 10 acquisizioni negli ultimi 12 mesi perché i dati del singolo siano affidabili.<br/>
+                              <span style={{color:"#888"}}>Oggi: € {fmt(mia.fatt12)} · {mia.acq12} acquisizioni. Fino ad allora vale il piano d'agenzia qui sopra.</span>
+                            </p>
+                          </div>
+                        );
+                      }
+                      const provvM=mia.provv||provvMediaReale;
+                      const convM=(Number(obAnnPiano.convManualeMio)>0)?(Number(obAnnPiano.convManualeMio)/100):mia.conv;
+                      const transM=Math.ceil(obFattPiano/provvM);
+                      const immM=Math.ceil(transM/(mia.ratio||2));
+                      const acqM=Math.ceil(immM/convM);
+                      const apptM=Math.ceil(acqM/0.40);
+                      const righe=[
+                        ["Transazioni",transM,BRAND.oroD,`sua provv. € ${fmt(provvM)}`],
+                        ["Immobili",immM,"#27AE60",`${mia.ratio.toFixed(2)} transaz./imm.`],
+                        ["Acquisizioni",acqM,"#185FA5",`conv. ${Math.round(convM*100)}%`],
+                        ["Appt. acq./sett.",Math.ceil(apptM/44),"#8E44AD",`${apptM}/anno`],
+                      ];
+                      return (
+                        <>
+                          <p style={{fontSize:11,fontWeight:600,color:"#0F6E56",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 10px"}}>Piano derivato — suoi dati ({mia.nVend} vendite)</p>
+                          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10,marginBottom:"1.25rem"}}>
+                            {righe.map(([lbl,val,clr,note])=>(
+                              <div key={lbl} style={{...sCard2,borderTop:`3px solid ${clr}`,textAlign:"center",background:"#fbfdfb"}}>
+                                <p style={sLbl2}>{lbl}</p>
+                                <p style={{fontSize:40,fontWeight:700,color:clr,margin:"4px 0 2px",lineHeight:1}}>{val||"—"}</p>
+                                <p style={{fontSize:11,color:"#888",margin:0}}>{note}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>}
 
                   {/* Dove sei oggi */}
