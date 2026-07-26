@@ -4175,11 +4175,15 @@ export default function App() {
                   : 8000;
                 const immobiliVenduti2=vendConcl2.length;
                 const ratioTransImm=immobiliVenduti2>0?(totTrans2/immobiliVenduti2):2;
-                const CONV=(()=>{
+                // Conversione incarico→rogito: calcolata sull'annata precedente.
+                // incBase = quanti incarichi la sostengono, serve per avvisare
+                // quando sono troppo pochi e il dato è quindi gonfiabile.
+                const convCalc=(()=>{
                   const inc=incarichi.filter(i=>i.categoria==="vendita"&&(i.dataInizio||"").slice(0,4)===String(annoPiano-1));
-                  if(inc.length<5) return 0.65;
-                  const c=inc.filter(i=>vendConcl2.some(v=>v.incaricoId===i.id)).length/inc.length;
-                  return Math.min(0.95,Math.max(0.30,c));
+                  const base=inc.length;
+                  if(base<5) return {v:0.65, base, incompleta:true};
+                  const c=inc.filter(i=>vendConcl2.some(v=>v.incaricoId===i.id)).length/base;
+                  return {v:Math.min(0.95,Math.max(0.30,c)), base, incompleta:base<12};
                 })();
                 const APPT=0.40;
                 const sCard2={background:"#fff",borderRadius:10,border:"0.5px solid #e8e5e0",padding:"16px 20px"};
@@ -4195,11 +4199,13 @@ export default function App() {
                 const obAnnPiano=(obiettivoAgente[agIdPiano])||{};
                 const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>s+Number((obiettivoAgente[a.id]||{}).fatturato||0),0):Number(obAnnPiano.fatturato||0);
                 const provvCustom=Number(obAnnPiano.provvMedia||0)||provvMediaReale;
+                // Percentuale impostata a mano (0-100) oppure quella calcolata.
+                const convCustom=(Number(obAnnPiano.convManuale)>0)?(Number(obAnnPiano.convManuale)/100):convCalc.v;
 
                 // Calcoli piano (per agente singolo o totale)
                 const transazNec=provvCustom>0?Math.ceil(obFattPiano/provvCustom):0;
                 const immobiliVend=Math.ceil(transazNec/ratioTransImm);
-                const acquisizioniNec=Math.ceil(immobiliVend/CONV);
+                const acquisizioniNec=Math.ceil(immobiliVend/convCustom);
                 const acquisizioniMese=Math.ceil(acquisizioniNec/12);
                 const apptSett=Math.ceil(acquisizioniNec/APPT/52);
                 const apptMese=Math.ceil(acquisizioniNec/APPT/12);
@@ -4310,6 +4316,18 @@ export default function App() {
                         </div>
                         <p style={{fontSize:12,color:"#888",margin:0}}>media reale agenzia: <strong style={{color:"#633806"}}>€ {fmt(provvMediaReale)}</strong></p>
                       </div>
+                      <div style={{...sCard2,borderTop:"3px solid #185FA5"}}>
+                        <p style={sLbl2}>Conversione incarico → rogito</p>
+                        <div style={{display:"flex",alignItems:"baseline",gap:6,margin:"4px 0 2px"}}>
+                          <input type="number" min="1" max="100" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:"#185FA5",outline:"none",fontFamily:"Georgia,serif",width:90}}
+                            value={Number(obAnnPiano.convManuale)>0?obAnnPiano.convManuale:""} placeholder={String(Math.round(convCalc.v*100))}
+                            onChange={e=>{const val=Math.max(0,Math.min(100,Number(e.target.value)));setObiettivoAgente(prev=>({...prev,[agIdPiano]:{...(prev[agIdPiano]||{}),convManuale:val||0}}));}}/>
+                          <span style={{fontSize:18,color:"#aaa"}}>%</span>
+                        </div>
+                        {convCalc.incompleta
+                          ? <p style={{fontSize:11,color:"#E67E22",margin:0,lineHeight:1.4}}>⚠ storico {annoPiano-1} incompleto ({convCalc.base} incarichi): il {Math.round(convCalc.v*100)}% calcolato è probabilmente ottimistico. Imposta un valore prudente (55-65%).</p>
+                          : <p style={{fontSize:12,color:"#888",margin:0}}>calcolata su {annoPiano-1}: <strong style={{color:"#185FA5"}}>{Math.round(convCalc.v*100)}%</strong></p>}
+                      </div>
                     </div>
                   </>}
 
@@ -4320,7 +4338,7 @@ export default function App() {
                       {[
                         ["Transazioni necessarie",transazNec,BRAND.oroD,`media pesata € ${fmt(provvMediaReale)}`],
                         ["Immobili da vendere",immobiliVend,"#27AE60",`${(totTrans2/Math.max(1,immobiliVenduti2)).toFixed(2)} transaz. per immobile`],
-                        ["Acquisizioni necessarie",acquisizioniNec,"#185FA5",acquisizioniMese+"/mese · conv. "+Math.round(CONV*100)+"%"],
+                        ["Acquisizioni necessarie",acquisizioniNec,"#185FA5",acquisizioniMese+"/mese · conv. "+Math.round(convCustom*100)+"%"],
                         ["Appt. acq. / settimana",apptSett,"#8E44AD",apptMese+"/mese · conv. 40%"],
                       ].map(([lbl,val,clr,note])=>(
                         <div key={lbl} style={{...sCard2,borderTop:`3px solid ${clr}`,textAlign:"center"}}>
