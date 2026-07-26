@@ -1432,6 +1432,7 @@ export default function App() {
       return {...prev, [agId]: {...perAg, [annoPiano]: mut(corrente)}};
     });
   };
+  const approvaOb=(agId)=>scriviOb(agId, c=>({...c, stato:"approvato"}));
   // Gestione Pratiche: {incaricoId: {fasi:{}, checklistA:{}, checklistB:{}, checklistC:{}, note:""}}
   const [pratiche,setPratiche]=useState(normPratiche(_ls?.pratiche));
   const [gpIncSel,setGpIncSel]=useState(null);
@@ -4269,6 +4270,7 @@ export default function App() {
                 const agPiano=agenti.find(a=>a.id===agIdPiano)||{};
                 const obAnnPiano=obDi(obiettivoAgente,agIdPiano,annoPiano);
                 const obFattPiano=vistaTotale?agentiProd2.reduce((s,a)=>{const o=obDi(obiettivoAgente,a.id,annoPiano);return s+(o.stato==="approvato"?Number(o.fatturato||0):0);},0):Number(obAnnPiano.fatturato||0);
+                const obInAttesa=vistaTotale?agentiProd2.reduce((s,a)=>{const o=obDi(obiettivoAgente,a.id,annoPiano);return s+(o.stato!=="approvato"?Number(o.fatturato||0):0);},0):0;
                 const provvCustom=Number(obAnnPiano.provvMedia||0)||provvMediaReale;
                 // Percentuale impostata a mano (0-100) oppure quella calcolata.
                 const convCustom=(Number(obAnnPiano.convManuale)>0)?(Number(obAnnPiano.convManuale)/100):convCalc.v;
@@ -4324,11 +4326,13 @@ export default function App() {
                         </tr></thead>
                         <tbody>
                           {agentiProd2.map((ag,idx)=>{
-                            const ob=Number(obDi(obiettivoAgente,ag.id,annoPiano).fatturato||0);
+                            const obRec=obDi(obiettivoAgente,ag.id,annoPiano);
+                            const ob=Number(obRec.fatturato||0);
+                            const obApprovato=obRec.stato==="approvato";
                             const fYTD=calcFattYTD(ag.id);
                             const aYTD=calcAcqYTD(ag.id);
                             const tYTD=calcTransYTD(ag.id);
-                            const perc=ob>0?Math.min(100,Math.round(fYTD/ob*100)):null;
+                            const perc=(ob>0&&obApprovato)?Math.min(100,Math.round(fYTD/ob*100)):null;
                             const AVBG=["#FAEEDA","#E6F1FB","#EEEDFE","#EAF3DE","#F1EFE8"];
                             const AVCL=["#412402","#0C447C","#3C3489","#173404","#444441"];
                             return(<tr key={ag.id} style={{borderBottom:"0.5px solid #f5f5f5"}}>
@@ -4338,7 +4342,18 @@ export default function App() {
                                   <span style={{fontSize:12,fontWeight:500}}>{ag.nome} {ag.cognome||""}</span>
                                 </div>
                               </td>
-                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",color:ob>0?BRAND.oroD:"#bbb",fontWeight:ob>0?600:400}}>{ob>0?"€ "+fmt(ob):"—"}</td>
+                              <td style={{padding:"10px 14px",fontSize:13,textAlign:"right"}}>
+                                {ob>0
+                                  ? <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
+                                      <span style={{color:obApprovato?BRAND.oroD:"#999",fontWeight:600}}>€ {fmt(ob)}</span>
+                                      {obApprovato
+                                        ? <span title="Approvato" style={{fontSize:9,color:"#1E7E4F",background:"#EAF7EF",padding:"2px 6px",borderRadius:4,whiteSpace:"nowrap"}}>✓ ok</span>
+                                        : (isBroker
+                                            ? <button onClick={()=>approvaOb(ag.id)} style={{fontSize:10,color:"#fff",background:"#E67E22",border:"none",padding:"3px 9px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>Approva</button>
+                                            : <span style={{fontSize:9,color:"#E67E22",background:"#FDF2E9",padding:"2px 6px",borderRadius:4,whiteSpace:"nowrap"}}>in attesa</span>)}
+                                    </div>
+                                  : <span style={{color:"#bbb"}}>—</span>}
+                              </td>
                               <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",color:fYTD>0?"#085041":"#bbb",fontWeight:fYTD>0?500:400}}>{fYTD>0?"€ "+fmt(fYTD):"—"}</td>
                               <td style={{padding:"10px 14px",textAlign:"right"}}>
                                 {perc!=null?<span style={{fontSize:12,fontWeight:600,color:clrP(perc),background:clrP(perc)+"15",padding:"2px 8px",borderRadius:6}}>{perc}%</span>:<span style={{color:"#bbb",fontSize:12}}>—</span>}
@@ -4350,7 +4365,10 @@ export default function App() {
                           {/* Riga totale */}
                           <tr style={{background:"#FFFBF0",borderTop:"2px solid #f0e8d0"}}>
                             <td style={{padding:"10px 14px",fontSize:12,fontWeight:700,color:BRAND.oroD}}>TOTALE AGENZIA</td>
-                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:BRAND.oroD}}>€ {fmt(obFattPiano)}</td>
+                            <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:BRAND.oroD}}>
+                              € {fmt(obFattPiano)}
+                              {obInAttesa>0&&<div style={{fontSize:10,color:"#E67E22",fontWeight:600,marginTop:2}}>+ € {fmt(obInAttesa)} in attesa</div>}
+                            </td>
                             <td style={{padding:"10px 14px",fontSize:13,textAlign:"right",fontWeight:700,color:"#085041"}}>€ {fmt(fattYTD4)}</td>
                             <td style={{padding:"10px 14px",textAlign:"right"}}>
                               {percF4!=null?<span style={{fontSize:13,fontWeight:700,color:clrP(percF4),background:clrP(percF4)+"15",padding:"2px 10px",borderRadius:6}}>{percF4}%</span>:<span style={{color:"#bbb"}}>—</span>}
@@ -4373,7 +4391,7 @@ export default function App() {
                           <span style={{fontSize:18,color:"#aaa"}}>€</span>
                           <input type="number" min="0" style={{fontSize:32,fontWeight:700,border:"none",background:"transparent",color:BRAND.oroD,outline:"none",fontFamily:"inherit",width:"100%"}}
                             value={obFattPiano||""} placeholder="200000"
-                            onChange={e=>scriviOb(agIdPiano, c=>({...c,fatturato:Number(e.target.value)}))}/>
+                            onChange={e=>scriviOb(agIdPiano, c=>({...c,fatturato:Number(e.target.value),stato:"da_approvare"}))}/>
                         </div>
                         {obFattPiano>0&&<p style={{fontSize:12,color:BRAND.oroD,margin:0}}>= € {fmt(Math.round(obFattPiano/12))} / mese</p>}
                       </div>
