@@ -1867,7 +1867,7 @@ export default function App() {
         const fattSett=vAg.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
         const vYTD=venduti.filter(v=>(Number(v.agenteListing)===ag.id||Number(v.agenteAcquirente)===ag.id)&&(v.dataVendita||v.dataAtto||"").startsWith(new Date().getFullYear()));
         const fattYTD=vYTD.reduce((s,v)=>{let p=0;if(Number(v.agenteListing)===ag.id)p+=Number(v.provvVenditore||0);if(Number(v.agenteAcquirente)===ag.id)p+=Number(v.provvAcquirente||0);return s+p;},0);
-        const obAnno=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+        const obAnno=Number(obDi(obiettivoAgente,ag.id,new Date().getFullYear()).fatturato||0);
         const perc=obAnno>0?Math.round(fattYTD/obAnno*100):0;
         await sendEmail(EMAILJS_TEMPLATE_REPORT,{
           email_destinatario:ag.email,
@@ -4324,7 +4324,7 @@ export default function App() {
                         </tr></thead>
                         <tbody>
                           {agentiProd2.map((ag,idx)=>{
-                            const ob=Number((obiettivoAgente[ag.id]||{}).fatturato||0);
+                            const ob=Number(obDi(obiettivoAgente,ag.id,annoPiano).fatturato||0);
                             const fYTD=calcFattYTD(ag.id);
                             const aYTD=calcAcqYTD(ag.id);
                             const tYTD=calcTransYTD(ag.id);
