@@ -274,6 +274,33 @@ const _mergeObjByKey = (local, remote) => {
   if(!remote || typeof remote!=="object" || Array.isArray(remote)) return local||{};
   return {...remote, ...(local||{})}; // chiavi solo-remote preservate; in conflitto vince il locale
 };
+// Fusione agenti che PROTEGGE i campi critici (email, permessi, password, nome,
+// cognome): se lo stesso agente esiste in locale e sul server, per questi campi
+// vince il valore PIENO, mai il vuoto. Così una copia con dati mancanti non può
+// cancellare quelli validi già sul server (causa dei blocchi di accesso).
+const _mergeAgenti = (local, remote) => {
+  const arrLocal = Array.isArray(local) ? local : [];
+  const arrRemote = Array.isArray(remote) ? remote : [];
+  const remoteById = new Map(arrRemote.filter(a=>a&&a.id!=null).map(a=>[a.id,a]));
+  const pieno = v => v!==undefined && v!==null && v!=="" && !(typeof v==="object" && Object.keys(v).length===0);
+  const fondi = (locA, remA) => {
+    if(!remA) return locA;
+    const out = {...locA};
+    for(const k of ["email","password","nome","cognome"]){
+      if(!pieno(out[k]) && pieno(remA[k])) out[k] = remA[k];
+    }
+    // permessi: se la copia locale non ne ha o li ha vuoti, tieni quelli del server
+    if(!pieno(out.permessi) && pieno(remA.permessi)) out.permessi = remA.permessi;
+    return out;
+  };
+  const localIds = new Set(arrLocal.map(a=>a&&a.id));
+  const out = arrLocal.map(a => fondi(a, remoteById.get(a&&a.id)));
+  // agenti presenti solo sul server (aggiunti da un altro dispositivo) → mantieni
+  for(const r of arrRemote){
+    if(r && r.id!=null && !localIds.has(r.id)) out.push(r);
+  }
+  return out;
+};
 const mergeData = (remote, local) => {
   if(!remote || typeof remote!=="object") return local; // nessun remoto valido → scrivi il locale
   const m = {...remote, ...local}; // base: locale vince sui campi che ha; campi solo-remoti (scalari/config/altre app) preservati
@@ -288,7 +315,7 @@ const mergeData = (remote, local) => {
   m.venduti        = _mergeArrById(local.venduti,        remote.venduti,        knownVend);
   m.archiviatiVend = _mergeArrById(local.archiviatiVend, remote.archiviatiVend, knownVend);
   // Altre liste con id (universo = solo locale)
-  m.agenti    = _mergeArrById(local.agenti,    remote.agenti,    new Set((local.agenti||[]).map(a=>a&&a.id)));
+  m.agenti    = _mergeAgenti(local.agenti, remote.agenti);
   m.prospetti = _mergeArrById(local.prospetti, remote.prospetti, new Set((local.prospetti||[]).map(p=>p&&p.id)));
   m.eventi    = _mergeArrById(local.eventi,    remote.eventi,    new Set((local.eventi||[]).map(e=>e&&e.id)));
   m.sfide     = _mergeArrById(local.sfide,     remote.sfide,     new Set((local.sfide||[]).map(s=>s&&s.id)));
