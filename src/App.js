@@ -317,6 +317,7 @@ const mergeData = (remote, local) => {
   // Altre liste con id (universo = solo locale)
   m.agenti    = _mergeAgenti(local.agenti, remote.agenti);
   m.prospetti = _mergeArrById(local.prospetti, remote.prospetti, new Set((local.prospetti||[]).map(p=>p&&p.id)));
+  m.notizie   = _mergeArrById(local.notizie,   remote.notizie,   new Set((local.notizie||[]).map(n=>n&&n.id)));
   m.eventi    = _mergeArrById(local.eventi,    remote.eventi,    new Set((local.eventi||[]).map(e=>e&&e.id)));
   m.sfide     = _mergeArrById(local.sfide,     remote.sfide,     new Set((local.sfide||[]).map(s=>s&&s.id)));
   // Oggetti chiave→valore: preserva le chiavi aggiunte altrove
