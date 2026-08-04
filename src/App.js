@@ -1504,6 +1504,8 @@ export default function App() {
   const [sfide,setSfide]=useState(_ls?.sfide||[]);
   const [notizie,setNotizie]=useState(_ls?.notizie||[]);
   const [formNot,setFormNot]=useState(null);
+  // Pannello cronistoria nella scheda notizia: chiuso di default
+  const [apriStorico,setApriStorico]=useState(false);
   const [qNot,setQNot]=useState("");
   const [fNotAgente,setFNotAgente]=useState("tutti");
   const [fNotFonte,setFNotFonte]=useState("tutte");
@@ -4722,14 +4724,14 @@ export default function App() {
                   <h2 style={{fontSize:16,fontWeight:600,margin:0,color:"#2C2C2C"}}>📣 Notizie</h2>
                   <div style={{fontSize:12,color:"#999",marginTop:2}}>Segnalazioni di immobili in vendita, dal primo contatto all'incarico</div>
                 </div>
-                <button style={S.btnP} onClick={()=>setFormNot({...NOTIZIA_VUOTA,agenteId:myAgentId||""})}>+ Nuova notizia</button>
+                <button style={S.btnP} onClick={()=>{setApriStorico(false);setFormNot({...NOTIZIA_VUOTA,agenteId:myAgentId||""});}}>+ Nuova notizia</button>
               </div>
 
               {daRichiamare.length>0&&(
                 <div style={{...S.warnBox,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                   <span style={{fontSize:13,color:"#7D6608"}}>🔔 <strong>{daRichiamare.length}</strong> {daRichiamare.length===1?"notizia da richiamare":"notizie da richiamare"}:</span>
                   {daRichiamare.slice(0,4).map(n=>(
-                    <button key={n.id} onClick={()=>setFormNot({...n})} style={{...S.btn,fontSize:12,padding:"3px 9px"}}>
+                    <button key={n.id} onClick={()=>{setApriStorico(false);setFormNot({...n});}} style={{...S.btn,fontSize:12,padding:"3px 9px"}}>
                       {titoloNotizia(n)}
                     </button>
                   ))}
@@ -4815,7 +4817,7 @@ export default function App() {
                             <div key={n.id} style={{background:"#fff",border:`0.5px solid ${scaduta?"#E67E22":"#e8e5e0"}`,borderRadius:8,padding:"9px 11px",marginBottom:8}}>
                               <div style={{display:"flex",alignItems:"flex-start",gap:6}}>
                                 <span title={`Priorità ${pr.lbl}`} style={{width:8,height:8,borderRadius:"50%",background:pr.clr,flexShrink:0,marginTop:5}}/>
-                                <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setFormNot({...n})}>
+                                <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>{setApriStorico(false);setFormNot({...n});}}>
                                   <div style={{fontSize:13,fontWeight:500,color:"#2C2C2C",lineHeight:1.35}}>{titoloNotizia(n)}</div>
                                   {(n.nome||n.cognome)&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{`${n.nome||""} ${n.cognome||""}`.trim()}</div>}
                                   {n.cellulare&&<div style={{fontSize:11,color:"#aaa",marginTop:1}}>{n.cellulare}</div>}
@@ -4880,7 +4882,7 @@ export default function App() {
                                                 borderBottom:idx<lista.length-1?"0.5px solid #f0eeea":"none",
                                                 flexWrap:isMobile?"wrap":"nowrap"}}>
                           <span title={`Priorità ${pr.lbl}`} style={{width:8,height:8,borderRadius:"50%",background:pr.clr,flexShrink:0}}/>
-                          <div style={{flex:1,minWidth:isMobile?"70%":0,cursor:"pointer"}} onClick={()=>setFormNot({...n})}>
+                          <div style={{flex:1,minWidth:isMobile?"70%":0,cursor:"pointer"}} onClick={()=>{setApriStorico(false);setFormNot({...n});}}>
                             <div style={{fontSize:13,fontWeight:500,color:"#2C2C2C"}}>{titoloNotizia(n)}</div>
                             {contatti&&<div style={{fontSize:12,color:"#888",marginTop:2}}>{contatti}</div>}
                             {faseNot==="persa"&&n.motivoPersa&&<div style={{fontSize:11,color:"#C0392B",marginTop:3}}>{n.motivoPersa}</div>}
@@ -4990,6 +4992,56 @@ export default function App() {
                       <h3 style={{fontSize:15,fontWeight:600,margin:0}}>{formNot.id?"Modifica notizia":"Nuova notizia"}</h3>
                       <button onClick={()=>setFormNot(null)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#bbb",lineHeight:1}}>×</button>
                     </div>
+
+                    {/* Stato attuale + cronistoria, in cima alla scheda */}
+                    {formNot.id&&(()=>{
+                      const nOrig = notizie.find(x=>x.id===formNot.id);
+                      const stor = storicoNotizia(nOrig);
+                      const fmtTs = ts => { const d=new Date(ts); return isNaN(d)?"":`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()} · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
+                      return(<>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",background:"#faf9f7",borderRadius:8,padding:"9px 12px",marginBottom:12}}>
+                          <span style={{fontSize:11.5,color:"#999"}}>Stato</span>
+                          <span style={{fontSize:12,fontWeight:600,padding:"3px 10px",borderRadius:12,color:"#fff",background:clrStatoNot(formNot.stato)}}>{lblStatoNot(formNot.stato)}</span>
+                          <span style={{flex:1}}/>
+                          {stor.length>0&&(
+                            <button style={{...S.btn,fontSize:12,padding:"5px 12px"}} onClick={()=>setApriStorico(!apriStorico)}>
+                              🕘 Cronistoria · {stor.length} {apriStorico?"▴":"▾"}
+                            </button>
+                          )}
+                        </div>
+                        {apriStorico&&stor.length>0&&(
+                          <div style={{border:"1px solid #dbe6f2",borderRadius:8,overflow:"hidden",marginBottom:14}}>
+                            <div style={{padding:"7px 12px",background:"#eef4fb",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                              <span style={{fontSize:12.5,fontWeight:600,color:"#185FA5"}}>Cronistoria</span>
+                              <button style={{background:"none",border:"none",padding:0,fontSize:11.5,color:"#185FA5",cursor:"pointer"}} onClick={()=>setApriStorico(false)}>chiudi</button>
+                            </div>
+                            <div style={{padding:"12px 14px 12px 12px",background:"#fff"}}>
+                              <div style={{borderLeft:"2px solid #ececec",paddingLeft:16}}>
+                                {stor.slice().reverse().map((v,i)=>{
+                                  const ultima = i===0;
+                                  return(<div key={v.ts+"_"+i} style={{position:"relative",paddingBottom:i===stor.length-1?0:14}}>
+                                    <span style={{position:"absolute",left:-22,top:3,width:9,height:9,borderRadius:"50%",background:clrStatoNot(v.stato),boxShadow:"0 0 0 3px #fff"}}/>
+                                    <div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
+                                      <span style={{fontSize:13,fontWeight:600,color:clrStatoNot(v.stato)}}>{lblStatoNot(v.stato)}</span>
+                                      <span style={{fontSize:11.5,color:"#aaa"}}>{fmtTs(v.ts)}</span>
+                                      {ultima&&stor.length>1&&(
+                                        <button style={{background:"none",border:"none",padding:0,fontSize:11.5,color:"#C0392B",cursor:"pointer",textDecoration:"underline"}}
+                                          onClick={()=>{
+                                            if(!confirm("Annullare questo passaggio? La notizia torna allo stato precedente.")) return;
+                                            annullaUltimoPassaggio(formNot.id);
+                                            setFormNot({...formNot, stato:stor[stor.length-2].stato});
+                                          }}>annulla</button>
+                                      )}
+                                    </div>
+                                    {v.nota&&<div style={{fontSize:12.5,color:"#666",marginTop:2,lineHeight:1.45}}>{v.nota}</div>}
+                                  </div>);
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>);
+                    })()}
 
                     <div style={{marginBottom:10}}>
                       <label style={S.lbl}>Titolo <span style={{color:"#ccc"}}>(se vuoto lo compone da tipologia e indirizzo)</span></label>
@@ -5108,40 +5160,6 @@ export default function App() {
                       <label style={S.lbl}>Note</label>
                       <textarea style={{...S.inp,minHeight:70,resize:"vertical",fontFamily:"inherit"}} value={formNot.note} onChange={e=>setFormNot({...formNot,note:e.target.value})}/>
                     </div>
-
-                    {/* Cronistoria: elenco dei passaggi con data e nota */}
-                    {formNot.id&&(()=>{
-                      const nOrig = notizie.find(x=>x.id===formNot.id);
-                      const stor = storicoNotizia(nOrig);
-                      const fmtTs = ts => { const d=new Date(ts); return isNaN(d)?"":`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()} · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
-                      return(<div style={{marginBottom:14}}>
-                        <label style={S.lbl}>Cronistoria</label>
-                        {stor.length===0
-                          ? <div style={{fontSize:12,color:"#bbb",padding:"8px 0"}}>Nessun passaggio registrato. Da ora ogni cambio di stato verrà annotato qui.</div>
-                          : <div style={{borderLeft:"2px solid #ececec",paddingLeft:14,marginTop:6}}>
-                              {stor.slice().reverse().map((v,i)=>{
-                                const ultima = i===0;
-                                return(<div key={v.ts+"_"+i} style={{position:"relative",paddingBottom:i===stor.length-1?0:12}}>
-                                  <span style={{position:"absolute",left:-20,top:3,width:9,height:9,borderRadius:"50%",background:clrStatoNot(v.stato),border:"2px solid #fff",boxShadow:"0 0 0 1px "+clrStatoNot(v.stato)}}/>
-                                  <div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
-                                    <span style={{fontSize:12.5,fontWeight:600,color:clrStatoNot(v.stato)}}>{lblStatoNot(v.stato)}</span>
-                                    <span style={{fontSize:11,color:"#aaa"}}>{fmtTs(v.ts)}</span>
-                                    {ultima&&stor.length>1&&(
-                                      <button style={{background:"none",border:"none",padding:0,fontSize:11,color:"#C0392B",cursor:"pointer",textDecoration:"underline"}}
-                                        onClick={()=>{
-                                          if(!confirm("Annullare questo passaggio? La notizia torna allo stato precedente.")) return;
-                                          annullaUltimoPassaggio(formNot.id);
-                                          const prec = stor[stor.length-2];
-                                          setFormNot({...formNot, stato:prec.stato});
-                                        }}>annulla</button>
-                                    )}
-                                  </div>
-                                  {v.nota&&<div style={{fontSize:12,color:"#666",marginTop:2,lineHeight:1.45}}>{v.nota}</div>}
-                                </div>);
-                              })}
-                            </div>}
-                      </div>);
-                    })()}
 
                     <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
                       {formNot.id
