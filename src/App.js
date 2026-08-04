@@ -405,6 +405,19 @@ const STATI_NOT = [
   { k:"persa",        lbl:"Persa",        clr:"#C0392B" },
 ];
 const PRIORITA_NOT = { alta:{lbl:"Alta",clr:"#C0392B"}, media:{lbl:"Media",clr:"#E67E22"}, bassa:{lbl:"Bassa",clr:"#95A5A6"} };
+// Storico di una notizia. Per le notizie nate prima di questa funzione lo ricostruisce
+// da createdAt/updatedAt, così la scheda non risulta mai vuota.
+function storicoNotizia(n){
+  if(!n) return [];
+  if(Array.isArray(n.storico) && n.storico.length) return n.storico;
+  const out = [];
+  if(n.createdAt) out.push({ts:n.createdAt, stato:"nuova", nota:"Notizia inserita", auto:true});
+  const st = n.stato||"nuova";
+  if(st!=="nuova" && n.updatedAt) out.push({ts:n.updatedAt, stato:st, nota:"", auto:true});
+  return out;
+}
+const lblStatoNot = k => (STATI_NOT.find(s=>s.k===k)||{}).lbl || k;
+const clrStatoNot = k => (STATI_NOT.find(s=>s.k===k)||{}).clr || "#888";
 const OPERAZIONI_NOT = ["Vendita","Locazione"];
 const MOTIVI_PERSA = ["Ha scelto altra agenzia","Vende da privato","Non vende più","Prezzo fuori mercato","Non risponde","Altro"];
 // Perché non si è arrivati alla valutazione / perché la notizia resta in sospeso
@@ -424,6 +437,8 @@ const NOTIZIA_VUOTA = {
   mq:"", locali:"", piano:"", valore:"", fonte:"", dettaglioFonte:"",
   priorita:"media", stato:"nuova", motivoPersa:"", motivoFollowup:"", agenteId:"",
   dataContatto:"", dataRichiamata:"", linkAnnuncio:"", note:"",
+  // Cronistoria dei passaggi: [{ts, stato, nota}] — si popola a ogni cambio di stato
+  storico:[],
 };
 // Titolo automatico quando non compilato a mano
 function titoloNotizia(n){
@@ -1496,6 +1511,8 @@ export default function App() {
   const [vistaNot,setVistaNot]=useState(isMobile?"lista":"kanban");
   const [faseNot,setFaseNot]=useState("contattare");
   const [chiediMotivo,setChiediMotivo]=useState(null);
+  // Modale per la nota (facoltativa) da allegare a un passaggio di stato
+  const [chiediNota,setChiediNota]=useState(null);
   const [notizieConIncarico,setNotizieConIncarico]=useState(()=>new Set());
   const [formSfida,setFormSfida]=useState({nome:"",metrica:"acquisizioni",dal:todayStr(),al:"",premio:""});
   const [showFormSfida,setShowFormSfida]=useState(false);
@@ -4637,19 +4654,46 @@ export default function App() {
               const f = formNot;
               if(!f.nome && !f.cognome && !f.indirizzo){ alert("Inserisci almeno il nome del contatto oppure l'indirizzo dell'immobile."); return; }
               if(f.id){
-                setNotizie(notizie.map(n=>n.id===f.id?{...f,updatedAt:Date.now()}:n));
+                const orig = notizie.find(n=>n.id===f.id);
+                // Anche il cambio di stato fatto dal menu della scheda va registrato
+                const base = storicoNotizia(orig).map(v=>({...v,auto:false}));
+                const cambia = orig && (orig.stato||"nuova")!==(f.stato||"nuova");
+                const stor = cambia ? [...base,{ts:Date.now(),stato:f.stato,nota:""}] : base;
+                setNotizie(notizie.map(n=>n.id===f.id?{...f,storico:stor,updatedAt:Date.now()}:n));
               } else {
-                setNotizie([...notizie,{...f,id:Date.now(),createdAt:Date.now(),updatedAt:Date.now(),agenteId:f.agenteId||myAgentId||""}]);
+                setNotizie([...notizie,{...f,id:Date.now(),createdAt:Date.now(),updatedAt:Date.now(),
+                  storico:[{ts:Date.now(),stato:f.stato||"nuova",nota:"Notizia inserita"}],
+                  agenteId:f.agenteId||myAgentId||""}]);
               }
               setFormNot(null);
             };
             const applicaStato = (id,nuovo,extra={}) => {
-              setNotizie(notizie.map(x=>x.id===id?{
-                ...x, stato:nuovo,
-                ...(nuovo!=="persa"    ? {motivoPersa:""}    : {}),
-                ...(nuovo!=="followup" ? {motivoFollowup:""} : {}),
-                ...extra, updatedAt:Date.now(),
-              }:x));
+              setNotizie(notizie.map(x=>{
+                if(x.id!==id) return x;
+                // Registro il passaggio solo se lo stato cambia davvero.
+                // La nota arriva da extra.notaStorico (facoltativa) o dal motivo indicato.
+                const cambia = (x.stato||"nuova")!==nuovo;
+                const nota = String(extra.notaStorico||extra.motivoFollowup||extra.motivoPersa||"").trim();
+                const base = storicoNotizia(x).map(v=>({...v,auto:false}));
+                const stor = cambia ? [...base,{ts:Date.now(),stato:nuovo,nota}] : base;
+                const {notaStorico, ...restExtra} = extra;
+                return {
+                  ...x, stato:nuovo,
+                  ...(nuovo!=="persa"    ? {motivoPersa:""}    : {}),
+                  ...(nuovo!=="followup" ? {motivoFollowup:""} : {}),
+                  ...restExtra, storico:stor, updatedAt:Date.now(),
+                };
+              }));
+            };
+            // Annulla l'ultimo passaggio registrato e riporta la notizia allo stato precedente
+            const annullaUltimoPassaggio = (id) => {
+              setNotizie(notizie.map(x=>{
+                if(x.id!==id) return x;
+                const stor = storicoNotizia(x);
+                if(stor.length<2) return x;
+                const nuovoStor = stor.slice(0,-1);
+                return {...x, storico:nuovoStor, stato:nuovoStor[nuovoStor.length-1].stato, updatedAt:Date.now()};
+              }));
             };
             const cambiaStato = (n,nuovo) => {
               // Follow-up e Persa richiedono di dire perché
@@ -4659,6 +4703,13 @@ export default function App() {
                   motivo:"", note:"",
                   dataRichiamata: nuovo==="followup" ? (n.dataRichiamata||"") : "",
                 });
+                return;
+              }
+              // Gli altri passaggi: chiedo una nota facoltativa da mettere nello storico.
+              // Modale e non window.prompt(): il prompt toglie il fuoco alla finestra e
+              // fa scattare il ricaricamento dal server, con rischio di perdere le modifiche.
+              if((n.stato||"nuova")!==nuovo){
+                setChiediNota({id:n.id, titolo:titoloNotizia(n), stato:nuovo, nota:""});
                 return;
               }
               applicaStato(n.id,nuovo);
@@ -4907,6 +4958,30 @@ export default function App() {
                 );
               })()}
 
+              {/* Nota facoltativa sul passaggio di stato */}
+              {chiediNota&&(
+                <div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setChiediNota(null);}}>
+                  <div style={{...S.modal,maxWidth:440}}>
+                    <h3 style={{fontSize:15,fontWeight:600,margin:"0 0 4px"}}>
+                      Passaggio a <span style={{color:clrStatoNot(chiediNota.stato)}}>{lblStatoNot(chiediNota.stato)}</span>
+                    </h3>
+                    <p style={{fontSize:12,color:"#aaa",margin:"0 0 14px"}}>{chiediNota.titolo}</p>
+                    <label style={S.lbl}>Cosa hai fatto? <span style={{color:"#bbb",fontWeight:400}}>(facoltativo)</span></label>
+                    <textarea style={{...S.inp,minHeight:70,resize:"vertical"}} autoFocus
+                      placeholder="es. chiamato, fissato appuntamento per giovedì"
+                      value={chiediNota.nota} onChange={e=>setChiediNota({...chiediNota,nota:e.target.value})}/>
+                    <p style={{fontSize:11,color:"#bbb",margin:"6px 0 14px"}}>Resta nella cronistoria della notizia. Puoi anche lasciarlo vuoto.</p>
+                    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                      <button style={S.btn} onClick={()=>setChiediNota(null)}>Annulla</button>
+                      <button style={S.btnP} onClick={()=>{
+                        applicaStato(chiediNota.id, chiediNota.stato, {notaStorico:chiediNota.nota});
+                        setChiediNota(null);
+                      }}>Conferma</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Scheda notizia */}
               {formNot&&(
                 <div style={S.overlay} onClick={e=>{if(e.target===e.currentTarget)setFormNot(null);}}>
@@ -5033,6 +5108,40 @@ export default function App() {
                       <label style={S.lbl}>Note</label>
                       <textarea style={{...S.inp,minHeight:70,resize:"vertical",fontFamily:"inherit"}} value={formNot.note} onChange={e=>setFormNot({...formNot,note:e.target.value})}/>
                     </div>
+
+                    {/* Cronistoria: elenco dei passaggi con data e nota */}
+                    {formNot.id&&(()=>{
+                      const nOrig = notizie.find(x=>x.id===formNot.id);
+                      const stor = storicoNotizia(nOrig);
+                      const fmtTs = ts => { const d=new Date(ts); return isNaN(d)?"":`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()} · ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; };
+                      return(<div style={{marginBottom:14}}>
+                        <label style={S.lbl}>Cronistoria</label>
+                        {stor.length===0
+                          ? <div style={{fontSize:12,color:"#bbb",padding:"8px 0"}}>Nessun passaggio registrato. Da ora ogni cambio di stato verrà annotato qui.</div>
+                          : <div style={{borderLeft:"2px solid #ececec",paddingLeft:14,marginTop:6}}>
+                              {stor.slice().reverse().map((v,i)=>{
+                                const ultima = i===0;
+                                return(<div key={v.ts+"_"+i} style={{position:"relative",paddingBottom:i===stor.length-1?0:12}}>
+                                  <span style={{position:"absolute",left:-20,top:3,width:9,height:9,borderRadius:"50%",background:clrStatoNot(v.stato),border:"2px solid #fff",boxShadow:"0 0 0 1px "+clrStatoNot(v.stato)}}/>
+                                  <div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
+                                    <span style={{fontSize:12.5,fontWeight:600,color:clrStatoNot(v.stato)}}>{lblStatoNot(v.stato)}</span>
+                                    <span style={{fontSize:11,color:"#aaa"}}>{fmtTs(v.ts)}</span>
+                                    {ultima&&stor.length>1&&(
+                                      <button style={{background:"none",border:"none",padding:0,fontSize:11,color:"#C0392B",cursor:"pointer",textDecoration:"underline"}}
+                                        onClick={()=>{
+                                          if(!confirm("Annullare questo passaggio? La notizia torna allo stato precedente.")) return;
+                                          annullaUltimoPassaggio(formNot.id);
+                                          const prec = stor[stor.length-2];
+                                          setFormNot({...formNot, stato:prec.stato});
+                                        }}>annulla</button>
+                                    )}
+                                  </div>
+                                  {v.nota&&<div style={{fontSize:12,color:"#666",marginTop:2,lineHeight:1.45}}>{v.nota}</div>}
+                                </div>);
+                              })}
+                            </div>}
+                      </div>);
+                    })()}
 
                     <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
                       {formNot.id
